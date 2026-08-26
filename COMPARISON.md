@@ -2258,6 +2258,103 @@ Suites green with a database: **IQ 409 passed / 1 skipped, JO 390 / 1.**
 
 ---
 
+## 31. Operational monitoring, Layers 2 & 3 — the heartbeat and its payload — 2026-08-26
+
+The last two layers. All four are now built in both apps. **Still not
+released** — the §6.1 soak has not run, and that is the only remaining gate.
+
+**What it does.** After the daily self-check, in the same job so the verdict
+can never be yesterday's, the app POSTs a small JSON payload to whatever URL
+the admin has put in Settings. **The signal is the ABSENCE of a ping**, not
+its contents — the receiver alerts when one fails to arrive, which is the only
+mechanism in this whole feature that covers "the machine is off", "Docker did
+not start", "the app crashed at boot". None of those can report themselves.
+
+### 31.1 Decisions worth knowing
+
+- **The startup self-check pings too**, and that matters more than it looks. A
+  clinic that switches its machine on at 8am and off at 6pm is asleep when the
+  02:20 job is due, so the startup ping is the **only** ping it will ever
+  send. Without it every such clinic would look permanently dead. This is not
+  in the plan; it was found by asking what a real clinic's day looks like.
+- **Disabled is the default and is not a finding.** No URL → nothing is sent,
+  `(True, "disabled")`. An app that phones home by default is not acceptable
+  for clinic software.
+- **A failed heartbeat is never escalated to the clinic.** They cannot act on
+  it, and a red banner about monitoring would train them to ignore the banners
+  that matter.
+- **The URL is a credential**, and is treated as one: `https://` enforced on
+  save, never written to a log, and never included in a returned message —
+  `requests` embeds the full URL in its exception text, which is exactly how a
+  credential reaches a log file, so only the exception *type* is reported.
+  Anyone holding a healthchecks.io ping URL can send a fake ping and thereby
+  **suppress a real alert**.
+- **The receiver is not assumed to be healthchecks.io.** It is a plain text
+  setting, one per install, so a clinic can move to a self-hosted receiver
+  with no code change.
+
+### 31.2 The payload, and what is deliberately not in it
+
+Counts and statuses only: install id, app, version, timestamp, status,
+findings (worst 10), a backup section (timestamps, sizes, consecutive
+failures, last verification), a db section (table count and row counts for
+`owners`/`patients`/`visits`/`sales` only), free disk, uptime. **Real
+measured size: 821 bytes** against a 4 KB cap.
+
+Never included: owner/patient/staff names, phone numbers, addresses, notes,
+**any money figure**, free text from user-entered fields, or full file paths —
+a backup path routinely contains a person's account name, so only sizes and
+timestamps travel, never `filepath`.
+
+> **One disclosure the payload cannot prevent, recorded so it is not a
+> surprise.** The receiver necessarily sees the clinic's **public IP address**
+> and the timing of every ping — healthchecks.io displays it (`HTTPS POST from
+> …`). So a receiver learns each clinic's public IP and its daily
+> online/offline rhythm even though the body carries nothing personal. That is
+> true of any HTTP receiver, self-hosted included. It is small, but it is a
+> real disclosure and an admin should know before pasting a URL in.
+
+### 31.3 Verified against a real receiver
+
+Not mocked. A real healthchecks.io check (the user's TESTURL project):
+
+- **IQ pinged: HTTP 200**, and the receiver displayed the payload byte for
+  byte — confirmed by the user from the healthchecks.io side.
+- **JO pinged: HTTP 200**, with a **different `install_id`** (`E91CE662` vs
+  IQ's `D6D481CC`), which is the property that lets one monitoring account say
+  *which* clinic went quiet.
+- `self_check_log.reported_at` set on success, and left NULL on failure.
+- Settings round-trip live: the section renders, `http://` is refused with
+  "must start with https://" and the stored value is left untouched, `https://`
+  is accepted, blank disables — and the URL never appeared in the app log.
+
+Mutation-checked, both apps: sending when the URL is empty, adding an owner
+name to the payload, and letting the URL leak into the failure message all
+fail the suite.
+
+Suites green with a database: **IQ 424 passed / 1 skipped, JO 405 / 1.**
+
+### 31.4 A plan contradiction, and the settings that resolve it
+
+Plan §2.3 says one check per install, **period 1 day, grace 36 hours**. Plan
+§6.1 says the soak is *"stop the app for 48 hours and confirm the receiver
+alerts."* **Those disagree**: 1 day + 36 hours means the alert fires at ~60
+hours, so at 48 hours nothing would have happened and the soak would look
+like a failure when it was working correctly.
+
+Resolved in favour of §2.3's numbers: the grace is a considered decision about
+false alarms (the app pings once daily just after the backup, so a machine off
+for one night pings ~48h apart, and a tighter grace would page for a clinic
+that simply closed on a Sunday — the same "one missed night is noise, two is a
+pattern" logic as the 2-day backup staleness threshold). **§6.1's "48 hours"
+should be read as "leave it stopped until the alert arrives" — budget ~60
+hours.**
+
+For the throwaway test check, period and grace of 5 minutes each make the
+absence path observable in ten minutes rather than two and a half days.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2296,6 +2393,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 28 | divergence audit 7.6 closed; the date-field guard, strengthened | writing a static/grep-style guard test |
 | 29 | **monitoring Layer 1 built (unreleased)**; two plan claims corrected | working on monitoring, or `scheduler.py` |
 | 30 | ⚠ monitoring Layer 4, the self-verifying backup; a JO-only money bug | backups, restores, or anything money-type-adjacent |
+| 31 | monitoring Layers 2 & 3, the heartbeat and payload; receiver settings | the heartbeat, payload privacy, or configuring a receiver |
 
 ### The four sections a new session should read first
 

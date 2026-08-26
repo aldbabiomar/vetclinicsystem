@@ -171,19 +171,22 @@ obvious from the code.
 Nothing here is broken; these are decisions or unbuilt work.
 
 1. **Operational monitoring** — `features/MONITORING_FEATURE_PLAN.md`.
-   **Layer 1 (the local self-check) is BUILT in both apps as of 2026-08-26 and
-   committed to `main`, but deliberately NOT released** — the plan ships all
-   four layers in one release per app, and the §6.1 soak has not been run.
-   **Layer 4 (the self-verifying backup) is also BUILT and committed, same
-   day** — `COMPARISON.md` §30, including a real JO-only bug it surfaced where
-   a wrong money type reported "could not run" instead of "failed".
-   See `COMPARISON.md` §29 for what exists, what was verified live, and two
-   claims in the plan's §0.2 that turned out to be wrong. **Layers 2 and 3
-   (the heartbeat and its payload) remain**, then the soak. The gap this
-   closes: the apps can report a failure
-   only while running, so "the machine never came back" produces silence —
-   Layer 1 does not fix that on its own; Layer 2 (the heartbeat) is the part
-   that does.
+   **ALL FOUR LAYERS ARE BUILT** in both apps as of 2026-08-26 and committed
+   to `main`, and deliberately **NOT RELEASED**: the plan ships all four in
+   one release per app, and **the §6.1 soak is the only remaining gate**.
+   - Layer 1, the local self-check — `COMPARISON.md` §29 (plus two claims in
+     the plan's §0.2 that turned out to be wrong).
+   - Layer 4, the self-verifying backup — §30, including a real JO-only bug
+     where a wrong money type reported "could not run" instead of "failed".
+   - Layers 2 & 3, the heartbeat and payload — §31. Verified against a real
+     healthchecks.io check: both apps pinged 200 with distinct install ids.
+
+   **What the soak needs, and it is calendar time, not work:** several
+   consecutive daily self-check runs reporting `ok` on a healthy install, and
+   leaving the app stopped until the receiver alerts. Note §31.4 — with the
+   agreed period/grace (1 day / 36 hours) that alert arrives at **~60 hours**,
+   not the 48 the plan's §6.1 says. Budget two and a half days.
+   Only after that: MINOR bump and one release per app.
    ~~four open questions in its §7~~ — **wrong, corrected 2026-08-26.** The
    plan's §7 is titled "Nothing is open" and says every question it raised was
    answered and folded into §0.4; build it as written without checking back.
