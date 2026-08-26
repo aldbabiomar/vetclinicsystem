@@ -27,7 +27,7 @@ rushed, inferred, or replaced by a passing test suite.
 
 | # | Property | How | Status |
 |---|---|---|---|
-| A | The receiver alerts when pings STOP | stop the app, wait for the alert | **running — see below** |
+| A | The receiver alerts when pings STOP | stop the app, wait for the alert | **detection PASSED; delivery pending** |
 | B | A healthy install reports `ok` on several CONSECUTIVE days | leave it running, check daily | not started |
 | C | A real fault surfaces: banner, then modal on the 3rd failing day | rename the backup folder | not started |
 
@@ -60,7 +60,29 @@ requires the app to be running in order to report anything.
 | 5 min / 5 min (recommended for a test check) | ~06:27 +03, same morning |
 | 1 day / 36 hours (the production values) | ~2026-08-28 18:17 +03 |
 
-**Result: _pending — record the time the alert actually arrived._**
+**Check settings confirmed 2026-08-26: Period 5 minutes, Grace 5 minutes.**
+Notification method: email, ON.
+
+**Result — detection: PASSED.** Observed on the receiver at 06:33 +03:
+
+- *"This check is down. Last ping was 16 minutes ago"* — 16 minutes before
+  06:33 is 06:17, exactly when the app was stopped.
+- *1 downtime, 3 min 52 sec total, 99.99% uptime* for August — the first
+  downtime the check has ever recorded, i.e. caused by this test.
+- Down transition therefore at roughly 06:29, against a theoretical
+  06:27 (last ping + period + grace). The ~2 minute lag is the receiver's own
+  polling granularity, not anything on the app side: the app's last ping is
+  the 06:17 the page itself reports.
+
+**This is the property the whole feature exists for**, and it is the one that
+no test suite can establish: the app was not merely reporting a problem, it
+was *gone*, and something else noticed.
+
+**Result — notification: PENDING.** The user reported no email at 06:27,
+which matches the down transition happening at ~06:29 rather than 06:27. Still
+to confirm: that the email actually arrived, and when. A check that detects
+absence but cannot deliver the alert reproduces exactly the silence this
+feature exists to eliminate, so this half is not optional.
 
 > Note the production values are what §31.4 settled on, and they mean the
 > alert fires at **~60 hours**, not the 48 the plan's §6.1 text says. A test
