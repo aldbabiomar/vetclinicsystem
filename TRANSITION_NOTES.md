@@ -174,9 +174,13 @@ Nothing here is broken; these are decisions or unbuilt work.
    **Layer 1 (the local self-check) is BUILT in both apps as of 2026-08-26 and
    committed to `main`, but deliberately NOT released** — the plan ships all
    four layers in one release per app, and the §6.1 soak has not been run.
+   **Layer 4 (the self-verifying backup) is also BUILT and committed, same
+   day** — `COMPARISON.md` §30, including a real JO-only bug it surfaced where
+   a wrong money type reported "could not run" instead of "failed".
    See `COMPARISON.md` §29 for what exists, what was verified live, and two
-   claims in the plan's §0.2 that turned out to be wrong. Layers 4, 2 and 3
-   remain, in that order. The gap this closes: the apps can report a failure
+   claims in the plan's §0.2 that turned out to be wrong. **Layers 2 and 3
+   (the heartbeat and its payload) remain**, then the soak. The gap this
+   closes: the apps can report a failure
    only while running, so "the machine never came back" produces silence —
    Layer 1 does not fix that on its own; Layer 2 (the heartbeat) is the part
    that does.

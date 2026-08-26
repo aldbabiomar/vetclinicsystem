@@ -2161,6 +2161,103 @@ of 0 meaning `files[0:]`, i.e. delete every backup, shipped as IQ v1.10.7.
 
 ---
 
+## 30. Operational monitoring, Layer 4 — the self-verifying backup — 2026-08-26
+
+Second of the four layers. **Still not released** — Layers 2 and 3 remain, and
+the §6.1 soak has not run. Built before Layers 2/3 per the plan's dependency
+order: `selfcheck`'s `restore_unverified` finding and the heartbeat payload's
+`verified_*` fields both read this layer's output.
+
+**What it does.** Once a month (backup time + 45 minutes, on the 1st) it
+restores the newest successful backup into a throwaway database and asks
+whether what came back is actually a clinic's records: schema restored,
+foreign keys present, core tables populated, at least one account that could
+log in, no orphaned patients, and the money column intact. The result is
+stored in `settings.last_verified_restore`, and the same job re-runs the
+self-check so the finding clears in the same pass.
+
+**A Python port of `scripts/restore_drill.sh`, with one deliberate
+difference:** the drill restores into a throwaway *container*, which needs
+Docker. This restores into a throwaway *database on the Postgres server the
+app is already talking to*, so it works on a clinic machine where nobody has
+Docker permissions.
+
+**Guard rails**, all tested: it never touches the live database (the only
+statements issued there are `CREATE`/`DROP DATABASE` for the throwaway); it
+never deletes or modifies a backup file; the throwaway is dropped in a
+`finally` **including on timeout and on a failed restore**; a 10-minute hard
+timeout; and if `pg_restore` is unavailable it records a **warning, never a
+pass**.
+
+### 30.1 The money divergence — the one place it shows in this feature
+
+This is the only module in the monitoring work where IQ and JO genuinely
+differ, and they differ in the same way `test_money.py` does:
+
+| | IQ | JO |
+|---|---|---|
+| `MONEY_EXPECTED_TYPE` | `double precision` | `numeric` |
+| Extra invariant | every non-zero bill is a whole multiple of **250 IQD** | no bill exceeds **3 decimal places** (1 fils) |
+
+JO's copy additionally asserts `DENOMINATION` does **not exist** in its
+module, so IQ's note-rounding can never be ported across silently.
+
+### 30.2 A real bug, found by a test that had to be written twice
+
+The first version of the money test asserted only that the money check *ran* —
+its name appeared in the results. That is not the same as the check being able
+to **fail**, and the mutation proved it: making the type check accept anything
+left all 10 tests passing.
+
+Rewriting it to build a structurally valid database whose *only* fault is the
+money column's type — every other check arranged to pass, so a failure
+isolates the money assertion — then caught a genuine bug **in JO only**:
+
+> Postgres's `scale()` accepts only `numeric`. On the one input the check
+> exists to catch — a backup whose `total` came back as `double precision` —
+> the bare `scale(total)` **raised**. The broad handler turned that into
+> `warn` ("could not run") instead of `fail`, and discarded the type-check
+> failure that had just been recorded. The single most important negative
+> result in this layer became a shrug.
+
+IQ was unaffected because its 250-check already casts (`total::numeric`).
+Fixed with an explicit `::numeric` cast, and separately: **a check that raises
+is now recorded as a failed check rather than escaping to the "could not run"
+handler** — the inputs most likely to make a check raise are exactly the
+malformed backups this layer exists to reject, so an exception is evidence
+*against* the backup, not an inconclusive result.
+
+### 30.3 Verified
+
+The three deliberately-broken backups `restore_drill.sh` was validated
+against (§23.3) are now automated tests, and all three fail verification:
+
+| Backup | Result |
+|---|---|
+| truncated file | not a pass, throwaway dropped |
+| correctly-sized file of random bytes | not a pass, throwaway dropped |
+| **structurally perfect, zero rows** — restores cleanly, keeps every foreign key, app would boot | **fail**, on `core tables populated` |
+
+Plus: a wrong-money-type backup fails on exactly the money check, with a
+control proving the identical database with the *right* type passes.
+
+Mutation-checked, both apps — always-pass, never-drop-the-throwaway,
+money-check-accepts-anything, and (JO) removing the `::numeric` cast all fail
+the suite. **Zero leaked throwaway databases** in either app: counted before
+and after a full run, 0 → 0. The five that did appear were the deliberate
+never-drop mutation's doing, which is what that mutation was for.
+
+Scheduler wiring verified live: all four jobs registered with the right
+triggers, and `reschedule()` moves all three cron jobs including the wrap past
+midnight (23:50 → self-check 00:10 → verify 00:35).
+
+End to end in both apps: `fail` → real backup → verification `pass` (7 checks)
+→ setting stored → self-check `ok` with zero findings.
+
+Suites green with a database: **IQ 409 passed / 1 skipped, JO 390 / 1.**
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2198,6 +2295,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 27 | ⚠ **POS Complete Sale did nothing, and every test passed** | **before trusting a green suite** |
 | 28 | divergence audit 7.6 closed; the date-field guard, strengthened | writing a static/grep-style guard test |
 | 29 | **monitoring Layer 1 built (unreleased)**; two plan claims corrected | working on monitoring, or `scheduler.py` |
+| 30 | ⚠ monitoring Layer 4, the self-verifying backup; a JO-only money bug | backups, restores, or anything money-type-adjacent |
 
 ### The four sections a new session should read first
 
