@@ -85,10 +85,68 @@ install warned `restore_unverified` every day until the 1st of the month,
 because the verification ran on a monthly cron. Fixed to a daily due-check.
 That is the class of thing this test exists to catch.
 
-**Host for the multi-day run: UNDECIDED.** The isolated environment lives in
-`/tmp` and is removed by `isolated_test_env.sh down`, which makes it a poor
-host for something that must survive days and reboots. A more representative
-host would be a real install. Needs a decision — see "Open questions".
+**Host: the `~/Downloads` JO install** — authorised by the user 2026-08-26 as
+a demo environment. This is far more representative than the throwaway: real
+demo data (12 owners, 14 patients, 14 visits, 13 bills), real backups, the
+real versioned-release layout, the real nightly schedule.
+
+### How it was set up, 2026-08-26
+
+1. **Pre-soak backup taken first**, through the app's own `run_backup()` —
+   `~/Desktop/backups/vetclinicsystemjo_backup_20260826_062445.dump`.
+2. **That backup was proven restorable** with `scripts/restore_drill.sh`
+   before anything was modified: DRILL PASSED, 99 rows, 5 accounts, no
+   orphans, `numeric` money intact. It is a real rollback point, not a hope.
+3. New release folder `app_v1.8.11-soak` built by copying `app_v1.8.10`
+   (to inherit its working venv) and rsyncing current `main` over it.
+4. `active_release.txt` flipped; the supervisor loop restarted into it.
+5. Schema sync run the way `updater._run_schema_sync()` runs it.
+6. App restarted so a clean startup self-check ran.
+
+**Nothing was deleted.** `app_v1.8.9` and `app_v1.8.10` are both still in
+place.
+
+### Schema change against a real populated database — PASSED
+
+Worth its own line, because this is the failure mode that stopped 16 of 38
+releases from updating (`RELEASE_WORKFLOW.md` §6.2):
+
+- `self_check_log` created, `idx_selfcheck_ran` created
+- `migration_failures` empty
+- real data untouched: owners=12, patients=14, visits=14, billing=13
+
+### Current state
+
+| | |
+|---|---|
+| Running | `app_v1.8.11-soak`, `/health` ok, port 5050 |
+| `backup_time` | 02:00 → self-check 02:20, verify-if-due 02:45 |
+| Startup self-check | `warn`, one finding: `restore_unverified` |
+| Verification due | yes — will run tonight 02:45 and should clear it |
+| Successful backups on file | 17 |
+| `heartbeat_url` | **deliberately UNSET** — see below |
+
+**The heartbeat is off on this install on purpose.** Test A is currently
+running against the one test check, and pinging it from here would reset its
+timer and destroy that test. Set the URL only after Test A has resolved.
+
+**Expected in the demo app meanwhile:** a Dashboard warning saying no backup
+has been verified as restorable. That is truthful — this install has 17
+backups and has never test-restored one — and it should disappear after
+02:45 tonight. **If it is still there on the 27th, that is a Test B failure
+and worth reporting.**
+
+### How to revert, if wanted at any point
+
+```bash
+echo "app_v1.8.10" > ~/Downloads/vetclinicsystemjo-data/active_release.txt
+kill $(lsof -nP -iTCP:5050 -sTCP:LISTEN -t)
+```
+
+The supervisor restarts into the old release within seconds. The only
+database changes are additive — one new table and a few settings rows — so
+the old release runs against it unchanged, ignoring what it does not know
+about.
 
 ---
 
@@ -106,13 +164,19 @@ Not started. Rename the backup folder, then confirm:
 
 ## Open questions
 
-- **Where should Test B run for several days?** The isolated environment is
-  throwaway by design. The alternative is a real install — the user's
-  `~/Downloads` JO copy is a demo environment they have said is fair game, but
-  `CLAUDE.md` §5 says not to touch it without checking, and it would mean
-  running unreleased code there. **Ask before using it.**
+- ~~Where should Test B run?~~ **Settled 2026-08-26: the `~/Downloads` JO
+  install**, with the user's explicit authorisation.
 - **What Period/Grace is the test check actually set to?** Determines whether
   Test A resolves in ten minutes or two and a half days.
+- **A latent fragility worth a look later, not a bug today.**
+  `setup.load_dotenv_now()` loads `.env` from the *release* folder, but on the
+  versioned-release layout `.env` lives in the *data* dir. `app.py` handles
+  that distinction correctly; `setup.py` does not. It works in practice only
+  because `updater._run_schema_sync()` inherits the running app's environment,
+  which already has `DATABASE_URL` in it from `app.py`'s own `load_dotenv`.
+  Any future caller of `apply_schema()` that does not happen to inherit that
+  environment gets `RuntimeError: DATABASE_URL is not set`. Found by hitting
+  it while doing the schema sync by hand.
 
 ---
 
