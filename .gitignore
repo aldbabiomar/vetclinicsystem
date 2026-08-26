@@ -1,0 +1,13 @@
+# The two apps are their own git repositories, cloned into webapps/.
+# They are versioned, tagged and released independently (CLAUDE.md §3,
+# RELEASE_WORKFLOW.md §1) and must never be tracked by this workspace repo —
+# doing so would nest a repo inside a repo and make it ambiguous which
+# history a commit belongs to.
+webapps/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local editor/session state
+.claude/
