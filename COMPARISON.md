@@ -2062,6 +2062,105 @@ original it has now been shown to trip.
 
 ---
 
+## 29. Operational monitoring, Layer 1 — the local self-check — 2026-08-26
+
+First of the four layers in `features/MONITORING_FEATURE_PLAN.md`, built in
+both apps. **Not released** — the plan ships all four layers in one release
+per app (§6), and the pre-release soak (§6.1) has not been run. `main` is
+deployable in both apps either way.
+
+**What exists now:** `selfcheck.py` per app, a `self_check_log` table, two
+scheduler jobs (daily at backup time + 20 minutes, and one 30 seconds after
+startup), two settings, a Dashboard banner, and a Dashboard modal at three
+consecutive failing days. Nine checks: `backup_never`, `backup_stale`,
+`backup_failing`, `backup_stranded`, `backup_dir_missing`,
+`backup_dir_unwritable`, `disk_low`, `migration_failed`,
+`update_rolled_back`, `restore_unverified`, plus `db_unreachable`.
+
+### 29.1 Two claims in the plan's §0.2 are wrong
+
+The plan says to diff these before editing. Diffing them is what showed the
+plan itself was overstating the divergence — recorded here per its own §7.
+
+| Plan's claim | Actual |
+|---|---|
+| `logic.backup_alert_message()` "**differs from IQ**; do not copy one over the other" | **Byte-identical in both apps.** Extracted and diffed the full function: 25 lines, zero differences. |
+| `scheduler.py` "77 lines / 78 lines — **files differ**; diff before editing" | Line counts are right, but the *only* difference is one comment line in JO (`See ERROR_500_AUDIT.md E-01.`). No functional divergence. |
+
+The advice ("diff first") was right; the implied conclusion ("these are
+meaningfully different") was not. Worth knowing before someone writes a
+branch to paper over a divergence that does not exist.
+
+### 29.2 Decisions the plan did not settle
+
+- **"Not applicable" is not the same as "could not run."** The plan says a
+  check that cannot run must record a `warn` rather than pass quietly. Taken
+  literally, `update_rolled_back` would warn every single day on any install
+  not using the versioned-release layout, which is a permanent and
+  by-design state — precisely the cry-wolf noise §6.0 warns against. So a
+  check whose *precondition does not apply* returns no finding, while a check
+  that genuinely fails still warns. Both paths are tested.
+- **`selfcheck_enabled` could not go through the generic settings loop.** That
+  loop treats a missing key as "leave unchanged", and an unchecked checkbox
+  submits nothing at all — so the setting could be switched on and never off.
+  It gets a hidden `selfcheck_present` companion field and explicit handling.
+  Verified live in both apps: off → `0`, on → `1`, banner follows.
+- **The Dashboard reads the last *recorded* result, it does not run a fresh
+  check.** `run_self_check()` probes the disk and write-tests the backup
+  folder; doing that on every dashboard load would be absurd.
+- **The modal streak counts calendar days, not runs**, so a machine restarted
+  six times in a morning cannot escalate by lunchtime; and the streak ends at
+  the most recent *recorded* day rather than at today, because a machine
+  that was off for two days has no rows for those days. The Dashboard
+  additionally requires the latest result itself to be `fail`, so a stale
+  streak alone cannot raise a modal.
+- **`backup_dir_missing` and `backup_dir_unwritable` are one function.** They
+  are one question asked in two stages; reporting both at once would
+  double-count a single fault.
+
+### 29.3 Verified live, both apps
+
+Not inferred from tests — driven against both running apps in their isolated
+environments:
+
+- the **startup job fired on its own** and recorded a real verdict 30s after
+  boot: `backup_never` + `backup_dir_missing` (fail), `restore_unverified`
+  (warn) — all true for a fresh install
+- the Dashboard banner rendered with those findings; no modal at one failing
+  day; the modal appeared once three consecutive failing days existed
+- settings round-trip including the checkbox off/on, and the range guard
+  (`99` rejected with "must be between 1 and 30", nothing stored)
+- **the healthy path clears**: after a real backup written by the app's own
+  `run_backup()`, plus a verified-restore result, both apps report `ok` with
+  **zero findings** and a completely clean Dashboard
+- JO additionally showed the designed intermediate state — `warn` carrying
+  only `restore_unverified` — after a real backup but before Layer 4 exists
+
+Full suites green with a database: **IQ 396 passed / 1 skipped, JO 378 passed
+/ 1 skipped**, zero failures. (A `PythonFinalizationError` from
+`psycopg_pool` at interpreter shutdown appears in both — it reproduces on
+test files untouched by this work, so it is pre-existing and unrelated.)
+
+### 29.4 Mutation checks, and the one that did not apply
+
+23 tests per app. Mutation-proven per `CLAUDE.md` §7.3:
+
+| Mutation | Result |
+|---|---|
+| the self-check runs no checks at all (always `ok`) | **10 of 23 fail** |
+| `backup_stale` ignores the configured threshold | **fails**, naming the setting |
+| `record()` does not prune the log | **fails** — "expected the log pruned to 5 rows, found 12" |
+
+The third one is the lesson. Its first attempt **silently failed to apply** —
+the anchor did not match, the mutation script raised, and the suite passed
+23/23. That looks exactly like a test that cannot catch the bug
+(`TRANSITION_NOTES.md` trap #6). Checking *why* it passed revealed there was
+no retention test at all; one was written, and only then did the mutation
+fail as it should. A retention bug is not hypothetical here — `backup_retention`
+of 0 meaning `files[0:]`, i.e. delete every backup, shipped as IQ v1.10.7.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2098,6 +2197,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 26 | IQ backup + both drills passing | backups or `restore_drill.sh` |
 | 27 | ⚠ **POS Complete Sale did nothing, and every test passed** | **before trusting a green suite** |
 | 28 | divergence audit 7.6 closed; the date-field guard, strengthened | writing a static/grep-style guard test |
+| 29 | **monitoring Layer 1 built (unreleased)**; two plan claims corrected | working on monitoring, or `scheduler.py` |
 
 ### The four sections a new session should read first
 

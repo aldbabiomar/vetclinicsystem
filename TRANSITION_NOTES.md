@@ -170,9 +170,16 @@ obvious from the code.
 
 Nothing here is broken; these are decisions or unbuilt work.
 
-1. **Operational monitoring** — `features/MONITORING_FEATURE_PLAN.md`, fully
-   specified. This is the biggest remaining gap: the apps can report a failure
-   only while running, so "the machine never came back" produces silence.
+1. **Operational monitoring** — `features/MONITORING_FEATURE_PLAN.md`.
+   **Layer 1 (the local self-check) is BUILT in both apps as of 2026-08-26 and
+   committed to `main`, but deliberately NOT released** — the plan ships all
+   four layers in one release per app, and the §6.1 soak has not been run.
+   See `COMPARISON.md` §29 for what exists, what was verified live, and two
+   claims in the plan's §0.2 that turned out to be wrong. Layers 4, 2 and 3
+   remain, in that order. The gap this closes: the apps can report a failure
+   only while running, so "the machine never came back" produces silence —
+   Layer 1 does not fix that on its own; Layer 2 (the heartbeat) is the part
+   that does.
    ~~four open questions in its §7~~ — **wrong, corrected 2026-08-26.** The
    plan's §7 is titled "Nothing is open" and says every question it raised was
    answered and folded into §0.4; build it as written without checking back.
