@@ -27,7 +27,7 @@ rushed, inferred, or replaced by a passing test suite.
 
 | # | Property | How | Status |
 |---|---|---|---|
-| A | The receiver alerts when pings STOP | stop the app, wait for the alert | **detection PASSED; delivery pending** |
+| A | The receiver alerts when pings STOP | stop the app, wait for the alert | **PASSED 2026-08-26** |
 | B | A healthy install reports `ok` on several CONSECUTIVE days | leave it running, check daily | not started |
 | C | A real fault surfaces: banner, then modal on the 3rd failing day | rename the backup folder | not started |
 
@@ -78,11 +78,21 @@ Notification method: email, ON.
 no test suite can establish: the app was not merely reporting a problem, it
 was *gone*, and something else noticed.
 
-**Result — notification: PENDING.** The user reported no email at 06:27,
-which matches the down transition happening at ~06:29 rather than 06:27. Still
-to confirm: that the email actually arrived, and when. A check that detects
-absence but cannot deliver the alert reproduces exactly the silence this
-feature exists to eliminate, so this half is not optional.
+**Result — notification: PASSED.** The user confirmed the alert email arrived.
+(It was not there at 06:27 when first checked, which is consistent: the down
+transition happened at ~06:29, not 06:27.)
+
+### TEST A: PASSED — 2026-08-26
+
+Both halves. The app was stopped, the receiver noticed the absence, and a
+human was told. Nothing else in this feature can do that: every other layer
+needs the app to be running in order to report anything, and a machine that
+never came back cannot report that it never came back.
+
+**Scope of what this proves, honestly.** It exercised the mechanism on one
+machine, on a 5-minute check, over about twelve minutes. It says nothing about
+a receiver outage, a clinic behind a captive portal or proxy, or a laptop that
+sleeps rather than shuts down. Those are not covered and should not be claimed.
 
 > Note the production values are what §31.4 settled on, and they mean the
 > alert fires at **~60 hours**, not the 48 the plan's §6.1 text says. A test
@@ -148,9 +158,20 @@ releases from updating (`RELEASE_WORKFLOW.md` §6.2):
 | Successful backups on file | 17 |
 | `heartbeat_url` | **deliberately UNSET** — see below |
 
-**The heartbeat is off on this install on purpose.** Test A is currently
+~~**The heartbeat is off on this install on purpose.** Test A is currently
 running against the one test check, and pinging it from here would reset its
-timer and destroy that test. Set the URL only after Test A has resolved.
+timer and destroy that test. Set the URL only after Test A has resolved.~~
+— **Test A passed, so the heartbeat was enabled here 2026-08-26.** Install id
+`22335E2F`. Setting the URL does not itself ping; the first ping is the daily
+self-check at 02:20.
+
+> **The check's schedule must move to the production values before that
+> ping**, or Test B generates days of alert spam. The soak install pings
+> **once a day**; the check is currently Period 5 min / Grace 5 min, so it
+> would go DOWN roughly ten minutes after every single daily ping and mail an
+> alert each time. Period **1 day** / Grace **36 hours** matches the real ping
+> cadence — and running the soak at the production values is better evidence
+> than running it at test values anyway.
 
 **Expected in the demo app meanwhile:** a Dashboard warning saying no backup
 has been verified as restorable. That is truthful — this install has 17
