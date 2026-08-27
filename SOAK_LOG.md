@@ -28,7 +28,7 @@ rushed, inferred, or replaced by a passing test suite.
 | # | Property | How | Status |
 |---|---|---|---|
 | A | The receiver alerts when pings STOP | stop the app, wait for the alert | **PASSED 2026-08-26** |
-| B | A healthy install reports `ok` on several CONSECUTIVE days | leave it running, check daily | not started |
+| B | A healthy install reports `ok` on several CONSECUTIVE days | leave it running, check daily | **restarted 2026-08-27** — see below |
 | C | A real fault surfaces: banner, then modal on the 3rd failing day | rename the backup folder | not started |
 
 C's mechanism is already covered by tests and was verified live on 2026-08-26
@@ -192,6 +192,51 @@ the old release runs against it unchanged, ignoring what it does not know
 about.
 
 ---
+
+### Night 1 (2026-08-26→27): INVALIDATED, and it found a real bug
+
+The soak paid for itself here. The nightly backup did not run and no
+heartbeat was sent — because the Mac slept from 01:01 to 03:10, straight
+through the 02:00 backup and the 02:20 self-check, and APScheduler discards a
+job whose time passed by more than `misfire_grace_time` (**default: one
+second**). Full writeup in `COMPARISON.md` §32.
+
+Fixed in both apps and pushed before restarting the soak:
+`misfire_grace_time=None` + `coalesce=True` on every recurring job, plus a
+startup catch-up for the case where the machine was OFF rather than asleep.
+
+**The night is not counted.** Per this file's own exit criteria, a fault means
+the soak restarts rather than resuming the count.
+
+### Test B restarted 2026-08-27, on the fixed code
+
+Soak install rebuilt from `main` at `343f11f` as `app_v1.8.11-soak2`,
+pre-soak backup taken first, schema sync run, restarted. Day 1 = 2026-08-27.
+
+**What the restart itself demonstrated on the real install**, none of it
+simulated:
+
+| Observation | Meaning |
+|---|---|
+| 03:34 self-check → `warn` (`restore_unverified`), heartbeat sent | the daily job runs and pings |
+| **03:59 verification ran and PASSED — "7 checks passed"** | Layer 4 test-restored a real backup of real demo data into a throwaway database and verified it |
+| 03:59 self-check → `ok` | the warning cleared the same day |
+| `last_verified_restore` = `{"at": "2026-08-27T03:59:00", "result": "pass"}` | recorded where the self-check and payload read it |
+| `selfverify_%` databases remaining: **0** | the throwaway was dropped |
+| Startup catch-up took **no** backup | today's 03:14 nightly already succeeded — the control working in production, no redundant backup per boot |
+| Current self-check: `ok`, findings `[]` | healthy baseline for day 1 |
+
+That 03:34 → 03:59 sequence is also the first real-world confirmation of the
+earlier fix (`COMPARISON.md` §31): under the original monthly cron this
+install would have warned every day until the 1st of the month.
+
+**Note the machine still sleeps.** That is now *desirable* — if tonight's
+backup happens on wake rather than not at all, the sleep fix is proven in the
+field rather than only in tests.
+
+**Still to confirm:** the test check's Period/Grace. It must be **1 day / 36
+hours**; at 5 min / 5 min a once-daily ping mails an alert every day of the
+soak.
 
 ## Test C — a real fault surfaces
 
