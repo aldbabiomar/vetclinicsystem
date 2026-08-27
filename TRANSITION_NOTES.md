@@ -163,6 +163,13 @@ obvious from the code.
 7. **`git checkout -- file` discards uncommitted work.** Used to revert a
    mutation, it wiped an unrelated in-progress change. Back the file up
    instead.
+8. **A stale `.pyc` can outlive a reverted mutation.** If `__pycache__` was
+   unwritable when a mutated module was imported (a permission failure, an
+   interrupted run), Python keeps loading the *mutated* bytecode after the
+   source has been restored — so a correct fix looks broken, and the failure
+   points at code that no longer exists. The mirror image of trap #6.
+   `rm -rf __pycache__` the moment source and behaviour disagree.
+   Cost ~30 minutes on 2026-08-27; see `COMPARISON.md` §32.4.
 
 ---
 

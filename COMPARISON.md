@@ -2355,6 +2355,97 @@ absence path observable in ten minutes rather than two and a half days.
 
 ---
 
+## 32. The soak found a real bug: missed jobs were silently skipped — 2026-08-27
+
+The monitoring soak paid for itself on its first night, on a real install,
+by finding something worse than the feature it was testing.
+
+### 32.1 What happened, and the theory that was wrong
+
+The nightly backup did not run on 2026-08-27, and no heartbeat was sent. The
+first hypothesis — reasonable, and acted on — was that backups require a
+logged-in account, since the web session had expired overnight.
+
+**The data disproved it**, and the disproof is worth keeping because it is
+exactly the kind of plausible theory that sends a fix in the wrong direction:
+
+| Evidence | Meaning |
+|---|---|
+| `2026-08-26T02:00:00 nightly success` | ran at 2am with nobody using the app — no session required |
+| `2026-08-27T02:00` — nothing | that night it did not run |
+| `pmset -g log`: Sleep 01:01 → Wake 03:10 ("lid … UserActivity") | the Mac was asleep across 02:00, 02:20 and 02:45 |
+| `2026-08-27T03:14:00 nightly success` | worked immediately once awake |
+
+The scheduler is a background thread with its own database connection and no
+Flask session, so a login could never have been involved.
+
+### 32.2 The real cause
+
+**APScheduler discards a job whose scheduled time has passed by more than
+`misfire_grace_time`, and that defaults to ONE SECOND.** A machine that sleeps
+across its backup window does not run the backup late — it does not run it at
+all, and says nothing.
+
+For a clinic this is worse than the monitoring feature it was found by: no
+backups, silently, on any machine that sleeps overnight.
+
+### 32.3 Two failures, two fixes — they are not interchangeable
+
+This is the third time this shape has appeared in this project, so the
+scheduler's docstring now states it directly:
+
+| Unavailability | What happens | Fix |
+|---|---|---|
+| **ASLEEP** | process suspended, resumes later | `misfire_grace_time=None` + `coalesce=True` — run however late, once |
+| **OFF** | process gone, restarts with no memory of what it missed | the startup catch-up; no grace time can help |
+
+The earlier two instances were the startup self-check (§29) and the
+verification becoming a daily due-check rather than a monthly cron (§31).
+
+Mutation-checked four ways, both apps. Restoring APScheduler's one-second
+default fails two tests. Suites green: **IQ 451 / 1 skipped, JO 432 / 1.**
+
+### 32.4 A trap that cost real time: stale bytecode outliving a reverted mutation
+
+A test passed alone, then failed in the full suite, then failed alone too. The
+failure was a **ghost of a mutation that had already been reverted in source**:
+an earlier `py_compile` had failed to write `__pycache__` (macOS had revoked
+folder access mid-session), leaving a `.pyc` compiled from the *mutated*
+scheduler. Python kept loading it.
+
+The symptom is nasty because it inverts the usual trap: `TRANSITION_NOTES.md`
+trap #6 warns that a mutation which does not apply looks like a test that
+cannot catch it. This is the mirror image — **a mutation that was undone in
+the source but not in the loaded bytecode**, so a correct fix looks broken.
+
+`rm -rf __pycache__` resolved it instantly. Worth reaching for the moment
+source and behaviour disagree, especially after any interrupted or
+permission-denied run.
+
+### 32.5 Windows: starting at boot rather than at sign-in
+
+Prompted by the same investigation, since the deployment target is Windows.
+The Startup folder runs at **user logon**, so a PC that Windows Update
+restarts at 3am sits at the lock screen doing nothing until someone arrives.
+
+`autostart.py` in both apps now creates a Scheduled Task (`ONSTART`,
+`RU SYSTEM`) via `schtasks`, falling back to the Startup folder when not
+elevated — and **saying what was lost** rather than reporting plain success.
+`disable()` removes both. 10 tests per app, 3 mutations caught.
+
+**Not verified on Windows and cannot be from here.** The tests check the
+decisions and the command arguments, not that Windows accepts them.
+
+> **Deployment note that outranks the code:** if PostgreSQL runs under Docker
+> Desktop, Docker Desktop itself starts at user logon — so the database will
+> not be there either and starting the app earlier achieves nothing. Install
+> PostgreSQL as a Windows service. (The user has since decided the clinic PC
+> will have no password at all, which sidesteps this: Windows boots straight
+> to a desktop, so the Startup entry works and the task is redundant
+> insurance.)
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2394,6 +2485,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 29 | **monitoring Layer 1 built (unreleased)**; two plan claims corrected | working on monitoring, or `scheduler.py` |
 | 30 | ⚠ monitoring Layer 4, the self-verifying backup; a JO-only money bug | backups, restores, or anything money-type-adjacent |
 | 31 | monitoring Layers 2 & 3, the heartbeat and payload; receiver settings | the heartbeat, payload privacy, or configuring a receiver |
+| 32 | ⚠ **the soak found missed jobs were silently skipped**; stale-bytecode trap | scheduling, sleep/off behaviour, or a fix that looks broken |
 
 ### The four sections a new session should read first
 
