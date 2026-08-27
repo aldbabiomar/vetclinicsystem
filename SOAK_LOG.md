@@ -234,9 +234,24 @@ install would have warned every day until the 1st of the month.
 backup happens on wake rather than not at all, the sleep fix is proven in the
 field rather than only in tests.
 
-**Still to confirm:** the test check's Period/Grace. It must be **1 day / 36
-hours**; at 5 min / 5 min a once-daily ping mails an alert every day of the
-soak.
+**Check schedule confirmed 2026-08-27: Period 1 day, Grace 36 hours** — the
+production values, so the soak now runs at the settings a real clinic will.
+
+### What "normal" looks like from here, so a non-event is not mistaken for a pass
+
+- Last ping 2026-08-27 05:11. The soak install's next scheduled ping is the
+  daily self-check at **03:34** (backup_time 03:14 + 20 min), ~22h later —
+  inside the 24-hour period, so the check stays green.
+- **If the Mac sleeps through 03:34**, the misfire fix means the job runs on
+  wake instead. A ping at, say, 10:00 is ~29h after the last one: past the
+  24-hour period, comfortably inside the 36-hour grace. healthchecks.io shows
+  the check as *late*, **not** down, and sends nothing.
+
+That second case is worth stating explicitly because it is the interesting
+one: the 36-hour grace exists precisely to absorb a machine that pings late
+rather than never. A "late" check that recovers on its own is the system
+working, not a fault — and only a genuinely absent ping (no wake at all for
+36+ hours) should ever produce an email.
 
 ## Test C — a real fault surfaces
 
