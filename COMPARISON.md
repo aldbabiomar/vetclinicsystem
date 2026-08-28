@@ -2646,6 +2646,82 @@ Suites unchanged by the redesign: **IQ 461 / 1 skipped, JO 442 / 1.**
 
 ---
 
+## 36. The 760px breakpoint, swept out of both apps — 2026-08-28
+
+The Settings redesign (§35) turned out to be the **third** instance of
+`TRANSITION_NOTES.md` trap #4. That prompted a sweep of every media query in
+both apps, and the underlying problem was much larger than any of the three.
+
+### 36.1 It was not a rule, it was the entire mobile switch
+
+`@media (max-width: 760px)` contained the sidebar-to-drawer change, the mobile
+topbar, the sticky-header offset, the grid collapse, **and every touch
+accommodation in the app**. A standard tablet is 768px, so an iPad in portrait
+received none of it. Measured on the running app:
+
+| | 768px | 760px |
+|---|---|---|
+| Form field font | **14px** (all 15) | 16px |
+| Form field height | 37–41px | 44px |
+| Buttons | 34–37px | 44px |
+| Nav links | 32–34px (**36 of them**) | 44px |
+| Appointment "+" button | **21px** | 44px |
+
+Three consequences, worst first:
+
+1. **iOS Safari zoomed on every field and never zoomed back.** `style.css`
+   carries the comment explaining exactly this — *"iOS Safari zooms the page
+   whenever a focused field is under 16px, and does not zoom back out"* — and
+   the rule implementing it was inside the 760px query. The bug the comment
+   describes was live on the device the comment describes.
+2. **A bug already fixed was still shipping.** `.appt-add-btn { min-height:
+   44px }` was IQ 1.10.8 / JO 1.8.9, found by a browser test at 390px. It sat
+   inside the same query, so at 768px that button was still 21px tall.
+3. **No 44px targets on a touch device**, against a floor the code itself
+   cites Apple HIG / WCAG 2.5.5 for.
+
+Not affected: `.stat-grid`/`.panel-grid` (a 900px rule covers them),
+`.pos-grid` (900px), tables (1120px). No horizontal overflow at any width.
+
+### 36.2 The fix: ask the browser, don't guess a number
+
+Touch rules now sit behind **`@media (pointer: coarse), (max-width: 900px)`**.
+The real condition was never the viewport — it is whether a finger is doing
+the pointing. This covers a touch screen at any width and leaves a
+mouse-driven desktop untouched at any size; the width half is a fallback for
+narrow mouse windows. The shell switch moved to **900px** so a tablet gets the
+drawer and its full width; the grid collapse stays at **760**, since with the
+sidebar gone there is room for two columns.
+
+Same shape as §35's `auto-fit` change, and the general lesson from both:
+**when a fixed number keeps being wrong, the number was the wrong tool.**
+
+Measured after, both apps: 768px gives 16px fields, 44px controls, a 44px
+appointment button, a drawer sidebar and 361px stat cards (was 221px).
+**1440px, 1024px and 375px are unchanged.**
+
+### 36.3 Why three fixes missed it — the test looked in the wrong place
+
+`test_touch_targets_are_big_enough_on_a_phone` ran on the **phone viewport
+alone**, while `VIEWPORTS` already defined a 768px tablet that was checked
+only for sideways scrolling. The guard named the right property, cited the
+right standard, and never looked where it was violated.
+
+This is the same failure as `COMPARISON.md` §34.3's three findings: an
+invariant that was documented and tested and still violated, because the guard
+stood on one boundary while another was broken.
+
+Now parametrized over phone **and** tablet, plus a new test asserting no field
+is under 16px. **Mutation-checked:** putting the touch rules back behind 760px
+fails both tablet cases while **both phone cases still pass** — demonstrating
+directly that the old test could not have caught this.
+
+Browser tier actually run for this work (Playwright installed into the
+throwaway venv only, never `requirements.txt`): **13 passed per app.**
+Non-browser suites: IQ 461, JO 442.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2689,6 +2765,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 33 | ⚠ **the same bug one layer down: macOS freezes the monotonic clock during sleep** | anything scheduled; read with §32 |
 | 34 | ⚠ code review of the monitoring work: 9 real findings, incl. a leaked credential | before shipping monitoring; on writing guards that actually hold |
 | 35 | Settings page regrouped; the 760px breakpoint retired for auto-fit | touching Settings, or any `.form-grid` layout |
+| 36 | ⚠ **the 760px breakpoint swept from both apps**; iOS zoom + 44px targets on tablets | any responsive/CSS work; on guards that look in the wrong place |
 
 ### The four sections a new session should read first
 

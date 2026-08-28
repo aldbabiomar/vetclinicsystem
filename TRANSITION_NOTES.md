@@ -149,7 +149,13 @@ obvious from the code.
    result.**
 4. **`760px` is not a tablet.** A standard tablet is 768px. This
    off-by-one-breakpoint mistake was made twice — once with tables (fixed at
-   1120px) and again with `.panel-grid`, which shipped.
+   1120px) and again with `.panel-grid`, which shipped. **A third instance
+   (the Settings form grid) turned up on 2026-08-28, and the sweep that
+   followed found the 760px query was the app's entire mobile switch: an iPad
+   in portrait got no 44px touch targets and 14px form fields, so iOS Safari
+   zoomed on every field and never zoomed back. Swept out in favour of
+   `(pointer: coarse)` — see `COMPARISON.md` §36. If you find yourself
+   picking a pixel number for a device class, that is the smell.**
 4. **zsh does not word-split unquoted variables.** `set -- $var` silently
    produces one argument. It generated a spurious "MATCH" on a remote-URL
    check that should have aborted.
