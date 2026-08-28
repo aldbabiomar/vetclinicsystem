@@ -193,6 +193,25 @@ about.
 
 ---
 
+### Night 2 (2026-08-27→28): INVALIDATED, and it found the SAME bug one layer down
+
+The backup again did not run, and the check went yellow. This time the app
+had been alive the whole time and the night-1 fix was already deployed.
+
+Cause: on macOS `time.monotonic()` does not advance during sleep (93.64h wall
+since boot vs 48.08h monotonic), so APScheduler's countdown to a job 22 hours
+out simply freezes. The job never becomes due, so misfire grace has nothing
+to act on. Full writeup in `COMPARISON.md` §33.
+
+Fixed by a 5-minute tick that runs whatever the WALL CLOCK says is overdue,
+and verified live on this install: with the self-check made overdue, the tick
+ran it and pinged (rows 5 → 6) while correctly leaving the not-overdue backup
+alone (rows 23 → 23).
+
+**Night 2 is not counted either.** Two nights, two real bugs, both in the
+same area and both invisible to a green test suite. This is the soak doing
+exactly the job it exists for — and it is also the reason not to shorten it.
+
 ### Night 1 (2026-08-26→27): INVALIDATED, and it found a real bug
 
 The soak paid for itself here. The nightly backup did not run and no
@@ -207,6 +226,11 @@ startup catch-up for the case where the machine was OFF rather than asleep.
 
 **The night is not counted.** Per this file's own exit criteria, a fault means
 the soak restarts rather than resuming the count.
+
+### Test B restarted AGAIN 2026-08-28 (day 1 = 2026-08-28), on `app_v1.8.11-soak3`
+
+The 2026-08-27 restart below is superseded; its night failed for the reason
+above. Kept because what it demonstrated about Layer 4 still stands.
 
 ### Test B restarted 2026-08-27, on the fixed code
 

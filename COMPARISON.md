@@ -2446,6 +2446,147 @@ decisions and the command arguments, not that Windows accepts them.
 
 ---
 
+## 33. The same bug again, one layer down: a frozen clock — 2026-08-28
+
+§32's fix was necessary and **not sufficient**. The second night of the soak
+failed the same way: no nightly backup, no heartbeat, a yellow check — and
+this time the app had been alive throughout and `misfire_grace_time=None` was
+already in place.
+
+### 33.1 The measurement that explains it
+
+```
+wall clock since boot :   93.64 h
+time.monotonic()      :   48.08 h
+difference            :   45.56 h
+```
+
+**macOS does not advance `time.monotonic()` while the machine sleeps.**
+APScheduler waits on an event with a *monotonic* timeout, so when it computed
+"next backup in 22h03m" at 05:11 and the Mac then slept most of the night,
+that countdown froze. Wall-clock elapsed was 29 hours; monotonic elapsed was
+far less.
+
+**The job was not missed and not late — it never became due.** That is why
+misfire grace could not help: misfire handling acts on a run that was
+skipped, and nothing had been skipped.
+
+This is the difference between "the alarm went off while you were out" and
+"the alarm clock stopped."
+
+### 33.2 The fix: stop trusting timers
+
+A **tick every 5 minutes** that runs whatever the *wall clock* says is overdue
+and the database says has not happened — today's backup, today's self-check
+and heartbeat, the restore verification. A short interval bounds the damage:
+however long the machine sleeps, the tick fires within five minutes of waking
+and then decides by wall clock rather than by any countdown.
+
+Every action is gated on "has today's X already happened?", so the tick and
+the cron jobs cannot double-run, and on a machine that never sleeps the tick
+is a permanent no-op.
+
+The rule now stated in the module docstring: **decide what to run by comparing
+the wall clock against what the database says already happened.**
+
+> **Platform note.** Windows' `time.monotonic()` is `GetTickCount64()`, which
+> *does* include suspend time — so on the actual deployment target the cron
+> jobs probably do fire, and §32's fix alone might have sufficed. "Probably"
+> is not a good enough basis for a clinic's backups, and the tick costs two
+> cheap queries every five minutes.
+
+### 33.3 Three failures, three mechanisms — none of them redundant
+
+| Unavailability | Symptom | Mechanism |
+|---|---|---|
+| **OFF** | process gone, no memory of what it missed | `_do_startup_catchup` |
+| **ASLEEP, noticed late** | run discarded (misfire default: 1 second) | `MISFIRE_GRACE_SECONDS = None` |
+| **ASLEEP, never noticed** | countdown frozen; job never becomes due | `TICK_MINUTES` + wall-clock due checks |
+
+Each was found in production *after* the previous one was declared fixed.
+That is the honest record, and it is the argument for the soak existing.
+
+### 33.4 Verified live, not just in tests
+
+On the real install, with the tick deployed: `backup_time` was temporarily set
+so the self-check was overdue but the backup was not.
+
+- self-check rows 5 → **6** — the tick ran the overdue check and sent the
+  heartbeat at 10:36:50
+- backup rows 23 → **23** — it correctly left the not-overdue backup alone
+
+Both halves matter: a tick that acted on everything would take a backup every
+five minutes forever. Mutation-checked four ways (long interval, cron trigger
+instead of interval, never acting, always acting). Suites: **IQ 458 / 1
+skipped, JO 439 / 1.**
+
+---
+
+## 34. Code review of the unreleased monitoring work — nine findings, all real — 2026-08-28
+
+`CODE_REVIEW_MONITORING_2026-08-27.md` (workspace root) reviewed the whole
+unreleased range in both apps. **All nine findings were verified against the
+code before being fixed, and all nine were genuine.** Two were serious enough
+that shipping without them would have been a mistake.
+
+### 34.1 The two that mattered
+
+**The ping URL was written to the audit log (HIGH).** Adding `heartbeat_url`
+to the generic settings loop routed it through `auth.log_change()`, which
+writes values into `audit_log` — a page readable by **`view_logins_changes`**,
+a *broader* permission than `manage_settings`, and included in audit exports.
+So a user who cannot open Settings could read the credential and use it to
+send fake pings, suppressing the alert that fires when a clinic machine goes
+dark.
+
+The instructive part: `heartbeat.py` documents that the URL is "never written
+to a log", and `test_heartbeat.py` asserts it at `send()`. **The invariant was
+tested at one boundary and violated at another.** A guard proves only the
+boundary it stands on. Now logs `"set"` / `"not set"`, with a regression test
+at the save path.
+
+**The Windows boot task and the Startup entry collided in a respawn loop
+(HIGH).** `_windows_enable()` wrote both, reasoning that a second app copy
+exits harmlessly when the port is taken. That much is true — but the launcher
+is a **supervisor loop** (`:loop … timeout /t 2 … goto loop`, no port check,
+no exit condition), so it relaunches the app every two seconds for the entire
+logon session, console window and browser tab included, on every clinic PC
+where the boot task succeeded. Exactly one mechanism is now active.
+
+Both were introduced by this work: before it, only the Startup folder existed
+and the two could never collide.
+
+### 34.2 The rest
+
+| # | Severity | Finding |
+|---|---|---|
+| 3 | MEDIUM | `startup_catchup` was the only job left on APScheduler's 1-second misfire default — **and the test filtered it out of the assertion guarding exactly that** |
+| 4 | MEDIUM | a psycopg error in `_backup_section` escaped an `except (TypeError, ValueError)` and killed the whole heartbeat: a DB blip became indistinguishable from a dead machine |
+| 5 | MEDIUM | `install_id` returned an id it had failed to persist, so a failing write meant a new id every night and a permanent false "went quiet" |
+| 6 | LOW | a missing `patients` table rendered a *failing* check as `"None orphaned"` |
+| 7 | LOW | `is_due`'s comment disclaimed the daily retry its own code and test implement |
+| 8 | LOW | IQ's not-found error named `Start VetClinicSystem IQ.bat`; `setup.py` writes `Start VetClinicSystem.bat` — introduced by the sed-based port from JO |
+| 9 | LOW | the `/DELAY` comment said `HHHH:MM`; `schtasks` parses `mmmm:ss` |
+
+Finding 3 is worth dwelling on for the same reason as finding 1: the test
+existed, named the right property, and had a filter that excluded the one job
+that violated it.
+
+### 34.3 What this says about the work
+
+Three of the nine (1, 3, and arguably 5) are **invariants that were documented
+and tested, and still violated** — at a different boundary, or behind a filter
+in the test itself. That is a more useful lesson than any individual bug: a
+guard is evidence about the exact path it runs on, and nothing else.
+
+Suites after the fixes: **IQ 461 / 1 skipped, JO 442 / 1.** The credential fix
+and the respawn-loop fix are both mutation-checked.
+
+The review's own "not reviewed" note stands: the ~2,000 lines of new test code
+have not had a dedicated §7.3 pass of their own.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2486,6 +2627,8 @@ a real bug that shipped** — read those before touching the area they name.
 | 30 | ⚠ monitoring Layer 4, the self-verifying backup; a JO-only money bug | backups, restores, or anything money-type-adjacent |
 | 31 | monitoring Layers 2 & 3, the heartbeat and payload; receiver settings | the heartbeat, payload privacy, or configuring a receiver |
 | 32 | ⚠ **the soak found missed jobs were silently skipped**; stale-bytecode trap | scheduling, sleep/off behaviour, or a fix that looks broken |
+| 33 | ⚠ **the same bug one layer down: macOS freezes the monotonic clock during sleep** | anything scheduled; read with §32 |
+| 34 | ⚠ code review of the monitoring work: 9 real findings, incl. a leaked credential | before shipping monitoring; on writing guards that actually hold |
 
 ### The four sections a new session should read first
 
