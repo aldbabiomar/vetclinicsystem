@@ -2587,6 +2587,65 @@ have not had a dedicated §7.3 pass of their own.
 
 ---
 
+## 35. Settings page regrouped, and the 760px breakpoint retired — 2026-08-28
+
+Applied to **both apps**, unreleased (ships after monitoring, per the user's
+call). The two pages remain structurally identical apart from IQ's Colour
+Palette selector, which JO has no setting for.
+
+**Why.** The whole page was one card holding eleven sections, so the single
+Save Settings button appeared to own everything — including Updates, Restore
+and the autostart toggle, which are separate forms that act immediately. The
+backup story was spread across 250 lines with Updates and Startup wedged
+between the folder setting, the history table, and the restore that reads them.
+
+Now four cards: the saved settings in one enclosure ending in a bar reading
+"Saves the six sections above", then Backups & Restore, Updates, and Startup &
+Shutdown, each tagged *Runs when you click*.
+
+### 35.1 The layout change, and the measurement behind it
+
+`.form-grid` was `1fr 1fr` collapsing at `max-width: 760px` — and **a standard
+tablet is 768px**, so an iPad portrait sat 8px on the wrong side and kept both
+the expanded sidebar and two columns. This is `TRANSITION_NOTES.md` trap #4
+("760px is not a tablet"), which had already shipped twice; the settings page
+was a third instance nobody had measured.
+
+Measured on the running app, the cliff:
+
+| Viewport | Columns | Backup-folder field |
+|---|---|---|
+| 1024px | 324 + 324 | 218px |
+| **768px** | **196 + 196** | **182px** |
+| **760px** | **682 (one)** | **576px** |
+
+Eight pixels of viewport tripled the usable field width.
+
+Replaced with `repeat(auto-fit, minmax(260px, 1fr))`, so the browser picks the
+count from available space. Measured after, identical in both apps: **1280px →
+3 × 295px** (three-field sections stop orphaning one onto a second row, which
+is what prompted the work), **768px → 1 × 410px** with the path field at
+**304px**, **375px → 1 × 297px**, no horizontal overflow anywhere. The
+8px-wrong breakpoint stops mattering rather than being re-tuned to another
+guess. Long values (the backup path, the ping URL) opt out with `.full`.
+
+### 35.2 Two things worth carrying
+
+- **The app compiles templates once at boot with no auto-reload.** A first
+  verification pass showed the CSS change applied and the template change
+  absent, which looked exactly like a failed edit. It was a stale template.
+  **Restart the app after any template edit**, or you will debug a change that
+  was never loaded.
+- **Jinja parsing proves nothing about an `{% if %}` you cut inside of.** The
+  restructure lifted a block out of IQ's `{% if is_system_admin %}` gate. The
+  file parsed either way; a misplaced `endif` parses fine while guarding the
+  wrong content. Confirmed against the original that it opens and closes
+  around the same content as before.
+
+Suites unchanged by the redesign: **IQ 461 / 1 skipped, JO 442 / 1.**
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2629,6 +2688,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 32 | ⚠ **the soak found missed jobs were silently skipped**; stale-bytecode trap | scheduling, sleep/off behaviour, or a fix that looks broken |
 | 33 | ⚠ **the same bug one layer down: macOS freezes the monotonic clock during sleep** | anything scheduled; read with §32 |
 | 34 | ⚠ code review of the monitoring work: 9 real findings, incl. a leaked credential | before shipping monitoring; on writing guards that actually hold |
+| 35 | Settings page regrouped; the 760px breakpoint retired for auto-fit | touching Settings, or any `.form-grid` layout |
 
 ### The four sections a new session should read first
 
