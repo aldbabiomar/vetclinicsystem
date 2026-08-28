@@ -227,6 +227,20 @@ startup catch-up for the case where the machine was OFF rather than asleep.
 **The night is not counted.** Per this file's own exit criteria, a fault means
 the soak restarts rather than resuming the count.
 
+### Soak install now on `app_v1.8.11-soak4` (2026-08-28, later the same day)
+
+Redeployed after the code review (`COMPARISON.md` §34) changed `app.py`,
+`heartbeat.py`, `autostart.py`, `selfverify.py` and `scheduler.py`. Same day,
+so Test B's day 1 is still 2026-08-28.
+
+Confirmed on the real install after the redeploy:
+
+- startup catch-up ran, `ok`, heartbeat sent
+- **`install_id` stayed `22335E2F` across four redeploys** — the property
+  finding 5 was about; a changing id would make the receiver report a healthy
+  clinic as dead every night
+- **no `heartbeat_url` value anywhere in `audit_log`** — finding 1
+
 ### Test B restarted AGAIN 2026-08-28 (day 1 = 2026-08-28), on `app_v1.8.11-soak3`
 
 The 2026-08-27 restart below is superseded; its night failed for the reason
