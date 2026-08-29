@@ -2722,6 +2722,77 @@ Non-browser suites: IQ 461, JO 442.
 
 ---
 
+## 37. The fix that caused the next bug: two paths, one second — 2026-08-29
+
+Third night of the soak, third real bug — and this one was **introduced by
+§33's fix**. Worth recording as its own section precisely because it is the
+cost of the belt-and-braces design, and the cost was real.
+
+### 37.1 What the install logged
+
+```
+04:02:08  success  nightly
+04:02:08  failed   nightly   "Another backup ... is already running"
+04:02:08  ok       (pinged)
+04:02:08  ok       (not pinged)
+```
+
+The machine woke; the cron trigger and the tick both fired in the **same
+second**. Two backups, two self-checks, two pings for one night. The
+wall-clock due-checks could not prevent it, because **both paths read "not
+done yet" before either committed**.
+
+### 37.2 Why it mattered more than it looked
+
+`logic.backup_alert_message()` reads the **newest** `backup_log` row. The
+success happened to land with the higher id — had the failed row landed
+there instead, the Dashboard would have announced *"The last database backup
+failed"* in the same second a backup succeeded. A red banner on a healthy
+clinic is exactly the cry-wolf failure the plan's §6.0 says gets a monitoring
+feature switched off and never switched back on.
+
+### 37.3 The fix
+
+The redundancy stays — it is the point, and the tick is what actually took the
+backup on the two previous nights. What was missing is that the two paths knew
+nothing about each other.
+
+Every scheduled write now goes through **`_run_backup_if_due` /
+`_run_self_check_if_due`**, which hold a module-level lock across
+check-and-run. The cron triggers, the tick and the startup catch-up all call
+the same two functions, so the second arrival sees the first's committed row
+and does nothing.
+
+Also changed: an install that has **never** self-checked is due whatever the
+hour — deliberately unlike the backup catch-up, which waits for its scheduled
+time. A self-check is read-only and carries the first heartbeat, so a fresh
+install started at 01:00 with a 23:59 slot would otherwise send nothing for 22
+hours and look dead to the receiver while showing the admin none of the
+problems it can already see.
+
+Mutation-checked: removing the lock reproduces *"2 self-checks ran
+concurrently"*; removing the due-check reproduces *"2 backups started
+concurrently"* — the same failure the install logged.
+
+Verified on the real install: after the redeploy the startup catch-up
+correctly did **nothing**, because today's backup and self-check had already
+run. Before the fix it would have produced another duplicate pair.
+
+### 37.4 The pattern across three nights
+
+| Night | Bug | Introduced by |
+|---|---|---|
+| 26→27 | missed jobs silently discarded (misfire grace = 1s) | original design |
+| 27→28 | frozen monotonic clock; job never became due | §32's fix was insufficient |
+| 28→29 | two paths raced and duplicated | §33's fix |
+
+Each fix was correct and each exposed the next layer. That is not an argument
+against the fixes; it is the argument for the soak. **None of the three was
+visible to a green test suite**, and all three were found by one real install
+running for three nights.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2766,6 +2837,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 34 | ⚠ code review of the monitoring work: 9 real findings, incl. a leaked credential | before shipping monitoring; on writing guards that actually hold |
 | 35 | Settings page regrouped; the 760px breakpoint retired for auto-fit | touching Settings, or any `.form-grid` layout |
 | 36 | ⚠ **the 760px breakpoint swept from both apps**; iOS zoom + 44px targets on tablets | any responsive/CSS work; on guards that look in the wrong place |
+| 37 | ⚠ the tick and the cron raced and duplicated; one guarded entry point | scheduler work; on redundancy needing coordination |
 
 ### The four sections a new session should read first
 

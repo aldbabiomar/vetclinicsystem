@@ -193,6 +193,21 @@ about.
 
 ---
 
+### Night 3 (2026-08-28→29): INVALIDATED — the fix caused the next bug
+
+Reported by the user: dashboard warning gone, check green, no emails — but
+**two nightly backups, one failed "due to concurrent backup"**, and two pings.
+Also noted: ~4 minutes between opening the machine and the backup running,
+which is the tick's 5-minute interval working as designed.
+
+The cron trigger and the tick fired in the same second. Both had read "not
+done yet" before either committed. Full writeup in `COMPARISON.md` §37; fixed
+by routing every scheduled write through one lock-guarded entry point, and
+redeployed as `app_v1.8.11-soak5`.
+
+**Night 3 is not counted.** Three nights, three real bugs, each one exposed by
+the previous fix. Every one of them invisible to a green suite.
+
 ### Night 2 (2026-08-27→28): INVALIDATED, and it found the SAME bug one layer down
 
 The backup again did not run, and the check went yellow. This time the app
