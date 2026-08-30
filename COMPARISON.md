@@ -2825,6 +2825,57 @@ Dashboard and Settings.
 
 ---
 
+## 39. A backup destination that vanished reported as healthy — 2026-08-30
+
+Found while staging soak Test C, which is the second time setting up a test
+has found a bug the test was not looking for.
+
+**The symptom:** renaming the backup folder away produced status `ok`.
+`os.makedirs(backup_dir, exist_ok=True)` recreated it a minute later, empty,
+and the write probe then passed.
+
+### 39.1 Why that is dangerous rather than untidy
+
+`os.makedirs` cannot tell *"first run, the folder is not made yet"* from
+*"the destination went away"*. The second is the one that matters, and the
+`README` points straight at it: it recommends a **synced folder** (Google
+Drive, OneDrive) as the way to get off-site copies. If that folder unlinks or
+moves, the app recreates a plain local directory at the same path, backups
+keep reporting success into it, and the off-site copy the clinic believes in
+has silently stopped — with a green health check on the Dashboard.
+
+An unplugged **external drive** was already caught, because `/Volumes` refuses
+the create. The exposure was folders under the user's own home — exactly where
+the synced-folder advice points.
+
+**The fix** distinguishes the two cases by asking whether `backup_log` records
+a successful backup written *into that folder*. A folder with history that
+disappears is reported; a folder with no history is still created, because
+that is the helpful first-run behaviour.
+
+### 39.2 The second, worse finding
+
+Every other check trusts `backup_log` — which lives in the **database**, not
+the folder. So **every `.dump` file could be deleted and the feature would
+report `ok`.** Layer 4 would have caught it, but its cadence is monthly, which
+is a long time to believe in backups that are not there.
+
+New `backup_file_missing` check: one `os.path.isfile` against the newest
+successful backup. Cheap, and it also covers the vanished-folder case from a
+second direction.
+
+### 39.3 Tests
+
+Four, each with its control — a first-run folder **must still be created**, and
+a file that is present must not be reported, because otherwise "reports a
+missing destination" and "always fires" are the same result. Mutation-checked:
+restoring the silent recreate fails the first, dropping the new check from
+`_CHECKS` fails the third.
+
+Suites: **IQ 468, JO 449.**
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2871,6 +2922,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 36 | ⚠ **the 760px breakpoint swept from both apps**; iOS zoom + 44px targets on tablets | any responsive/CSS work; on guards that look in the wrong place |
 | 37 | ⚠ the tick and the cron raced and duplicated; one guarded entry point | scheduler work; on redundancy needing coordination |
 | 38 | one 16px card-spacing unit; the drift was app-wide and identical in both | adding a card, or any spacing question |
+| 39 | ⚠ **a vanished backup destination reported as healthy**; files never checked | backups, or trusting a log over the filesystem |
 
 ### The four sections a new session should read first
 
