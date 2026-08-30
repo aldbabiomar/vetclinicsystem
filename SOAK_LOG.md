@@ -362,6 +362,28 @@ The release goes ahead only when A, B and C have all been observed — not
 inferred. Then: MINOR bump, `CHANGELOG.md` entry, one release per app, per
 `RELEASE_WORKFLOW.md`.
 
+**"Several consecutive days" for Test B is pinned at THREE clean days**
+(decided 2026-08-30). Three because the escalation this feature can produce —
+the Dashboard modal — triggers on the third consecutive failing day, so three
+is the shortest run that exercises the same window in the healthy direction.
+A day only counts if the machine was actually on for its scheduled slot; a day
+the machine spent switched off produces no evidence either way.
+
+**Scope decided 2026-08-30: ONE release containing everything.** The monitoring
+layers, the Settings redesign, the 760px breakpoint sweep and the Windows
+autostart are all interleaved on `main` and do not separate cleanly by
+cherry-pick. Shipping them together is simpler than untangling them, and the
+UI work has its own live verification behind it.
+
+### Test B and Test C cannot run at the same time
+
+B requires a healthy install; C requires a deliberately broken one. On a single
+install they serialise, and C needs three consecutive FAILING days to reach the
+modal — so C is not a morning's work, it is another three days after B ends.
+
+Either run C on a second install in parallel, or accept that the release date
+is B's finish plus three.
+
 If the soak finds a fault, fix it and **restart the soak** rather than
 counting the days already elapsed — a feature that was noisy on day three and
 then patched has not been shown to be quiet on day three.
