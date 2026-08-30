@@ -2793,6 +2793,38 @@ running for three nights.
 
 ---
 
+## 38. One card-spacing unit — 2026-08-30
+
+Cosmetic, both apps, unreleased. Recorded because the audit found the drift was
+app-wide rather than a Settings problem.
+
+§35's redesign left the four Settings cards butting together: `.card` carries
+no margin, and unlike the Dashboard that page had no grid to supply a gap.
+Fixed with a `.settings-stack` wrapper — the same mechanism and the same 16px
+`.panel-grid` already used, rather than a margin on `.card`, which would double
+up with the gap wherever cards *do* sit in a grid.
+
+Auditing the rest of the app then found four different values in use:
+
+| Value | Occurrences |
+|---|---|
+| 16px | 13 inline + `.panel-grid` |
+| 20px | 11 inline |
+| 10px | 2 inline |
+| 14px | 1 inline + `.stat-grid` |
+
+**Both apps had drifted identically** — the same 13/11/2/1 split — which is
+what a fork does: the drift predates the split. None of the outliers carried a
+comment or a pattern; they were accumulated one-offs.
+
+Everything is now **16px**, the plurality and what the Dashboard already used.
+The unit is documented beside the grid definitions so the next card added does
+not restart the drift. Verified live: `.panel-grid`, `.stat-grid` and
+`.settings-stack` all 16/16, with measured card-to-card gaps of 16 on both
+Dashboard and Settings.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2838,6 +2870,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 35 | Settings page regrouped; the 760px breakpoint retired for auto-fit | touching Settings, or any `.form-grid` layout |
 | 36 | ⚠ **the 760px breakpoint swept from both apps**; iOS zoom + 44px targets on tablets | any responsive/CSS work; on guards that look in the wrong place |
 | 37 | ⚠ the tick and the cron raced and duplicated; one guarded entry point | scheduler work; on redundancy needing coordination |
+| 38 | one 16px card-spacing unit; the drift was app-wide and identical in both | adding a card, or any spacing question |
 
 ### The four sections a new session should read first
 

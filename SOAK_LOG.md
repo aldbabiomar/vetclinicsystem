@@ -193,6 +193,26 @@ about.
 
 ---
 
+### Night 4 (2026-08-29→30): CLEAN — Test B day 1
+
+The first night with nothing wrong. Confirmed in the database, not just
+reported:
+
+```
+03:32:55  success  nightly     (exactly one)
+04:34:01  ok       reported    (exactly one, one ping)
+```
+
+No Dashboard warning, check green, no emails, and **no duplicate of anything**
+— the §37 lock holding in production.
+
+Both ran late against their 03:14 / 03:34 slots because the machine slept; the
+tick caught each on wake and the 36-hour grace absorbed it, which is why the
+check stayed green rather than going amber. That is the whole design working
+in one night: sleep, late run, no false alarm.
+
+**Test B day 1 = 2026-08-30.**
+
 ### Night 3 (2026-08-28→29): INVALIDATED — the fix caused the next bug
 
 Reported by the user: dashboard warning gone, check green, no emails — but
