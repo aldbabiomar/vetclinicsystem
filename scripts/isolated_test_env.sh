@@ -78,6 +78,21 @@ up() {
   python3 -m venv "$VENV_DIR"
   "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
 
+  # Test-only dependencies. Deliberately NOT in requirements.txt -- the apps
+  # have no build step and no browser dependency, and that stays true.
+  #
+  # Installed here because without them a whole tier goes dormant SILENTLY:
+  # test_browser.py gates on pytest.importorskip at module scope, which
+  # collects ZERO tests and reports as "1 skipped", not 13. IQ's browser tier
+  # had never once run for this reason, which is how a Settings page that
+  # scrolled sideways on every phone reached a soak install. COMPARISON.md
+  # §40.3.
+  echo "== Installing test-only deps (pytest, playwright) =="
+  "$VENV_DIR/bin/pip" install -q pytest playwright
+  "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
+    || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
+    || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
+
   echo "== Applying schema + seeding test data =="
   mkdir -p "$DATA_DIR/logs"
   DATABASE_URL="postgresql://postgres:test@localhost:${DB_PORT}/${DB_NAME}" \

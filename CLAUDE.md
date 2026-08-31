@@ -199,6 +199,16 @@ Every tier **skips cleanly** when its requirement is absent, so
 `venv/bin/python -m pytest tests/ -q` always works and never fails for
 environmental reasons.
 
+**But the skip count does not tell you a tier is dormant.** `test_browser.py`
+gates on `pytest.importorskip` at module scope: with Playwright missing it
+collects **zero** tests and reports as **`1 skipped`**, not 13. IQ's browser
+tier had never run for exactly this reason, and the single innocuous skip hid
+it — while JO reported 13 skips for the identical dormant tier, because
+Playwright happened to be installed there. **Confirm a tier is alive by
+collecting it (`pytest tests/test_browser.py --collect-only`), not by reading
+totals.** `scripts/isolated_test_env.sh up` now installs pytest and Playwright
+into the throwaway venv so both tiers run; see `COMPARISON.md` §40.3.
+
 To run the database tier:
 
 ```bash
