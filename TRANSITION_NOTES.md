@@ -176,6 +176,21 @@ obvious from the code.
    points at code that no longer exists. The mirror image of trap #6.
    `rm -rf __pycache__` the moment source and behaviour disagree.
    Cost ~30 minutes on 2026-08-27; see `COMPARISON.md` §32.4.
+9. **A dormant test tier can report `1 skipped`, not 13.** IQ's browser
+   tier had never run: Playwright was missing from its venv, and
+   `pytest.importorskip` at module scope collects **zero** tests, which `-q`
+   prints as a single skip. JO reported 13 skips for the same dormant tier
+   only because Playwright happened to be installed there. The skip count is
+   the documented way to notice this (`CLAUDE.md` §7.1) and it does not work
+   — **confirm a tier is alive with `--collect-only`, not by reading
+   totals.** It hid a Settings page that scrolled sideways on every phone.
+   `COMPARISON.md` §40.3.
+10. **When JS post-processes an element, the server's HTML is not evidence.**
+   The self-check banner was verified in the rendered markup; `toast.js` then
+   converted it to a toast and removed it from the DOM, so the feature never
+   existed on screen. Assert against the DOM *after* load — or, better, add a
+   static guard on the rule itself plus a control pinning the JS that makes
+   the rule necessary. `COMPARISON.md` §40.1.
 
 ---
 

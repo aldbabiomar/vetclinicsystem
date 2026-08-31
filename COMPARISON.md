@@ -2892,6 +2892,100 @@ Suites: **IQ 468, JO 449.**
 
 ---
 
+## 40. A banner that was never a banner, and a Settings page that never shrank — 2026-08-31
+
+Two bugs, both found the same way: by finally **looking at a running app**
+instead of at the HTML it emits.
+
+### 40.1 ⚠ The health banner was a toast, and the worse it was the faster it vanished
+
+`toast.js` (both apps, identical) does this on load:
+
+```js
+document.querySelectorAll("main .flash, .auth-flash-wrap .flash").forEach(function (el) {
+  const kind = el.classList.contains("error") ? "error" : ...;
+  show(el.textContent.trim(), kind);
+  el.remove();                       // <- the banner is gone from the DOM
+});
+```
+
+The self-check banner added in §29 used `class="flash error"`. So it was
+never a banner: it became a corner toast and was **removed from the page**.
+And because `error` maps to an auto-dismissing toast while anything else maps
+to a persistent "status" one, the `fail` banner disappeared on a timer while
+the milder `warn` banner stayed — *the more serious the problem, the sooner
+it left the screen.*
+
+That defeats the premise of the whole escalation design. The three-day modal
+exists because "a banner is what is currently being ignored" (§29); a banner
+that deletes itself after four seconds cannot be ignored, it can only be
+missed.
+
+**Fix, both apps:** a dedicated `.selfcheck-banner` / `.selfcheck-banner.fail`
+class that is deliberately outside the sweep, with a CSS comment saying why it
+must never be reintroduced as a `.flash`.
+
+**Why it survived a check.** On 2026-08-26 the banner was verified by
+asserting against the **server-rendered HTML**, which the JS then undid. This
+is the fourth instance in this work of the same shape — an invariant tested at
+one boundary and violated at another (§34 the heartbeat URL, §32 the misfire
+assertion the test's own filter excluded, §36 the touch-target test that ran
+phone-only). It is worth stating as a rule: **when JS post-processes a thing,
+asserting on the markup that produced it is not a test of the thing.**
+
+**And the first replacement guard was itself vacuous.** A browser test
+asserting "the banner survives page load" *passed* against a deliberately
+reintroduced bug, because the isolated test install is healthy, so no banner
+renders at all and there is nothing to survive. It compared post-load HTML
+against the post-load DOM: both go false together and the assertion is
+trivially true. Replaced with a static guard on `dashboard.html`, plus a
+control pinning `toast.js`'s sweep selector so the guard's own premise
+cannot rot silently. Four mutations were run; each fails on its own message.
+
+### 40.2 ⚠ The redesigned Settings page scrolled sideways at every phone and tablet width
+
+`/settings` rendered **1118px (IQ) / 1136px (JO) of content in a 390px
+window** — and identically in a 768px one, i.e. it never responded at all.
+
+Cause: `.settings-stack` is a grid, and a grid item defaults to
+`min-width: auto`, meaning it will not shrink below its own max-content
+width. Each `.card` therefore resolved to max-content, which gave the
+`repeat(auto-fit, minmax(260px, 1fr))` `.form-grid` inside unlimited room —
+so auto-fit laid out **all four columns** (4 x 260 + gaps) rather than
+collapsing to one. The auto-fit from §35 was correct; it was being handed a
+container that never got narrow.
+
+**Fix, both apps:** `grid-template-columns: minmax(0, 1fr)` on
+`.settings-stack`. Verified by mutation in both apps — reverting the line
+reproduces the exact overflow.
+
+This is the direct answer to the question asked when the redesign was
+commissioned ("check if that affects the use of the web app on smaller
+screens like phones"). The answer at the time was drawn from the mockup and
+the CSS. It was wrong, and only running the page caught it.
+
+### 40.3 The reason 40.2 went unseen: a whole test tier that reported "1 skipped"
+
+**IQ's browser tier had never once run.** Playwright was not installed in its
+venv, and `test_browser.py` gates on `pytest.importorskip(...)` at module
+scope — which collects **zero** tests and reports as **`1 skipped`**, not 13.
+
+So the skip count, which is the documented way to notice a dormant tier
+(`CLAUDE.md` §7.1: every tier "skips cleanly"), showed a single innocuous
+skip while thirteen tests silently did not exist. JO reported 13 skips for
+the same condition only because Playwright *was* installed there, so the
+tests were collected and then skipped by `pytestmark`. **The two apps
+reported the same dormant tier with different numbers, and the smaller
+number was the more dangerous one.**
+
+With Playwright installed in both venvs the suites now run **485 (IQ) / 466
+(JO), zero skips**.
+
+Practical rule: `-q` totals do not distinguish "skipped" from "never
+collected". Confirm a tier is alive by collecting it
+(`pytest tests/test_browser.py --collect-only`), not by reading the skip
+count.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -2939,6 +3033,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 37 | ⚠ the tick and the cron raced and duplicated; one guarded entry point | scheduler work; on redundancy needing coordination |
 | 38 | one 16px card-spacing unit; the drift was app-wide and identical in both | adding a card, or any spacing question |
 | 39 | ⚠ **a vanished backup destination reported as healthy**; files never checked | backups, or trusting a log over the filesystem |
+| 40 | ⚠ **the health banner was a self-deleting toast**; Settings never shrank on a phone; IQ's browser tier had never run | monitoring UI, responsive CSS, or before trusting a skip count |
 
 ### The four sections a new session should read first
 
