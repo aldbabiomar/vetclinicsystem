@@ -2864,6 +2864,22 @@ New `backup_file_missing` check: one `os.path.isfile` against the newest
 successful backup. Cheap, and it also covers the vanished-folder case from a
 second direction.
 
+### 39.4 The fix was incomplete, and the soak caught that too
+
+Night 2 (2026-08-31): the staged Test C fault **healed itself**. `selfcheck.py`
+had been taught not to recreate a vanished destination, but `backup.py` has its
+own `os.makedirs` — and the backup runs **first** (02:00 backup, 02:20 check).
+So the nightly backup recreated the folder, wrote into it, and the check then
+saw a fresh successful backup in a writable folder and reported `ok`.
+
+**The selfcheck fix was effectively dead code in the nightly path**, because
+the folder always existed again by the time the check looked. Fixing the
+reporting path while leaving the acting path untouched fixed nothing.
+
+`run_backup` now applies the same distinction and **refuses**, recording a
+failed backup so the Dashboard surfaces it. Nothing is written: a backup saved
+somewhere nobody can find is worse than one that failed loudly.
+
 ### 39.3 Tests
 
 Four, each with its control — a first-run folder **must still be created**, and

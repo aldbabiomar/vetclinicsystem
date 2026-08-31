@@ -29,7 +29,7 @@ rushed, inferred, or replaced by a passing test suite.
 |---|---|---|---|
 | A | The receiver alerts when pings STOP | stop the app, wait for the alert | **PASSED 2026-08-26** |
 | B | A healthy install reports `ok` on several CONSECUTIVE days | leave it running, check daily | **restarted 2026-08-27** — see below |
-| C | A real fault surfaces: banner, then modal on the 3rd failing day | rename the backup folder | **day 1 of 3, on a second install** |
+| C | A real fault surfaces: banner, then modal on the 3rd failing day | rename the backup folder | **restarted 2026-08-31, day 1 of 3** |
 
 C's mechanism is already covered by tests and was verified live on 2026-08-26
 (`COMPARISON.md` §29.3). It is repeated here against a long-running install
@@ -352,7 +352,28 @@ Both fixed before starting C, so C tests the shipping behaviour
    deleted and the self-check would report `ok` for up to 30 days, until the
    monthly verification noticed.
 
-### Day 1 — 2026-08-30, correct
+### Night 2 (2026-08-30→31): Test C HEALED ITSELF — the fix was incomplete
+
+The staged fault was gone by morning and the install reported `ok`:
+
+```
+02:00  nightly backup RECREATED the folder and wrote a dump into it
+02:20  self-check saw a fresh successful backup in a writable folder -> ok
+```
+
+`selfcheck.py` had been taught not to recreate a vanished destination, but
+`backup.py` has its own `os.makedirs` and **runs first**. The selfcheck fix was
+effectively dead code in the nightly path. Fixed in `backup.py` too — it now
+refuses and records a failed backup (`COMPARISON.md` §39.4).
+
+**Test C restarted from day 1 on 2026-08-31** with the complete fix. Re-staged
+and verified: healthy baseline first, then the folder renamed away →
+`run_backup` **refused**, the folder stayed gone, self-check `fail` with
+`backup_file_missing` + `backup_dir_missing`, `consecutive_fail_days` = 1.
+
+Test B was unaffected — it was healthy both nights and its count continues.
+
+### Day 1 (first attempt) — 2026-08-30, correct at the time
 
 - healthy baseline first: real backup written, self-check `ok`, zero findings
 - folder renamed away → status **`fail`**, findings `backup_file_missing` +
