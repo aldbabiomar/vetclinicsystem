@@ -445,3 +445,38 @@ is B's finish plus three.
 If the soak finds a fault, fix it and **restart the soak** rather than
 counting the days already elapsed — a feature that was noisy on day three and
 then patched has not been shown to be quiet on day three.
+
+---
+
+## 2026-08-31 — a fault found in C, and what it does to A/B/C
+
+**Found by looking at Test C's Dashboard, not by the soak's own signals.**
+The self-check banner was `class="flash"`, which `toast.js` converts to a
+toast and removes from the DOM — so the banner half of the escalation never
+existed on screen, and the `fail` variant auto-dismissed faster than `warn`.
+Separately, the redesigned Settings page never shrank below ~1100px at any
+viewport. Both fixed, both mutation-verified, both apps. `COMPARISON.md` §40.
+
+**Live confirmation on Test C after redeploy:** `.selfcheck-banner` present,
+visible, and still in the DOM at 7 seconds, with no toast — the first time
+this feature has been shown to work on a real failing install.
+
+### What restarts, and what does not
+
+| Test | Decision | Reason |
+|---|---|---|
+| **B** (healthy, 5050) | **continues** — days 1–2 stand, day 3 due Tue 1 Sep | The change is confined to `static/style.css` and `templates/dashboard.html` (verified by diff — only those two files plus a test differ from soak6). Neither can affect what B measures: scheduled self-check status, heartbeat pings, the nightly backup, and the absence of an alert email. On a healthy install no banner is emitted at all. |
+| **C** (broken, 5070) | **restarted from day 1** | C exists to observe the banner-then-modal escalation, and the banner is exactly what changed. `self_check_log` truncated; a fresh run recorded today as **day 1 of 3** (`fail`, three findings). |
+
+This is a judgement call, not the blanket "restart the soak" this log calls
+for further down. The blanket rule is right when a fault could plausibly have
+influenced the observations; here the changed files provably cannot. **If in
+doubt, restart B too — it costs two days, not a release.**
+
+Test B redeployed to `app_v1.8.11-soak7`, built from the committed tree and
+diffed against soak6 to confirm nothing else moved. Test C's copy now matches
+`main` exactly, and a stray debug artifact (`static/_c_dash.html`, left there
+during the port-5060 diagnosis) was removed.
+
+**Earliest release, unchanged by this:** B finishes Tue 1 Sep, C finishes
+Wed 2 Sep. Release Wed 2 Sep at the earliest.
