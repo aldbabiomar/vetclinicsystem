@@ -3017,6 +3017,66 @@ twice. Three checks correctly firing for one root cause reads as repetition.
 Left alone deliberately: changing which findings surface is a behaviour
 change to the feature under soak.
 
+### 40.5 One fault printed twice inside the banner — 2026-08-31
+
+`_check_backup_failing` quotes the last attempt's error so that, standing
+alone, it says *why* backups are failing. When the cause is the backup folder
+itself, that quote is `backup.py`'s dir-gone paragraph and
+`backup_dir_missing` is the same fact in its own words — so the banner listed
+one fault twice, in two wordings, directly above each other.
+
+Fixed with `_drop_duplicated_cause()`, applied after the checks run: when
+`backup_failing` appears alongside `backup_dir_missing` or
+`backup_dir_unwritable`, its message drops the quote and becomes "The last 3
+backup attempts all failed."
+
+**The finding is kept, only the quote goes.** The repeat count is information
+the folder check does not carry — it is what says this is ongoing rather than
+a one-off, and it is what the 3-day modal escalates on. And when
+`backup_failing` stands alone the quote survives untouched, because then it is
+the only explanation the admin gets; dropping it would trade a repetition for
+a mystery. Same reasoning `_check_backup_dir` already used for reporting
+`backup_dir_missing` *or* `backup_dir_unwritable` but never both.
+
+Three mutations verified in both apps: removing the dedupe, making it
+unconditional, and dropping the finding rather than its quote each fail on
+their own message.
+
+**A note on how this was verified.** The first version of the guard failed for
+the wrong reason — it asserted `backup_dir_missing` contained the *quoted*
+error string, when that finding states the same fact in its own wording. The
+test was wrong, not the fix. Worth recording because it is the friendly case
+of §27's lesson: a test that fails for the wrong reason is visible, while one
+that *passes* for the wrong reason is not.
+
+### 40.6 selfcheck.py was never actually identical across the apps — 2026-08-31
+
+Found incidentally while diffing the two files after the §40.5 patch. JO's
+module docstring claimed "This file is currently identical to IQ's, and that
+is a verified result rather than a copy-paste". **It was not true**, and only
+two commits have ever touched either file — so the divergence has been there
+since the feature landed.
+
+`consecutive_fail_days()` differs: IQ keys each day's verdict by `ran_at`
+timestamp and documents why it ends at the most recent *recorded* day rather
+than today (a machine switched off for two days has no rows for those days).
+JO keys by insert order, relying on `ORDER BY id DESC` agreeing with `ran_at`
+order, and its docstring still says "ending today", which its own code does
+not do.
+
+The two agree whenever id order and ran_at order agree, which is always in
+normal operation — **a robustness gap, not a live bug.** IQ's version is the
+better one.
+
+**Not ported, deliberately:** this function decides when the Dashboard modal
+escalates, which is exactly what Test C is soaking, and it is day 1. JO's
+docstring has been corrected to state the divergence and point here. Port it
+once the soak is done.
+
+The wider lesson: a comment asserting parity is not evidence of parity, and
+this one went stale without a single commit touching the function it
+described. `diff` the files.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3066,6 +3126,8 @@ a real bug that shipped** — read those before touching the area they name.
 | 39 | ⚠ **a vanished backup destination reported as healthy**; files never checked | backups, or trusting a log over the filesystem |
 | 40 | ⚠ **the health banner was a self-deleting toast**; Settings never shrank on a phone; IQ's browser tier had never run | monitoring UI, responsive CSS, or before trusting a skip count |
 | 40.4 | the pre-Layer-1 backup alert duplicated the banner; suppressed narrowly | adding a Dashboard warning, or touching `backup_alert_message()` |
+| 40.5 | `backup_failing`'s quoted error duplicated the folder finding | adding a self-check finding, or wording one |
+| 40.6 | ⚠ **`selfcheck.py` was never identical across the apps, despite saying so** | before trusting any in-file parity claim |
 
 ### The four sections a new session should read first
 
