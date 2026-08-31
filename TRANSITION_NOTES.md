@@ -220,22 +220,49 @@ Nothing here is broken; these are decisions or unbuilt work.
    answered and folded into §0.4; build it as written without checking back.
    (The §7 heading is easy to miss — it sits on the same line as a `---` rule,
    so a `grep '^## 7'` finds nothing and the section looks absent.)
-2. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
+2. **Port IQ's `consecutive_fail_days()` into JO — AFTER the soak.**
+   Agreed 2026-08-31. The two versions have differed since the feature
+   landed, despite JO's docstring claiming the file was identical to IQ's
+   (`COMPARISON.md` §40.6). IQ keys each day's verdict by `ran_at`; JO keys
+   by insert order, relying on `ORDER BY id DESC` agreeing with `ran_at`
+   order. A robustness gap, not a live bug — which is why it waits: this
+   function decides when the Dashboard modal escalates, and that is exactly
+   what the soak's Test C measures.
+
+   **The part that is easy to get wrong.** The two versions agree in every
+   ordinary case, so a test written the obvious way passes against BOTH and
+   proves nothing — the §7.3 failure mode this project keeps hitting. The
+   port is only verified by a case where **id order and `ran_at` order
+   disagree**: insert a row with a LOWER id but a LATER `ran_at` for the same
+   day (e.g. write yesterday's 'fail' row after today's 'ok' row, or set
+   `ran_at` explicitly on two rows inserted in the opposite order), then
+   assert the day's verdict follows the timestamp, not the id. Mutation-check
+   it by reverting JO to `setdefault` and confirming that test — and only
+   that test — fails.
+
+   Also fix JO's `consecutive_fail_days` docstring, which says "ending today"
+   while the code ends at the most recent *recorded* day, and restore the
+   module docstring's parity claim once the two files genuinely match.
+
+3. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN.
-3. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
-4. **`app.py` is ~4,000 statements in one file**, ~1,340 uncovered. Splitting
+4. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
+5. **`app.py` is ~4,000 statements in one file**, ~1,340 uncovered. Splitting
    it is worth doing only now that tests exist to catch what a split breaks.
-5. **No automated contrast check.** Deliberately removed after two attempts
+6. **No automated contrast check.** Deliberately removed after two attempts
    produced 117 then 142 false positives; the reasoning is recorded in
    `tests/test_browser.py`. A future attempt should sample rendered pixels,
    not parse stylesheets.
-6. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
+7. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
    `COMPARISON.md` §6) — the plan is retained as a design record. Do not
    re-implement it.
-7. **The workspace itself is not version-controlled.** `CLAUDE.md`,
-   `COMPARISON.md`, `RELEASE_WORKFLOW.md`, this file and `scripts/` have no
-   history, no backup and no diff. `COMPARISON.md` alone is ~1,950 lines.
-   Deciding whether to `git init` it is still outstanding.
+8. **The workspace has git history but NO REMOTE.** Corrected 2026-08-31 —
+   the first half of this item was done on 2026-08-26: `CLAUDE.md`,
+   `COMPARISON.md`, `RELEASE_WORKFLOW.md`, this file and `scripts/` are now
+   version-controlled (`webapps/` is excluded via `.gitignore`). What is
+   still outstanding is a **remote**: every one of these documents, now
+   ~3,000 lines in `COMPARISON.md` alone, exists on this one disk and
+   nowhere else. A `git init` is not a backup.
 
 ---
 

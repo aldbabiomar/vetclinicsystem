@@ -442,6 +442,17 @@ modal — so C is not a morning's work, it is another three days after B ends.
 Either run C on a second install in parallel, or accept that the release date
 is B's finish plus three.
 
+### Queued for immediately after the soak, before the release
+
+**Port IQ's `consecutive_fail_days()` into JO** (agreed 2026-08-31,
+`COMPARISON.md` §40.6, `TRANSITION_NOTES.md` §4 item 2). It is held until the
+soak ends because that function is what decides when Test C's modal
+escalates — changing it mid-soak would invalidate the thing being measured.
+
+Verifying the port needs a case where **id order and `ran_at` order
+disagree**; written the obvious way the test passes against both versions and
+proves nothing.
+
 If the soak finds a fault, fix it and **restart the soak** rather than
 counting the days already elapsed — a feature that was noisy on day three and
 then patched has not been shown to be quiet on day three.
