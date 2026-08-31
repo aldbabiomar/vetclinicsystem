@@ -2986,6 +2986,37 @@ collected". Confirm a tier is alive by collecting it
 (`pytest tests/test_browser.py --collect-only`), not by reading the skip
 count.
 
+### 40.4 The same backup failure, told twice, in two shapes — 2026-08-31
+
+Once the banner in §40.1 actually stayed on screen, it exposed a second
+problem the toast had been hiding: `logic.backup_alert_message()` predates
+Layer 1 and reports the same four situations the `backup_*` findings do
+(never run / failed / stranded / stale), in less detail. Both fired at once,
+so the admin got the news in the banner *and* as a corner toast, in different
+wordings.
+
+Fixed by suppressing the older alert when the banner already carries a
+`backup_*` finding. **Deliberately narrow**, with two controls:
+
+- a banner about something else (low disk, rolled-back update) must **not**
+  silence it — otherwise the suppression is just deletion with extra steps;
+- with the self-check switched off (`selfcheck_enabled=0`) it must still
+  appear, because then it is the only backup warning the app has left.
+
+The two also disagree by design: the self-check's staleness threshold is
+configurable (`selfcheck_backup_max_age_days`), this one is fixed at 2 days,
+so they are not interchangeable in the general case.
+
+Mutation-verified in both apps — reverting the fix, and widening it to an
+unconditional suppression, each fail on their own message.
+
+**Still open, not fixed:** within the banner, `backup_failing` quotes the
+backup error verbatim, and when the cause is a vanished folder that error
+*is* the `backup_dir_missing` message — so bullets 2 and 3 say the same thing
+twice. Three checks correctly firing for one root cause reads as repetition.
+Left alone deliberately: changing which findings surface is a behaviour
+change to the feature under soak.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3034,6 +3065,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 38 | one 16px card-spacing unit; the drift was app-wide and identical in both | adding a card, or any spacing question |
 | 39 | ⚠ **a vanished backup destination reported as healthy**; files never checked | backups, or trusting a log over the filesystem |
 | 40 | ⚠ **the health banner was a self-deleting toast**; Settings never shrank on a phone; IQ's browser tier had never run | monitoring UI, responsive CSS, or before trusting a skip count |
+| 40.4 | the pre-Layer-1 backup alert duplicated the banner; suppressed narrowly | adding a Dashboard warning, or touching `backup_alert_message()` |
 
 ### The four sections a new session should read first
 
