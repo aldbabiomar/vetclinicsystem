@@ -491,3 +491,67 @@ during the port-5060 diagnosis) was removed.
 
 **Earliest release, unchanged by this:** B finishes Tue 1 Sep, C finishes
 Wed 2 Sep. Release Wed 2 Sep at the earliest.
+
+---
+
+## 2026-09-01 — Test B PASSED (3 clean days). Test C day 2, and a finding.
+
+### Test B — three clean days, verified against the database, not just reported
+
+| Day | Nightly backup | Self-check | Heartbeat |
+|---|---|---|---|
+| 1 — 2026-08-30 | 03:32:55 success | ok, 0 findings | reported |
+| 2 — 2026-08-31 | 03:14:00 success | 03:34 ok, 0 findings | reported |
+| 3 — 2026-09-01 | 04:12:32 success | 04:12:33 ok, 0 findings | reported |
+
+No Dashboard warning, no alert email, on any day. **Test B is complete.**
+
+Two things checked rather than assumed:
+
+- **Backups ran late on 2 of 3 days** (03:32 and 04:12 against a configured
+  03:14). That is the catch-up path doing its job after the machine slept
+  through the scheduled time, not drift. On day 2 the machine was awake at
+  03:14, the backup ran exactly on time, and the self-check followed at 03:34
+  — the intended 20-minute offset, confirming the offset works and the
+  1-second gap on day 3 is specifically the catch-up running both back to back.
+- **Days 1–3 span three redeploys** (soak7/8/9). Every change in them was to
+  `style.css`, `dashboard.html` and `selfcheck.py`'s message wording, verified
+  by diffing each release against the last. None touches the scheduler, the
+  heartbeat or `backup.py`, so none can affect what Test B measures.
+
+### Test C — day 2 of 3, on track
+
+`consecutive_fail_days = 2` (2026-08-31, 2026-09-01), 3 findings each day,
+status `fail`. The modal is expected on day 3, tomorrow. `reported=NO` on
+every row is correct: Test C has no heartbeat URL configured, and the
+heartbeat is a no-op without one.
+
+### ⚠ FINDING — a failing backup retries every 5 minutes, forever
+
+Test C logged **13 nightly backup attempts on 2026-09-01**, spaced exactly
+`TICK_MINUTES` apart (02:07:11, 02:12:11, 02:17:11, 02:22:11, 02:27:11 …).
+Test B logged one per day.
+
+Cause: `_backup_catchup_due()` asks *"has a backup **succeeded** since today's
+scheduled time?"* A destination that is permanently broken never satisfies
+that, so the 5-minute tick retries for as long as the fault lasts. Compare
+`_self_check_due()`, which reads the last row **regardless of status** — which
+is why Test C shows exactly one self-check per day and thirteen backups. The
+asymmetry looks unintended rather than designed.
+
+**Impact.** `backup_log` has no retention (`_apply_retention` prunes backup
+*files* on disk, not rows), so a machine left on accumulates ~288 rows a day
+while a drive is unplugged — and the Settings backup history becomes
+unreadable exactly when an admin most needs to read it. The missing-folder
+case exits before `pg_dump` so it is cheap, but a failure occurring later in
+the process would run a full dump every five minutes.
+
+Not a data-loss risk. Nothing is written to the wrong place, and the
+`backup_failing` finding stays correct.
+
+**This is Test C earning its place.** Test B structurally cannot surface it:
+the retry only happens when backups fail.
+
+**Decision pending** (2026-09-01): fix before the release, or ship and fix
+after. Test B's three clean days stand either way — the retry cannot occur on
+a healthy install.
