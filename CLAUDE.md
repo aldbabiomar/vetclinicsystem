@@ -246,10 +246,36 @@ growing since. **As measured 2026-09-01: IQ 490, JO 471, zero skips, 22 test
 files each.** They have found well over a dozen real bugs, several of which
 had shipped.
 
-**Re-measure rather than quoting those numbers** — they have been restated
-three times in a week and every previous figure in this file was stale within
-days. The ~68% line-coverage figure dates from 2026-08-26 and has **not** been
-re-measured since; treat it as unverified.
+**Coverage, measured 2026-09-01** (the previous "roughly 68%" was undated and
+matched nothing measurable):
+
+| | IQ | JO |
+|---|---|---|
+| **Application code** — the honest number | **61%** | **61%** |
+| Including the test files themselves | 74% | 74% |
+
+Quote the first row. The second counts the tests measuring themselves, which
+is how a suite flatters its own coverage.
+
+Three modules sit at **0%** and drag the total by roughly five points:
+`setup.py`, `import_seed.py` and `reconcile_attachments.py`. They are
+entry-point scripts that no in-process test imports — the number is honest,
+but "0% covered" and "untested" are not the same claim for these three.
+
+Where the real gaps are: **`updater.py` 19%** (verified end-to-end on macOS
+only — `TRANSITION_NOTES.md` §4), `attachments.py` 27%, `backup.py` 42%,
+`desktop_shortcut.py` 42%, and **`app.py` 66%** with ~1,370 statements
+uncovered. The monitoring modules added this cycle are the best-covered code
+in either app: `selfcheck.py` 87-88%, `selfverify.py` 83%, `heartbeat.py`
+74-76%.
+
+**Re-measure rather than quoting these** — every previous figure in this file
+was stale within days:
+
+```bash
+TEST_DATABASE_URL=... venv/bin/python -m pytest tests/ -q --cov=. --cov-report=
+venv/bin/python -m coverage report --omit="tests/*,venv/*" --sort=cover
+```
 
 ### 7.1 Three tiers, by what they need
 

@@ -270,7 +270,8 @@ Nothing here is broken; these are decisions or unbuilt work.
 4. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN.
 5. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
-6. **`app.py` is ~4,000 statements in one file**, ~1,340 uncovered. Splitting
+6. **`app.py` is ~4,000 statements in one file**, 1,371 (IQ) / 1,360 (JO)
+   uncovered as measured 2026-09-01 — the file itself sits at 66% in both. Splitting
    it is worth doing only now that tests exist to catch what a split breaks.
 7. **No automated contrast check.** Deliberately removed after two attempts
    produced 117 then 142 false positives; the reasoning is recorded in
