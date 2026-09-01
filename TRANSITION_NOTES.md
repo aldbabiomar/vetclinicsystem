@@ -220,7 +220,30 @@ Nothing here is broken; these are decisions or unbuilt work.
    answered and folded into §0.4; build it as written without checking back.
    (The §7 heading is easy to miss — it sits on the same line as a `---` rule,
    so a `grep '^## 7'` finds nothing and the section looks absent.)
-2. **Port IQ's `consecutive_fail_days()` into JO — AFTER the soak.**
+2. **Bound the backup retry — FIRST thing after the release.** Decided
+   2026-09-01: found by Test C on the last day of the soak, deferred rather
+   than fixed, because it only bites an install whose backup destination is
+   already broken and loudly reported (`SOAK_LOG.md`, 2026-09-01).
+
+   `scheduler._backup_catchup_due()` asks whether a backup **succeeded**
+   since today's scheduled time. A permanently broken destination never
+   satisfies that, so the 5-minute tick retries forever — Test C logged 13
+   attempts in one day against Test B's 1. `_self_check_due()` asks whether
+   one **ran**, which is why the self-check does not do this; the asymmetry
+   looks unintended.
+
+   Two parts: bound the retry (at most one attempt per hour reads best — it
+   still recovers a transient fault quickly, and caps the day at ~24), and
+   give `backup_log` row retention, which it has none of today
+   (`_apply_retention` prunes backup *files* on disk, not rows).
+
+   **Test it on the failing path, and mutation-check on BOTH paths.** A guard
+   written only against a healthy install passes whatever the retry logic
+   does, because a healthy install backs up once regardless — this is exactly
+   the §7.3 trap, and it is why the bug survived until an install that fails
+   every time existed to show it.
+
+3. **Port IQ's `consecutive_fail_days()` into JO — AFTER the soak.**
    Agreed 2026-08-31. The two versions have differed since the feature
    landed, despite JO's docstring claiming the file was identical to IQ's
    (`COMPARISON.md` §40.6). IQ keys each day's verdict by `ran_at`; JO keys
@@ -244,19 +267,19 @@ Nothing here is broken; these are decisions or unbuilt work.
    while the code ends at the most recent *recorded* day, and restore the
    module docstring's parity claim once the two files genuinely match.
 
-3. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
+4. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN.
-4. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
-5. **`app.py` is ~4,000 statements in one file**, ~1,340 uncovered. Splitting
+5. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
+6. **`app.py` is ~4,000 statements in one file**, ~1,340 uncovered. Splitting
    it is worth doing only now that tests exist to catch what a split breaks.
-6. **No automated contrast check.** Deliberately removed after two attempts
+7. **No automated contrast check.** Deliberately removed after two attempts
    produced 117 then 142 false positives; the reasoning is recorded in
    `tests/test_browser.py`. A future attempt should sample rendered pixels,
    not parse stylesheets.
-7. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
+8. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
    `COMPARISON.md` §6) — the plan is retained as a design record. Do not
    re-implement it.
-8. **The workspace has git history but NO REMOTE.** Corrected 2026-08-31 —
+9. **The workspace has git history but NO REMOTE.** Corrected 2026-08-31 —
    the first half of this item was done on 2026-08-26: `CLAUDE.md`,
    `COMPARISON.md`, `RELEASE_WORKFLOW.md`, this file and `scripts/` are now
    version-controlled (`webapps/` is excluded via `.gitignore`). What is

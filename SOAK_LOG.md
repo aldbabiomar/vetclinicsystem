@@ -552,6 +552,13 @@ Not a data-loss risk. Nothing is written to the wrong place, and the
 **This is Test C earning its place.** Test B structurally cannot surface it:
 the retry only happens when backups fail.
 
-**Decision pending** (2026-09-01): fix before the release, or ship and fix
-after. Test B's three clean days stand either way — the retry cannot occur on
-a healthy install.
+**DECIDED 2026-09-01: ship on schedule, fix straight after.** The flaw only
+bites an install whose backup destination is already broken — a state the
+Dashboard now reports loudly — so it degrades an already-degraded install
+rather than a healthy one. Queued as `TRANSITION_NOTES.md` §4 item 2, ahead
+of the `consecutive_fail_days` port.
+
+Neither test restarts. Test B's three clean days stand: the retry cannot
+occur on a healthy install. Test C continues to day 3 — the finding is in
+`backup_log` volume, not in `self_check_log`, which is what the modal
+escalates on.
