@@ -218,6 +218,16 @@ Both apps share: clinic name/location settings, numeric thresholds (audit-overdu
 
 ---
 
+**2026-09-01 — this section was right, and `CLAUDE.md` §1 was not.** Every
+correction above was recorded here on 2026-08-23. `CLAUDE.md` §1 nevertheless
+went on listing custom role creation, backup restore, the folder browser and
+the JS framework as IQ-only until it was rewritten on 2026-09-01, and
+`CLAUDE.md` §2 step 5 still claimed JO had 3 fixed roles. Nobody re-checked;
+the claims simply aged. Noted here because `CLAUDE.md` loads automatically
+every session and this file does not, so the stale copy was the one being
+read first. `CLAUDE.md` §1 now says that when the two disagree, this file
+wins.
+
 ## 4. Known still-open items (neither app, as of this pass)
 
 > **Status 2026-08-24: everything originally listed here is closed** — all

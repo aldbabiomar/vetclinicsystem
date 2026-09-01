@@ -52,24 +52,61 @@ as proof that an area is sound.
 ## 1. These are siblings, not twins
 
 VetClinicSystem_IQ (Iraq) and VetClinicSystem_JO (Jordan) share a common
-origin — JO was forked from IQ — but they've diverged on purpose in real,
-load-bearing ways: different currency model (`float`/IQD-whole-numbers vs.
-`Decimal`/JOD-3-decimal), different phone-number format, different frontend
-conventions (IQ has a small JS framework — toasts, styled dialogs, a
-background-job progress UI; JO uses native browser `confirm()`/`alert()`
-and renders everything synchronously), and JO is missing several features
-IQ has (custom role creation, backup restore, folder browser, multi-palette
-theming). IQ is the more tested, more refined baseline; JO is not just "IQ
-with a different clinic name."
+origin — JO was forked from IQ — and they have diverged on purpose in some
+real, load-bearing ways. **The list below was re-verified against both trees
+on 2026-09-01; the previous version of this section had drifted badly and was
+asserting four things that are no longer true.**
 
-**Both apps will keep changing concurrently from now on** — features added
-or bugs fixed in one don't automatically apply to the other, and a fix that
-looks identical on the surface can be structurally wrong once it crosses
-into the other app's actual code (a `float` op that's safe in IQ can be a
-`TypeError` or a silent precision bug in JO; a UI pattern from one has no
-equivalent JS framework in the other). The goal every time is **a fix or
-feature tailored to each app's own code**, not one implementation
-copy-pasted into both.
+### What actually differs
+
+| | IQ | JO |
+|---|---|---|
+| **Money** | `DOUBLE PRECISION` / `float`, whole IQD, 250-note rounding | `NUMERIC(12,3)` / `Decimal`, 3-decimal JOD |
+| **Phone** | country code `964`, 10 local digits | `962`, 9 local digits — same algorithm, different constants |
+| **Theming** | multiple palettes (~19 references in `app.py`) | one palette, no palette switching |
+
+**The money divergence is the one that matters most.** IQ has no `Decimal`
+import anywhere; JO uses it in four modules. A `float` op that is safe in IQ
+is a `TypeError` or a silent precision bug in JO, and vice versa. Read
+`COMPARISON.md` §1.1 before touching anything money-adjacent.
+
+### What this section used to claim, and is WRONG (corrected 2026-09-01)
+
+Each of these was stated here as settled fact and is not:
+
+- ~~"JO uses native browser `confirm()`/`alert()` and renders everything
+  synchronously; IQ has a small JS framework"~~ — **both apps ship
+  `toast.js`, `progress.js` and `ui.js`**, with identical numbers of
+  styled-dialog calls and identical numbers of native `confirm(`/`alert(`
+  uses in templates. A UI pattern from one app usually *does* have an
+  equivalent in the other; check rather than assuming it does not.
+- ~~"JO is missing custom role creation"~~ — **both** have
+  `/admin/roles/new`, `/edit` and `/delete` behind `manage_users_roles`,
+  reachable from `admin_users.html`. Both support arbitrary custom roles.
+- ~~"JO is missing backup restore"~~ — **both** have restore routes and a
+  "Restore From Backup" card in Settings.
+- ~~"JO is missing the folder browser"~~ — **both** have it.
+
+IQ is still the more tested baseline, and JO is still not "IQ with a
+different clinic name" — but the gap is much narrower than this file claimed.
+
+**How this went wrong is worth knowing, because it will happen again.**
+`COMPARISON.md` §3 had all four corrections recorded on **2026-08-23** — the
+JS framework, custom roles, restore and the folder browser all crossed into
+JO that day, and §3 says so. This file went on asserting the opposite for
+over a week. §2 step 1 tells you to re-read `COMPARISON.md` first; that advice
+was right, and the file it points at was right. **When this file and
+`COMPARISON.md` disagree, `COMPARISON.md` wins** — it gets appended to as work
+lands, and this one only changes when someone remembers to change it. Treat
+the table above as evidence with a date on it, not a standing truth.
+
+**Both apps will keep changing concurrently** — a feature added or a bug
+fixed in one does not automatically apply to the other, and a fix that looks
+identical on the surface can still be structurally wrong once it crosses into
+the other app's actual code (money types above being the clearest case). The
+goal every time is **a fix or feature tailored to each app's own code**, not
+one implementation copy-pasted into both — but "tailored" now means checking
+the target code, not assuming a divergence this file once listed.
 
 ## 2. Before porting anything — the checklist
 
@@ -96,10 +133,12 @@ an area §1 calls out as diverged):
    (§5), before assuming it reproduces — don't fix from inspection alone
    just because it's "the same bug" in the other app.
 5. **After fixing, re-verify live**, including a no-regression pass against
-   each app's actual role/permission model (JO has only 3 fixed roles with
-   broad defaults; IQ supports arbitrary custom roles — a fix that's safe
-   for JO's roles isn't automatically safe for an IQ custom role with a
-   narrower permission set).
+   each app's actual role/permission model. **Corrected 2026-09-01: this
+   step used to say JO had only 3 fixed roles while IQ supported custom
+   ones. Both support arbitrary custom roles** (§1), so the warning applies
+   equally in both directions — a fix that is safe for the seeded roles is
+   not automatically safe for a custom role with a narrower permission set,
+   in *either* app.
 6. **Tear down the test environment** when done (§5) — never leave a
    throwaway container/venv running, and never touch either app's real dev
    database while testing.
