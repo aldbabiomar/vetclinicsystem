@@ -5,6 +5,21 @@ rules below are visible to **any** Claude Code session working here,
 regardless of which account started it — read this file before touching
 either app's code.
 
+> **Last audited against the actual trees: 2026-09-01.** That audit found ten
+> stale claims. Four were in §1, asserting divergences that had not existed
+> since 2026-08-23 (with §2 step 5 repeating one of them). The other six: the
+> layout block omitted `SOAK_LOG.md` — the gate on the next release — and two
+> other root files; it called the monitoring feature "unbuilt" when all four
+> layers were built; the audits table had a wrong line count; §7's test
+> numbers and file count were badly understated; §7.1's tier table was
+> missing six test files; and §6 said the restore drill "currently" passes
+> without saying when it last ran. This file loads automatically every session,
+> which makes a wrong statement here more expensive than one anywhere else —
+> and nothing re-checks it on its own. **Where this file and `COMPARISON.md`
+> disagree, `COMPARISON.md` wins**, and where either disagrees with the code,
+> the code wins. Re-derive counts, versions and file lists rather than
+> quoting them.
+
 ## Layout
 
 ```
@@ -13,7 +28,10 @@ VetClinicSystem/
 ├── COMPARISON.md          ← dated, structured diff between the two apps — re-read before porting anything
 ├── RELEASE_WORKFLOW.md    ← the release process, see §3
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
-├── features/              ← feature plans: CLEANUP (built), MONITORING (unbuilt)
+├── SOAK_LOG.md            ← the monitoring pre-release soak — THE gate on the next release, §7
+├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
+├── RELEASE_DRAFT_2026-09-02.md           ← drafted CHANGELOG entries awaiting the soak
+├── features/              ← feature plans: CLEANUP (built), MONITORING (BUILT, unreleased)
 ├── audits/                ← three standing audits, see below
 ├── scripts/
 │   ├── isolated_test_env.sh   ← throwaway Postgres + venv for either app, see §5
@@ -38,7 +56,7 @@ find them except by listing the directory:
 |---|---|---|
 | `ERROR_500_AUDIT.md` (1,036 lines) | every action that could raise an unhandled exception | findings applied to both apps, 2026-08-24 |
 | `ORPHANED_RECORDS_AUDIT.md` (1,414 lines) | every way a row could be left with no reachable parent | findings applied to both apps, 2026-08-24 |
-| `IQ_JO_DIVERGENCE_AUDIT.md` (551 lines) | phased line-by-line diff of the two trees | **all closed** — 7.6, the last one, closed 2026-08-26 (`COMPARISON.md` §28) |
+| `IQ_JO_DIVERGENCE_AUDIT.md` (563 lines) | phased line-by-line diff of the two trees | **all closed** — 7.6, the last one, closed 2026-08-26 (`COMPARISON.md` §28) |
 
 They are the reasoning behind a lot of existing defensive code — a guard that
 looks unnecessary is usually one of these findings. Search them before
@@ -202,7 +220,7 @@ app's real database.
 
 With no path it picks the newest `.dump` it can find for that app —
 `~/Downloads/vetclinicsystem{iq,jo}-data/backups/` and `~/Desktop/backups/`.
-Both apps have a real backup there and both currently pass.
+Both apps have a real backup there and both passed **when last run, 2026-08-26** (`COMPARISON.md` §26). "Currently pass" is not a property a file can keep — **next run due ~2026-09-26.**
 
 **Why it exists:** both apps back up diligently — nightly, before every
 in-app update, on shutdown — and none of that is worth anything until a
@@ -218,21 +236,32 @@ the drill. A check that silently skips is treated as a failure for the
 same reason.
 
 Run it **once a month**, and any time backup behaviour changes. Record
-the result; a passing drill is only evidence about the backup it read.
+the result *with its date*; a passing drill is only evidence about the backup
+it read, on the day it read it.
 
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
-Both apps went from 5-6 tests to **370+ (IQ) / 350+ (JO)** on 2026-08-25/26,
-covering roughly 68% of the code. Sixteen test files each. They found eleven
-real bugs, several of which had shipped.
+Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
+growing since. **As measured 2026-09-01: IQ 490, JO 471, zero skips, 22 test
+files each.** They have found well over a dozen real bugs, several of which
+had shipped.
+
+**Re-measure rather than quoting those numbers** — they have been restated
+three times in a week and every previous figure in this file was stale within
+days. The ~68% line-coverage figure dates from 2026-08-26 and has **not** been
+re-measured since; treat it as unverified.
 
 ### 7.1 Three tiers, by what they need
 
 | Tier | Files | Needs | Runtime |
 |---|---|---|---|
-| **Pure** | `test_money.py`, `test_frontend.py`, `test_desktop_shortcut_target.py`, `test_migrations.py`'s static guard | nothing | < 1s |
-| **Database** | `test_money_routes.py`, `test_crud_routes.py`, `test_workflow_routes.py`, `test_admin_routes.py`, `test_supplier_routes.py`, `test_edit_routes.py`, `test_exports.py`, `test_permissions.py`, `test_routes_smoke.py`, `test_backup.py`, `test_migrations.py`, `test_concurrency.py` | a throwaway Postgres | ~12s |
-| **Browser** | `test_browser.py` | Playwright + a running app | ~2min |
+| **Pure** | `test_money.py`, `test_frontend.py`, `test_desktop_shortcut_target.py`, `test_no_raw_form_dates.py`, `test_autostart_windows.py`, `test_migrations.py`'s static guard | nothing | < 1s |
+| **Database** | `test_money_routes.py`, `test_crud_routes.py`, `test_workflow_routes.py`, `test_admin_routes.py`, `test_supplier_routes.py`, `test_edit_routes.py`, `test_exports.py`, `test_permissions.py`, `test_routes_smoke.py`, `test_backup.py`, `test_migrations.py`, `test_concurrency.py`, `test_selfcheck.py`, `test_selfverify.py`, `test_heartbeat.py`, `test_scheduler_catchup.py` | a throwaway Postgres | ~15s |
+| **Browser** | `test_browser.py` (13 tests) | Playwright + a running app | ~2min |
+
+*(The six monitoring-era files were added on 2026-08-26/27 and were missing
+from this table until 2026-09-01 — another reason to trust `ls tests/` over
+this list.)*
 
 Every tier **skips cleanly** when its requirement is absent, so
 `venv/bin/python -m pytest tests/ -q` always works and never fails for
