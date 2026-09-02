@@ -3087,6 +3087,75 @@ The wider lesson: a comment asserting parity is not evidence of parity, and
 this one went stale without a single commit touching the function it
 described. `diff` the files.
 
+## 41. ⚠ A failing backup erased the evidence that its folder was real — 2026-09-02
+
+The soak's Test C reported a vanished backup destination correctly for about
+100 minutes, then **repaired itself**: the app recreated the missing folder,
+the next backup "succeeded" into the fabricated local copy, and the Dashboard
+went green while the real destination stayed gone. Precisely the failure §39's
+guard exists to prevent, reintroduced through a different door.
+
+### Two independent causes
+
+**1. Two implementations of `_backups_written_here`, one of them fragile.**
+
+| | Query | Survives a failure storm? |
+|---|---|---|
+| `backup.py` | `WHERE status='success' … ORDER BY id DESC LIMIT 50` | **yes** |
+| `selfcheck.py` | scanned `recent_backups(db, limit=20)` — last 20 rows of **any** status | **no** |
+
+A broken destination produces failures, which pushed the last success out of
+the 20-row window. `selfcheck` then concluded the folder had never been an
+established destination and took its `os.makedirs` branch. The staged install
+had **70 failure rows behind its last success**; the folder was recreated at
+03:07:22, in the same second as that day's self-check.
+
+`selfcheck`'s copy is deleted. Both modules now share `backup.py`'s.
+
+**2. An unbounded retry supplied the failures.** `_backup_catchup_due` asks
+whether a backup *succeeded* since the scheduled time, so a permanently broken
+destination never satisfied it and the 5-minute tick retried forever — ~288
+rows a day, enough to exhaust a 20-row window in about 100 minutes. Bounded to
+one attempt per hour, which still recovers a transient fault quickly.
+
+Either fix alone closes the hole. Both are in, because they are separate
+defects and the first is not obviously the last of its kind.
+
+### What this cost, and why it is recorded at length
+
+On 2026-09-01 the retry was found and **deferred as cosmetic log noise**, on
+the reasoning that it "only bites an install whose backup destination is
+already broken and loudly reported." That was wrong in the way that matters:
+**it silences the report.** The release decision rested on that sentence.
+
+The lesson is not "retry storms are bad". It is that *"this only affects an
+already-degraded install"* is not a severity argument — the monitoring
+feature's entire job is to be correct on a degraded install. A defect in the
+degraded path is a defect in the product, not in an edge case.
+
+### An existing test was asserting the removed behaviour
+
+`test_a_failed_backup_does_not_count_as_todays_run` failed against fix 2. Its
+docstring said "a failed attempt **an hour ago**" while its code used **one
+minute** — drifted apart at some point, and the code half was pinning exactly
+the retry cadence being removed. Rewritten to test the property it names (a
+failure is not mistaken for a success), with the throttle covered separately.
+A test whose docstring and arrangement disagree is worth re-reading whenever
+it blocks a deliberate change.
+
+### Verified live, not only in tests
+
+Re-staged on the real Test C install with **71 failure rows** behind the last
+success — more than the run that broke it — the check now reports
+`backup_dir_missing` and leaves the folder absent. `_backup_catchup_due`
+returns `False` 17 minutes after a failed attempt where it previously returned
+`True` within five.
+
+*(Unrelated but worth knowing: Test C would not restart during this work
+because a Homebrew upgrade from Python 3.14.6 to 3.14.7 left every venv's
+`bin/python3.14` symlink dangling. Repointing the symlink fixed it — the 3.14
+ABI is stable across patch releases, so installed packages survive.)*
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3138,6 +3207,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 40.4 | the pre-Layer-1 backup alert duplicated the banner; suppressed narrowly | adding a Dashboard warning, or touching `backup_alert_message()` |
 | 40.5 | `backup_failing`'s quoted error duplicated the folder finding | adding a self-check finding, or wording one |
 | 40.6 | ⚠ **`selfcheck.py` was never identical across the apps, despite saying so** | before trusting any in-file parity claim |
+| 41 | ⚠ **a failing backup erased the evidence its folder was real, and the app fabricated a new one** | backups, the self-check, or judging the severity of a degraded-path bug |
 
 ### The four sections a new session should read first
 
