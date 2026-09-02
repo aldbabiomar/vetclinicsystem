@@ -3156,6 +3156,62 @@ because a Homebrew upgrade from Python 3.14.6 to 3.14.7 left every venv's
 `bin/python3.14` symlink dangling. Repointing the symlink fixed it — the 3.14
 ABI is stable across patch releases, so installed packages survive.)*
 
+## 42. A Python upgrade could stop either app starting, silently — 2026-09-02
+
+Found while cleaning up after the release. `brew upgrade` deletes the
+versioned Cellar directory a venv was built against, so
+`venv/bin/python3` dangles. The consequence is not a 500 and not a crash
+report: **the app never starts at all.**
+
+The supervisor launcher makes it worse. It respawns the app whenever it
+exits — right for a crash, wrong for a missing interpreter — so it loops
+`exited (code 127) — restarting in 2 seconds` **forever**, with nothing on
+screen naming the cause. Nightly backups stop with it. The only thing that
+notices is the heartbeat going quiet, which alerts at ~60 hours.
+
+Both of the JO install's releases were already in this state and could not
+have restarted.
+
+### `--copies` does not fix it, which is the counterintuitive part
+
+The obvious fix is `python3 -m venv --copies`, so the interpreter is a real
+file rather than a symlink. It does not work. `otool -L` on both variants:
+
+```
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/Python
+```
+
+An absolute, versioned dylib path with no `@rpath` indirection. Copying the
+executable does not copy the framework it loads, so a `--copies` venv breaks
+too — and looks perfectly intact on disk while doing it.
+
+### What was actually done
+
+1. **The launcher probes its interpreter before starting, and rebuilds the
+   venv if it will not run** (both macOS and Windows templates). Rebuilding is
+   safe — a venv holds only dependencies — and covers every variant: patch
+   upgrade, minor upgrade, uninstall, moved install. A rebuild that fails
+   exits with an explanation instead of falling back into the loop.
+2. **`setup.py` builds release venvs from `sys._base_executable`, not
+   `sys.executable`.** Inside a venv the latter is that venv's own python, so
+   each release inherited whatever path its parent resolved to — which is how
+   a versioned Cellar path propagated through all nine soak builds. The base
+   interpreter resolves through Homebrew's stable `opt` symlink, which `brew`
+   repoints on upgrade.
+
+(2) narrows the window; (1) closes it. Only (1) survives an uninstall.
+
+`tests/test_launcher_preflight.py` covers both, including a real rebuild of a
+deliberately dangled venv against an empty requirements file so it stays
+offline, plus a control asserting a healthy venv is left alone — without that,
+a preflight that rebuilt unconditionally would pass while adding a minute to
+every startup. Three mutations verified.
+
+**Worth knowing:** `/opt/homebrew/bin/python3` symlinks straight into the
+Cellar, not through `opt`, so landing on the fragile path is easy. Check a
+venv with `readlink venv/bin/python3.14`: an `/opt/homebrew/opt/...` target
+survives a patch upgrade, a `/opt/homebrew/Cellar/...` one does not.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3208,6 +3264,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 40.5 | `backup_failing`'s quoted error duplicated the folder finding | adding a self-check finding, or wording one |
 | 40.6 | ⚠ **`selfcheck.py` was never identical across the apps, despite saying so** | before trusting any in-file parity claim |
 | 41 | ⚠ **a failing backup erased the evidence its folder was real, and the app fabricated a new one** | backups, the self-check, or judging the severity of a degraded-path bug |
+| 42 | ⚠ **a Python upgrade could stop either app starting, forever and silently** | venvs, the launcher, or deploying to a machine someone else updates |
 
 ### The four sections a new session should read first
 
