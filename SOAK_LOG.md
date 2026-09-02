@@ -628,3 +628,35 @@ It was characterised as log noise that "only bites an install whose backup
 destination is already broken and loudly reported." It does not just bite that
 install: **it silences the report.** Recorded here rather than quietly
 amended, because the decision was made on the strength of that sentence.
+
+---
+
+## 2026-09-02 — SOAK CLOSED. Released as IQ v1.11.0 / JO v1.9.0.
+
+**Test A** absence detection, **Test B** three clean days on a healthy install,
+**Test C** the three-day modal on a broken one — all three observed, none
+inferred. Exit criteria met.
+
+Both fixes from §41 went in **before** the release rather than after: the
+2026-09-01 decision to defer was reversed once Test C showed the retry storm
+could return a broken install to green. Verified live on Test C with 71
+failure rows behind the last success, then shipped.
+
+Released per `RELEASE_WORKFLOW.md` §6, all nine steps: suites green
+(IQ 495 / JO 476, zero skips), schema additive-only, `VERSION` + `CHANGELOG`
+in one commit, annotated tags `v1.11.0` / `v1.9.0`, GitHub Releases published
+from the CHANGELOG entries, and `releases/latest` verified to return the exact
+tag with a tarball attached.
+
+### What the soak was worth
+
+It found five real bugs that inspection and a green test suite had both
+missed, across `COMPARISON.md` §32, §33, §37, §39 and §41 — scheduled jobs
+silently skipped, a frozen monotonic clock, a tick/cron race, a vanished
+backup destination reported as healthy, and finally a failing backup erasing
+the evidence its folder was ever real. **Three of the five were found only
+because an install was left deliberately broken and watched for days.** None
+would have surfaced from reading the code.
+
+The last one landed on the final day, which is the argument against
+shortening a soak because the first days were quiet.

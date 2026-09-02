@@ -198,53 +198,29 @@ obvious from the code.
 
 Nothing here is broken; these are decisions or unbuilt work.
 
-1. **Operational monitoring** — `features/MONITORING_FEATURE_PLAN.md`.
-   **ALL FOUR LAYERS ARE BUILT** in both apps as of 2026-08-26 and committed
-   to `main`, and deliberately **NOT RELEASED**: the plan ships all four in
-   one release per app, and **the §6.1 soak is the only remaining gate**.
-   - Layer 1, the local self-check — `COMPARISON.md` §29 (plus two claims in
-     the plan's §0.2 that turned out to be wrong).
-   - Layer 4, the self-verifying backup — §30, including a real JO-only bug
-     where a wrong money type reported "could not run" instead of "failed".
-   - Layers 2 & 3, the heartbeat and payload — §31. Verified against a real
-     healthchecks.io check: both apps pinged 200 with distinct install ids.
+1. **Operational monitoring — SHIPPED 2026-09-02** as IQ **v1.11.0** / JO
+   **v1.9.0**, together with the Settings redesign, the responsive sweep and
+   the Windows autostart (one release, decided 2026-08-30). All four layers,
+   the full soak and the release checklist are done; `SOAK_LOG.md` is closed.
+   Kept here as a pointer: `COMPARISON.md` §29 (Layer 1), §30 (Layer 4,
+   including a JO-only money-type bug), §31 (Layers 2 & 3), and §32-§34, §37,
+   §39-§41 for what the soak found.
 
-   **What the soak needs, and it is calendar time, not work:** several
-   consecutive daily self-check runs reporting `ok` on a healthy install, and
-   leaving the app stopped until the receiver alerts. Note §31.4 — with the
-   agreed period/grace (1 day / 36 hours) that alert arrives at **~60 hours**,
-   not the 48 the plan's §6.1 says. Budget two and a half days.
-   Only after that: MINOR bump and one release per app.
-   ~~four open questions in its §7~~ — **wrong, corrected 2026-08-26.** The
-   plan's §7 is titled "Nothing is open" and says every question it raised was
-   answered and folded into §0.4; build it as written without checking back.
-   (The §7 heading is easy to miss — it sits on the same line as a `---` rule,
-   so a `grep '^## 7'` finds nothing and the section looks absent.)
-2. **Bound the backup retry — FIRST thing after the release.** Decided
-   2026-09-01: found by Test C on the last day of the soak, deferred rather
-   than fixed, because it only bites an install whose backup destination is
-   already broken and loudly reported (`SOAK_LOG.md`, 2026-09-01).
+   **The soak earned its keep.** It found real bugs that inspection and a
+   green suite had both missed — the last of them on its final day, and the
+   worst: a failing backup could erase the evidence that its destination was
+   ever real, after which the app fabricated a local folder, resumed
+   "successful" backups into it, and went green (§41). Budget the calendar
+   time next time without arguing about it.
 
-   `scheduler._backup_catchup_due()` asks whether a backup **succeeded**
-   since today's scheduled time. A permanently broken destination never
-   satisfies that, so the 5-minute tick retries forever — Test C logged 13
-   attempts in one day against Test B's 1. `_self_check_due()` asks whether
-   one **ran**, which is why the self-check does not do this; the asymmetry
-   looks unintended.
+2. ~~**Bound the backup retry**~~ — **DONE 2026-09-02, before the release**
+   rather than after. It was deferred on 2026-09-01 as cosmetic log noise;
+   that assessment was wrong, and §41 records why. Both the retry bound and
+   the fragile lookback it exploited are fixed and shipped.
 
-   Two parts: bound the retry (at most one attempt per hour reads best — it
-   still recovers a transient fault quickly, and caps the day at ~24), and
-   give `backup_log` row retention, which it has none of today
-   (`_apply_retention` prunes backup *files* on disk, not rows).
-
-   **Test it on the failing path, and mutation-check on BOTH paths.** A guard
-   written only against a healthy install passes whatever the retry logic
-   does, because a healthy install backs up once regardless — this is exactly
-   the §7.3 trap, and it is why the bug survived until an install that fails
-   every time existed to show it.
-
-3. **Port IQ's `consecutive_fail_days()` into JO — AFTER the soak.**
-   Agreed 2026-08-31. The two versions have differed since the feature
+3. **Port IQ's `consecutive_fail_days()` into JO — NOW UNBLOCKED.** The
+   soak closed 2026-09-02 and the release shipped, so the reason for
+   holding this is gone. **This is the top open item.** Agreed 2026-08-31. The two versions have differed since the feature
    landed, despite JO's docstring claiming the file was identical to IQ's
    (`COMPARISON.md` §40.6). IQ keys each day's verdict by `ran_at`; JO keys
    by insert order, relying on `ORDER BY id DESC` agreeing with `ran_at`

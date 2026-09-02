@@ -28,10 +28,9 @@ VetClinicSystem/
 ├── COMPARISON.md          ← dated, structured diff between the two apps — re-read before porting anything
 ├── RELEASE_WORKFLOW.md    ← the release process, see §3
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
-├── SOAK_LOG.md            ← the monitoring pre-release soak — THE gate on the next release, §7
+├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
-├── RELEASE_DRAFT_2026-09-02.md           ← drafted CHANGELOG entries awaiting the soak
-├── features/              ← feature plans: CLEANUP (built), MONITORING (BUILT, unreleased)
+├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
 ├── audits/                ← three standing audits, see below
 ├── scripts/
 │   ├── isolated_test_env.sh   ← throwaway Postgres + venv for either app, see §5
