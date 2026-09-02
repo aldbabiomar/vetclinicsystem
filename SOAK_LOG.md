@@ -562,3 +562,69 @@ Neither test restarts. Test B's three clean days stand: the retry cannot
 occur on a healthy install. Test C continues to day 3 — the finding is in
 `backup_log` volume, not in `self_check_log`, which is what the modal
 escalates on.
+
+---
+
+## 2026-09-02 — Test C day 3: the modal fired. And the retry finding is NOT cosmetic.
+
+### Test C PASSED its stated objective
+
+`consecutive_fail_days = 3` (2026-08-31, 09-01, 09-02), latest verdict `fail`,
+and the Dashboard served the modal:
+
+> **This install has failed its health check for 3 days running**
+> You're seeing this because you can change Settings. It will come back next
+> time you sign in, until the problem below is fixed.
+
+Banner and modal both present, carrying the same two findings. Captured from
+the server response at 2026-09-02, deliberately before the next self-check
+could overwrite the state. **The three-day escalation works.** That was the
+last unobserved behaviour in the feature.
+
+(Note `backup_failing` still quotes its error here — correct: `_drop_duplicated_cause`
+only strips the quote when a folder finding is also present, and this run had
+none, for the reason below.)
+
+### ⚠ But the install healed itself, and the mechanism matters
+
+`backups-real` was **recreated at 03:07:22** — the same second as that day's
+self-check — by `selfcheck.py`'s `os.makedirs(backup_dir, exist_ok=True)`.
+At 04:41 the nightly backup found the folder present, so `backup.py`'s
+vanished-destination guard did not apply, and it wrote a "successful" backup
+into the fabricated folder.
+
+**Why the guard failed to fire.** There are two implementations of
+`_backups_written_here`, and only one is robust:
+
+| | Query | Survives a failure storm? |
+|---|---|---|
+| `backup.py` | `WHERE status='success' … ORDER BY id DESC LIMIT 50` | **yes** — filters to successes first |
+| `selfcheck.py` | scans `recent_backups(db, limit=20)` — last 20 rows of **any** status | **no** |
+
+Test C's `backup_log` holds **70 rows written after the seeded success (id 6)**,
+all failures from the 5-minute retry. By 03:07 the last 20 rows were failures
+end to end, so `selfcheck`'s version found no success in the window, concluded
+the folder had never been an established destination, and recreated it.
+
+### The chain, and why this changes the release decision
+
+1. A backup destination breaks. Correctly reported. Banner appears.
+2. The unbounded 5-minute retry floods `backup_log` — **~20 rows in about 100
+   minutes.**
+3. `selfcheck`'s 20-row lookback can no longer see the last success.
+4. It concludes the folder was never established and **recreates it**.
+5. The next backup writes into the fabricated local folder and **succeeds**.
+6. The next self-check sees a fresh success and goes **green**.
+
+Net effect on a real clinic: an unplugged backup drive is reported loudly for
+roughly an hour and a half, after which the app manufactures a local folder,
+resumes "successful" backups into it, and the Dashboard goes quiet — while the
+off-site copy the clinic believes in is dead. **That is precisely the failure
+`COMPARISON.md` §39 says this guard exists to prevent**, reintroduced through
+a different door.
+
+**The 2026-09-01 deferral was decided on a wrong severity assessment — mine.**
+It was characterised as log noise that "only bites an install whose backup
+destination is already broken and loudly reported." It does not just bite that
+install: **it silences the report.** Recorded here rather than quietly
+amended, because the decision was made on the strength of that sentence.
