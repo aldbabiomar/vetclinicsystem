@@ -3333,9 +3333,48 @@ torn down correctly here only because the mismatch was noticed first —
 `lsof -ti :5091` / `:5092` is the reliable way to find what to kill until
 this is fixed.
 
-**Not fixed yet**, and it wants its own verification: a fix must be proved by
-a real `up`/kill/`down` cycle in both apps, including the case `down` claims
-to refuse.
+### Fixed the same day
+
+**The launch.** `$!` now names the interpreter, because the subshell is
+backgrounded and `exec`ed into rather than the AND-list being backgrounded
+inside it:
+
+```sh
+( cd "$REPO_DIR" && exec nohup env ... python3 app.py > log 2>&1 ) &
+echo $! > "$PID_FILE"
+```
+
+`exec` replaces the subshell with `nohup`, which execs `env`, which execs
+`python3` — all in place, one PID throughout. As a side effect `up` now exits
+instead of hanging: the JO run that appeared to hang for fifty minutes was the
+script itself sitting in the pipeline it had recorded as the app.
+
+**The launch is then checked, not trusted.** `up` cross-checks the recorded
+PID against `lsof -ti tcp:$APP_PORT`, and refuses with the port-holder's real
+PID if they disagree — "the PID looks plausible" is how this read for weeks.
+
+**`down` grew a second, independent guard.** It now refuses while *either*
+the recorded PID is alive *or* anything still holds the app port. The port
+guard is the one that survives the PID bookkeeping being wrong again, which
+is the whole lesson here. If `lsof` is missing it refuses rather than
+assuming the port is free — `CLAUDE.md` §6's rule that a check which cannot
+run is a failure, not a pass.
+
+**Verified by a real cycle in both apps**, four cases each:
+
+| case | expected | result |
+|---|---|---|
+| recorded PID vs actual listener | equal | IQ 42327 = 42327, JO 42499 = 42499 |
+| `down` with the app running | refuse (PID guard) | exit 1, both |
+| `down` with a **dead PID written into the file**, app still up | refuse (port guard) | exit 1, both |
+| `down` after killing the printed PID | succeed, remove everything | exit 0, both |
+
+The third row is the case that used to slip through, and it is the reason for
+the fourth: disabling one layer must still refuse, and the control proves
+`down` can still succeed rather than having become unconditionally stuck
+(`CLAUDE.md` §7.4 on defence in depth — disable one layer, then both).
+
+Killing the printed PID now actually stops the app, which it did not before.
 
 ## Index — every section, and when to read it
 
@@ -3391,7 +3430,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 41 | ⚠ **a failing backup erased the evidence its folder was real, and the app fabricated a new one** | backups, the self-check, or judging the severity of a degraded-path bug |
 | 42 | ⚠ **a Python upgrade could stop either app starting, forever and silently** | venvs, the launcher, or deploying to a machine someone else updates |
 | 43 | `consecutive_fail_days()` ported into JO; the test pair that can tell insert order from timestamp order | the self-check, the Dashboard modal, or writing a test meant to catch a *robustness* gap |
-| 44 | ⚠ **`isolated_test_env.sh` records the wrong PID; `down`'s "still running" guard cannot fire** | before trusting the teardown guard, or killing what `up` printed |
+| 44 | ⚠ **`isolated_test_env.sh` recorded the wrong PID; `down`'s "still running" guard could not fire** — fixed 2026-09-09 | before trusting a guard you have not watched refuse, in tooling as much as in tests |
 
 ### The four sections a new session should read first
 

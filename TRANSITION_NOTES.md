@@ -241,13 +241,17 @@ Nothing here is broken; these are decisions or unbuilt work.
    Suites after the change, all three tiers, both isolated environments:
    **IQ 504 / 0 skipped, JO 485 / 0.**
 
-4. **`isolated_test_env.sh` writes the wrong PID** — new 2026-09-09,
-   `COMPARISON.md` §44. The PID `up` prints and stores is not the app's, so
-   killing it leaves the app running, and `down`'s "still running" guard
-   checks that same dead PID and lets the teardown proceed under a live app.
-   Use `lsof -ti :5091` / `:5092` to find the real process until this is
-   fixed. The fix is small; proving it needs a real up/kill/down cycle in
-   both apps, including the refusal case `down` claims to enforce.
+4. ~~**`isolated_test_env.sh` writes the wrong PID**~~ — found and **FIXED
+   2026-09-09**, `COMPARISON.md` §44. `$!` named the shell wrapping the
+   launch, not the interpreter, so the printed PID was not the app's (off by
+   two in both apps); killing it left the app serving, and `down`'s "still
+   running" guard tested that same dead PID and would tear the container out
+   from under a live app. `up` now `exec`s into the launch so the recorded PID
+   is the interpreter, cross-checks it against the port holder, and `down`
+   refuses while either the PID is alive or the port is held. Verified by a
+   real up/kill/down cycle in both apps, including the refusal case with a
+   dead PID written into the file and a control proving `down` still
+   succeeds.
 5. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN.
 6. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.

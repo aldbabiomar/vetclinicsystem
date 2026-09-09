@@ -208,8 +208,17 @@ schema applied, an admin user (`admin` / `Admin12345!`) and one Retail test
 item (`INV301`/`PL301`) seeded, app running on a fixed port (5091 for IQ,
 5092 for JO — both can run at once without colliding). Never points at
 either app's real dev database or Docker container. `up` prints the PID to
-kill when you're done testing; `down` won't proceed while that process is
-still running, and removes the container/venv/data dir together. This is
+kill when you're done testing; `down` won't proceed while that PID is alive
+**or while anything still holds the app port**, and removes the
+container/venv/data dir together.
+
+**Both guards exist because the PID one alone was unable to fail.** Until
+2026-09-09 the PID `up` printed was not the app's — off by two, measured in
+both apps — so killing it left the app serving, and `down` tore the container
+out from under it while reporting success. Fixed and verified by a real
+up/kill/down cycle in both apps (`COMPARISON.md` §44). The lesson generalises
+past this script: **a guard you have never watched refuse is not yet known to
+be a guard** — §7.3, in tooling rather than in a test. This is
 the only sanctioned way to replicate a bug or verify a fix live — never
 test against a real install.
 
