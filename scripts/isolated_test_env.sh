@@ -224,10 +224,22 @@ PYEOF
     exit 1
   fi
   if have_lsof; then
-    LISTENER="$(port_listener_pid || true)"
+    # Wait for the port rather than sampling once: the app takes a couple of
+    # seconds longer than `sleep 3` on a cold start, and a warning that fires
+    # on a perfectly normal startup is worth less than no warning at all --
+    # it trains you to read past the one time it is real.
+    LISTENER=""
+    for _ in $(seq 1 20); do
+      LISTENER="$(port_listener_pid || true)"
+      [[ -n "$LISTENER" ]] && break
+      kill -0 "$APP_PID" 2>/dev/null || break   # died while we waited; say so below
+      sleep 1
+    done
     if [[ -z "$LISTENER" ]]; then
-      echo "  !! Nothing is listening on ${APP_PORT} yet — the app may still be" >&2
-      echo "     starting, or may have failed. Check $DATA_DIR/app_stdout.log" >&2
+      echo "  !! Nothing is listening on ${APP_PORT} after 20s — the app failed" >&2
+      echo "     to start. Check $DATA_DIR/app_stdout.log" >&2
+      tail -5 "$DATA_DIR/app_stdout.log" >&2 || true
+      exit 1
     elif [[ "$LISTENER" != "$APP_PID" ]]; then
       echo "  !! Recorded pid $APP_PID is NOT the process on port ${APP_PORT}" >&2
       echo "     (that is $LISTENER). This is the COMPARISON.md §44 bug; do not" >&2
