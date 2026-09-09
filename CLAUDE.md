@@ -259,10 +259,24 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Measured 2026-09-09, all three tiers alive: IQ 504, JO 485,
-zero skips, 23 `test_*.py` files each.** Zero skips needs `APP_URL` exported —
-without it the 13 browser tests skip and the totals read 491 / 472. They have
-found well over a dozen real bugs, several of which had shipped.
+growing since. **Measured 2026-09-10, all three tiers alive: IQ 511, JO 492,
+zero skips, 23 `test_*.py` files each.** They have found well over a dozen real
+bugs, several of which had shipped.
+
+**Two things gate "zero skips", and both look like a problem when they are
+not:**
+
+1. **`APP_URL` must be exported**, or the 13 browser tests skip and the totals
+   read 498 / 479.
+2. **Do not judge a run started between 00:00 and ~01:05.**
+   `test_scheduler_catchup.py` carries two wall-clock gates: nine tests skip
+   before 01:00 ("today's 00:30 slot has not passed yet"), and one more skips
+   until roughly 01:05, because it needs `now - (BACKUP_RETRY_MIN_MINUTES + 5)`
+   to still fall on today's date. Both are legitimate — the behaviour under
+   test genuinely cannot be arranged at that hour — but a midnight run reports
+   `9 skipped` or `1 skipped` and looks like a dormant tier. Found 2026-09-10
+   by running the suite at 00:32; re-running the same file at 01:05 passed all
+   22 with no skips.
 
 **Coverage, measured 2026-09-01** (the previous "roughly 68%" was undated and
 matched nothing measurable):

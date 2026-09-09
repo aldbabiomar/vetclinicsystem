@@ -3376,6 +3376,125 @@ the fourth: disabling one layer must still refuse, and the control proves
 
 Killing the printed PID now actually stops the app, which it did not before.
 
+**Follow-up, 2026-09-10.** The new port cross-check sampled once, three seconds
+after launch, and JO's app took slightly longer than that to bind — so a
+perfectly healthy `up jo` printed "Nothing is listening on 5092 yet". A warning
+that fires on a normal startup is worth less than no warning, because it trains
+you to read past the one time it is real (the §6.0 cry-wolf rule, applied to
+tooling). It now waits up to 20 seconds for the port, gives up early if the
+process dies while waiting, and **exits non-zero** if the port never appears
+instead of printing a caveat and carrying on.
+
+## 45. Microchip number on patients — the same feature, twice — 2026-09-10
+
+An optional microchip number on `patients`, and — the reason it exists — a way
+to find a patient by it: a scanner reads a chip on a stray or a transferred
+animal and staff need the record it belongs to.
+
+`patients` was byte-identical in both apps before this and still is. Nothing
+about a chip is country-specific and nothing here touches money, so **no new
+divergence was introduced**; the only per-app differences are in the templates
+that had already diverged (IQ's `_back_link.html`, sticky header and
+`data-row-href` versus JO's inline `onclick`), which were edited in place
+rather than copied across.
+
+### The decisions, and who made them
+
+| | |
+|---|---|
+| Optional | Always. Most patients have no chip and nothing may become harder to save. |
+| Unique when present | Partial index, `WHERE microchip IS NOT NULL`. The column arrives empty on every install, so no existing row can violate it — the safest possible moment to add a constraint, and the reason no backfill was needed. |
+| 9–15 alphanumerics | 15-digit ISO 11784/11785 is what a clinic implants today, but animals carrying an older 9-digit AVID Euro or 10-digit AVID/trovan chip still walk in. A strict 15 would make those unrecordable. |
+| Where it shows | Patient record, both patient forms, the search picker, and the patient-file / visit / inpatient / boarding PDFs. **Not** a column in `/patients` — a 15-digit number in an already 6-column table, and the search finds the patient either way. |
+
+### Normalization is the whole feature, and it has one definition
+
+Staff type a chip the way it is grouped on the scanner: `985 141 000 123456`,
+`985-141-000123456`. Stored verbatim, those are three different strings — the
+search misses two of them and the unique index cannot see them as one chip.
+
+So the number is normalized on the way in. The subtlety is that **the search
+term has to be normalized by the same rule**, or a chip typed the way it is
+printed finds nothing. Those are two call sites in two modules, which is
+exactly how a rule drifts, so there is only one definition of it:
+`logic.strip_microchip_separators()`. `app.py`'s `normalize_microchip()` calls
+it before storing; `logic.search_patients()` calls it before matching. Every
+other field in that search is still matched on the term as typed, which is why
+the chip gets its own parameter rather than a change to the shared one.
+
+`search_patients()` is the single search path behind both `/patients` and
+`/api/patients/search`, so one clause gave both the list page and the picker.
+
+### The index lives in setup.py, not the schema file
+
+`ALTER TABLE patients ADD COLUMN IF NOT EXISTS microchip TEXT` plus the unique
+index both go in `INCREMENTAL_SCHEMA_STATEMENTS`. The index cannot go in
+`schema_postgres.sql`: `apply_schema()` runs first, so an index over a
+migration-added column works on a fresh install and raises on every upgrade —
+the §42-adjacent trap that `test_migrations.py`'s static guard exists to catch,
+and the same reason `idx_sales_idempotency_key` lives there.
+
+### Two layers on the duplicate, and the mutation matrix that proves both
+
+A pre-check names the animal already holding the chip ("already on file for
+Luna (PT042)"); the unique index is what actually enforces it. In
+`visit_new_patient()` the pre-check runs **with the other field validations,
+before the owner INSERT** — that route writes an owner, then a patient, then a
+visit in one transaction, so a chip rejected at the patient INSERT has to roll
+the owner back too or every rejected attempt leaves the ownerless-pet shape
+`ORPHANED_RECORDS_AUDIT.md` F-03 describes. The `IntegrityError` fallback does
+exactly that, and returns the id counter with it.
+
+Per `CLAUDE.md` §7.4, defence in depth has to be disabled a layer at a time or
+the test proves nothing. Identical results in **both** apps:
+
+| mutation | expected | result |
+|---|---|---|
+| storage normalization removed | the "stored normalized" test fails | ✅ that test alone |
+| search-term normalization removed | "found however it is typed" fails | ✅ that test alone |
+| `p.microchip ILIKE ?` clause removed | "found however it is typed" fails | ✅ that test alone |
+| pre-check disabled, index intact | **still passes** — the index holds | ✅ 24/24 |
+| index dropped, pre-check intact | **still passes** — the check holds | ✅ 24/24 |
+| **both** disabled | the duplicate test fails | ✅ that test alone |
+| field silently made required | the *optional* control fails | ✅ that test alone |
+| blank stored as `''` instead of NULL | both NULL-asserting tests fail | ✅ those two alone |
+
+The last two rows are the ones worth keeping. Every other microchip test is a
+rejection test, and a field that had quietly become mandatory would pass all
+of them.
+
+The `''`-instead-of-NULL row is not hypothetical bookkeeping: the partial
+index ignores NULLs but treats two empty strings as the same value, so storing
+a blank would mean the **second** patient anyone cleared a chip from could not
+be saved — a bug that only appears on the second use, in a clinic, weeks
+later. Clearing a chip that was recorded against the wrong animal is a thing
+staff will actually do, so it has its own test rather than riding on the
+never-had-one case.
+
+### Verified live, not only under the test client
+
+Both apps: the chip renders on the patient page; a chip typed with spaces and
+a dash finds the patient through the real picker and shows `· Chip: …` on the
+result line; the patient-file and visit PDFs carry it in the identity header;
+and clearing the chip removes the whole `· Chip: …` fragment rather than
+leaving an empty label or a stray separator.
+
+Full suites, all three tiers, in their own isolated environments: **IQ 511,
+JO 492, zero skips** (504 + 7 and 485 + 7).
+
+**One thing found on the way, unrelated to this feature but worth knowing.**
+The first JO run reported `9 skipped`, which in this project is the shape of a
+dormant tier (§40.3). It was not: `test_scheduler_catchup.py` carries two
+wall-clock gates, and the run started at 00:32. Nine tests skip before 01:00
+because today's 00:30 backup slot has not passed, and a tenth skips until
+about 01:05 because it needs `now - (BACKUP_RETRY_MIN_MINUTES + 5)` to still
+land on today's date. Both gates are correct — the state under test cannot
+exist at that hour — but between midnight and ~01:05 the suite cannot reach
+the zero-skip figure `CLAUDE.md` §7 quotes, and someone reading the total
+would think a tier had gone dark. Re-running the same file at 01:05: 22
+passed, no skips. Recorded in §7 so the next midnight run does not start a
+hunt for a bug that is not there.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3431,6 +3550,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 42 | ⚠ **a Python upgrade could stop either app starting, forever and silently** | venvs, the launcher, or deploying to a machine someone else updates |
 | 43 | `consecutive_fail_days()` ported into JO; the test pair that can tell insert order from timestamp order | the self-check, the Dashboard modal, or writing a test meant to catch a *robustness* gap |
 | 44 | ⚠ **`isolated_test_env.sh` recorded the wrong PID; `down`'s "still running" guard could not fire** — fixed 2026-09-09 | before trusting a guard you have not watched refuse, in tooling as much as in tests |
+| 45 | microchip number on patients: optional, unique when present, searchable however it is typed | adding a field that must be searchable, or a constraint to a brand-new column |
 
 ### The four sections a new session should read first
 
