@@ -260,7 +260,7 @@ it read, on the day it read it.
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
 growing since. **Measured 2026-09-10, all three tiers alive: IQ 511, JO 492,
-zero skips, 24 `test_*.py` files each.** They have found well over a dozen real
+zero skips, 24 `test_*.py` files each** (IQ 528 / JO 509 after §47). They have found well over a dozen real
 bugs, several of which had shipped.
 
 **Two things gate "zero skips", and both look like a problem when they are

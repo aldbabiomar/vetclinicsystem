@@ -3586,6 +3586,48 @@ with no schema change. Same `RELEASE_WORKFLOW.md` §6 run as §45: suites green
 first, tags equal to `v` + `VERSION`, `releases/latest` verified non-draft and
 non-prerelease with a tarball.
 
+## 47. Ten saved web pages were committed into `static/` and served publicly — 2026-09-10
+
+Found while cleaning up after §46. `static/` had accumulated **"Save Page As"
+copies of rendered pages** — one in IQ (`_v_settings.html`, 2026-08-28), nine
+in JO (`_c_*.html`, 2026-08-29), both during the card-spacing and responsive
+work of §36/§38. Flask serves everything under `static/`, so each was live at
+its own URL for two weeks.
+
+Nothing referenced them. Nothing failed. That is the whole problem: an
+unreferenced file in `static/` has no symptom at all, and neither app's tests
+looked at `static/` as a directory — only at assets that templates name.
+
+### What was actually in them
+
+Checked before deleting rather than assumed. No patient IDs, owner IDs or
+phone numbers — they were captured against an empty database. The two Settings
+snapshots did carry the install's **LAN address and port**, the configured
+**backup folder path**, and a CSRF token from whoever saved them. Low severity
+on a LAN-only clinic app, and worth exactly nothing to keep.
+
+### The guard, and the false positive that nearly shipped with it
+
+A test now fails if a rendered page appears in `static/` again. Its first
+version keyed off the `csrf-token` meta tag those pages carry — and flagged
+`static/rebuild.js`, a real, referenced script whose job includes **reading**
+that tag.
+
+Caught only because the guard was run against the current tree before the
+files were deleted, so its output could be read: two offenders in IQ, one of
+them legitimate. It now keys off a complete HTML document living in `static/`,
+which no asset is.
+
+**This is the §7.3 pattern with the polarity reversed.** Usually you write a
+guard, watch it pass, and have to reintroduce the bug to learn whether it
+catches anything. Here the bug was still present, so the honest sequence was
+free: run the guard first and watch it fail, delete the files, watch it pass.
+When a fix is a deletion, that ordering costs nothing and is strictly better
+evidence — and it is the only reason the false positive was seen at all.
+
+Not released on its own: no clinic-visible behaviour changes, so it rides
+along with the next release either app cuts.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3643,6 +3685,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 44 | ⚠ **`isolated_test_env.sh` recorded the wrong PID; `down`'s "still running" guard could not fire** — fixed 2026-09-09 | before trusting a guard you have not watched refuse, in tooling as much as in tests |
 | 45 | microchip number on patients: optional, unique when present, searchable however it is typed | adding a field that must be searchable, or a constraint to a brand-new column |
 | 46 | ⚠ **the Settings page spent the clinic's 60/hour GitHub quota on page loads, then reported a rate limit as being offline** | anything that calls an external API, or any `except Exception` that renders a fixed message |
+| 47 | ten saved web pages committed into `static/` and served publicly; the guard against it, and its false positive | before trusting a new guard, and when a fix is a deletion |
 
 ### The four sections a new session should read first
 
