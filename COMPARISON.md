@@ -3482,6 +3482,16 @@ leaving an empty label or a stray separator.
 Full suites, all three tiers, in their own isolated environments: **IQ 511,
 JO 492, zero skips** (504 + 7 and 485 + 7).
 
+**SHIPPED 2026-09-10 as IQ v1.12.0 / JO v1.10.0.** MINOR in both, per
+`RELEASE_WORKFLOW.md` §3 — a new feature plus an additive column. The full §6
+checklist was run per app: suites green first, schema confirmed additive-only
+with the unique index in `INCREMENTAL_SCHEMA_STATEMENTS` rather than the
+schema file (§6.2), `VERSION` and `CHANGELOG.md` bumped in one commit, tag
+equal to `v` + `VERSION`, and `releases/latest` verified non-draft,
+non-prerelease with a tarball attached. JO's `1.9.1 → 1.10.0` is a
+double-digit minor; that is safe because `updater.py` compares with `!=`
+rather than ordering (§ the standing note on `is_update_available()`).
+
 **One thing found on the way, unrelated to this feature but worth knowing.**
 The first JO run reported `9 skipped`, which in this project is the shape of a
 dormant tier (§40.3). It was not: `test_scheduler_catchup.py` carries two
