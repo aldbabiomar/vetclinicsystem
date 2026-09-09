@@ -3087,6 +3087,9 @@ The wider lesson: a comment asserting parity is not evidence of parity, and
 this one went stale without a single commit touching the function it
 described. `diff` the files.
 
+**Closed 2026-09-09 — ported, with the test that can tell the two versions
+apart. See §43.**
+
 ## 41. ⚠ A failing backup erased the evidence that its folder was real — 2026-09-02
 
 The soak's Test C reported a vanished backup destination correctly for about
@@ -3212,6 +3215,128 @@ Cellar, not through `opt`, so landing on the fragile path is easy. Check a
 venv with `readlink venv/bin/python3.14`: an `/opt/homebrew/opt/...` target
 survives a patch upgrade, a `/opt/homebrew/Cellar/...` one does not.
 
+## 43. `consecutive_fail_days()` ported into JO, and the test that can tell the two versions apart — 2026-09-09
+
+Closes the last open item from §40.6 and `TRANSITION_NOTES.md` §4 item 3. JO's
+copy of `selfcheck.consecutive_fail_days()` now keys each day's verdict by the
+`ran_at` timestamp, as IQ's always did, instead of by insert order. The two
+`selfcheck.py` files are now byte-identical apart from JO's module docstring,
+verified by `diff` rather than asserted — which is the whole point of §40.6.
+
+### Why insert order was wrong, in terms of what a clinic sees
+
+The function reads `ORDER BY id DESC LIMIT 400` and decides, per calendar day,
+whether that day "failed". JO took the first row it saw for each day, which is
+the highest id, and called that the day's verdict. That is only the day's
+latest result while id order and `ran_at` order agree.
+
+They stop agreeing after any clock movement — NTP correcting a drifted
+machine, a DST step, or a front-desk PC whose date was simply wrong until
+someone fixed it. Both directions are bad, and both now have a test:
+
+| rows, in insert order | insert-order verdict | timestamp verdict |
+|---|---|---|
+| today 03:30 `ok`, then today 03:05 `fail` | today failed → a streak that never happened | today passed → 0 |
+| 2 days `fail`, then today 03:30 `fail`, then today 03:05 `ok` | today passed → streak 0, **modal never fires** | streak 3 → modal fires |
+
+The second row is the one that matters. `app.py` gates the Dashboard modal on
+`consecutive_fail_days(db) >= 3`, so insert order could keep the modal silent
+through three genuinely failing days — the exact silence Layer 1 exists to
+break (§29).
+
+### The test discipline this needed, which is the reusable part
+
+`TRANSITION_NOTES.md` warned that the obvious test passes against **both**
+implementations, and that was exactly right. Before this change neither app's
+suite could distinguish them: all 36 existing `test_selfcheck.py` tests write
+their rows in ascending time order, where the two agree by construction.
+
+Two tests were added **to both apps** (the function is identical in both and
+touches no money, so the §1.1 reason to diverge does not apply):
+
+- `test_a_days_verdict_follows_the_timestamp_not_the_insert_order` — the later
+  row written first, asserting `0`.
+- `test_an_out_of_order_row_cannot_hide_a_real_failing_streak` — the same
+  ordering trick against three failing days, asserting `3`. This is the
+  **control** the other one needs: it asserts a NON-zero streak, so the pair
+  separates "counted for the right reason" from "returned 0 for any reason"
+  (`CLAUDE.md` §7.3).
+
+**Mutation-verified in both apps.** Reverting each `selfcheck.py` to
+`by_day.setdefault(...)` — with a `diff` printed to prove the mutation landed
+in the code and not in a comment, the failure mode §7.3 records — fails
+**exactly these two tests and no others**, in IQ and in JO. That both apps
+lost the same two, and only those two, is the evidence that every other test
+in the file was blind to this bug.
+
+### A code review looked straight at this and passed it
+
+`CODE_REVIEW_MONITORING_2026-08-27.md`, under "What was checked and found
+sound", records `selfcheck.py` as differing "only in `consecutive_fail_days`'
+implementation, which is functionally equivalent" — and then justifies that
+by comparing the two **loop-termination** styles, `by_day.get(day)` versus
+`day in by_day and ...`, which genuinely are equivalent. The `setdefault`
+versus timestamp-max line four lines above it, the one that actually
+diverges, is not mentioned.
+
+So the review compared the halves of the function that matched and concluded
+the function matched. §40.6 then found the real difference four days later by
+running `diff`. This is the §21 lesson in a second setting: **a careful read
+of the right file can still miss what a mechanical comparison catches
+immediately.** `diff` first, then read.
+
+### Verified live
+
+Both apps, full suite, all three tiers, in their own isolated environments
+(`scripts/isolated_test_env.sh`): **IQ 504 passed / 0 skipped, JO 485 / 0**.
+
+## 44. ⚠ `isolated_test_env.sh` records the wrong PID, so `down` does not guard anything — 2026-09-09
+
+Found while tearing down after §43, in both apps independently.
+
+`up` prints an "App PID" and writes it to `/tmp/vz_{app}_test.pid`. **It is
+not the app's PID.** Measured on two separate runs, minutes apart:
+
+| app | PID file | actual listener (`lsof -ti :PORT`) |
+|---|---|---|
+| IQ | 41035 | **41037** |
+| JO | 40011 | **40013** |
+
+Off by two in both cases: the recorded PID is the short-lived wrapper around
+the launch, not the `python3 app.py` that ends up holding the port. The line
+is
+
+```sh
+( cd "$REPO_DIR" && nohup env ... "$VENV_DIR/bin/python3" app.py > ... 2>&1 &
+  echo $! > "$PID_FILE" )
+```
+
+and `$!` there names the backgrounded `cd && nohup env …` compound, not the
+interpreter that survives it. On the JO run the recorded PID happened to be
+the setup script itself, which is why `up jo` appeared to hang for fifty
+minutes and then "finished" the moment that PID was killed.
+
+**Why this matters more than a cosmetic wrong number.** `CLAUDE.md` §5 sells
+two guarantees that both rest on this PID:
+
+1. *"`up` prints the PID to kill when you're done testing"* — killing it
+   leaves the real app running, still serving on 5091/5092 and still writing
+   to the throwaway database. Nothing says so; the port keeps answering 200.
+2. *"`down` won't proceed while that process is still running"* — the guard
+   checks `kill -0` on the **recorded** PID. Once that wrapper is gone the
+   guard passes, and `down` removes the container, the venv and the data dir
+   **out from under a live app**. The protection reads as present and is not.
+
+This is the §7.3 pattern in tooling rather than in a test: a check that
+cannot fail is indistinguishable from a check that passes. Both apps were
+torn down correctly here only because the mismatch was noticed first —
+`lsof -ti :5091` / `:5092` is the reliable way to find what to kill until
+this is fixed.
+
+**Not fixed yet**, and it wants its own verification: a fix must be proved by
+a real `up`/kill/`down` cycle in both apps, including the case `down` claims
+to refuse.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3265,6 +3390,8 @@ a real bug that shipped** — read those before touching the area they name.
 | 40.6 | ⚠ **`selfcheck.py` was never identical across the apps, despite saying so** | before trusting any in-file parity claim |
 | 41 | ⚠ **a failing backup erased the evidence its folder was real, and the app fabricated a new one** | backups, the self-check, or judging the severity of a degraded-path bug |
 | 42 | ⚠ **a Python upgrade could stop either app starting, forever and silently** | venvs, the launcher, or deploying to a machine someone else updates |
+| 43 | `consecutive_fail_days()` ported into JO; the test pair that can tell insert order from timestamp order | the self-check, the Dashboard modal, or writing a test meant to catch a *robustness* gap |
+| 44 | ⚠ **`isolated_test_env.sh` records the wrong PID; `down`'s "still running" guard cannot fire** | before trusting the teardown guard, or killing what `up` printed |
 
 ### The four sections a new session should read first
 

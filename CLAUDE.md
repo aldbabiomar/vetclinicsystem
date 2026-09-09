@@ -19,6 +19,13 @@ either app's code.
 > disagree, `COMPARISON.md` wins**, and where either disagrees with the code,
 > the code wins. Re-derive counts, versions and file lists rather than
 > quoting them.
+>
+> **Re-checked 2026-09-09:** the §1 divergence table, the §7 test-file count
+> and the audits table still match the trees. The layout block had drifted
+> again in the same way — `HOSTING_MIGRATION_PLAN.md` and
+> `CLINIC_PC_TUNNEL_PLAN.md` sit in the root and were not listed. Both are
+> now in. That is twice this block has gone stale by omission; when you add a
+> file to this folder, add its line here in the same commit.
 
 ## Layout
 
@@ -30,6 +37,8 @@ VetClinicSystem/
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
 ├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
+├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
+├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
 ├── audits/                ← three standing audits, see below
 ├── scripts/
@@ -241,9 +250,10 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **As measured 2026-09-02: IQ 502, JO 483, zero skips, 23 test
-files each** (23 as of 2026-09-02). They have found well over a dozen real bugs, several of which
-had shipped.
+growing since. **Measured 2026-09-09, all three tiers alive: IQ 504, JO 485,
+zero skips, 23 `test_*.py` files each.** Zero skips needs `APP_URL` exported —
+without it the 13 browser tests skip and the totals read 491 / 472. They have
+found well over a dozen real bugs, several of which had shipped.
 
 **Coverage, measured 2026-09-01** (the previous "roughly 68%" was undated and
 matched nothing measurable):
@@ -308,14 +318,31 @@ To run the database tier:
 scripts/isolated_test_env.sh up iq
 cd webapps/vetclinicsystem_iq-main
 TEST_DATABASE_URL=postgresql://postgres:test@localhost:55491/vetclinicsystemiq \
-  venv/bin/python -m pytest tests/ -q
+  /tmp/vz_iq_test_venv/bin/python -m pytest tests/ -q
 ```
 
-(55492 / `vetclinicsystemjo` for JO.) `TEST_DATABASE_URL` is deliberately a
-separate variable from `DATABASE_URL` — these tests write and delete rows, and
-must never be pointed at a real install by an exported shell variable.
+(55492 / `vetclinicsystemjo` / `/tmp/vz_jo_test_venv` for JO.)
+`TEST_DATABASE_URL` is deliberately a separate variable from `DATABASE_URL` —
+these tests write and delete rows, and must never be pointed at a real install
+by an exported shell variable.
 
-Browser tier: see each app's README. Playwright is **test-only and not in
+**Corrected 2026-09-09: this block used to say `venv/bin/python`, which does
+not exist.** That is the path in each app's README, where it means the venv a
+real *install* builds in the repo directory; **the dev clones under
+`webapps/` have no `venv/` at all**, so the documented command failed outright
+until the throwaway venv the script actually builds was named here.
+
+Browser tier: **set `APP_URL` to the app the script started**, or all 13
+tests skip at runtime — a skip that looks nothing like the dormant-tier skip
+described above, and is just as easy to read past:
+
+```bash
+APP_URL=http://127.0.0.1:5091 \
+TEST_DATABASE_URL=postgresql://postgres:test@localhost:55491/vetclinicsystemiq \
+  /tmp/vz_iq_test_venv/bin/python -m pytest tests/ -q
+```
+
+(5092 for JO.) Also see each app's README. Playwright is **test-only and not in
 `requirements.txt`** — the apps have no build step and no browser dependency,
 and that property is worth more than making these run by default.
 

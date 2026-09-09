@@ -218,45 +218,50 @@ Nothing here is broken; these are decisions or unbuilt work.
    that assessment was wrong, and §41 records why. Both the retry bound and
    the fragile lookback it exploited are fixed and shipped.
 
-3. **Port IQ's `consecutive_fail_days()` into JO — NOW UNBLOCKED.** The
-   soak closed 2026-09-02 and the release shipped, so the reason for
-   holding this is gone. **This is the top open item.** Agreed 2026-08-31. The two versions have differed since the feature
-   landed, despite JO's docstring claiming the file was identical to IQ's
-   (`COMPARISON.md` §40.6). IQ keys each day's verdict by `ran_at`; JO keys
-   by insert order, relying on `ORDER BY id DESC` agreeing with `ran_at`
-   order. A robustness gap, not a live bug — which is why it waits: this
-   function decides when the Dashboard modal escalates, and that is exactly
-   what the soak's Test C measures.
+3. ~~**Port IQ's `consecutive_fail_days()` into JO**~~ — **DONE 2026-09-09**,
+   `COMPARISON.md` §43. JO now keys each day's verdict by `ran_at` rather than
+   by insert order, JO's docstring says "the most recent recorded day" instead
+   of "ending today", and the module docstring's parity claim is restored —
+   this time dated and verified by `diff`, not asserted. The two
+   `selfcheck.py` files are now identical apart from that one JO-only
+   paragraph.
 
-   **The part that is easy to get wrong.** The two versions agree in every
-   ordinary case, so a test written the obvious way passes against BOTH and
-   proves nothing — the §7.3 failure mode this project keeps hitting. The
-   port is only verified by a case where **id order and `ran_at` order
-   disagree**: insert a row with a LOWER id but a LATER `ran_at` for the same
-   day (e.g. write yesterday's 'fail' row after today's 'ok' row, or set
-   `ran_at` explicitly on two rows inserted in the opposite order), then
-   assert the day's verdict follows the timestamp, not the id. Mutation-check
-   it by reverting JO to `setdefault` and confirming that test — and only
-   that test — fails.
+   **The warning this item carried was exactly right, and is worth reusing.**
+   It said the two versions agree in every ordinary case, so a test written
+   the obvious way would pass against BOTH and prove nothing. That held: all
+   36 existing `test_selfcheck.py` tests passed unchanged against either
+   implementation, because every one of them writes its rows in ascending time
+   order. The port is verified by two new tests — added to **both** apps —
+   that put a LOWER id on the LATER timestamp, one asserting no false streak
+   (0) and one asserting a real streak survives (3). Reverting each app to
+   `setdefault` fails exactly those two tests and nothing else, in IQ and in
+   JO; the mutation diff was printed each time to prove it landed in the code
+   rather than in a comment.
 
-   Also fix JO's `consecutive_fail_days` docstring, which says "ending today"
-   while the code ends at the most recent *recorded* day, and restore the
-   module docstring's parity claim once the two files genuinely match.
+   Suites after the change, all three tiers, both isolated environments:
+   **IQ 504 / 0 skipped, JO 485 / 0.**
 
-4. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
+4. **`isolated_test_env.sh` writes the wrong PID** — new 2026-09-09,
+   `COMPARISON.md` §44. The PID `up` prints and stores is not the app's, so
+   killing it leaves the app running, and `down`'s "still running" guard
+   checks that same dead PID and lets the teardown proceed under a live app.
+   Use `lsof -ti :5091` / `:5092` to find the real process until this is
+   fixed. The fix is small; proving it needs a real up/kill/down cycle in
+   both apps, including the refusal case `down` claims to enforce.
+5. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN.
-5. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
-6. **`app.py` is ~4,000 statements in one file**, 1,371 (IQ) / 1,360 (JO)
+6. **`updater.py` has no unit coverage** — verified end-to-end on macOS only.
+7. **`app.py` is ~4,000 statements in one file**, 1,371 (IQ) / 1,360 (JO)
    uncovered as measured 2026-09-01 — the file itself sits at 66% in both. Splitting
    it is worth doing only now that tests exist to catch what a split breaks.
-7. **No automated contrast check.** Deliberately removed after two attempts
+8. **No automated contrast check.** Deliberately removed after two attempts
    produced 117 then 142 false positives; the reasoning is recorded in
    `tests/test_browser.py`. A future attempt should sample rendered pixels,
    not parse stylesheets.
-8. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
+9. **`features/CLEANUP_FEATURE_PLAN.md` is now BUILT** (shipped, see
    `COMPARISON.md` §6) — the plan is retained as a design record. Do not
    re-implement it.
-9. **The workspace has git history but NO REMOTE.** Corrected 2026-08-31 —
+10. **The workspace has git history but NO REMOTE.** Corrected 2026-08-31 —
    the first half of this item was done on 2026-08-26: `CLAUDE.md`,
    `COMPARISON.md`, `RELEASE_WORKFLOW.md`, this file and `scripts/` are now
    version-controlled (`webapps/` is excluded via `.gitignore`). What is

@@ -453,6 +453,10 @@ Verifying the port needs a case where **id order and `ran_at` order
 disagree**; written the obvious way the test passes against both versions and
 proves nothing.
 
+**Done 2026-09-09 (`COMPARISON.md` §43) — later than "immediately after the
+soak", and the warning above was borne out exactly: all 36 existing
+`test_selfcheck.py` tests passed against both versions unchanged.**
+
 If the soak finds a fault, fix it and **restart the soak** rather than
 counting the days already elapsed — a feature that was noisy on day three and
 then patched has not been shown to be quiet on day three.

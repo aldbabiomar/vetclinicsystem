@@ -224,7 +224,11 @@ Recorded so a later session does not re-derive it.
 - **Cross-app port fidelity.** `heartbeat.py` differs only in `APP = "iq"/"jo"`; `scheduler.py`
   only in one comment; `selfcheck.py` only in `consecutive_fail_days`' implementation, which is
   functionally equivalent (JO's `by_day.get(day)` terminates the streak loop identically to IQ's
-  `day in by_day and ...`). `autostart.py` differs only in names and paths. `app.py` and the two
+  `day in by_day and ...`). **WRONG, corrected 2026-09-09 (`COMPARISON.md` §43): the two loop
+  terminations are indeed equivalent, but that was not the whole difference. Four lines earlier
+  JO picked each day's verdict with `setdefault` (insert order) where IQ used the `ran_at`
+  timestamp — a real divergence this review compared past and declared sound. `diff` before
+  reading; §40.6 found it that way.** `autostart.py` differs only in names and paths. `app.py` and the two
   templates are structurally identical changes.
 - **Template CSS dependencies.** `.modal-overlay`, `.modal-box`, `--danger-tint`, `--warn-tint`,
   `--warn-ink`, `--muted-tint` all exist in **both** apps' `static/style.css`, so the new
