@@ -3625,8 +3625,20 @@ free: run the guard first and watch it fail, delete the files, watch it pass.
 When a fix is a deletion, that ordering costs nothing and is strictly better
 evidence — and it is the only reason the false positive was seen at all.
 
-Not released on its own: no clinic-visible behaviour changes, so it rides
-along with the next release either app cuts.
+**SHIPPED 2026-09-10 as IQ v1.12.2 / JO v1.10.2**, PATCH in both.
+
+Released on its own after all, and the reasoning is worth correcting rather
+than quietly dropping. The first call was "no clinic-visible behaviour
+changes, so let it ride along with the next release." That was wrong, for a
+reason specific to how this updater works: **deleting the files from the
+repository does not remove them from a clinic's install.** Each install serves
+whatever is in its own active release directory, so every clinic went on
+serving those pages until an update replaced that directory. Shipping is not
+cosmetic here — it is the only thing that makes the deletion take effect
+anywhere but this machine.
+
+Verified on the published tags rather than assumed: the released tree for both
+`v1.12.2` and `v1.10.2` contains zero `static/*.html`.
 
 ## Index — every section, and when to read it
 
