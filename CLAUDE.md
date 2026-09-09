@@ -260,7 +260,7 @@ it read, on the day it read it.
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
 growing since. **Measured 2026-09-10, all three tiers alive: IQ 511, JO 492,
-zero skips, 23 `test_*.py` files each.** They have found well over a dozen real
+zero skips, 24 `test_*.py` files each.** They have found well over a dozen real
 bugs, several of which had shipped.
 
 **Two things gate "zero skips", and both look like a problem when they are
@@ -313,7 +313,7 @@ venv/bin/python -m coverage report --omit="tests/*,venv/*" --sort=cover
 
 | Tier | Files | Needs | Runtime |
 |---|---|---|---|
-| **Pure** | `test_money.py`, `test_frontend.py`, `test_desktop_shortcut_target.py`, `test_no_raw_form_dates.py`, `test_autostart_windows.py`, `test_launcher_preflight.py`, `test_migrations.py`'s static guard | nothing | < 4s |
+| **Pure** | `test_money.py`, `test_frontend.py`, `test_desktop_shortcut_target.py`, `test_no_raw_form_dates.py`, `test_autostart_windows.py`, `test_launcher_preflight.py`, `test_updater.py`, `test_migrations.py`'s static guard | nothing | < 4s |
 | **Database** | `test_money_routes.py`, `test_crud_routes.py`, `test_workflow_routes.py`, `test_admin_routes.py`, `test_supplier_routes.py`, `test_edit_routes.py`, `test_exports.py`, `test_permissions.py`, `test_routes_smoke.py`, `test_backup.py`, `test_migrations.py`, `test_concurrency.py`, `test_selfcheck.py`, `test_selfverify.py`, `test_heartbeat.py`, `test_scheduler_catchup.py` | a throwaway Postgres | ~15s |
 | **Browser** | `test_browser.py` (13 tests) | Playwright + a running app | ~2min |
 

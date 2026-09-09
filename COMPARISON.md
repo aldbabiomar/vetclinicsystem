@@ -3505,6 +3505,87 @@ would think a tier had gone dark. Re-running the same file at 01:05: 22
 passed, no skips. Recorded in §7 so the next midnight run does not start a
 hunt for a bug that is not there.
 
+## 46. ⚠ The Settings page spent the clinic's GitHub quota, then blamed the internet — 2026-09-10
+
+Reported from a real install a few hours after shipping §45: the app said
+**"Couldn't check for updates — offline, or GitHub is unreachable."** The
+machine was online and GitHub was up.
+
+What GitHub actually returned:
+
+```
+HTTP 403
+{"message":"API rate limit exceeded for <ip>..."}
+```
+
+**Unauthenticated GitHub API calls are capped at 60 per hour PER IP ADDRESS**,
+shared by every install behind that address — and both apps run on the same
+machine here.
+
+### Two separate bugs, and the second is what spent the quota
+
+**1. One sentence for every cause.** `settings_updates_check()` wrapped the
+call in a bare `except Exception` and returned a fixed string. A rate limit, a
+404 from a wrong `GITHUB_REPO`, a rejected token, a 500 at GitHub and a real
+outage were all reported identically — as being offline. The one failure that
+reached a clinic was the one where that sentence was actively wrong: it sent
+the admin to check a connection that was fine, and gave them no way to learn
+that waiting eleven minutes would fix it.
+
+**2. The page-load call.** `loadUpdatesStatus()` ran on every Settings page
+load and called `/settings/updates/check`, which asks GitHub for the latest
+release. Look at what it did with the answer: read `configured` and
+`current_version` to choose a panel and print "VetClinicSystem IQ v1.12.0".
+**Both are local** — `is_configured()` checks two env vars and two
+directories, `current_version()` reads a file. It spent a rate-limited network
+request to render two facts already on disk, and the cost landed on the
+*button*, the one place the call is genuinely wanted.
+
+Sixty Settings visits an hour is not a large number for a clinic.
+
+### The fix
+
+- `/settings/updates/status` — local only, and its docstring says to keep it
+  that way. The page load uses it.
+- `updater.describe_check_failure(exc)` classifies: rate limit (403/429 with
+  `x-ratelimit-remaining: 0`) names the cap **and the time it lifts**, taken
+  from `x-ratelimit-reset`; 401 points at the token; 404 at the repository;
+  other statuses report the code; connection errors and timeouts still say
+  offline, because for a real outage that answer is correct.
+
+### Measured against real GitHub, not a stub
+
+The unit tests build the exception themselves, so they prove classification
+but not consumption. So the routes were driven against live GitHub with a
+configured install and the quota read either side:
+
+| | quota |
+|---|---|
+| before | 58 |
+| after **5×** `/settings/updates/status` | **58** — unchanged |
+| after **1×** `/settings/updates/check` | **57** — dropped by exactly one |
+
+Before this change those five page loads cost five requests.
+
+### Test discipline
+
+Four mutations, identical results in both apps. Pointing the page load back at
+`/check` — the original bug, reintroduced — fails only the static template
+guard; making `/status` call GitHub fails only the route guard; removing the
+rate-limit branch fails the four rate-limit tests; collapsing every message
+into one sentence fails eleven, including the control that asserts five
+different causes produce five different sentences.
+
+That template guard exists because of a hole worth naming: the route tests
+prove `/status` avoids the network, and say nothing about **which route the
+page asks for**. On their own they would still pass with the bug fully
+reintroduced.
+
+**SHIPPED 2026-09-10 as IQ v1.12.1 / JO v1.10.1**, PATCH in both — a bug fix
+with no schema change. Same `RELEASE_WORKFLOW.md` §6 run as §45: suites green
+first, tags equal to `v` + `VERSION`, `releases/latest` verified non-draft and
+non-prerelease with a tarball.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3561,6 +3642,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 43 | `consecutive_fail_days()` ported into JO; the test pair that can tell insert order from timestamp order | the self-check, the Dashboard modal, or writing a test meant to catch a *robustness* gap |
 | 44 | ⚠ **`isolated_test_env.sh` recorded the wrong PID; `down`'s "still running" guard could not fire** — fixed 2026-09-09 | before trusting a guard you have not watched refuse, in tooling as much as in tests |
 | 45 | microchip number on patients: optional, unique when present, searchable however it is typed | adding a field that must be searchable, or a constraint to a brand-new column |
+| 46 | ⚠ **the Settings page spent the clinic's 60/hour GitHub quota on page loads, then reported a rate limit as being offline** | anything that calls an external API, or any `except Exception` that renders a fixed message |
 
 ### The four sections a new session should read first
 
