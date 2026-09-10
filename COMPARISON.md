@@ -3640,6 +3640,128 @@ anywhere but this machine.
 Verified on the published tags rather than assumed: the released tree for both
 `v1.12.2` and `v1.10.2` contains zero `static/*.html`.
 
+## 48. The full-application review, and the 33 findings it shipped — 2026-09-10
+
+A whole-codebase review of both apps against industry practice — security,
+coding logic, bugs, user QoL, dead code, dead files — recorded in
+`FULL_APP_REVIEW_2026-09-10.md` in this folder. 37 findings, all accepted;
+**33 implemented, tested and mutation-proved on branch
+`review-fixes-2026-09-10` in both repos.** Four remain open and are listed at
+the end of this section. Two more findings (R1/R2) were raised by the user
+during the work and are included.
+
+**Suites after the work: IQ 697 / JO 678, zero skips** (from 528/509).
+**Coverage re-measured the same day: 65% of application code in both**, up from
+the 61% recorded on 2026-09-01 — `updater.py` moved 19% → 36% on the back of
+its first unit tests, `money.py` is at 100%, `auth.py` 89%.
+
+### What differed between the apps, and is now recorded
+
+Per §4, the items below change how the two apps compare:
+
+- **`login_lock_status()` was two different algorithms** and had never been
+  listed as a deliberate divergence. They disagreed on three of five ordinary
+  scenarios: 10 rapid failures locked IQ for 30 minutes and JO for 14; 15
+  locked IQ for 60 and JO for 13. JO escalated per *burst*, so an attacker who
+  never paused never escalated — pausing was cheaper than not. IQ escalated on
+  volume but had no bursts, so stray old failures dragged its anchor back and
+  *shortened* real locks. **Both now run one implementation** with both
+  properties. See §S4 of the review.
+- **JO's `.gitignore` did not exclude `uploads/`**, where `attachments.py`
+  anchors patient X-rays and bloodwork in a dev clone. Nothing had leaked —
+  only `.gitkeep` was ever tracked — but IQ had the guard and JO did not. Both
+  now have it, plus a test.
+- **JO's dependencies were unpinned** (`Flask>=3.0`) while IQ pinned exact
+  versions. The updater builds a fresh venv per release and installs from that
+  file, so a JO clinic could move several major versions unattended. JO's venv
+  had already resolved `psycopg 3.3.5` against IQ's pinned 3.3.4 — the drift
+  was real, not hypothetical. JO is now pinned to what it actually runs.
+- **JO had no `/favicon.ico` route**; IQ has had one since Safari's probe was
+  noticed. JO now serves its SVG there with the right mimetype.
+- **JO's `auth.py` claimed the consignment and cash-register permission keys
+  were placeholders** "for features this app doesn't have yet". Both shipped
+  long ago — 14 consignment routes and 3 cash-register routes carry those
+  decorators. Corrected.
+- **JO duplicated the discount and Clean Up validation** inline in four routes
+  where IQ had shared helpers. JO now has helpers too, re-derived against its
+  `Decimal` money model rather than copied from IQ's float one.
+- **IQ carried `auth.is_system_admin()`**, which JO never had. It existed only
+  to drive a Settings gate that turned out not to be enforced (below); removed.
+
+### The two that mattered most
+
+**The Settings page hid controls it did not gate.** IQ's `settings.html` hid
+Backups & Restore, Updates and Startup behind `{% if is_system_admin %}` while
+every route behind them required only `manage_settings` — so a custom role the
+UI presented as not-an-admin could restore the database, apply or roll back an
+update, and browse the server's filesystem by request. JO had no gate at all.
+Both now have a `manage_maintenance` permission and the UI condition and the
+server condition are the same one.
+
+The migration for that nearly shipped as an outage, and the shape is worth
+carrying: `seed_default_roles_and_permissions()` only *creates* roles that are
+missing, and `admin_role_edit()` refuses to edit a system role — so adding a
+permission key to `auth.PERMISSIONS` on an existing install grants it to
+**nobody**, with no way to fix it from the UI. Seeding now re-asserts the system
+role's full grant on every run, which closes it for this key and every future
+one. `auth.py`'s comment claiming the vocabulary re-syncs "on every launch" was
+wrong and is corrected: it syncs from `setup.apply_schema()`, i.e. on a
+`setup.py` run and on every in-app update.
+
+**`/api/browse-folder` had no root at all.** It resolved any absolute path with
+`os.path.abspath()` and listed it — `/`, `/etc`, `/Users`, `/var/log`,
+`/Applications`, confirmed live. Now confined to the home directory, the
+configured backup folder and the data dir, compared with `commonpath()` after
+`realpath()` so a prefix-sharing sibling and a `..` escape are both refused.
+
+### Boarding was never refundable (R1)
+
+`payments` has anchored on exactly one of `visit_id` / `inpatient_case_id` /
+`boarding_id` since it existed. `refunds` had only the first two, and its CHECK
+constraint *required* one of them — so a clinic could take money for a boarding
+stay and the database would have refused the row that gave it back. Boarding
+was the only such gap: of the four billable client surfaces (visits, inpatient
+cases, boarding stays, POS sales) the other three were covered, and grooming
+and wellness bill through a visit.
+
+Fixing it surfaced a second defect: `revenue_by_category()` mapped every
+non-retail refund to the `Service` column, but Boarding has its own — so a
+boarding refund would have pulled Service down while Boarding stayed untouched,
+leaving both wrong.
+
+### Two lessons about guards, both learned the hard way here
+
+**A mutation that does not apply looks exactly like a test that cannot catch
+the bug.** It happened twice: once from shell escaping of `\n` inside a
+`python -c`, once from an anchor that did not exist in the file. Both times the
+suite passed and the only reason it was noticed is that the harness printed
+"DID NOT APPLY". Diff against a pre-mutation copy, not against `git HEAD` —
+HEAD shows every uncommitted change and drowns the one you care about.
+
+**A guard can pass for the wrong reason in the arrangement, not the
+assertion.** Four instances: a percent-escaping test whose search term pinned
+the row either way; two lockout tests whose scenarios put the two candidate
+anchors seconds apart; a Clean Up route test that used the seeded admin and, on
+failure, rewrote the password every later test logs in with. Each was rewritten
+until reverting the fix actually failed it.
+
+### Still open
+
+- **M3** — `app.py` is still ~7,200 lines, 66% of it route handlers. The
+  review prescribed a blueprint split; blueprints rename every endpoint
+  (`settings_page` → `settings.settings_page`), which touches every template,
+  `OPEN_ENDPOINTS`, `require_login()` and two test files that parse `app.py`.
+  A module split that registers onto the same app would achieve the same size
+  goal without renaming anything. **That choice has not been made** and the
+  work has not started.
+- **S6** — the CSP still carries `'unsafe-inline'`, because 88 (IQ) / 96 (JO)
+  inline `onclick=` handlers require it.
+- **M4** — `pos_checkout` is ~200 lines. Money code in two type systems; a
+  pure refactor, but not one to do casually.
+- **M8** — ~490 inline `style=` attributes per app. The review's own advice is
+  to fix these opportunistically when a template is edited for another reason,
+  not to sweep them.
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -3698,6 +3820,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 45 | microchip number on patients: optional, unique when present, searchable however it is typed | adding a field that must be searchable, or a constraint to a brand-new column |
 | 46 | ⚠ **the Settings page spent the clinic's 60/hour GitHub quota on page loads, then reported a rate limit as being offline** | anything that calls an external API, or any `except Exception` that renders a fixed message |
 | 47 | ten saved web pages committed into `static/` and served publicly; the guard against it, and its false positive | before trusting a new guard, and when a fix is a deletion |
+| 48 | ⚠ **the full-application review: 33 findings shipped, incl. a Settings gate that was never enforced, an unrooted folder browser, and boarding being unrefundable** | **before re-auditing anything; and before adding a permission key, which grants it to nobody on an existing install** |
 
 ### The four sections a new session should read first
 

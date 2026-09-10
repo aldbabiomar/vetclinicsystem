@@ -37,6 +37,7 @@ VetClinicSystem/
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
 ├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
+├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **33 SHIPPED** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48. Four still open: S6, M3, M4, M8
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
@@ -259,9 +260,10 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Measured 2026-09-10, all three tiers alive: IQ 511, JO 492,
-zero skips, 24 `test_*.py` files each** (IQ 528 / JO 509 after §47). They have found well over a dozen real
-bugs, several of which had shipped.
+growing since. **Measured 2026-09-10 after the full-application review, all
+three tiers alive: IQ 697, JO 678, zero skips, 33 `test_*.py` files each**
+(COMPARISON.md §48). They have found well over a dozen real bugs, several of
+which had shipped.
 
 **Two things gate "zero skips", and both look like a problem when they are
 not:**
@@ -283,8 +285,12 @@ matched nothing measurable):
 
 | | IQ | JO |
 |---|---|---|
-| **Application code** — the honest number | **61%** | **61%** |
-| Including the test files themselves | 74% | 74% |
+| **Application code** — the honest number | **65%** | **65%** |
+
+Re-measured 2026-09-10 with the review's tests in place (61% on 2026-09-01).
+`scripts/isolated_test_env.sh` now installs `pytest-cov`, so the command below
+actually runs — until that day it did not, which is exactly why this table kept
+being quoted rather than re-measured.
 
 Quote the first row. The second counts the tests measuring themselves, which
 is how a suite flatters its own coverage.
@@ -294,8 +300,9 @@ Three modules sit at **0%** and drag the total by roughly five points:
 entry-point scripts that no in-process test imports — the number is honest,
 but "0% covered" and "untested" are not the same claim for these three.
 
-Where the real gaps are: **`updater.py` 19%** (verified end-to-end on macOS
-only — `TRANSITION_NOTES.md` §4), `attachments.py` 27%, `backup.py` 42%,
+Where the real gaps are: **`updater.py` 36%** — its first unit tests landed
+with the review; still verified end-to-end on macOS only
+(`TRANSITION_NOTES.md` §4), `attachments.py` 27%, `backup.py` 42%,
 `desktop_shortcut.py` 42%, and **`app.py` 66%** with ~1,370 statements
 uncovered. The monitoring modules added this cycle are the best-covered code
 in either app: `selfcheck.py` 87-88%, `selfverify.py` 83%, `heartbeat.py`
