@@ -4196,6 +4196,71 @@ whether that was the note being old or the install being missing.
 
 ---
 
+---
+
+## 53. Released — IQ v1.13.0 / JO v1.11.0 — 2026-09-11
+
+The review branch is merged, released and gone. `main` is level with
+`origin/main` in both repos, `review-fixes-2026-09-10` is deleted, and the two
+GitHub releases are live and verified.
+
+**MINOR, not PATCH**, per `RELEASE_WORKFLOW.md` §3: the release carries an
+additive schema change (`refunds.boarding_id`) and a new user-facing capability
+(boarding stays can be refunded). Nothing destructive, no manual admin step, so
+not MAJOR.
+
+| | IQ | JO |
+|---|---|---|
+| Version | 1.12.2 → **1.13.0** | 1.10.2 → **1.11.0** |
+| Commits released | 33 | 34 |
+| Tests at release | 728 | 709 |
+| Tag | `v1.13.0` | `v1.11.0` |
+
+### What the checklist caught that a straight merge would not have
+
+**The CHECK constraint was the risk, not the column.** `refunds_anchor_ck` now
+names `boarding_id`. Inside `CREATE TABLE` that is fine on a fresh install and
+says nothing at all about an upgrade — this is the §6.2 trap that once made 16
+of 38 tagged releases unable to update. It is handled: `setup.py` drops and
+recreates the constraint in `INCREMENTAL_SCHEMA_STATEMENTS`, beside the
+`ALTER TABLE` that adds the column.
+
+Verified empirically rather than by reading, on a database built from
+`v1.12.2`'s own schema and then upgraded through the real path: `boarding_id`
+absent before, present after, and the constraint afterwards reads
+`(visit_id IS NOT NULL)::int + (inpatient_case_id IS NOT NULL)::int +
+(boarding_id IS NOT NULL)::int = 1`. Without that, boarding refunds would have
+worked on every fresh install and failed on every upgraded one — the exact
+split that is hardest to notice, because the developer's own machine is
+usually the fresh install.
+
+**And the verification itself had a side effect worth recording.** The command
+used was `setup.py --sync-schema`, a flag that does not exist. `setup.py` does
+not reject unknown arguments; it fell through to its default full-install path
+and created `webapps/vetclinicsystemiq-data/` and
+`webapps/vetclinicsystemiq-releases/app_v1.12.2/` in the workspace. Harmless
+here — both were removed, both git trees stayed clean, and the real install at
+`~/Downloads/vetclinicsystemiq-data` was untouched (its single backup still
+present) — but **`setup.py` treats an unrecognised flag as "do the default
+thing", and the default thing is to install an app.** Anyone reaching for a
+one-off setup.py invocation should pass a flag it actually parses
+(`--desktop-shortcut`, `--enable-updates`, `--no-enable-updates`) or expect an
+install.
+
+### End-to-end, not just the API
+
+Both releases were checked twice: `GET /releases/latest` returns exactly
+`v1.13.0` / `v1.11.0`, non-draft, non-prerelease, with a tarball; and each
+app's **own `updater.check_latest_release()`** was run against the live repo
+and returned the same. That second check is the one that matters, since it is
+the code path a clinic actually uses, and it is where B1 lived.
+
+`GITHUB_REPO` comes from the install's `.env`, not from the repo — running the
+updater from a bare shell gets `repos/None/releases/latest` and a 404. Not a
+bug; worth knowing before diagnosing one.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -4259,6 +4324,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 50 | Coverage re-measured per module after the split (65%, and which blueprint the old 66% average was hiding); IQ has a `money.py`, JO deliberately has none; the doc sweep that followed | before quoting any coverage figure; before citing a file:line in a plan doc |
 | 51 | ⚠ **the last three findings: CSP nonce (and the runtime-generated handlers the review missed), pos_checkout extracted, inline styles — plus two guards that were born blind** | **before touching a template's on*= or style=; before trusting a new static guard** |
 | 52 | ⚠ **restore drill 2026-09-11: IQ passes on a pre-update backup; JO has no install on this machine at all** | **before a release; and before assuming a red drill means the backup code is broken** |
+| 53 | released as IQ v1.13.0 / JO v1.11.0; the CHECK constraint that would have worked on fresh installs and failed on upgrades; setup.py installs an app if given an unknown flag | before any release; before running setup.py by hand |
 
 ### The four sections a new session should read first
 

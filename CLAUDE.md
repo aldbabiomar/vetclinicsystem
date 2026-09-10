@@ -44,7 +44,7 @@ VetClinicSystem/
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
 ├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
-├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **CLOSED — all 37 shipped** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48, §49 and §51
+├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **CLOSED — all 37 shipped**, released 2026-09-11 as IQ v1.13.0 / JO v1.11.0 — see COMPARISON.md §48, §49, §51 and §53
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)

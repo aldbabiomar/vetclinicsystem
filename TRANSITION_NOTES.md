@@ -31,14 +31,14 @@ project changed, only who is driving.
 
 | | IQ | JO |
 |---|---|---|
-| `VERSION` | **1.12.2** | **1.10.2** |
+| `VERSION` | **1.13.0** | **1.11.0** |
 | Tests, all three tiers | **728** | **709** |
 | Skipped | 0 | 0 |
 | `test_*.py` files | 39 | 39 |
 | Coverage (application code) | 65% | 65% |
 | `app.py` | 1,333 lines | 1,277 lines |
 | Working tree | clean | clean |
-| Branch | `review-fixes-2026-09-10` | `review-fixes-2026-09-10` |
+| Branch | `main`, level with `origin/main` | `main`, level with `origin/main` |
 | Remote | `aldbabiomar/vetclinicsystem_iq` | `aldbabiomar/vetclinicsystem_jo` |
 
 **There is unpushed work.** Both apps sit on `review-fixes-2026-09-10`, 29
@@ -209,10 +209,12 @@ were added 2026-09-10 by the full-application review and the blueprint split;
 
 Nothing here is broken; these are decisions or unbuilt work.
 
-1. **The review branch is unpushed and unreleased.** 33 (IQ) / 34 (JO)
-   commits on `review-fixes-2026-09-10`, including two schema migrations (the
-   `manage_maintenance` permission and `refunds.boarding_id`). Merging and
-   releasing it is the next real decision. `RELEASE_WORKFLOW.md` applies.
+1. **Watch the first real upgrade.** IQ v1.13.0 / JO v1.11.0 carry two
+   schema migrations (the `manage_maintenance` permission and
+   `refunds.boarding_id`, the latter with a widened CHECK constraint).
+   Convergence was verified against a database built from the previous tag's
+   schema, but no clinic has actually taken this update yet. `COMPARISON.md`
+   §53.
 
 2. **The five remaining long functions**, which M4 deliberately deferred:
    `refund_retail_save` (137/134) and `refund_service_save` (125/126) are now
