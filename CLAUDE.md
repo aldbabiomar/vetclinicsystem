@@ -26,6 +26,13 @@ either app's code.
 > `CLINIC_PC_TUNNEL_PLAN.md` sit in the root and were not listed. Both are
 > now in. That is twice this block has gone stale by omission; when you add a
 > file to this folder, add its line here in the same commit.
+>
+> **Re-checked 2026-09-10**, after the full-application review and the
+> blueprint split. §7's test counts, file count, coverage figure and tier table
+> were all re-measured rather than adjusted, and a "Where the code lives"
+> section was added because `app.py` is no longer where most of the code is.
+> The §7.1 tier table has now gone stale by omission twice; it says so in
+> place, and the fix is `ls tests/`, not trusting the list.
 
 ## Layout
 
@@ -37,7 +44,7 @@ VetClinicSystem/
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
 ├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
-├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **33 SHIPPED** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48. Four still open: S6, M3, M4, M8
+├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **34 SHIPPED** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48 and §49. Three still open: S6 (CSP), M4 (pos_checkout), M8 (inline styles)
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
@@ -54,6 +61,44 @@ Start sessions with **this folder** (`VetClinicSystem/`) as the working
 directory, not directly inside `webapps/vetclinicsystem_iq-main/` or
 `webapps/vetclinicsystem_jo-main/` — that's what guarantees this file and
 `COMPARISON.md` actually load.
+
+
+## Where the code lives (both apps, since 2026-09-10)
+
+`app.py` used to be ~7,200 lines holding every route. It was split into
+blueprints; see `COMPARISON.md` §49. Both apps now have the same shape:
+
+```
+app.py      ~1,300   the Flask app and its config, security headers, the
+                     network allowlist, the auth gate, error handlers, the
+                     context processor, dashboard, reports/insights, /health,
+                     and the launcher. 13 routes.
+core.py     ~400     the seam. get_db, VERSION, form parsing and validation
+                     (parse_money, clean_date, normalize_phone, the Bad*
+                     exceptions, the MAX_* bounds), pagination, and the
+                     money-validation helpers.
+routes/              six blueprints: settings, admin, consignment, inventory,
+                     sales, clinical.
+logic.py    ~2,500   the queries and calculations. Unchanged by the split.
+```
+
+**Three things to know before editing:**
+
+1. **A blueprint must never import from `app.py`** — `app.py` registers them,
+   so that is circular. Shared pieces go in `core.py`.
+2. **`core.py` must be imported after `load_dotenv()`**, because it reads
+   `DB_REQUEST_TIMEOUT_SECONDS` from the environment at import time. `app.py`
+   keeps its own early `_data_dir` read for the same class of reason.
+3. **Endpoint names carry the blueprint prefix**:
+   `url_for("settings.settings_page")`, not `url_for("settings_page")`. A
+   missed one raises `BuildError` while the page renders, so it fails at the
+   first page load rather than the first click.
+
+**If you write a test that parses source text, read `routes/*.py` too.** Six
+tests do this, and after the split every one of them would have passed while
+checking a fraction of the surface. `test_permissions.py` pins its discovery
+against Flask's live `url_map` for exactly this reason — copy that approach
+rather than a magic number.
 
 ## 0. The `audits/` folder
 
@@ -88,7 +133,7 @@ asserting four things that are no longer true.**
 
 | | IQ | JO |
 |---|---|---|
-| **Money** | `DOUBLE PRECISION` / `float`, whole IQD, 250-note rounding | `NUMERIC(12,3)` / `Decimal`, 3-decimal JOD |
+| **Money** | `DOUBLE PRECISION` / `float`, whole IQD, 250-note rounding, in a dedicated `money.py` | `NUMERIC(12,3)` / `Decimal`, 3-decimal JOD, **no `money.py` — there is nothing to round** |
 | **Phone** | country code `964`, 10 local digits | `962`, 9 local digits — same algorithm, different constants |
 | **Theming** | multiple palettes (~19 references in `app.py`) | one palette, no palette switching |
 
@@ -260,10 +305,12 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Measured 2026-09-10 after the full-application review, all
-three tiers alive: IQ 697, JO 678, zero skips, 33 `test_*.py` files each**
-(COMPARISON.md §48). They have found well over a dozen real bugs, several of
-which had shipped.
+growing since. **Measured 2026-09-10, after the full-application review and
+the blueprint split, all three tiers alive: IQ 698, JO 679, zero skips,
+37 `test_*.py` files each** (`COMPARISON.md` §48 and §49). They have found well
+over a dozen real bugs, several of which had shipped — and four more during the
+split itself, two of which a green `/health` and a clean page-render sweep both
+reported as fine.
 
 **Two things gate "zero skips", and both look like a problem when they are
 not:**
@@ -280,8 +327,8 @@ not:**
    by running the suite at 00:32; re-running the same file at 01:05 passed all
    22 with no skips.
 
-**Coverage, measured 2026-09-01** (the previous "roughly 68%" was undated and
-matched nothing measurable):
+**Coverage, measured 2026-09-10** (the 61% figure it replaces was measured
+2026-09-01, before the review's ~170 new tests):
 
 | | IQ | JO |
 |---|---|---|
@@ -300,13 +347,25 @@ Three modules sit at **0%** and drag the total by roughly five points:
 entry-point scripts that no in-process test imports — the number is honest,
 but "0% covered" and "untested" are not the same claim for these three.
 
-Where the real gaps are: **`updater.py` 36%** — its first unit tests landed
-with the review; still verified end-to-end on macOS only
-(`TRANSITION_NOTES.md` §4), `attachments.py` 27%, `backup.py` 42%,
-`desktop_shortcut.py` 42%, and **`app.py` 66%** with ~1,370 statements
-uncovered. The monitoring modules added this cycle are the best-covered code
-in either app: `selfcheck.py` 87-88%, `selfverify.py` 83%, `heartbeat.py`
-74-76%.
+Where the real gaps are, **re-measured 2026-09-10 after the blueprint split**
+(so these are per-module figures for the layout that actually exists):
+`barcode.py` 18%, `attachments.py` 27%, **`updater.py` 36%** — its first unit
+tests landed with the review, and it is still verified end-to-end on macOS only
+(`TRANSITION_NOTES.md` §4) — `backup.py` 42-43%, `desktop_shortcut.py` 57%,
+`pdf_export.py` 61% and `autostart.py` 61%.
+
+Among the six blueprints the spread is wide and worth knowing before you go
+looking for an untested path: `routes/admin.py` 54-55% and
+`routes/inventory.py` 55-56% at the bottom, `routes/settings.py` 64%, then
+`routes/clinical.py` and `routes/consignment.py` both 70%, and
+`routes/sales.py` 86-87% at the top. What is left in `app.py` — config, the
+scheduler wiring and thirteen cross-cutting routes — is 72% (IQ) / 74% (JO),
+and the new `core.py` seam is 88% / 85%.
+
+Best covered: `money.py` 100% (IQ only — **JO has no `money.py` at all**,
+because exact `Decimal` JOD needs no denomination rounding), `auth.py` 89%,
+`selfcheck.py` 88%, `routes/sales.py` 86-87%, `selfverify.py` 83%,
+`logic.py` 81%, `scheduler.py` 81%.
 
 **Re-measure rather than quoting these** — every previous figure in this file
 was stale within days:
@@ -320,9 +379,12 @@ venv/bin/python -m coverage report --omit="tests/*,venv/*" --sort=cover
 
 | Tier | Files | Needs | Runtime |
 |---|---|---|---|
-| **Pure** | `test_money.py`, `test_frontend.py`, `test_desktop_shortcut_target.py`, `test_no_raw_form_dates.py`, `test_autostart_windows.py`, `test_launcher_preflight.py`, `test_updater.py`, `test_migrations.py`'s static guard | nothing | < 4s |
-| **Database** | `test_money_routes.py`, `test_crud_routes.py`, `test_workflow_routes.py`, `test_admin_routes.py`, `test_supplier_routes.py`, `test_edit_routes.py`, `test_exports.py`, `test_permissions.py`, `test_routes_smoke.py`, `test_backup.py`, `test_migrations.py`, `test_concurrency.py`, `test_selfcheck.py`, `test_selfverify.py`, `test_heartbeat.py`, `test_scheduler_catchup.py` | a throwaway Postgres | ~15s |
+| **Pure** | 11 files: `test_money`, `test_frontend`, `test_updater`, `test_updater_releases`, `test_cleanup_cap`, `test_scheduler_logging`, `test_sql_placeholders`, `test_no_raw_form_dates`, `test_desktop_shortcut_target`, `test_autostart_windows`, `test_launcher_preflight` | nothing | < 4s |
+| **Database** | 25 files — every `*_routes`, plus `test_permissions`, `test_maintenance_permission`, `test_money_routes`, `test_backup`, `test_migrations`, `test_concurrency`, `test_selfcheck`, `test_selfverify`, `test_heartbeat`, `test_scheduler_catchup`, `test_login_lockout`, `test_login_log_ip`, `test_password_policy`, `test_session_and_csrf_lifetime`, `test_search_wildcards`, `test_log_retention`, `test_health_endpoint`, `test_refund_boarding`, `test_exports` | a throwaway Postgres | ~20s |
 | **Browser** | `test_browser.py` (13 tests) | Playwright + a running app | ~2min |
+
+**Do not hand-maintain this table** — `ls tests/` and check for `needs_db` /
+`pytest.importorskip`. It has gone stale twice by omission.
 
 *(The six monitoring-era files were added on 2026-08-26/27 and were missing
 from this table until 2026-09-01 — another reason to trust `ls tests/` over

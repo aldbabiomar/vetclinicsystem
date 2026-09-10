@@ -1,6 +1,10 @@
 # Clinic-PC Hosting via Cloudflare Tunnel
 
 Status: **draft for review** — written 2026-08-24, not yet executed.
+Re-checked 2026-09-10: still accurate, and still not executed. It cites no
+`app.py` line numbers, so the 2026-09-10 blueprint split (`COMPARISON.md`
+§49) leaves it untouched. Read `HOSTING_MIGRATION_PLAN.md` first — this is
+the alternative to that plan, not a successor to it.
 Scope: VetClinicSystem_IQ and VetClinicSystem_JO, each made reachable at a
 real public domain **from the clinic's own existing computer** — no VPS, no
 port forwarding, no monthly server bill. This is the alternative explored

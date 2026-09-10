@@ -7,9 +7,19 @@ internet at a real domain. Single-tenant per deployment throughout — this is
 *not* a multi-tenant SaaS rework (see the prior conversation on that fork;
 this plan is the "same app, hosted remotely" branch).
 
+> **Re-checked 2026-09-10.** Every technical claim below still holds, but the
+> `file:line` citations were written against a 7,000-line `app.py` that no
+> longer exists — `app.py` was split into `core.py` and a `routes/` package on
+> 2026-09-10 (`COMPARISON.md` §49), so the numbers below are symbol names and
+> the file that now owns them, not line numbers. **One substantive change:**
+> §1's "one real gap", `api_browse_folder`, has since been fixed — it is
+> confined to the data directory and the configured backup folder, with a
+> guard test and a control (finding S2, `FULL_APP_REVIEW_2026-09-10.md`). That
+> fix is on branch `review-fixes-2026-09-10` and is not yet released.
+
 This plan follows the same discipline as `CLAUDE.md` §2: every claim below is
-checked against each app's **actual current code**, cited by file:line, not
-assumed from the other app or from generic hosting advice. The good news,
+checked against each app's **actual current code**, cited by symbol and file,
+not assumed from the other app or from generic hosting advice. The good news,
 confirmed directly rather than assumed: the hosting-relevant code is
 genuinely identical between IQ and JO (verified in §1), so this is one
 recipe, followed twice — once per app, each on its own server.
@@ -39,27 +49,30 @@ anything below.
 **Better starting position than expected.** Both apps already have, verified
 identical in both:
 - `ProxyFix` applied when `BEHIND_TLS_PROXY=1`
-  ([app.py:89](webapps/vetclinicsystem_iq-main/app.py:89) IQ,
-  [app.py:107](webapps/vetclinicsystem_jo-main/app.py:107) JO) — correctly
+  (`ProxyFix` in [app.py](webapps/vetclinicsystem_iq-main/app.py), both
+  apps) — correctly
   trusts exactly one proxy hop for `X-Forwarded-For`/`Proto`/`Host`, not a
   blind header trust.
 - Hardened session cookies — `HttpOnly`, `SameSite=Lax`, `Secure` tied to
   `BEHIND_TLS_PROXY`, configurable lifetime
-  ([app.py:96-105](webapps/vetclinicsystem_iq-main/app.py:96) IQ).
+  (the `SESSION_COOKIE_*` config block in
+  [app.py](webapps/vetclinicsystem_iq-main/app.py)).
 - An optional CIDR allowlist (`VETCLINICSYSTEM{IQ,JO}_ALLOWED_NETWORKS`),
   unset by default — fine to leave unset for a real public site; useful if
   the clinic later wants to restrict to a known office/VPN range.
-- A `/health` endpoint ([app.py:1524](webapps/vetclinicsystem_iq-main/app.py:1524)
-  IQ, [app.py:6331](webapps/vetclinicsystem_jo-main/app.py:6331) JO) that
+- A `/health` endpoint (`health()` — one of the cross-cutting routes kept in
+  [app.py](webapps/vetclinicsystem_iq-main/app.py) rather than a blueprint) that
   checks real DB connectivity, not just process liveness — built for the
   in-app updater, but exactly what an uptime monitor wants too (§10).
 - Graceful `SIGTERM`/`SIGINT` handling that takes a final backup before exit
-  ([app.py:6870-6890](webapps/vetclinicsystem_iq-main/app.py:6870)) — this
+  (`_graceful_shutdown` in [app.py](webapps/vetclinicsystem_iq-main/app.py))
+  — this
   is precisely what `systemctl stop` sends, so the existing shutdown code
   needs no change to work correctly under systemd.
 - Waitress already binds host/port from env vars and explicitly documents
   that it never terminates TLS itself — "TLS here always means there's a
-  reverse proxy in front" ([app.py:6911](webapps/vetclinicsystem_iq-main/app.py:6911)).
+  reverse proxy in front" (the `serve()` call at the foot of
+  [app.py](webapps/vetclinicsystem_iq-main/app.py)).
 - `docker-compose.yml`'s Postgres already binds `127.0.0.1:5432` only, in
   both apps — already correct for a VPS, no change needed.
 - `attachments.py`'s `UPLOAD_ROOT` already resolves relative to
@@ -68,12 +81,15 @@ identical in both:
   pointing that env var at a real persistent path is enough; no code
   change needed to relocate uploads onto a proper disk.
 - `RotatingFileHandler` already caps `logs/errors.log`
-  ([app.py:262](webapps/vetclinicsystem_iq-main/app.py:262)) — log rotation
+  (`_err_handler` in [app.py](webapps/vetclinicsystem_iq-main/app.py)) — log
+  rotation
   needs no extra tooling at this scale.
 
-**One real gap, confirmed by reading the function, not assumed:**
-`api_browse_folder` ([app.py:1706](webapps/vetclinicsystem_iq-main/app.py:1706)
-IQ, [app.py:1711](webapps/vetclinicsystem_jo-main/app.py:1711) JO) lets any
+**One real gap, confirmed by reading the function, not assumed — SINCE FIXED,
+see the note at the top of this file.** As written on 2026-08-24,
+`api_browse_folder` (now
+[routes/settings.py](webapps/vetclinicsystem_iq-main/routes/settings.py), both
+apps) let any
 `manage_settings` user list **any directory the process can read** —
 `requested = request.args.get("path")` → `os.path.abspath(requested)` →
 `os.listdir(path)`, with no base-directory confinement at all. On a clinic
@@ -368,7 +384,8 @@ exercised a few times, not before.
 
 - **Uptime check** against the app's own `/health` endpoint — it already
   checks real DB connectivity, not just "the process is up"
-  ([app.py:1524](webapps/vetclinicsystem_iq-main/app.py:1524)). A free tier
+  (`health()` in [app.py](webapps/vetclinicsystem_iq-main/app.py)). A free
+  tier
   of UptimeRobot (or similar) hitting `https://{domain}/health` every few
   minutes, alerting by email/SMS on a non-200, closes the gap that used to
   be "a receptionist notices the window is closed."

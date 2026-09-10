@@ -3640,20 +3640,22 @@ anywhere but this machine.
 Verified on the published tags rather than assumed: the released tree for both
 `v1.12.2` and `v1.10.2` contains zero `static/*.html`.
 
-## 48. The full-application review, and the 33 findings it shipped — 2026-09-10
+## 48. The full-application review, and the 34 findings it shipped — 2026-09-10
 
 A whole-codebase review of both apps against industry practice — security,
 coding logic, bugs, user QoL, dead code, dead files — recorded in
 `FULL_APP_REVIEW_2026-09-10.md` in this folder. 37 findings, all accepted;
-**33 implemented, tested and mutation-proved on branch
-`review-fixes-2026-09-10` in both repos.** Four remain open and are listed at
-the end of this section. Two more findings (R1/R2) were raised by the user
-during the work and are included.
+**34 implemented, tested and mutation-proved on branch
+`review-fixes-2026-09-10` in both repos** (33 in this pass, plus M3 as §49).
+Three remain open and are listed at the end of this section. Two more findings
+(R1/R2) were raised by the user during the work and are included.
 
-**Suites after the work: IQ 697 / JO 678, zero skips** (from 528/509).
+**Suites after the work: IQ 698 / JO 679, zero skips** (from 528/509).
 **Coverage re-measured the same day: 65% of application code in both**, up from
 the 61% recorded on 2026-09-01 — `updater.py` moved 19% → 36% on the back of
-its first unit tests, `money.py` is at 100%, `auth.py` 89%.
+its first unit tests, `money.py` is at 100%, `auth.py` 89%. Per-module figures
+were re-measured again after the blueprint split; see §50 for the current
+ones.
 
 ### What differed between the apps, and is now recorded
 
@@ -3745,15 +3747,10 @@ anchors seconds apart; a Clean Up route test that used the seeded admin and, on
 failure, rewrote the password every later test logs in with. Each was rewritten
 until reverting the fix actually failed it.
 
-### Still open
+### Still open — three
 
-- **M3** — `app.py` is still ~7,200 lines, 66% of it route handlers. The
-  review prescribed a blueprint split; blueprints rename every endpoint
-  (`settings_page` → `settings.settings_page`), which touches every template,
-  `OPEN_ENDPOINTS`, `require_login()` and two test files that parse `app.py`.
-  A module split that registers onto the same app would achieve the same size
-  goal without renaming anything. **That choice has not been made** and the
-  work has not started.
+M3 was the fourth and is done; see §49.
+
 - **S6** — the CSP still carries `'unsafe-inline'`, because 88 (IQ) / 96 (JO)
   inline `onclick=` handlers require it.
 - **M4** — `pos_checkout` is ~200 lines. Money code in two type systems; a
@@ -3761,6 +3758,212 @@ until reverting the fix actually failed it.
 - **M8** — ~490 inline `style=` attributes per app. The review's own advice is
   to fix these opportunistically when a template is edited for another reason,
   not to sweep them.
+
+## 49. `app.py` split into blueprints — 2026-09-10
+
+The last structural item from the full review (§48's M3). `app.py` was ~7,200
+lines in both apps, two thirds of it route handlers, and had been on the
+"worth doing once tests exist to catch what a split breaks" list since
+2026-08-26. There are now ~700 tests per app, so it was done.
+
+| | IQ | JO |
+|---|---|---|
+| `app.py` | 7,211 → **1,333** | 7,109 → **1,277** |
+| `core.py` (new) | 394 | 456 |
+| `routes/` (new) | 5,764 in 6 blueprints | 5,658 in 6 blueprints |
+
+`routes/` holds `settings`, `admin`, `consignment`, `inventory`, `sales` and
+`clinical`. What stays in `app.py` is genuinely cross-cutting: the Flask app
+and its configuration, the security headers and network allowlist, the auth
+gate, the error handlers, the context processor, the dashboard, the reports
+and insights pages, `/health` and the launcher — thirteen routes.
+
+### Why blueprints, and what they cost
+
+Blueprints are the documented Flask mechanism and what any Flask developer
+opening these repos expects. The alternative considered — modules registering
+routes onto a shared `app` object — needs circular imports, cannot be imported
+or tested independently, and gives up per-area `url_prefix`, `before_request`
+and error handlers. It was rejected as an anti-pattern, not preferred for being
+lower-risk.
+
+The cost is that Flask prefixes every blueprint endpoint:
+`url_for("settings_page")` became `url_for("settings.settings_page")`, across
+~480 call sites per app. Two things made that tractable rather than dangerous:
+
+- **M2 landed first.** Before it, 43 URLs per app were built by string
+  concatenation — invisible to a rename and silent when broken. Doing M3 before
+  M2 would have broken the UI in exactly the way §27 describes.
+- **`url_for()` raises `BuildError` while the page renders.** A missed rename
+  fails at the first page load, not the first click.
+
+### `core.py` — the seam
+
+A blueprint cannot import from `app.py`, because `app.py` registers it. The
+pieces both sides need moved to `core.py`: `get_db`, `VERSION`, `BASE_DIR`,
+`DB_REQUEST_TIMEOUT_SECONDS`, `lan_address`, the form parsing and validation
+helpers (`parse_money`, `parse_int`, `clean_date`, `normalize_phone`,
+`required_field`, `has_negative`, the `Bad*` exceptions and the `MAX_*`
+bounds), pagination, `_render_with_progress`, and the money-validation helpers
+`cleanup_amount_error` / `discount_percent_error`.
+
+**Ordering is load-bearing there.** `core.py` reads
+`DB_REQUEST_TIMEOUT_SECONDS` from the environment at import time, so it must be
+imported *after* `app.py`'s `load_dotenv()`. `app.py` keeps its own early
+`_data_dir` read because that one has to happen before `.env` is loaded at all.
+
+`parse_money`, `MAX_MONEY`, `CLEANUP_CAP` and the `PHONE_*` constants differ
+between the apps on purpose (§1.1). Each app's own version moved; they must not
+be merged. IQ additionally has `flash_cash_denomination_warning`, which belongs
+to the 250-note model JO has no equivalent of.
+
+### ⚠ What broke, and what did NOT catch it
+
+Four things broke during the move. Every one was caught, but by which check
+matters:
+
+- **JO would not import at all** — its `MAX_MONEY` is a `Decimal` where IQ's is
+  an `int`, and `core.py` had not imported `Decimal`.
+- **JO's `parse_money` catches `InvalidOperation`**, not imported either. Every
+  non-numeric money input 500'd; twelve tests across five files named it.
+- **`CLEANUP_CAP` and `MAX_QUANTITY` stayed a step behind the functions that
+  read them.** Neither is referenced at import time, so **both apps started
+  cleanly and all 22 sampled pages rendered without error.** What was actually
+  broken was every Clean Up on every payment surface, and every POS checkout in
+  JO. The `/health` check and the page-render sweep both reported healthy. Only
+  the test suite found it — worth remembering the next time a green `/health`
+  and a clean render pass feel like enough.
+
+### ⚠ Static guards that read `app.py` alone
+
+Six tests per app parse source text. After the split, `app.py` holds a
+fraction of the routes, so any of them still reading only `app.py` would pass
+while checking almost nothing — the §7.3 failure mode at its purest.
+
+Two were widened *before* the first route moved (`test_permissions.py`,
+`test_maintenance_permission.py`), and a new test pins discovery against
+Flask's live `url_map`, so it needs no magic number and cannot drift. That
+guard was then proved against the real condition rather than a simulation:
+with routes actually moved, reverting discovery to `app.py` alone fails it with
+all eleven route names printed.
+
+**`test_no_raw_form_dates.py` caught itself.** It carries a floor — *"the
+scanner found only 0 date form reads across 21 modules. Either the app changed
+how it reads form data, or this detector stopped matching — fix the detector
+rather than lowering this floor."* That floor is what reported the omission
+after `clinical` moved. Without it the guard would have passed silently. All
+six source-scanning tests were audited afterwards and are package-aware.
+
+### The hardcoded-URL guard had the bug it was written to catch
+
+M2's guard looked for `fetch(`, `.action =` and `window.location =`. It missed
+four more per app — `const url = '/api/browse-folder'` and two
+`runUpdateJob('/settings/updates/...')` calls — **two of which were routes the
+settings blueprint was about to move**, so they would have broken silently. It
+now matches any path literal in an assignment or call argument.
+
+### Suites
+
+IQ 698, JO 679, zero skips, 37 `test_*.py` files each. `url_map` still holds
+148 rules in both, unchanged through all six moves.
+
+---
+
+---
+
+## 50. Coverage re-measured after the split, and the doc sweep — 2026-09-10
+
+The blueprint split (§49) invalidated every per-module coverage figure in
+`CLAUDE.md`, because the module the figures described no longer existed. Both
+suites were re-run with coverage against the throwaway environments rather
+than adjusting the old numbers.
+
+| | IQ | JO |
+|---|---|---|
+| Tests passed | **698** | **679** |
+| Skipped | 0 | 0 |
+| Application-code coverage | **65%** | **65%** |
+| `app.py` | 72% (573 stmts) | 74% (556) |
+| `core.py` | 88% (144) | 85% (172) |
+| `routes/sales.py` | 86% | 87% |
+| `routes/clinical.py` | 70% | 70% |
+| `routes/consignment.py` | 70% | 70% |
+| `routes/settings.py` | 64% | 64% |
+| `routes/inventory.py` | 55% | 56% |
+| `routes/admin.py` | 54% | 55% |
+
+The headline did not move — 65% before and after — which is the expected
+result when code is relocated rather than changed, and is worth stating
+because it is also what a broken measurement would look like. The evidence
+that it is real is the per-module spread: `routes/sales.py` at 86-87% and
+`routes/admin.py` at 54-55% were both inside the old 66% `app.py` average, and
+that average was hiding both of them.
+
+**A divergence surfaced by the measurement rather than by reading:** IQ has a
+`money.py` (100% covered); **JO has no `money.py` at all**. That is correct and
+deliberate — exact 3-decimal `Decimal` JOD has nothing to round to a
+denomination, so the module IQ needs for its 250-note floor has no JO
+counterpart. It is now stated in `CLAUDE.md` §1's divergence table, where
+previously the row said only "`Decimal`, 3-decimal JOD" and left a reader to
+assume a parallel module existed. This is the third time a "missing" file in
+one app has turned out to be a deliberate divergence rather than a gap
+(`COMPARISON.md` §3, §18), and the second time the fix was to say so in the
+table rather than in prose someone has to find.
+
+### The documentation sweep
+
+Everything below was stale in a way that would have misled the next session,
+and was corrected the same day:
+
+- **`TRANSITION_NOTES.md` §1, §2 and §4 rewritten.** §1's state table claimed
+  IQ 1.10.9 / JO 1.8.10 and 379/361 tests — three weeks and ~300 tests out of
+  date. §2 was framed as "what changed recently" for sessions that are now
+  history, and is now a one-table map into this file. §4's open-work list had
+  an item reading "`app.py` is ~4,000 statements in one file". The file's own
+  §7 says to rewrite a misleading section rather than patch it, on the grounds
+  that a half-true handoff doc is worse than an obviously old one — that
+  advice was followed rather than quoted.
+- **§3's trap list gained six entries** (12-16 plus a renumbering; two items
+  had both been numbered 4 since 2026-08-28). The new ones are the moved
+  module-level constants that a green `/health` could not see, the static
+  guard that goes vacuous rather than red when code moves, `\b` matching
+  inside `data-role-id="`, a new `auth.PERMISSIONS` key being granted to
+  nobody on an existing install, and tests that rewrite shared state.
+- **Both apps' `README.md`.** The "Running the tests" section still said the
+  tests "need no database, no Docker and no running app" and "should pass in
+  well under a second" — true when there were five of them, and now describing
+  only the pure tier. Replaced with the three tiers, the `TEST_DATABASE_URL`
+  rule, the `--collect-only` warning about dormant tiers, and the midnight
+  clock gates. Both READMEs also gained a **"How the code is organised"**
+  section, because a reader following the old one would look for a route in
+  `app.py` and not find it.
+- **`HOSTING_MIGRATION_PLAN.md`** cited nine `app.py:NNNN` line numbers into a
+  file that is now 1,333 lines; every one pointed at unrelated code or past the
+  end of the file. Replaced with symbol names and the file that now owns them,
+  which is the citation style that survives a refactor. Its "one real gap",
+  `api_browse_folder`, is also **fixed** now (finding S2) and says so.
+- **`CLINIC_PC_TUNNEL_PLAN.md`** needed no correction — it cites no line
+  numbers — and now carries a dated line saying it was checked and is still
+  unexecuted, so the next reader does not have to re-derive that.
+- **`FULL_APP_REVIEW_2026-09-10.md`** still said "IN PROGRESS — 33 of 37" and
+  "No change has been made to either app". It now states 34 of 37, names the
+  three that remain (S6, M4, M8), marks M3 DONE with the reasoning for
+  blueprints, and — the part that matters for anyone reading a finding cold —
+  says explicitly that the findings are written in the present tense of the
+  review, so "this is broken" means *before* the fix unless it is one of the
+  three still open. Its baseline table is labelled as the BEFORE state and
+  deliberately left as measured.
+
+**The pattern across all six:** none of these documents was wrong when
+written. Each became wrong because something shipped, and nothing re-checks a
+document on its own. `CLAUDE.md`'s header has now gone stale by omission
+three times (2026-09-01, 2026-09-09, and again here), always in the same
+way — a file added or a number moved, and the doc not touched in the same
+commit. The countermeasure that has actually worked is not discipline but
+shape: figures that carry the date they were measured, and citations by symbol
+rather than by line.
+
+---
 
 ## Index — every section, and when to read it
 
@@ -3820,7 +4023,9 @@ a real bug that shipped** — read those before touching the area they name.
 | 45 | microchip number on patients: optional, unique when present, searchable however it is typed | adding a field that must be searchable, or a constraint to a brand-new column |
 | 46 | ⚠ **the Settings page spent the clinic's 60/hour GitHub quota on page loads, then reported a rate limit as being offline** | anything that calls an external API, or any `except Exception` that renders a fixed message |
 | 47 | ten saved web pages committed into `static/` and served publicly; the guard against it, and its false positive | before trusting a new guard, and when a fix is a deletion |
-| 48 | ⚠ **the full-application review: 33 findings shipped, incl. a Settings gate that was never enforced, an unrooted folder browser, and boarding being unrefundable** | **before re-auditing anything; and before adding a permission key, which grants it to nobody on an existing install** |
+| 48 | ⚠ **the full-application review: 34 of 37 findings shipped, incl. a Settings gate that was never enforced, an unrooted folder browser, and boarding being unrefundable** | **before re-auditing anything; and before adding a permission key, which grants it to nobody on an existing install** |
+| 49 | ⚠ **`app.py` split into six blueprints per app (7,200 → 1,300 lines), and the four things that broke while a green /health and a clean render sweep said otherwise** | **any work in `routes/` or `core.py`; before writing a test that parses source text** |
+| 50 | Coverage re-measured per module after the split (65%, and which blueprint the old 66% average was hiding); IQ has a `money.py`, JO deliberately has none; the doc sweep that followed | before quoting any coverage figure; before citing a file:line in a plan doc |
 
 ### The four sections a new session should read first
 
@@ -3835,4 +4040,3 @@ a real bug that shipped** — read those before touching the area they name.
 4. **§20 and §25–26** — the audits and what they missed. §21 exists because a
    twelve-section line-by-line audit missed a reproducible 500 that a
    five-minute test run caught.
-

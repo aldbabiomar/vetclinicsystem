@@ -3,14 +3,22 @@
 A whole-codebase review of both apps against industry practice: security,
 coding logic, bugs, user QoL, dead code and dead files.
 
-**Status: IN PROGRESS — 33 of 37 implemented, tested and mutation-proved, plus the two user-raised refund findings (R1, R2). Branch `review-fixes-2026-09-10` in both repos, local, not pushed. Suites: IQ 697 passed / JO 678 passed, zero failures, zero skips.**
-Every finding below is agreed work; each carries a ready-to-paste prompt in its
-*Fix prompt* block. No change has been made to either app as part of this
-review — the two throwaway environments used for verification were torn down,
-and the real install was not touched.
+**Status as of 2026-09-10, end of the implementation pass: 34 of 37
+implemented, tested and mutation-proved**, plus the two user-raised refund
+findings (R1, R2). **Three remain open: S6, M4, M8** — each still carries its
+fix prompt below and none is urgent. Branch `review-fixes-2026-09-10` in both
+repos, **local, not pushed, not released**. Suites: **IQ 698 / JO 679 passed,
+zero failures, zero skips.**
 
-Work through them in the **Suggested order of work** at the end of this file,
-not top to bottom: M2 must precede M3, and B1/B2 belong in one change.
+Every finding below is agreed work; each carries a ready-to-paste prompt in
+its *Fix prompt* block. The findings text is written in the present tense of
+the review itself — where it says "this is broken", read that as the state on
+2026-09-10 **before** the fix, unless the finding is one of the three still
+open. The permanent record of what actually landed is `COMPARISON.md` §48
+(the fixes) and §49 (the blueprint split).
+
+Work through the remaining three in the **Suggested order of work** at the end
+of this file.
 
 ---
 
@@ -24,7 +32,8 @@ executed). `CLAUDE.md` §0 is right that reading code is not running it, so the
 distinction is kept honest rather than flattened.
 
 **Baseline measured during this review, both environments, all three tiers
-alive:**
+alive. This is the BEFORE state — kept as measured, not updated.** Current
+figures are in `TRANSITION_NOTES.md` §1.
 
 | | IQ | JO |
 |---|---|---|
@@ -47,7 +56,14 @@ Run at ~02:50, i.e. past the `test_scheduler_catchup.py` clock gates in
 
 ## Index
 
-All 37 accepted 2026-09-10. **33 implemented and verified**; the remaining 4 are ✅ accepted, not yet started: S6, M3, M4, M8.
+All 37 accepted 2026-09-10. **34 implemented and verified**; three remain
+accepted-but-not-started: **S6** (CSP `unsafe-inline` — needs ~90 inline
+handlers per app moved to listeners), **M4** (`pos_checkout`, money code in two
+type systems), **M8** (inline `style=` attributes — this review's own advice is
+to fix them opportunistically, not as a sweep).
+
+In the status column, **DONE** means implemented, tested and mutation-proved on
+`review-fixes-2026-09-10`; ✅ means accepted but not started.
 
 | ID | Severity | Apps | Finding | Status |
 |---|---|---|---|---|
@@ -81,7 +97,7 @@ All 37 accepted 2026-09-10. **33 implemented and verified**; the remaining 4 are
 | **D6** | Low | IQ | `logic.followups_page()` carries an always-empty `params` list | **DONE** |
 | **M1** | Medium | both | 84/89 code comments cite documents that do not ship in the repo | **DONE** |
 | **M2** | Medium | both | 22/21 hardcoded URLs in templates instead of `url_for()` | **DONE** |
-| **M3** | Medium | both | `app.py` is one 7,000-line module | ✅ |
+| **M3** | Medium | both | `app.py` is one 7,000-line module | **DONE** |
 | **M4** | Low | both | 11/10 functions over 100 lines | ✅ |
 | **M5** | Low | JO | Clean Up validation duplicated inline in four routes | **DONE** |
 | **M6** | Low | JO | `auth.py` comment claims features JO actually has | **DONE** |
@@ -1354,7 +1370,17 @@ tell you which routes the UI actually uses.
 
 ---
 
-## M3 — `app.py` is one 7,000-line module — **CONFIRMED (measured)**
+## M3 — `app.py` is one 7,000-line module — **CONFIRMED (measured)** — **DONE 2026-09-10**
+
+> **Shipped as a Flask blueprint split**, chosen over a same-app module split
+> after asking which is more standard: blueprints are what Flask's own docs and
+> every large Flask codebase use, and the endpoint renames they force
+> (`settings_page` → `settings.settings_page`) are the feature, not the cost —
+> a stale `url_for()` becomes a `BuildError` at render time instead of a link
+> that silently 404s. `app.py` is now 1,333 (IQ) / 1,277 (JO) lines, with
+> `core.py` as the shared seam and six blueprints under `routes/`. The full
+> account, including the four things that broke and why a green `/health` did
+> not notice, is `COMPARISON.md` §49.
 
 **Severity: Medium · both apps**
 
@@ -1686,7 +1712,7 @@ Grouped by what unblocks what, not strictly by severity.
 4. **U1** — a one-line config fix plus an honest error message, high
    user-visible value.
 5. **S3, B3** — audit-log integrity and scheduler observability.
-6. **D1–D6** — the deletions. Cheap, and best done before M3 moves code around.
+6. **D1–D6** — the deletions. Cheap, and best done before M3 moves code around. *(Done; M3 is done too.)*
 7. **M2** — hardcoded URLs. **Must precede M3.**
 8. **S4** — reconcile the lockout implementations.
 9. **U3, U4, U5** — accessibility, mechanical, guard-test-driven.
