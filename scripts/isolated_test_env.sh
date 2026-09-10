@@ -123,8 +123,14 @@ up() {
   # had never once run for this reason, which is how a Settings page that
   # scrolled sideways on every phone reached a soak install. COMPARISON.md
   # §40.3.
-  echo "== Installing test-only deps (pytest, playwright) =="
-  "$VENV_DIR/bin/pip" install -q pytest playwright
+  # pytest-cov is here so CLAUDE.md section 7's documented coverage command
+  # actually runs in the environment that same document tells you to build. It
+  # did not, until 2026-09-10: `pytest --cov=.` failed with "unrecognized
+  # arguments" and `python -m coverage` with "No module named coverage", which
+  # is why the coverage table in section 7 kept being quoted rather than
+  # re-measured. Still test-only -- never add it to requirements.txt.
+  echo "== Installing test-only deps (pytest, pytest-cov, playwright) =="
+  "$VENV_DIR/bin/pip" install -q pytest pytest-cov playwright
   "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
     || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
     || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
