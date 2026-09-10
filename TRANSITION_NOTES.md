@@ -238,15 +238,24 @@ Nothing here is broken; these are decisions or unbuilt work.
    audits, the features and `scripts/` are version-controlled here and exist on
    this one disk and nowhere else. A `git init` is not a backup.
 
-7. **The restore drill is due.** Last run 2026-08-26, both apps passed. Monthly
-   — so it is overdue. `scripts/restore_drill.sh {iq|jo}`, `CLAUDE.md` §6.
+7. **The restore drill: IQ passes, JO cannot run.** Last run 2026-09-11. IQ
+   passed all eight checks against a real pre-update backup. **JO has no
+   install on this machine at all any more** — see §5. Next run ~2026-10-11.
+   `scripts/restore_drill.sh {iq|jo}`, `CLAUDE.md` §6, `COMPARISON.md` §52.
 
 ## 5. Things not to do without asking
 
-- **Do not touch `~/Downloads/vetclinicsystemjo-data`** beyond reading,
-  without checking. It is the user's real install — they have said it is a
-  test/demo environment and fair game, but it holds the seeded demo data used
-  for showing the app.
+- **`~/Downloads/vetclinicsystemjo-data` no longer exists** (checked
+  2026-09-11). Nor does a JO releases directory, a JO `.app`, or the
+  `vetclinicsystemjo_postgres` container. JO's install is gone from this
+  machine; only the dev clone under `webapps/` remains, which is source, not
+  an install. **Whether that was deliberate is not recorded anywhere** — if it
+  was not, the data is unrecoverable, because JO also has no backup here. The
+  old standing rule was "do not touch it beyond reading"; there is now nothing
+  to touch. Ask before recreating it.
+- **`~/Downloads/vetclinicsystemiq-data` is the user's real IQ install.** Read
+  it; do not write to it. It holds exactly one backup, taken automatically
+  before the 2026-09-10 update, and that backup restores cleanly.
 - **Do not publish test releases to the real repos.** `aldbabiomar/scratchup`
   is the scratch repo for that, and currently holds `v9.0.0`–`v9.0.3` from
   updater testing. They are inert.
@@ -268,9 +277,10 @@ Nothing here is broken; these are decisions or unbuilt work.
   is blocked, everything needs a venv.
 - A pytest venv needs `--system-site-packages` **or** the app's own
   `requirements.txt` installed, because the tests `import app`.
-- Port 5432 is taken by the user's real JO Postgres container
-  (`vetclinicsystemjo_postgres`). Throwaway environments use 55491/55492, the
-  restore drill 55499.
+- Port 5432 is taken by the user's real **IQ** Postgres container
+  (`vetclinicsystemiq_postgres`, up and healthy, bound to 127.0.0.1).
+  **Corrected 2026-09-11 — this used to say JO's container, which no longer
+  exists.** Throwaway environments use 55491/55492, the restore drill 55499.
 - `pg_dump` / `pg_restore` 16.15 are on PATH.
 - `docker exec` needs `-i` to accept a heredoc on stdin.
 - The scratch repo `aldbabiomar/scratchup` is public and usable.

@@ -4125,6 +4125,77 @@ today has one.
 
 ---
 
+---
+
+## 52. Restore drill, 2026-09-11 — IQ passes, JO has nothing to restore
+
+Monthly drill, run because the review branch touches backup-adjacent code and
+should not be released without one. `scripts/restore_drill.sh`.
+
+### IQ — PASSED, all eight checks
+
+Against `vetclinicsystemiq_backup_20260910_022801.dump` (132K), the backup the
+updater took automatically before the 2026-09-10 in-app update:
+
+| Check | Result |
+|---|---|
+| Valid `pg_dump` archive | 45 table-data entries |
+| `pg_restore` | completed cleanly |
+| Schema | 45 tables (current schema defines 45) |
+| Referential integrity | 78 foreign keys restored |
+| Core data | 135 rows across 8 core tables |
+| Login possible after restore | 15 user accounts |
+| Orphans | none |
+| Money model | `double precision`; 15 bills, 420,000 IQD total, every non-zero bill a whole multiple of 250 |
+| App boots against it | connects and queries |
+
+**The backup that passed is a pre-update one, and that is the good news rather
+than a caveat.** It is the safety net that matters most — taken automatically
+at the moment immediately before an update, which is exactly when a rollback
+gets needed. `logs/updates.log` records it: `backup ok`.
+
+**There are no nightly backups on this install**, and that is explained rather
+than alarming: nightly runs at 00:30 and only while the app is running. This
+install was last started 2026-09-10 02:28 and has not been up across a 00:30
+boundary since. `errors.log` is 0 bytes, dated 2026-09-02. Nothing failed; the
+scheduler simply never had an opportunity. Worth re-checking after the app has
+been left running overnight, because "the nightly has never produced a file"
+and "the nightly is broken" look identical from here.
+
+### JO — the drill cannot run, and the reason is not about backups
+
+`No backup found for jo` — because **there is no JO install on this machine
+any more.** Checked 2026-09-11: no `~/Downloads/vetclinicsystemjo-data`, no
+releases directory, no `.app`, and no `vetclinicsystemjo_postgres` container
+(running or stopped). Only the dev clone under `webapps/vetclinicsystem_jo-main`
+remains, which is source, not an install.
+
+So the drill's exit 1 is a true statement — JO has no reachable backup here —
+but it says nothing about whether JO's backup *code* works. Two different
+findings that the same red line would report identically, which is worth
+naming: **"the check failed" and "there was nothing to check" are not the same
+result**, and this drill deliberately prints the second in its own words
+("That is itself the finding: this app has no reachable backup") rather than
+letting it read as the first.
+
+Whether JO's removal was deliberate is not recorded anywhere in this workspace.
+If it was not, the data is unrecoverable — JO has no backup on this machine
+either. Raised with the user rather than assumed either way.
+
+### Two environment facts corrected the same day
+
+- **Port 5432 is now IQ's container**, not JO's. `TRANSITION_NOTES.md` §6 had
+  said JO's since 2026-08-26; that container no longer exists.
+- **The standing "do not touch `~/Downloads/vetclinicsystemjo-data`" rule has
+  no subject.** Replaced with what is actually there now, plus the same rule
+  for IQ's install, which very much does exist and holds the only backup.
+
+Both were stale in the direction that matters: a session reading them would
+have gone looking for a JO install, found nothing, and had no way to tell
+whether that was the note being old or the install being missing.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -4187,6 +4258,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 49 | ⚠ **`app.py` split into six blueprints per app (7,200 → 1,300 lines), and the four things that broke while a green /health and a clean render sweep said otherwise** | **any work in `routes/` or `core.py`; before writing a test that parses source text** |
 | 50 | Coverage re-measured per module after the split (65%, and which blueprint the old 66% average was hiding); IQ has a `money.py`, JO deliberately has none; the doc sweep that followed | before quoting any coverage figure; before citing a file:line in a plan doc |
 | 51 | ⚠ **the last three findings: CSP nonce (and the runtime-generated handlers the review missed), pos_checkout extracted, inline styles — plus two guards that were born blind** | **before touching a template's on*= or style=; before trusting a new static guard** |
+| 52 | ⚠ **restore drill 2026-09-11: IQ passes on a pre-update backup; JO has no install on this machine at all** | **before a release; and before assuming a red drill means the backup code is broken** |
 
 ### The four sections a new session should read first
 

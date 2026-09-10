@@ -297,8 +297,19 @@ Ctrl-C. It only ever *reads* the backup file and never touches either
 app's real database.
 
 With no path it picks the newest `.dump` it can find for that app —
-`~/Downloads/vetclinicsystem{iq,jo}-data/backups/` and `~/Desktop/backups/`.
-Both apps have a real backup there and both passed **when last run, 2026-08-26** (`COMPARISON.md` §26). "Currently pass" is not a property a file can keep — **next run due ~2026-09-26.**
+`~/Downloads/vetclinicsystem{iq,jo}-data/backups/` and `~/Desktop/backups/`
+(it recurses, so a `pre_update/` backup counts).
+
+**Last run 2026-09-11. IQ passed all eight checks. JO could not run: there is
+no JO install on this machine any more** — no data directory, no releases
+directory, no `.app`, and no `vetclinicsystemjo_postgres` container. Only the
+dev clone under `webapps/` remains, and that is source, not an install. The
+drill reports that as a failure, correctly: "this app has no reachable backup"
+is a true statement about JO on this machine. It is not evidence that JO's
+backup *code* is broken. `COMPARISON.md` §52.
+
+"Currently pass" is not a property a file can keep — **next run due
+~2026-10-11.**
 
 **Why it exists:** both apps back up diligently — nightly, before every
 in-app update, on shutdown — and none of that is worth anything until a
