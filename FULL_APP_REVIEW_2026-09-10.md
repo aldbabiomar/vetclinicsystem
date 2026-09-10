@@ -3,12 +3,16 @@
 A whole-codebase review of both apps against industry practice: security,
 coding logic, bugs, user QoL, dead code and dead files.
 
-**Status as of 2026-09-10, end of the implementation pass: 34 of 37
-implemented, tested and mutation-proved**, plus the two user-raised refund
-findings (R1, R2). **Three remain open: S6, M4, M8** — each still carries its
-fix prompt below and none is urgent. Branch `review-fixes-2026-09-10` in both
-repos, **local, not pushed, not released**. Suites: **IQ 698 / JO 679 passed,
-zero failures, zero skips.**
+**Status: CLOSED — all 37 implemented, tested and mutation-proved**, plus the
+two user-raised refund findings (R1, R2). Branch `review-fixes-2026-09-10` in
+both repos, **local, not pushed, not released**. Suites: **IQ 728 / JO 709
+passed, zero failures, zero skips**, all three tiers alive.
+
+The last three — S6 (CSP), M4 (`pos_checkout`), M8 (inline styles) — landed
+2026-09-10; `COMPARISON.md` §51 is the account, including the four things S6
+nearly shipped broken, the 643-element before/after comparison that verified
+M8, and the two new guards that passed against the mutation they existed to
+catch until they were fixed.
 
 Every finding below is agreed work; each carries a ready-to-paste prompt in
 its *Fix prompt* block. The findings text is written in the present tense of
@@ -56,14 +60,18 @@ Run at ~02:50, i.e. past the `test_scheduler_catchup.py` clock gates in
 
 ## Index
 
-All 37 accepted 2026-09-10. **34 implemented and verified**; three remain
-accepted-but-not-started: **S6** (CSP `unsafe-inline` — needs ~90 inline
-handlers per app moved to listeners), **M4** (`pos_checkout`, money code in two
-type systems), **M8** (inline `style=` attributes — this review's own advice is
-to fix them opportunistically, not as a sweep).
+All 37 accepted 2026-09-10, and **all 37 implemented and verified** on
+`review-fixes-2026-09-10`, along with R1 and R2. **DONE** in the status column
+means implemented, tested and mutation-proved.
 
-In the status column, **DONE** means implemented, tested and mutation-proved on
-`review-fixes-2026-09-10`; ✅ means accepted but not started.
+Two scoping notes that are part of the findings rather than exceptions to
+them. **M4** deliberately stops after `pos_checkout`: its own fix prompt says
+to leave the other five long functions until this one has landed and shipped
+cleanly, so `refund_retail_save` (137/134) and `refund_service_save` (125/126)
+are untouched. **M8** is deliberately not a sweep: the two files it names are
+converted and a ratchet holds the rest, which is exactly what the finding asks
+for — and `COMPARISON.md` §51 records what happened when a mechanical sweep was
+tried anyway.
 
 | ID | Severity | Apps | Finding | Status |
 |---|---|---|---|---|
@@ -72,7 +80,7 @@ In the status column, **DONE** means implemented, tested and mutation-proved on
 | **S3** | Medium | both | `X-Forwarded-For` trusted unconditionally — audit-log IP is attacker-controlled | **DONE** |
 | **S4** | Medium | JO | Login lockout never escalates against a sustained attack | **DONE** |
 | **S5** | Low | both | Unauthenticated `/health` returns raw exception text | **DONE** |
-| **S6** | Low | both | CSP is stuck on `'unsafe-inline'` because of inline handlers | ✅ |
+| **S6** | Low | both | CSP is stuck on `'unsafe-inline'` because of inline handlers | **DONE** |
 | **S7** | Low | both | Password policy is length-only | **DONE** |
 | **S8** | Low | JO | `.gitignore` does not exclude `uploads/` (patient attachments) | **DONE** |
 | **B1** | **High** | both | Rollback picks the wrong release — string sort over `app_vX.Y.Z` | **DONE** |
@@ -98,11 +106,11 @@ In the status column, **DONE** means implemented, tested and mutation-proved on
 | **M1** | Medium | both | 84/89 code comments cite documents that do not ship in the repo | **DONE** |
 | **M2** | Medium | both | 22/21 hardcoded URLs in templates instead of `url_for()` | **DONE** |
 | **M3** | Medium | both | `app.py` is one 7,000-line module | **DONE** |
-| **M4** | Low | both | 11/10 functions over 100 lines | ✅ |
+| **M4** | Low | both | 11/10 functions over 100 lines | **DONE** |
 | **M5** | Low | JO | Clean Up validation duplicated inline in four routes | **DONE** |
 | **M6** | Low | JO | `auth.py` comment claims features JO actually has | **DONE** |
 | **M7** | Low | tooling | Documented coverage command cannot run in the sanctioned environment | **DONE** |
-| **M8** | Low | both | ~490 inline `style=` attributes | ✅ |
+| **M8** | Low | both | ~490 inline `style=` attributes | **DONE** |
 | **M9** | Trivial | IQ | Zero-width space inside a `backup.py` comment | **DONE** |
 
 **What was checked and found clean** — worth recording so it is not re-audited:

@@ -32,9 +32,9 @@ project changed, only who is driving.
 | | IQ | JO |
 |---|---|---|
 | `VERSION` | **1.12.2** | **1.10.2** |
-| Tests, all three tiers | **698** | **679** |
+| Tests, all three tiers | **728** | **709** |
 | Skipped | 0 | 0 |
-| `test_*.py` files | 37 | 37 |
+| `test_*.py` files | 39 | 39 |
 | Coverage (application code) | 65% | 65% |
 | `app.py` | 1,333 lines | 1,277 lines |
 | Working tree | clean | clean |
@@ -65,21 +65,24 @@ and dated. This is only a map of where the detail is.
 | Deliberate divergences — read before "fixing" one | §18 |
 | Bugs that shipped and how they were found | the ⚠ rows in the index |
 | Operational monitoring, all four layers | §29–§34, §37, §39–§41 |
-| The full-application review: 37 findings, 34 shipped | §48, and `FULL_APP_REVIEW_2026-09-10.md` |
+| The full-application review: 37 findings, all shipped | §48 and §51, and `FULL_APP_REVIEW_2026-09-10.md` |
 | The blueprint split: where the code lives now | §49, and `CLAUDE.md`'s "Where the code lives" |
+| The CSP nonce, and why `on*=` attributes are now a test failure | §51 |
+| Why inline `style=` is a ratchet and not a sweep | §51 |
 
-**Three findings from the review are still open** and are described with a
-ready-to-paste prompt each in `FULL_APP_REVIEW_2026-09-10.md`: **S6** (the CSP
-still needs `'unsafe-inline'` because of ~90 inline `onclick=` handlers per
-app), **M4** (`pos_checkout` is ~200 lines of money code in two type systems),
-and **M8** (~490 inline `style=` attributes per app — the review's own advice
-is to fix these opportunistically, not to sweep them).
+**The review is closed — all 37 findings shipped**, plus R1 and R2. Nothing
+from it is outstanding. Two of its findings are deliberately *scoped* rather
+than finished, which is not the same as open: M4 stops after `pos_checkout`
+because its own prompt says to leave the other five long functions until this
+one ships, and M8 converts the two files it names and holds the rest with a
+ratchet. Both say so in the report.
 
 ## 3. Traps that cost real time — cumulative, newest last
 
 Each of these was hit, diagnosed, and cost 20+ minutes in some session. They
 will not be obvious from the code. Items 1–10 are from 2026-08-25/28; 11–16
-were added 2026-09-10 by the full-application review and the blueprint split.
+were added 2026-09-10 by the full-application review and the blueprint split;
+17–21 the same day, by the last three findings (`COMPARISON.md` §51).
 
 1. **`TESTING=True` bypasses every error handler.** It turns on
    `PROPAGATE_EXCEPTIONS`, so routes that degrade gracefully in production
@@ -173,6 +176,32 @@ were added 2026-09-10 by the full-application review and the blueprint split.
    under a mutation, and a search test whose full-name query pinned its row
    either way. Use a throwaway fixture, or restore in `finally` — and when a
    clean run reports errors "somewhere else", suspect the test you just added.
+17. **`el.style.display = ''` cannot unhide an element that a CLASS hides.**
+   It clears the *inline* style and nothing else. Moving a script-toggled
+   `display:none` into CSS — the obvious tidy-up, and what a mechanical
+   inline-style sweep does first — makes the Settings Updates panel disappear
+   permanently, with no error and nothing in any log. `COMPARISON.md` §51.
+18. **A single utility class loses to `.field label`.** Specificity 0,0,1,0
+   against 0,0,1,1, so the inline style being replaced was the only thing
+   winning, and labels silently shift weight. The fix used here is to double
+   the class name in the selector (`.u-strong.u-strong`). Any "move this
+   inline style into CSS" edit needs the computed value checked, not the
+   rendered page eyeballed.
+19. **A CSP violation does not fire `pageerror`.** The browser refuses the
+   script and writes a console error; the page renders normally. A policy that
+   blocks every script on every page is invisible to a Playwright test that
+   only listens for page errors.
+20. **A permissive policy produces no violations, which is what a violation
+   guard checks for.** The CSP guard passed perfectly with `'unsafe-inline'`
+   put back. Every "assert nothing bad happened" test needs a control that
+   makes the bad thing happen.
+21. **A guard whose subject is *discovered* rather than fixed can find
+   nothing and pass.** Four instances this cycle: a dormant browser tier
+   (§40.3), a static scanner whose code moved out of `app.py` (§49), a POS
+   selector matching an attribute that no longer exists (§51), and a CSS
+   parser that swallowed the comment above each rule and therefore never saw
+   the class it was looking for (§51). **Whenever a guard scans, parses or
+   selects to find its subject, add a floor asserting how much it found.**
 
 ---
 
@@ -180,12 +209,16 @@ were added 2026-09-10 by the full-application review and the blueprint split.
 
 Nothing here is broken; these are decisions or unbuilt work.
 
-1. **The review branch is unpushed and unreleased.** 29 (IQ) / 30 (JO)
+1. **The review branch is unpushed and unreleased.** 33 (IQ) / 34 (JO)
    commits on `review-fixes-2026-09-10`, including two schema migrations (the
    `manage_maintenance` permission and `refunds.boarding_id`). Merging and
    releasing it is the next real decision. `RELEASE_WORKFLOW.md` applies.
 
-2. **Three review findings remain** — S6, M4, M8, described in §2 above.
+2. **The five remaining long functions**, which M4 deliberately deferred:
+   `refund_retail_save` (137/134) and `refund_service_save` (125/126) are now
+   the longest in `routes/sales.py`. M4's own prompt says to do these only
+   once `pos_checkout` has shipped cleanly, so they are waiting on the release
+   in item 1, not on a decision.
 
 3. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN. `HOSTING_MIGRATION_PLAN.md` and

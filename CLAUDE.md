@@ -44,7 +44,7 @@ VetClinicSystem/
 ├── TRANSITION_NOTES.md    ← read once on a first session: what's in flight, what's stale
 ├── SOAK_LOG.md            ← the monitoring soak — CLOSED, passed 2026-09-02; read it for how a soak is run
 ├── CODE_REVIEW_MONITORING_2026-08-27.md  ← the monitoring code review, 9 findings
-├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **34 SHIPPED** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48 and §49. Three still open: S6 (CSP), M4 (pos_checkout), M8 (inline styles)
+├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **CLOSED — all 37 shipped** on branch `review-fixes-2026-09-10` (local, unpushed) — see COMPARISON.md §48, §49 and §51
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
@@ -93,6 +93,21 @@ logic.py    ~2,500   the queries and calculations. Unchanged by the split.
    `url_for("settings.settings_page")`, not `url_for("settings_page")`. A
    missed one raises `BuildError` while the page renders, so it fails at the
    first page load rather than the first click.
+
+### Two conventions that are enforced by tests, not by habit
+
+1. **No inline `on*=` handlers.** `script-src` carries a per-request nonce
+   instead of `'unsafe-inline'`, and a nonce does not authorise inline event
+   handlers — a reintroduced `onclick=` is a button that silently does
+   nothing. Use `data-vzh` + `VZ.bind()`, or `data-vz-act` + `VZ.action()` for
+   markup a script builds at runtime. `static/behaviors.js`, guarded by
+   `tests/test_no_inline_handlers.py`.
+2. **Inline `style=` only for values the server computes, or for an element a
+   script reveals with `el.style.display = ''`.** That second one is not
+   pedantry: clearing the inline style cannot unhide an element a *class*
+   hides, so moving such a `display:none` into CSS makes the panel disappear
+   for good with no error. Everything else belongs in `style.css`.
+   `tests/test_inline_styles.py` is a ratchet, not a demand.
 
 **If you write a test that parses source text, read `routes/*.py` too.** Six
 tests do this, and after the split every one of them would have passed while
@@ -305,18 +320,20 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Measured 2026-09-10, after the full-application review and
-the blueprint split, all three tiers alive: IQ 698, JO 679, zero skips,
-37 `test_*.py` files each** (`COMPARISON.md` §48 and §49). They have found well
-over a dozen real bugs, several of which had shipped — and four more during the
-split itself, two of which a green `/health` and a clean page-render sweep both
-reported as fine.
+growing since. **Measured 2026-09-10, after the full-application review, the
+blueprint split and the last three findings, all three tiers alive: IQ 728,
+JO 709, zero skips, 39 `test_*.py` files each** (`COMPARISON.md` §48, §49 and
+§51). They have found well over a dozen real bugs, several of which had
+shipped — four more during the blueprint split, two of which a green `/health`
+and a clean page-render sweep both reported as fine, and four more during the
+CSP work, including one that would have made every POS quantity button target
+a line id that does not exist.
 
 **Two things gate "zero skips", and both look like a problem when they are
 not:**
 
 1. **`APP_URL` must be exported**, or the 13 browser tests skip and the totals
-   read 498 / 479.
+   read 712 / 693.
 2. **Do not judge a run started between 00:00 and ~01:05.**
    `test_scheduler_catchup.py` carries two wall-clock gates: nine tests skip
    before 01:00 ("today's 00:30 slot has not passed yet"), and one more skips
@@ -327,8 +344,10 @@ not:**
    by running the suite at 00:32; re-running the same file at 01:05 passed all
    22 with no skips.
 
-**Coverage, measured 2026-09-10** (the 61% figure it replaces was measured
-2026-09-01, before the review's ~170 new tests):
+**Coverage, re-measured 2026-09-10 after all 37 findings shipped** (the 61%
+figure it replaces was measured 2026-09-01, before the review's ~200 new
+tests). It has not moved off 65% through the blueprint split or the last three
+findings, which is what relocation-plus-new-guards should look like:
 
 | | IQ | JO |
 |---|---|---|
@@ -379,9 +398,9 @@ venv/bin/python -m coverage report --omit="tests/*,venv/*" --sort=cover
 
 | Tier | Files | Needs | Runtime |
 |---|---|---|---|
-| **Pure** | 11 files: `test_money`, `test_frontend`, `test_updater`, `test_updater_releases`, `test_cleanup_cap`, `test_scheduler_logging`, `test_sql_placeholders`, `test_no_raw_form_dates`, `test_desktop_shortcut_target`, `test_autostart_windows`, `test_launcher_preflight` | nothing | < 4s |
+| **Pure** | 13 files: `test_money`, `test_frontend`, `test_updater`, `test_updater_releases`, `test_cleanup_cap`, `test_scheduler_logging`, `test_sql_placeholders`, `test_no_raw_form_dates`, `test_desktop_shortcut_target`, `test_autostart_windows`, `test_launcher_preflight`, `test_no_inline_handlers`, `test_inline_styles` | nothing | < 4s |
 | **Database** | 25 files — every `*_routes`, plus `test_permissions`, `test_maintenance_permission`, `test_money_routes`, `test_backup`, `test_migrations`, `test_concurrency`, `test_selfcheck`, `test_selfverify`, `test_heartbeat`, `test_scheduler_catchup`, `test_login_lockout`, `test_login_log_ip`, `test_password_policy`, `test_session_and_csrf_lifetime`, `test_search_wildcards`, `test_log_retention`, `test_health_endpoint`, `test_refund_boarding`, `test_exports` | a throwaway Postgres | ~20s |
-| **Browser** | `test_browser.py` (13 tests) | Playwright + a running app | ~2min |
+| **Browser** | `test_browser.py` (16 tests — 13, plus the CSP violation guard, its control, and a nonce-freshness check) | Playwright + a running app | ~2min |
 
 **Do not hand-maintain this table** — `ls tests/` and check for `needs_db` /
 `pytest.importorskip`. It has gone stale twice by omission.
