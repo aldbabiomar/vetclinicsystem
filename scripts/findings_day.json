@@ -1,0 +1,93 @@
+[
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "visit edit (SOAP): refused with ['Visit type must be Outpatient or Inpatient.']",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "visit payment: refused with [\"That's more than the remaining balance of 250 IQD on this visit.\"]",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "book appointment: refused with ['Pick a valid, active vet for this appointment.']",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "service refund: refused with [\"That's more than the 0 IQD still refundable against this record.\"]",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment receiving: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment return: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment shrinkage: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  },
+  {
+    "app": "iq",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "cash payout: refused with [\"Heads up: this amount isn't a multiple of 250 IQD. It'll still save as entered, but the Cash Register's end-of-day audit compares against physical notes, so an odd amount here can make an otherwise-correct day look slightly off.\"]",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "visit edit (SOAP): refused with ['Visit type must be Outpatient or Inpatient.']",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "book appointment: refused with ['Pick a valid, active vet for this appointment.']",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment receiving: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment return: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "user": "admin",
+    "kind": "UNEXPECTED_REFUSAL",
+    "summary": "consignment shrinkage: refused with ['Pick a Consignment item first.']",
+    "detail": null
+  }
+]

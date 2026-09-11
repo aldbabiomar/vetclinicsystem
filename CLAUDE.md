@@ -50,6 +50,16 @@ either app's code.
 > two routes took. `SEAM_RULES.md` is now the register and the checklist,
 > and four of its rules are enforced by `tests/test_seam_rules.py` in both
 > apps. Counts here are IQ 789 / JO 764 over 42 files.
+>
+> **Re-checked 2026-09-11 once more**, after finishing the Arabic pass and
+> releasing IQ v1.15.0 / JO v1.13.0. Counts re-measured, not adjusted: **IQ
+> 825, JO 800, 46 `test_*.py` files each**, zero skips. Two more seam bugs
+> are in `SEAM_RULES.md` (S4, S5). The lesson worth carrying out of that pass
+> is in §5 and it is about *tooling*, not tests: a checker written to catch a
+> class of bug reported CLEAN against a deliberately broken page **three
+> times running** — the app had never restarted, then the page list did not
+> contain the page, then the page was a loading shell. Each looked exactly
+> like a pass. `COMPARISON.md` §57.7.
 
 ## Layout
 
@@ -65,8 +75,8 @@ VetClinicSystem/
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── SEAM_RULES.md          ← **read before adding any cross-cutting rule.** The register of every time a rule existed in one code path and not its sibling (8 so far), the four now enforced by tests/test_seam_rules.py in each app, and the checklist
-├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. §4/§6/§7 EXECUTED 2026-09-11; §5 (wrapping every string) deliberately partial — see COMPARISON.md §56
-├── ARABIC_TRANSLATION_QUESTIONS.md ← **OPEN, needs the user.** 24 strings §3 reserves for the translator; until answered they render in English, which is harmless
+├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. **CLOSED — all sections executed**, released 2026-09-11 as IQ v1.15.0 / JO v1.13.0. Read COMPARISON.md §57 before touching a template, an `<option>` or a `.po` file: finishing it flushed out a money bug, six 500s per app, and a checker that could not fail
+├── ARABIC_TRANSLATION_QUESTIONS.md ← **one open question**, #25 ("Zoning" — not a standard grooming term in English either, so the Arabic is a guess). Batch 1 is closed and records the one collision found (الخصم for both Discount and Clean Up) and the English wording changed because of it
 ├── SIMULATION_AUDIT_2026-09-11.md ← live-use simulation of BOTH apps (a full clinic day + edge cases): 6 findings. **CLOSED — all shipped**, released 2026-09-11 as IQ v1.14.0 / JO v1.12.0 (+ v1.14.1 / v1.12.1 for the upgrade path) — see COMPARISON.md §55. Its §8 records what was attacked and held, so it doubles as a "don't re-audit this" list
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
 ├── audits/                ← three standing audits, see below
@@ -75,7 +85,11 @@ VetClinicSystem/
 │   ├── restore_drill.sh       ← proves a real backup restores, see §6
 │   └── simulation/            ← the harness behind SIMULATION_AUDIT_2026-09-11.md; drives either app as a real user.
 │                              One repro_*.py per finding, plus verify_fixes.py (52 checks, every fix + its control)
-│                              and prove_guards.py (reverts each fix, restarts the app, asserts the bug returns)
+│                              and prove_guards.py (reverts each fix, restarts the app, asserts the bug returns).
+│                              Also the localization tools: restart_test_apps.sh (kills by PORT and asserts the pid
+│                              changed — pkill silently matches nothing here), check_rendered_js.py (every page, both
+│                              languages, node as the syntax oracle), ar_coverage.py (English left per page, data
+│                              excluded) and ar_batch*.py (the translations themselves)
 └── webapps/
     ├── vetclinicsystem_iq-main/   ← git clone, aldbabiomar/vetclinicsystem_iq
     └── vetclinicsystem_jo-main/   ← git clone, aldbabiomar/vetclinicsystem_jo
@@ -326,6 +340,19 @@ be a guard** — §7.3, in tooling rather than in a test. This is
 the only sanctioned way to replicate a bug or verify a fix live — never
 test against a real install.
 
+**Restarting one of these apps: kill by PORT, never by a command pattern.**
+`up` launches the app as `exec nohup env … "$VENV/bin/python3" app.py`, and
+`exec` rewrites the command line to the resolved `Python.app` path — so
+`pkill -f "vz_iq_test_venv/bin/python3 app.py"` matches **nothing**, exits 0,
+and leaves the old process serving. A whole afternoon of "verified clean" can
+come from an app started before the code under test existed; it is
+indistinguishable from a real pass. `scripts/simulation/restart_test_apps.sh`
+kills by port and then **asserts the listening pid actually changed** —
+borrow it rather than writing another `pkill`. `COMPARISON.md` §57.7 has this
+and two sibling failures from the same afternoon: a checker whose page list
+did not contain the page under test, and one that was reading a loading shell
+rather than the page it named.
+
 ## 6. Restore drill — run it monthly
 
 `scripts/restore_drill.sh {iq|jo} [path/to/file.dump]` takes a **real**
@@ -374,8 +401,11 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-11, after the seam audit and the Arabic toggle: IQ 789,
-JO 764, zero skips, 42 `test_*.py` files each** (`COMPARISON.md` §55, §56). The
+growing since. **Re-measured 2026-09-11, after the Arabic pass shipped: IQ 825,
+JO 800, zero skips, 46 `test_*.py` files each** (`COMPARISON.md` §55, §56, §57).
+The four new files are all localization guards, and every one was mutation-tested
+against the bug it names before being believed: `test_enum_labels`,
+`test_placeholder_args`, `test_js_localization`, `test_bind_port`. The
 figures before that pass were IQ 728 / JO 709 over 39 files (§48, §49, §51). They have found well over a dozen real bugs, several of which had
 shipped — though note that a suite this size was **green through all six**
 of the simulation audit's findings (§55), because five of them sat at a

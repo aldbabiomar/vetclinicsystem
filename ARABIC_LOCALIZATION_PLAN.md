@@ -1,5 +1,21 @@
 # Arabic/English Toggle — Implementation Plan
 
+> **STATUS: CLOSED — 2026-09-11.** Every section of this plan is executed and
+> released as **IQ v1.15.0 / JO v1.13.0**. The catalogues are complete (IQ
+> 1341 msgids, JO 1329) and the measured English left on the rendered pages is
+> seven word instances per app: a shell command, a cash-audit note somebody
+> typed, and two test-data usernames.
+>
+> **What this plan did not anticipate, and what it cost, is in `COMPARISON.md`
+> §57** — read that before touching a template, an `<option>` or a `.po` file.
+> The short version: translating the visible text of an `<option>` that has no
+> `value=` changes what the form SUBMITS, and one of those fed the cash
+> register a payment method it could not recognise, so the drawer count
+> reported a surplus that was not real. §5 of this plan says "wrap every
+> string" and says nothing about that, because nothing in a localization plan
+> would.
+
+
 Status: **draft for review** — written 2026-09-11, not yet executed.
 Scope: VetClinicSystem_IQ and VetClinicSystem_JO, both apps, both get a
 language toggle in the UI switching every screen between English and

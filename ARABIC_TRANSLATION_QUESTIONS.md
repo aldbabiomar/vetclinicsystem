@@ -131,6 +131,32 @@ facts, and each is a one-line change to reverse.
 
 ---
 
+## Batch 2 — one grooming service whose English is unclear
+
+Opened 2026-09-11, while rebuilding `enum_labels.py` from the constants the
+code actually uses. Ten grooming services became translatable at once
+(`logic.GROOMING_SERVICES`); nine have a plain reading and are applied. One
+does not, and it is not an Arabic problem — **"Zoning" is not a standard
+grooming term in English either**, so guessing the Arabic would just move the
+ambiguity somewhere harder to find.
+
+| # | English | Applied now | What I assumed |
+|---|---|---|---|
+| 25 | `Zoning` | `تشذيب المنطقة الحساسة` | that it means a sanitary trim — the grooming sense closest to "zone" |
+
+If the clinic means something else by it (a coat-pattern trim, a specific
+package, a word staff already use), give the Arabic and the English gets
+corrected too — the same way "Clean Up" did in Batch 1, where the confusing
+English was the actual bug.
+
+The nine applied without a question: Bath `استحمام`, Haircut `قص الشعر`,
+De-shedding `إزالة الوبر المتساقط`, Nail Trim `تقليم الأظافر`, Ear Cleaning
+`تنظيف الأذن`, Ear Mites Cleaning `تنظيف سوس الأذن`, Paw Clipping
+`قص شعر الكفوف`, Nail Caps `أغطية الأظافر`, Anal Gland Emptying
+`تفريغ الغدد الشرجية`.
+
+---
+
 ## How to apply your answers
 
 Either reply with the Arabic for each number, or edit the `.po` files

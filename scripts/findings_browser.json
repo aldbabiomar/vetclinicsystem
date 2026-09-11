@@ -1,0 +1,27 @@
+[
+  {
+    "app": "jo",
+    "kind": "PAGE_LOAD_ERROR",
+    "summary": "/retention: Page.goto: net::ERR_ABORTED at http://127.0.0.1:5092/retention\nCall log:\n  - navigating to \"http://127.0.0.1:5092/retent",
+    "detail": null
+  },
+  {
+    "app": "jo",
+    "kind": "REQUEST_FAILED",
+    "summary": "2 request(s) failed to load",
+    "detail": {
+      "sample": [
+        [
+          "http://127.0.0.1:5092/retention",
+          "net::ERR_ABORTED",
+          "http://127.0.0.1:5092/insights"
+        ],
+        [
+          "http://127.0.0.1:5092/insights?job_id=2ee653b5d7dc",
+          "net::ERR_ABORTED",
+          "http://127.0.0.1:5092/insights"
+        ]
+      ]
+    }
+  }
+]

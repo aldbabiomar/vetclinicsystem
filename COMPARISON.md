@@ -4663,6 +4663,145 @@ a real bug that shipped** — read those before touching the area they name.
 | 54 | ⚠ **JO reinstalled: both apps default to the same two ports, and three install-layer bugs that only a fresh install can reach** | **before installing either app anywhere; before touching setup.py or docker-compose.yml** |
 | 55 | ⚠ **the live-use simulation audit: six findings, five of them at a seam where one path had a rule and its sibling did not; one NaN with opposite symptoms per app; and what 1,028 hostile probes could NOT break** | **before adding a rule to one money/validation path; before trusting that a green suite means a behaviour is covered** |
 | 56 | ⚠ **three more seam bugs (a lock only one side took, two unvalidated date filters), and the Arabic toggle: mechanism done, translation partial** | **before adding a cross-cutting rule — read SEAM_RULES.md; before touching localization or a .po file** |
+| 57 | ⚠ **Arabic finished (IQ v1.15.0 / JO v1.13.0), and three bugs it flushed out: a translated `<option>` posting Arabic into the cash register's totals, a `%(name)s` Jinja insists on filling that 500'd six pages per app in BOTH languages, and `~` escaping markup before `|safe` sees it** | **before translating anything, before adding an `<option>`, and before writing a checker you have not watched fail — this one reported CLEAN against a broken page three times** |
+
+## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
+
+§56 left the Arabic toggle working but the wrapping deliberately partial. This
+closes it. **IQ 1341 msgids, JO 1329, both fully translated**, and the measured
+English left on the rendered pages is seven word instances per app: a shell
+command (`python3 setup.py --enable-updates`), a cash-audit note somebody
+typed, and two test-data usernames in the login log.
+
+Three bugs came out of finishing it. None of them is a translation problem, and
+all three produce a page that looks correct.
+
+### 57.1 The money one: `<option>` without `value=`
+
+An `<option>` with no `value=` attribute submits its **text content**. Wrapping
+that text in `_()` therefore makes the form post Arabic into a column the rest
+of the app compares against English constants.
+
+Proven end to end, not reasoned about: `/visits/V001/payment` submitted the way
+a browser would in Arabic stored `payments.method = 'نقدًا'`.
+`logic.cash_register_totals()` buckets any method outside Cash/Card/Transfer
+into `other`, so the page showed `Cash 1,688,710 · … · Other 500 IQD` — the
+250 just paid was not in the cash total. **A clinic counting the drawer would
+find more cash than the system claimed and record a surplus that never
+existed.** `scripts/simulation/repro_option_value.py`.
+
+Eighteen options per app were already in that state; twenty-one more were one
+`|tr` away from it. The count differed between the apps — **IQ 39, JO 53** —
+because the two had drifted in opposite directions on the same seam: JO's
+refunds, settlements and distributor-payment forms lacked the explicit value
+IQ's had, and IQ's had gaps JO's did not. That asymmetry is the tell for a rule
+applied by hand each time instead of once. `SEAM_RULES.md` S5.
+
+Every translatable `<option>` now carries the English constant in `value=`.
+`tests/test_enum_labels.py` fails on any that does not.
+
+### 57.2 The 500 one: a placeholder Jinja insists on filling
+
+`{{ _('Only %(stock)s in stock.')|tojson }}.replace('%(stock)s', item.stock)`
+reads as though the placeholder survives to JavaScript. It does not: **Jinja's
+gettext always runs `rv % variables`**, even when the call passed no keyword
+arguments, so the msgid raises `KeyError: 'stock'` while rendering.
+
+Six pages per app returned 500 — `/pos`, `/refunds`, `/appointments`,
+`/settings`, `/reports`, `/admin/users` — **in English as well as Arabic**.
+Placeholders JavaScript fills are now `{name}`, which carries no `%` and passes
+through untouched; `%(name)s` means "Jinja fills this, here, now".
+`tests/test_placeholder_args.py` reads every gettext call in every template and
+fails on any placeholder the call does not supply.
+
+### 57.3 The invisible one: `~` escapes before `|safe` sees it
+
+Mid-sentence emphasis is passed as a placeholder so Arabic can put it where
+Arabic puts it. The obvious idiom is wrong:
+
+| idiom | renders |
+|---|---|
+| `('<b>' ~ _('all') ~ '</b>')\|safe` | `X &lt;b&gt;all&lt;/b&gt; Y` |
+| `('<b>%s</b>'\|safe) % _('all')` | `X <b>all</b> Y` |
+| `'<b>'\|safe ~ _('all') ~ '</b>'\|safe` | `X <b>all</b> Y` |
+
+Jinja's `~` escapes its plain-string operands *before* `|safe` marks the
+result, so the tags arrive as visible angle brackets. All four candidates were
+rendered through the app's own Jinja environment rather than argued about.
+
+### 57.4 A seam gap found on the way
+
+JO had `BIND_PORT` as a module-level constant exposed to templates and used it
+on the dashboard. **IQ read the port only as a local inside `main()`** and
+hard-coded `:5050` on both the dashboard and Settings — so IQ told staff the
+wrong address on any other port. Not hypothetical: both apps ship the same two
+default ports and JO had to move to 5051 (§54). IQ now has the same constant,
+`main()` uses it so the two cannot disagree, and `tests/test_bind_port.py`
+refuses any port literal in a template. `SEAM_RULES.md` S4.
+
+### 57.5 What is translated that a template pass cannot reach
+
+- **Values stored in English.** `enum_labels.py` declares them so pybabel can
+  see them, and a `|tr` filter looks them up at render time — case statuses,
+  payment methods, species, the roles-and-permissions matrix, the
+  cash-register ledger's event types, the inventory badges and the ordering
+  sheet's usage trend. Only the display changes; the stored constant is what
+  routes validate and CHECK constraints enforce.
+  `tests/test_enum_labels.py` compares every declared list against its source
+  of truth — and caught a fallback event type ("Payment") and an invented
+  grooming status ("In Progress", where the schema says "Waiting") on its
+  first run.
+- **104 strings (IQ) / 86 (JO) inside inline `<script>`** — empty states,
+  confirm dialogs, "Could not reach the server." Through `|tojson`, never bare
+  quotes: bare quotes do not break the script, they render `isn&#39;t` on
+  screen, which nothing reports. `tests/test_js_localization.py`.
+- **52 `{% block title %}` per app**, so the browser tab is Arabic too.
+- **Weekday names.** `strftime`'s `%a`/`%b` are C-locale and stay English
+  whatever Babel is set to. A `weekdate` filter uses `flask_babel.format_date`
+  instead — which takes no `locale=` keyword, unlike `babel.dates.format_date`.
+
+### 57.6 Where the JS strings diverge
+
+Adapted per app, not copied. JO's cash-received note formats to three decimals
+and has **no rounding line at all**, because there is no note denomination to
+round to (§1.1). JO's update panel reports through `panel.textContent` with an
+`actionLabel`; IQ's uses a toast with a `startingMessage`.
+
+### 57.7 Three rounds of a checker that could not fail
+
+`scripts/simulation/check_rendered_js.py` parses every inline script of every
+page in both languages with node, and checks no markup arrived escaped. It
+reported CLEAN against a deliberately broken page **three times** before it
+worked, and each failure was a different lesson:
+
+1. **The app never restarted.** `pkill -f "vz_iq_test_venv/bin/python3 app.py"`
+   matched nothing, because `exec env … python3 app.py` rewrites the command
+   line to the resolved `Python.app` path. Hours of "verified" output came from
+   a process started before the code under test existed.
+   `scripts/simulation/restart_test_apps.sh` kills by **port** and asserts the
+   listening pid actually changed.
+2. **The page list was hand-written** and did not contain `/retention`. It is
+   now derived from the app's own `url_map` — 50 pages, not the 28 someone
+   typed — the way `tests/test_permissions.py` does it.
+3. **`/retention` is a loading shell.** Several heavy reports return a
+   placeholder and navigate to the real URL once a background job finishes;
+   the checker was reading the placeholder. It now follows the job through.
+
+`CLAUDE.md` §5 already says a guard you have never watched refuse is not yet
+known to be a guard. This is that lesson three times in one afternoon, in
+tooling rather than in tests.
+
+### 57.8 Measuring it honestly
+
+`scripts/simulation/ar_coverage.py` counts English words on each rendered page,
+excluding anything that appears in a data column. The exclusion list matters
+more than the count: with three of its queries silently failing on wrong table
+and column names, it reported **316 untranslated words per app**; with them
+fixed, **7**. The difference was entirely change-log rows and ids. A broken
+data query is now fatal rather than swallowed, because a quiet miscount is the
+exact failure this script exists to avoid.
+
+---
 
 ### The four sections a new session should read first
 

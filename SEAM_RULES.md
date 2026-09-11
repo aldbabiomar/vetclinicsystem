@@ -55,6 +55,23 @@ What actually catches this:
 | S1 | a bill mutation takes the parent row's lock | `visit_billing_save` | `visit_discount_save`, `inpatient_discount_save`, `inpatient_billing_add` | discounted bills carrying non-discountable lines, **plus 46 deadlock 500s** |
 | S2 | a read-side date filter is validated | `/visits`, `/pos/history`, `/refunds`, `/cash-register` | `/admin/logs` | an **empty audit log** with no warning — reads as "nobody did anything" |
 | S3 | (the same rule) | as above | `/consignment/sales` | a sales report silently narrowed to nothing |
+| S4 | the served address is **derived**, never a literal | JO's `BIND_PORT`, a module-level constant exposed to templates | IQ read the port only inside `main()`; its dashboard and Settings hard-coded `:5050` | IQ told staff the wrong address on any other port — and the two installs collide on the defaults, which is why JO already runs on 5051 |
+| S5 | an `<option>` carries the stored constant in `value=` | IQ's refunds, settlements and distributor payments | JO's same three forms, and 18 options in both apps whose translated text *was* the submitted value | in Arabic a visit payment stored `method='نقدًا'`; the cash register bucketed it as "other", so the **drawer count reported a surplus that was not real** |
+
+**S5 is the one that shows what a seam is.** Nothing about it is a
+localization bug in the usual sense — the translation was correct, the page
+looked right, and the money was wrong. HTML's rule is that an `<option>`
+without `value=` submits its own text; the app's rule is that `method` is one
+of three English constants. Neither rule is written down anywhere the other
+can see, and the two had never disagreed before because the text *was* the
+constant. Translating the text broke a coupling nobody had named. The two
+apps had drifted in opposite directions on the same seam — IQ had explicit
+values where JO did not on three forms, and JO had them where IQ did not on
+others — which is the signature of a rule applied by hand each time rather
+than once. `tests/test_enum_labels.py` now refuses any `<option>` whose
+translated text is its submitted value, and
+`scripts/simulation/repro_option_value.py` walks it from the rendered page to
+the wrong total.
 
 **S1 is the one to study.** `visit_billing_save` took the visit row
 `FOR UPDATE` and its comment said the lock was there *"so a concurrent discount
