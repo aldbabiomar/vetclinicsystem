@@ -4370,6 +4370,146 @@ IQ's in-app updater has something to do.
 
 ---
 
+## 55. The live-use simulation audit — six findings, all shipped — 2026-09-11
+
+Released as **IQ v1.14.0 / JO v1.12.0**, with **v1.14.1 / v1.12.1** immediately
+after for the upgrade-path half of one fix (below). The audit itself is
+`SIMULATION_AUDIT_2026-09-11.md`; the harness that found the findings is
+checked in at `scripts/simulation/`, one `repro_*.py` per finding.
+
+**What this pass did differently.** Both apps were driven as real users — a
+full clinic day end to end, then rare and hostile cases — rather than read.
+That matters, because five of the six findings were invisible to a suite of
+728/709 tests, and §21's lesson repeated itself: reading code is not running
+it.
+
+### The shape of every finding
+
+**Five of six live at a seam between two code paths that should share a rule
+and did not.** Not carelessness — each surface was written correctly in
+isolation, and the rule simply did not propagate:
+
+| | the rule | where it was | where it was missing |
+|---|---|---|---|
+| F1 | the anti-"looks free" floor | `compute_bill_totals` | `pos_checkout` |
+| F2/F5 | `parse_money`'s non-finite rejection | every other numeric entry point | `_save_audit_lines` |
+| F3 | refunds round down | retail *and* service | neither handled reaching **zero** |
+| F6 | a stay cannot end before it begins | `boarding_edit` | `inpatient_edit` |
+
+This predicts the next bug better than a count does: every new surface is a
+chance to miss a rule the others have, and **two apps doubles it**. F1's fix
+is therefore `money.payable_total()` — one function both paths call — not a
+patched line 299.
+
+### F1 and F3 were IQ-only, and that is §1.1 doing its job
+
+Both are consequences of 250-IQD note rounding. JO, with exact `Decimal` and
+no rounding, was correct at every boundary tested — a 0.100 sale stays 0.100,
+a 0.240 refund pays 0.240. The two apps' new `test_simulation_findings.py`
+files assert **opposite** things for these paths, and JO's carries an import
+guard that fails if a `money.py` ever appears there.
+
+**F1 was the expensive one.** A cart whose discounted total fell under half a
+note recorded `total = 0`: the goods left the shop, and because change is
+`cash_received - total`, the till was told to hand back every dinar tendered.
+Reachable two ways at realistic prices — a per-tablet line under 167 IQD with
+the default 25% cap, or (confirmed live) a **2,000 IQD item at 94% discount**
+from a manager role, which returned all 250,000 IQD tendered.
+
+### F2 is the clearest "same root, different symptom" case yet
+
+`_save_audit_lines` parsed counts with `float()`, which accepts `"nan"`. The
+count was confirmable and locked. Then:
+
+- **IQ**: `qty > nan` is `False`, so the POS oversell guard passed — 500 units
+  sold off an empty shelf, recorded at 500,000 IQD.
+- **JO**: `qty` is a `Decimal`, so the same comparison raises
+  `decimal.InvalidOperation` — **every checkout of that item 500s**, and the
+  till stops working until someone corrects the count.
+
+One line, opposite failures, each needing its own fix: IQ uses `parse_money`
+(what its cart uses), JO uses `parse_quantity` (what *its* cart uses), so both
+sides of the comparison share one ceiling. JO's version also removed the last
+raw Python `float` being written to a column against its own Decimal rule.
+
+**A Postgres detail worth keeping:** a plain `CHECK (stock_counted >= 0)`
+would **not** catch NaN — NaN sorts above every value, so `'NaN' >= 0` is
+true. `>= 0 AND < 'Infinity'` rejects negatives, NaN and both infinities in
+one expression. Verified against both databases before being written.
+
+### The patch release, and why it was needed the same day
+
+v1.14.0/v1.12.0 put those CHECKs in `CREATE TABLE` only — correct on a fresh
+install, **absent on every upgraded one**. That is precisely §53's trap, and
+§53 is in this file because the project has been bitten by it before. The
+user's steer that morning ("not deployed yet, no migration needed to preserve
+old data") was about *data*; the asymmetry is about *convergence*, and the two
+real installs on this machine (§4a) upgrade rather than reinstall. Added to
+`INCREMENTAL_SCHEMA_STATEMENTS` in v1.14.1/v1.12.1, with the repair ordered
+**before** the `ADD CONSTRAINT` — a constraint that trips on an existing row
+aborts the update, and `_run_schema_sync()` uses `check=True`, so a clinic on
+that version could never update again. Strictly worse than the bug.
+
+### What the audit could NOT break — worth as much as the findings
+
+Re-run after the fixes, the hostile sweep now reports **zero** findings where
+it previously found the one 500. Also held, under deliberate attack:
+
+- **1,028 hostile GET probes per app** — 22 id-routes × 14 malformed ids, 27
+  list/search routes × 22 nasty values (SQL wildcards, injection shapes, RTL
+  overrides, 500-char strings, `1e999`), 14 paginated views × 9 page values.
+  One 500 in the whole matrix, and it is F4.
+- **Four concurrency races, all correctly serialised**: two tills on the last
+  unit (1 sale, not 2), two staff paying one bill, two receptionists on one
+  slot, two registrations of one phone number. The `FOR UPDATE` ordering and
+  the idempotency key do what §49 claims.
+- **Permissions**: a real custom role holding one permission reached 1 of 45
+  pages, leaked no write route, and could not promote itself to Admin.
+- **CSRF** (missing *and* forged), logged-out access, and login lockout.
+- **The browser walk**: 33 pages per app, **zero CSP violations, zero inline
+  `on*=` handlers, zero console errors**, no mobile overflow, no native
+  dialogs — §51's two conventions holding in the rendered DOM, not just in the
+  source-scanning tests.
+
+`SIMULATION_AUDIT_2026-09-11.md` §8 is the full list, and doubles as a
+"do not re-audit this" note.
+
+### Two guards that were born blind, caught during this work
+
+§7.3 keeps earning its place:
+
+1. The first verification script checked NaN rejection against a **confirmed**
+   audit session — which refuses every save regardless of value. Five
+   assertions passed while proving nothing. Rewritten against a Draft, with a
+   control before *and* after the rejections.
+2. The first F4 mutation reverted only half the fix. The other half still
+   caught the bug, so the mutation reported NOT PROVEN — correctly. Both
+   halves now come out together.
+
+`scripts/simulation/prove_guards.py` reverts each fix, restarts the app, and
+asserts the bug returns: **10/10 proven.** A mutation that changes nothing is
+a failure there, which is what caught the second case above.
+
+### Two smaller things fixed in passing
+
+- A cash-drawer count that came out over or short was flashed as an **error**
+  though the audit had saved, so staff re-ran counts already recorded. Both
+  apps gained a `.flash.warning` state, built from the `--warn` tokens both
+  already carried (dark mode included).
+- JO's `inventory_catalog_create_barcode` is renamed to IQ's
+  `inventory_catalog_barcode_generate`. Same URL, same behaviour; the apps
+  simply had two names for one identical route.
+
+### And one the work surfaced in a test, not in the app
+
+`test_frontend.py`'s citation guard had two latent flaws: its filename pattern
+excluded `-`, so a dated document matched as `11.md` and reported a citation
+no index entry could ever satisfy; and it globbed only the repo root, so after
+§49's split it was checking a fraction of the surface. Both fixed. Counts
+after all of this: **IQ 761, JO 736, zero skips.**
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -4435,6 +4575,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 52 | ⚠ **restore drill 2026-09-11: IQ passes on a pre-update backup; JO has no install on this machine at all** | **before a release; and before assuming a red drill means the backup code is broken** |
 | 53 | released as IQ v1.13.0 / JO v1.11.0; the CHECK constraint that would have worked on fresh installs and failed on upgrades; setup.py installs an app if given an unknown flag | before any release; before running setup.py by hand |
 | 54 | ⚠ **JO reinstalled: both apps default to the same two ports, and three install-layer bugs that only a fresh install can reach** | **before installing either app anywhere; before touching setup.py or docker-compose.yml** |
+| 55 | ⚠ **the live-use simulation audit: six findings, five of them at a seam where one path had a rule and its sibling did not; one NaN with opposite symptoms per app; and what 1,028 hostile probes could NOT break** | **before adding a rule to one money/validation path; before trusting that a green suite means a behaviour is covered** |
 
 ### The four sections a new session should read first
 

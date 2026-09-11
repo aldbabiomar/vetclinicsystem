@@ -11,3 +11,7 @@ webapps/
 
 # Local editor/session state
 .claude/
+
+# Python bytecode from scripts/simulation
+__pycache__/
+*.pyc

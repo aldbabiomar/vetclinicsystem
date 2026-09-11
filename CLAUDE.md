@@ -33,6 +33,17 @@ either app's code.
 > section was added because `app.py` is no longer where most of the code is.
 > The §7.1 tier table has now gone stale by omission twice; it says so in
 > place, and the fix is `ls tests/`, not trusting the list.
+>
+> **Re-checked 2026-09-11**, after the live-use simulation audit and its
+> release (`COMPARISON.md` §55). §7's counts are re-measured, not adjusted:
+> **IQ 761, JO 736, 40 test files each.** The layout block gained
+> `SIMULATION_AUDIT_2026-09-11.md` and `scripts/simulation/` **in the same
+> commit as the files themselves**, which is what this block keeps asking for
+> and had twice not got. One thing that pass is worth carrying into §7: a
+> suite of 728/709 tests was **green through all six findings**, because five
+> of them sat at a seam between two code paths rather than inside either one.
+> A green suite is evidence about the paths it covers, not about the rules
+> that are supposed to be shared between them.
 
 ## Layout
 
@@ -47,11 +58,15 @@ VetClinicSystem/
 ├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **CLOSED — all 37 shipped**, released 2026-09-11 as IQ v1.13.0 / JO v1.11.0 — see COMPARISON.md §48, §49, §51 and §53
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
+├── SIMULATION_AUDIT_2026-09-11.md ← live-use simulation of BOTH apps (a full clinic day + edge cases): 6 findings. **CLOSED — all shipped**, released 2026-09-11 as IQ v1.14.0 / JO v1.12.0 (+ v1.14.1 / v1.12.1 for the upgrade path) — see COMPARISON.md §55. Its §8 records what was attacked and held, so it doubles as a "don't re-audit this" list
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
 ├── audits/                ← three standing audits, see below
 ├── scripts/
 │   ├── isolated_test_env.sh   ← throwaway Postgres + venv for either app, see §5
-│   └── restore_drill.sh       ← proves a real backup restores, see §6
+│   ├── restore_drill.sh       ← proves a real backup restores, see §6
+│   └── simulation/            ← the harness behind SIMULATION_AUDIT_2026-09-11.md; drives either app as a real user.
+│                              One repro_*.py per finding, plus verify_fixes.py (52 checks, every fix + its control)
+│                              and prove_guards.py (reverts each fix, restarts the app, asserts the bug returns)
 └── webapps/
     ├── vetclinicsystem_iq-main/   ← git clone, aldbabiomar/vetclinicsystem_iq
     └── vetclinicsystem_jo-main/   ← git clone, aldbabiomar/vetclinicsystem_jo
@@ -350,11 +365,12 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Measured 2026-09-10, after the full-application review, the
-blueprint split and the last three findings, all three tiers alive: IQ 728,
-JO 709, zero skips, 39 `test_*.py` files each** (`COMPARISON.md` §48, §49 and
-§51). They have found well over a dozen real bugs, several of which had
-shipped — four more during the blueprint split, two of which a green `/health`
+growing since. **Re-measured 2026-09-11, after the simulation audit's six fixes: IQ 761,
+JO 736, zero skips, 40 `test_*.py` files each** (`COMPARISON.md` §55). The
+figures before that pass were IQ 728 / JO 709 over 39 files (§48, §49, §51). They have found well over a dozen real bugs, several of which had
+shipped — though note that a suite this size was **green through all six**
+of the simulation audit's findings (§55), because five of them sat at a
+seam between two paths rather than inside either one — four more during the blueprint split, two of which a green `/health`
 and a clean page-render sweep both reported as fine, and four more during the
 CSP work, including one that would have made every POS quantity button target
 a line id that does not exist.
