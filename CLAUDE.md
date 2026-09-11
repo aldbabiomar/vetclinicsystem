@@ -410,10 +410,20 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-12, after five UI bugs a clinic found by using the app:
-IQ 832, JO 807, 47 `test_*.py` files each** (`COMPARISON.md` §55-§59). Those
+growing since. **Re-measured 2026-09-12, after five UI bugs a clinic found by using the app
+and the health-banner translation: IQ 836, JO 811, 48 `test_*.py` files each**
+(`COMPARISON.md` §55-§60), released as IQ v1.16.1 / JO v1.14.1. Those
 totals include nine `test_scheduler_catchup` skips if you run before ~01:05 —
 see the wall-clock note below, which is exactly the trap it describes.
+
+**§60.1 is the one to read before translating anything that is STORED.** A
+message written to a table by a background job and read back later cannot be
+translated where it is written — that freezes whichever language the job ran
+in. It stores English plus a msgid and its arguments, and a filter translates
+at render. The same section records why the rendered English must stay in
+`message`: a test asserts a particular error string is *absent* from it, and
+moving the value elsewhere would have left that guard green against a template
+it could never have matched.
 
 **§59 is the one to read before trusting a green browser run.** All five of
 those bugs rendered HTTP 200 with valid JavaScript and looked plausible in a
