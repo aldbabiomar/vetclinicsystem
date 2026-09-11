@@ -1,20 +1,16 @@
 # Transition notes — for a new Claude account picking up this project
 
-> **In flight as of 2026-09-11: a MINOR's worth of unreleased work on `main`.**
-> Clinics on v1.15.0 / v1.13.0 have none of it yet:
+> **Nothing in flight as of 2026-09-11.** Everything listed here shipped as
+> **IQ v1.16.0 / JO v1.14.0**: the language moved into Clinic Settings as a
+> clinic-wide saved dropdown, Inpatient / Boarding / Refunds were renamed in
+> Arabic, and the "Zoning" translation was corrected. Both repos are pushed,
+> tagged and released, and each app's own updater has been asked what it sees.
+> `COMPARISON.md` §58.
 >
-> 1. **The language moved out of the header into Clinic Settings** and is now a
->    clinic-wide saved setting rather than a per-browser cookie — two staff can
->    no longer be looking at two different languages, and `/set-language` is
->    gone. `COMPARISON.md` §58.
-> 2. **Inpatient, Boarding and Refunds were renamed in Arabic** to الإقامة
->    المرضية, الإقامة الفندقية and المرتجعات النقدية.
-> 3. The grooming service **"Zoning"** is corrected to `تهذيب المنطقة الحساسة`
->    (clinics still see the earlier `تشذيب`).
->
-> The first is a new capability and the rest are user-visible, so this ships as
-> a **MINOR** — IQ `1.16.0`, JO `1.14.0` — not a PATCH. Item 3 was deliberately
-> held on its own; items 1 and 2 are what it is now waiting for.
+> **One thing an admin must do after updating:** a clinic that was using Arabic
+> comes back in English, because the old preference lived in a browser cookie
+> and the server has nothing to migrate from. Set it once in Settings → Clinic
+> Settings → Language.
 
 
 **Rewritten 2026-08-26; §1, §2 and §4 rewritten again 2026-09-10** after the

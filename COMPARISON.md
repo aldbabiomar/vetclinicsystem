@@ -4664,7 +4664,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 55 | ⚠ **the live-use simulation audit: six findings, five of them at a seam where one path had a rule and its sibling did not; one NaN with opposite symptoms per app; and what 1,028 hostile probes could NOT break** | **before adding a rule to one money/validation path; before trusting that a green suite means a behaviour is covered** |
 | 56 | ⚠ **three more seam bugs (a lock only one side took, two unvalidated date filters), and the Arabic toggle: mechanism done, translation partial** | **before adding a cross-cutting rule — read SEAM_RULES.md; before touching localization or a .po file** |
 | 57 | ⚠ **Arabic finished (IQ v1.15.0 / JO v1.13.0), and three bugs it flushed out: a translated `<option>` posting Arabic into the cash register's totals, a `%(name)s` Jinja insists on filling that 500'd six pages per app in BOTH languages, and `~` escaping markup before `|safe` sees it** | **before translating anything, before adding an `<option>`, and before writing a checker you have not watched fail — this one reported CLEAN against a broken page three times** |
-| 58 | ⚠ **the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
+| 58 | ⚠ **released IQ v1.16.0 / JO v1.14.0 — the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -4804,10 +4804,30 @@ exact failure this script exists to avoid.
 
 ---
 
-## 58. The language became a clinic setting, and three features were renamed — 2026-09-11
+## 58. The language became a clinic setting, and three features were renamed — released IQ v1.16.0 / JO v1.14.0 — 2026-09-11
 
-Both from the clinic, after using §57 for an afternoon. **Unreleased on `main`
-as of writing** — see `TRANSITION_NOTES.md`.
+Both from the clinic, after using §57 for an afternoon. **Released** — MINOR in
+both, because the language setting is a new capability. Verified through each
+app's own `updater.check_latest_release()` against the live repo, not just
+against the GitHub API: tag matches `VERSION`, tarball attached, release body
+is the CHANGELOG entry, and `is_update_available()` correctly returns False for
+a build that IS the latest.
+
+**The upgrade case needed its own check, and it is the interesting part.** No
+schema ships with this release, so nothing creates the `language` row — every
+upgrading clinic starts with it absent. Simulated by deleting the row: both
+apps render English, `/settings` renders, and the dropdown is there to set it.
+One nuance worth knowing if these options are ever reordered: with the row
+absent, *neither* option carries `selected`, so the browser shows the first one.
+That is English today and matches what the app actually renders, but it is true
+by position rather than by intent — the same idiom `theme_palette` has used all
+along.
+
+**A clinic that was using Arabic reverts to English on upgrade**, and there is
+no way around it: the old preference lived in a browser cookie, so the server
+has nothing to migrate from. The CHANGELOG says so in the first entry an admin
+reads, because the CHANGELOG is the only thing they see before clicking Update
+Now.
 
 ### 58.1 The language is a saved setting, not a header toggle
 
