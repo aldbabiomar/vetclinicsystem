@@ -4666,6 +4666,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 57 | ⚠ **Arabic finished (IQ v1.15.0 / JO v1.13.0), and three bugs it flushed out: a translated `<option>` posting Arabic into the cash register's totals, a `%(name)s` Jinja insists on filling that 500'd six pages per app in BOTH languages, and `~` escaping markup before `|safe` sees it** | **before translating anything, before adding an `<option>`, and before writing a checker you have not watched fail — this one reported CLEAN against a broken page three times** |
 | 58 | ⚠ **released IQ v1.16.0 / JO v1.14.0 — the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
 | 59 | ⚠ **five UI bugs a clinic found by USING the app — every one HTTP 200 with valid JS and invisible to 823 tests; plus the loading-shell blind spot that meant the JavaScript-error test never covered /insights or /retention** | **before trusting a green browser suite; before reading any page straight after goto; before porting chart or palette code between the apps** |
+| 60 | ⚠ **the health banner (self-check + backup alert) translated — and why a message that is STORED cannot be translated where it is written; one of them was untranslatable by construction, not merely untranslated** | **before touching selfcheck.py, backup_alert_message, or any message written to a table and read back later** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -4919,10 +4920,10 @@ brought back for ten seconds fails the fourth.
 
 ---
 
-## 59. Five UI bugs a clinic found by using the app — 2026-09-12
+## 59. Five UI bugs a clinic found by using the app — released IQ v1.16.1 / JO v1.14.1 — 2026-09-12
 
-Reported from real use of the v1.16.0 / v1.14.0 build. **Unreleased on `main`
-as of writing.** What they have in common is worth more than any one of them:
+Reported from real use of the v1.16.0 / v1.14.0 build. **Released** as a PATCH,
+together with §60. What they have in common is worth more than any one of them:
 every single one rendered a page that is HTTP 200, has valid JavaScript, and
 looks plausible in a screenshot. Nothing in a 823-test suite, a 1,028-probe
 hostile sweep or a 50-page render checker saw any of them.
@@ -5013,6 +5014,74 @@ is sized by the table layout to fit its content, and four such cells across
 /price-list, /pos/history and /distributors overflow by zero in Arabic at
 900px. Keeping a row of action buttons on one line is legitimate; pinning a
 word you are going to translate is not.
+
+---
+
+## 60. The health banner, and a message you cannot translate where it is written — released IQ v1.16.1 / JO v1.14.1 — 2026-09-12
+
+The self-check findings and the backup alert were the last English in either
+app. They are also the ones that matter most at the moment they appear: they
+are what tells a clinic its backups are failing, its backup folder has
+vanished, or no backup has ever been verified as restorable.
+
+**With these done, the only English left anywhere is `python3 setup.py
+--enable-updates`, which is a command.**
+
+### 60.1 Why a stored message cannot be translated where it is written
+
+A self-check finding is **written** to `self_check_log` when the scheduler
+runs and **read back** whenever someone opens the dashboard — possibly in
+another language, certainly at another time. Translating at check time freezes
+whichever language happened to be active when a background job ran, which is
+not a property anyone chose.
+
+So `selfcheck.py` stores three things and the split is the whole design:
+
+| field | what it is | who reads it |
+|---|---|---|
+| `message` | the RENDERED English | the heartbeat, `self_check_log`, several tests |
+| `msgid` | the same sentence with `%(name)s` | the `finding` template filter |
+| `args` | the values | the same filter, at render |
+
+**`message` deliberately stays the rendered English**, and that is not
+conservatism. `test_selfcheck.py` asserts that a particular error string is
+**absent** from `backup_failing`'s message — a check that means something only
+while the value is actually there to be absent. Moving the value into `args`
+would have left that test passing against a template that could never contain
+the string under any circumstances. A guard made vacuous by a refactor is
+worse than no guard, because it still reports green.
+
+Rows written by older builds have no `msgid` and fall back to `message`, which
+is English — exactly what they already displayed.
+
+### 60.2 The one that could never have been translated at all
+
+`logic.backup_alert_message()` predates the self-check and reported four of the
+same conditions through its own mechanism: a bare f-string. Not "untranslated"
+— **untranslatable**. The interpolated error made every message a different
+string, so no catalogue entry could ever have matched one, and no amount of
+translating would have changed the page.
+
+It now returns the same shape a finding does, and both render through one
+`finding` filter. JO's dashboard markup for that banner differs from IQ's, so
+that edit is its own rather than IQ's copied across.
+
+### 60.3 Which numbers get Arabic-Indic digits, and which must not
+
+Numeric arguments go through `core.display_number` like every other number in
+a message — `٩ يومًا`, `٠.٤٢ غيغابايت`. `%(error)s`, `%(detail)s` and
+`%(failures)s` do **not**: they carry file paths, OS error text and schema
+statements, and rewriting the digits inside `Errno 13 /Volumes/Backup2` would
+corrupt the one detail that says what went wrong. The filter converts a value
+only when it is a number.
+
+### 60.4 Guards
+
+Four, each mutation-tested: every `_finding` message marked with `N_()` so
+pybabel can see it (an f-string cannot be), a floor so the scanner cannot pass
+by matching nothing, `message` still carrying its values, and a mismatched
+argument set falling back rather than raising — because the thing that would
+disappear is the banner reporting the problem.
 
 ---
 

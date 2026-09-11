@@ -1,11 +1,11 @@
 # Transition notes — for a new Claude account picking up this project
 
-> **In flight as of 2026-09-12: five UI fixes on `main`, unreleased.** Reported
-> by the clinic from the v1.16.0 / v1.14.0 build: the Grooming badge printing
-> over the next column in Arabic, Create Barcode drawing nothing in either
-> language, the Insights charts mis-sized, the Add Role modal unusable on a
-> phone, and an empty chart rendering as a blank card. `COMPARISON.md` §59.
-> User-visible and worth a PATCH; nothing schema-related.
+> **Nothing in flight as of 2026-09-12.** The five UI bugs and the health-banner
+> translation shipped together as **IQ v1.16.1 / JO v1.14.1**, verified through
+> each app's own updater. `COMPARISON.md` §59 and §60.
+>
+> **The Arabic localization is complete.** The only English left anywhere in
+> either app is `python3 setup.py --enable-updates`, which is a command.
 
 > **Nothing in flight as of 2026-09-11.** Everything listed here shipped as
 > **IQ v1.16.0 / JO v1.14.0**: the language moved into Clinic Settings as a
