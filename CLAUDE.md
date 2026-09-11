@@ -44,6 +44,12 @@ either app's code.
 > of them sat at a seam between two code paths rather than inside either one.
 > A green suite is evidence about the paths it covers, not about the rules
 > that are supposed to be shared between them.
+>
+> **Re-checked again later the same day**, after auditing for that pattern
+> deliberately: three more instances, one of them a row lock only one of
+> two routes took. `SEAM_RULES.md` is now the register and the checklist,
+> and four of its rules are enforced by `tests/test_seam_rules.py` in both
+> apps. Counts here are IQ 789 / JO 764 over 42 files.
 
 ## Layout
 
@@ -58,6 +64,9 @@ VetClinicSystem/
 ├── FULL_APP_REVIEW_2026-09-10.md  ← whole-app review of BOTH apps: 37 findings (security, logic, QoL, dead code). **CLOSED — all 37 shipped**, released 2026-09-11 as IQ v1.13.0 / JO v1.11.0 — see COMPARISON.md §48, §49, §51 and §53
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
+├── SEAM_RULES.md          ← **read before adding any cross-cutting rule.** The register of every time a rule existed in one code path and not its sibling (8 so far), the four now enforced by tests/test_seam_rules.py in each app, and the checklist
+├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. §4/§6/§7 EXECUTED 2026-09-11; §5 (wrapping every string) deliberately partial — see COMPARISON.md §56
+├── ARABIC_TRANSLATION_QUESTIONS.md ← **OPEN, needs the user.** 24 strings §3 reserves for the translator; until answered they render in English, which is harmless
 ├── SIMULATION_AUDIT_2026-09-11.md ← live-use simulation of BOTH apps (a full clinic day + edge cases): 6 findings. **CLOSED — all shipped**, released 2026-09-11 as IQ v1.14.0 / JO v1.12.0 (+ v1.14.1 / v1.12.1 for the upgrade path) — see COMPARISON.md §55. Its §8 records what was attacked and held, so it doubles as a "don't re-audit this" list
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
 ├── audits/                ← three standing audits, see below
@@ -365,8 +374,8 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-11, after the simulation audit's six fixes: IQ 761,
-JO 736, zero skips, 40 `test_*.py` files each** (`COMPARISON.md` §55). The
+growing since. **Re-measured 2026-09-11, after the seam audit and the Arabic toggle: IQ 789,
+JO 764, zero skips, 42 `test_*.py` files each** (`COMPARISON.md` §55, §56). The
 figures before that pass were IQ 728 / JO 709 over 39 files (§48, §49, §51). They have found well over a dozen real bugs, several of which had
 shipped — though note that a suite this size was **green through all six**
 of the simulation audit's findings (§55), because five of them sat at a

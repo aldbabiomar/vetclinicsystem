@@ -4510,6 +4510,92 @@ after all of this: **IQ 761, JO 736, zero skips.**
 
 ---
 
+## 56. Seam rules, and the Arabic toggle — 2026-09-11
+
+Two pieces of work, **both on `main` in each app and deliberately NOT
+released**: the localization catalogue is partial by design (below), and a
+clinic should not get an "update available" prompt for a half-translated UI.
+
+### 56.1 The seam audit — three more of the same bug
+
+`SEAM_RULES.md` is the durable artefact; this is the summary. Five of six
+§55 findings shared one shape — a rule present in one code path and missing
+from its sibling — so the next step was to audit for the shape itself. Three
+more:
+
+- **S1 (IQ only).** `visit_billing_save` has always taken the visit row
+  `FOR UPDATE`, and its comment says the lock is there *"so a concurrent
+  discount save on the same visit serialises behind this one"*. **A lock only
+  serialises if both sides take it**, and `visit_discount_save` never did —
+  nor did `inpatient_discount_save` or `inpatient_billing_add`. The two guards
+  that stop a discount landing on a non-discountable line were each validating
+  against a snapshot the other had already invalidated, and because the paths
+  took locks in different orders they **deadlocked outright**. Reproduced at
+  2/25 trials plus 46 `DeadlockDetected` 500s; 0/25 and zero deadlocks after.
+  **JO had locked all four routes from the start and was clean throughout**,
+  which is the only reason the asymmetry was visible at all.
+- **S2/S3 (both apps).** `/admin/logs` and `/consignment/sales` took `?date=`
+  straight into the query while four sibling list pages validated theirs.
+  Neither 500s — the value reaches a text-prefix comparison, matches nothing,
+  and renders an empty page with no warning. On the audit log that is
+  indistinguishable from *"nobody did anything that day"*, on the one screen
+  whose entire job is showing what happened.
+
+`tests/test_seam_rules.py` (both apps) now enforces four rules, each derived
+from a defect rather than invented. **Rule 3's first draft was a regex that
+stayed green through a reintroduced F2**, because F2 assigns the form value to
+a local before calling `float()` on it — it now walks the AST and tracks
+request-derived locals. A guard proven blind on its own first mutation run is
+the entire argument for §7.3.
+
+The exploratory half, `scripts/simulation/seam_audit.py`, is a **candidate
+generator and cannot be an oracle**: matching a guard by name under-reports
+when a guard is delegated to a helper, and inlining helpers over-reports the
+other way. Its useful output is the both-apps vs one-app split — S1 surfaced
+as one real finding among thirteen IQ-only holes.
+
+### 56.2 Arabic toggle — mechanism complete, translation partial
+
+`ARABIC_LOCALIZATION_PLAN.md` §4, §6, §7 executed; §5 (wrapping every string)
+is deliberately incomplete.
+
+**Why it is not shaped like the dark/light toggle it was modelled on:** theme
+is a client-side attribute flip because both palettes already sit in the CSS.
+Language cannot be, because the *text* is written into the HTML by Jinja on
+the server. So the toggle sets a cookie and the page reloads, and
+`<html lang>`/`<dir>` are rendered server-side — a direction flip applied
+after the page has painted LTR is both jarring and wrong for accessibility
+tooling.
+
+- **RTL cost almost nothing.** All 16 physical LTR-only CSS declarations
+  became logical properties (`inline-start`/`inline-end`/`start`/`end`), so
+  English renders identically and Arabic follows direction. Only two cases
+  needed an explicit `html[dir="rtl"]` override.
+- **Arabic-Indic digits hook into the existing `|money` filter**, the choke
+  point every displayed amount already passes through — no per-template edit
+  for money. §7.1's boundary is asserted rather than assumed: never on a value
+  that will be parsed back, never on an `<input>`, never on an ID, never in
+  `pdf_export.py` (§0, permanent).
+- **22 of 46 strings translated.** The rest are clinical, money and
+  report-heading vocabulary that §3 reserves for the translator — left blank
+  so gettext falls back to English. Both apps work in Arabic today with those
+  items in English. `ARABIC_TRANSLATION_QUESTIONS.md` is the batch.
+
+**An existing guard caught a real regression in this work:** the language
+toggle button shipped at 40x24 and `test_browser.py`'s touch-target floor
+failed it on phone and tablet. A control too small to hit with a thumb is a
+defect, not a style preference.
+
+**And the input-boundary guard needed two attempts to prove.** The obvious
+mutation — pushing `|money` into an input's value — left the input *empty* on
+a fresh page, so the test passed while testing nothing. It is only known to
+work because the second attempt used an input carrying a real value. Same
+failure mode as §55's confirmed-session blind test, one day later.
+
+Counts after both pieces: **IQ 789, JO 764, zero skips**, 42 test files each.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -4576,6 +4662,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 53 | released as IQ v1.13.0 / JO v1.11.0; the CHECK constraint that would have worked on fresh installs and failed on upgrades; setup.py installs an app if given an unknown flag | before any release; before running setup.py by hand |
 | 54 | ⚠ **JO reinstalled: both apps default to the same two ports, and three install-layer bugs that only a fresh install can reach** | **before installing either app anywhere; before touching setup.py or docker-compose.yml** |
 | 55 | ⚠ **the live-use simulation audit: six findings, five of them at a seam where one path had a rule and its sibling did not; one NaN with opposite symptoms per app; and what 1,028 hostile probes could NOT break** | **before adding a rule to one money/validation path; before trusting that a green suite means a behaviour is covered** |
+| 56 | ⚠ **three more seam bugs (a lock only one side took, two unvalidated date filters), and the Arabic toggle: mechanism done, translation partial** | **before adding a cross-cutting rule — read SEAM_RULES.md; before touching localization or a .po file** |
 
 ### The four sections a new session should read first
 
