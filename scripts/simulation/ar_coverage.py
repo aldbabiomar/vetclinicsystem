@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, "/Users/omaraldbabi/Desktop/VetClinicSystem/scripts/simulation")
 from check_rendered_js import pages, _follow_loading_shell  # noqa: E402
-from vzsim import Client, q  # noqa: E402
+from vzsim import Client, q, set_language  # noqa: E402
 
 # words that are legitimately Latin on an Arabic page
 ALWAYS_LATIN = {
@@ -74,7 +74,7 @@ def run(app):
     skip = data_words(app)
     c = Client(app)
     c.login()
-    c.post("/set-language/ar", {})
+    set_language(app, "ar")
     findings = {}
     for page in pages(app):
         r = _follow_loading_shell(c, c.s.get(c.base + page))
@@ -88,7 +88,7 @@ def run(app):
         left = sorted({w for w in re.findall(r"[A-Za-z]{3,}", text) if w not in skip})
         if left:
             findings[page] = left
-    c.post("/set-language/en", {})
+    set_language(app, "en")
     return findings
 
 

@@ -1,11 +1,20 @@
 # Transition notes — for a new Claude account picking up this project
 
-> **In flight as of 2026-09-11: one unreleased user-facing string.** The
-> grooming service "Zoning" is corrected to `تهذيب المنطقة الحساسة` on `main`
-> in both repos (IQ `2ed7cc3`, JO `6d75df9`), but clinics on v1.15.0 / v1.13.0
-> still see the earlier `تشذيب`. Deliberately held rather than shipped as a
-> PATCH — a one-word change is not worth prompting every clinic to update.
-> **Fold it into the next release's CHANGELOG**; the code side is already done.
+> **In flight as of 2026-09-11: a MINOR's worth of unreleased work on `main`.**
+> Clinics on v1.15.0 / v1.13.0 have none of it yet:
+>
+> 1. **The language moved out of the header into Clinic Settings** and is now a
+>    clinic-wide saved setting rather than a per-browser cookie — two staff can
+>    no longer be looking at two different languages, and `/set-language` is
+>    gone. `COMPARISON.md` §58.
+> 2. **Inpatient, Boarding and Refunds were renamed in Arabic** to الإقامة
+>    المرضية, الإقامة الفندقية and المرتجعات النقدية.
+> 3. The grooming service **"Zoning"** is corrected to `تهذيب المنطقة الحساسة`
+>    (clinics still see the earlier `تشذيب`).
+>
+> The first is a new capability and the rest are user-visible, so this ships as
+> a **MINOR** — IQ `1.16.0`, JO `1.14.0` — not a PATCH. Item 3 was deliberately
+> held on its own; items 1 and 2 are what it is now waiting for.
 
 
 **Rewritten 2026-08-26; §1, §2 and §4 rewritten again 2026-09-10** after the

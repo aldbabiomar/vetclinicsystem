@@ -4664,6 +4664,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 55 | ⚠ **the live-use simulation audit: six findings, five of them at a seam where one path had a rule and its sibling did not; one NaN with opposite symptoms per app; and what 1,028 hostile probes could NOT break** | **before adding a rule to one money/validation path; before trusting that a green suite means a behaviour is covered** |
 | 56 | ⚠ **three more seam bugs (a lock only one side took, two unvalidated date filters), and the Arabic toggle: mechanism done, translation partial** | **before adding a cross-cutting rule — read SEAM_RULES.md; before touching localization or a .po file** |
 | 57 | ⚠ **Arabic finished (IQ v1.15.0 / JO v1.13.0), and three bugs it flushed out: a translated `<option>` posting Arabic into the cash register's totals, a `%(name)s` Jinja insists on filling that 500'd six pages per app in BOTH languages, and `~` escaping markup before `|safe` sees it** | **before translating anything, before adding an `<option>`, and before writing a checker you have not watched fail — this one reported CLEAN against a broken page three times** |
+| 58 | ⚠ **the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -4800,6 +4801,100 @@ and column names, it reported **316 untranslated words per app**; with them
 fixed, **7**. The difference was entirely change-log rows and ids. A broken
 data query is now fatal rather than swallowed, because a quiet miscount is the
 exact failure this script exists to avoid.
+
+---
+
+## 58. The language became a clinic setting, and three features were renamed — 2026-09-11
+
+Both from the clinic, after using §57 for an afternoon. **Unreleased on `main`
+as of writing** — see `TRANSITION_NOTES.md`.
+
+### 58.1 The language is a saved setting, not a header toggle
+
+The "العربية" button is gone. The language is a dropdown in **Clinic
+Settings**, saved with the same button as Clinic Name and the backup folder,
+and it behaves like `theme_palette` in every way that matters: clinic-wide,
+DB-backed, read server-side before first paint.
+
+That is a real behaviour change, not a relocation. The cookie was **per
+browser** — two receptionists could be looking at two different languages, and
+a new phone started in English. The setting is **per clinic**: a second session
+that has never touched it now agrees, which is the property the cookie could
+not provide and the reason for the move.
+
+`_select_locale()` reads `logic.get_setting(db, "language", "en")`, wrapped in
+`try/except` and cached in `g`. The wrapping is not defensive habit: the
+selector runs on **every** render including the 500 page, and the likeliest
+reason a page is failing is the database — a locale selector that raised there
+would replace the error page with a second error, which is the page you least
+want to break and the one least likely to be looked at before release.
+`inject_globals()` already carries that comment for the same reason; this is
+the same hazard one layer lower.
+
+The submitted value is **whitelisted in the route**, exactly as `theme_palette`
+is, because it reaches Flask-Babel directly. An unknown locale does not error —
+it falls back to English, which to the person who just pressed Save is
+indistinguishable from "the setting did not save".
+
+`/set-language/<lang>` and `is_safe_local_path_url()` are removed with the
+button they existed for. The open-redirect guard that helper carried is gone
+because the redirect is gone; `is_safe_local_path()` (the login `next`
+parameter) is untouched and still in `auth.py`.
+
+**JO's dropdown sits in a different place.** IQ's goes beside Color Palette; JO
+has no palette field at all (§1, one palette by design), so its Language field
+follows Clinic Opening Date. Same field, adapted to each app's own form.
+
+### 58.2 Three features renamed
+
+| | was | now |
+|---|---|---|
+| Inpatient | التنويم | الإقامة المرضية |
+| Boarding | الإيواء | الإقامة الفندقية |
+| Refunds | المرتجعات | المرتجعات النقدية |
+
+64 entries in IQ, 62 in JO, **each written out rather than substituted.** A
+find-and-replace would have been wrong three ways, and all three are the same
+lesson: the term is not a token, it is a word in a sentence.
+
+1. **"تنويم" is a noun AND a verb.** As a noun it is the ward — that is what
+   was renamed. As a masdar it is the *act* of admitting: "تنويم المريض" is
+   "admit the patient", and substituting a noun phrase gives "الإقامة المرضية
+   المريض", which is not Arabic. Every verbal use became **إدخال**, a word the
+   catalogue already used ("الحيوانات المُدخلة حاليًا"). So "Admit Patient" is
+   إدخال المريض and "Admission Date" is تاريخ الإدخال, while "Inpatient Cases"
+   is حالات الإقامة المرضية.
+2. **"المرتجعات" means two different things in this app.** A refund returns
+   MONEY to a client; a consignment return sends STOCK back to a distributor.
+   Only the first is المرتجعات النقدية. The consignment side had already been
+   disambiguated in §57 (`Returns` → المرتجعات إلى المورد, `Consignment
+   Returns` → مرتجعات الأمانة) and is deliberately untouched — calling a
+   distributor's stock return "cash returns" would be worse than the ambiguity
+   it replaced.
+3. **`Housing` is بيئة الإيواء and does not change.** It is the patient's
+   living environment — Indoor / Outdoor / Stray — and merely shares a word
+   with the boarding service.
+
+After the pass, zero entries in either catalogue still carry the old terms,
+and the three exceptions above still read as they should. That check is worth
+more than the count: "no survivors" and "nothing was skipped" are different
+claims, and only the first is cheap to verify.
+
+### 58.3 What the tests had to become
+
+`test_localization.py` set a cookie in almost every test, and its autouse
+fixture deleted one. Both are now writes to the `language` row — and the
+fixture's docstring got *stronger*, not weaker: a cookie only followed the
+session-scoped `client`, but this row is read by every request any test in the
+suite makes. It is global state, so leaving it on "ar" would break every test
+that asserts on English flash text. That failure has already happened once in
+this file's history, under the cookie, as nine failures in an unrelated file.
+
+The §3 block changed from testing a route to testing a saved field: the form
+switches the language, an unknown value is refused, **a second session
+agrees**, and the old route really is gone. Each was mutation-tested —
+reverting the selector to a cookie fails eight of them, and a stub route
+brought back for ten seconds fails the fourth.
 
 ---
 

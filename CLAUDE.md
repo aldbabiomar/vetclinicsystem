@@ -75,7 +75,7 @@ VetClinicSystem/
 ├── HOSTING_MIGRATION_PLAN.md      ← DRAFT, written 2026-08-24, NOT executed: moving each app off the clinic PC onto its own VPS
 ├── CLINIC_PC_TUNNEL_PLAN.md       ← DRAFT, written 2026-08-24, NOT executed: the Cloudflare-tunnel alternative to the above; read the VPS plan first
 ├── SEAM_RULES.md          ← **read before adding any cross-cutting rule.** The register of every time a rule existed in one code path and not its sibling (8 so far), the four now enforced by tests/test_seam_rules.py in each app, and the checklist
-├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. **CLOSED — all sections executed**, released 2026-09-11 as IQ v1.15.0 / JO v1.13.0. Read COMPARISON.md §57 before touching a template, an `<option>` or a `.po` file: finishing it flushed out a money bug, six 500s per app, and a checker that could not fail
+├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. **CLOSED — all sections executed**, released 2026-09-11 as IQ v1.15.0 / JO v1.13.0. Read COMPARISON.md §57 before touching a template, an `<option>` or a `.po` file: finishing it flushed out a money bug, six 500s per app, and a checker that could not fail. **§58 supersedes this plan's toggle design** — the language is a clinic SETTING now, not a per-browser cookie, and there is no `/set-language` route
 ├── ARABIC_TRANSLATION_QUESTIONS.md ← **CLOSED — all 25 answered by the clinic.** Worth reading once for the two things it caught: الخصم collided for both Discount and Clean Up (and the confusing English was changed, not just the Arabic), and #25 "Zoning" came back as تهذيب where the guess had been تشذيب — one letter, invisible to a non-speaker. Flag; do not guess
 ├── SIMULATION_AUDIT_2026-09-11.md ← live-use simulation of BOTH apps (a full clinic day + edge cases): 6 findings. **CLOSED — all shipped**, released 2026-09-11 as IQ v1.14.0 / JO v1.12.0 (+ v1.14.1 / v1.12.1 for the upgrade path) — see COMPARISON.md §55. Its §8 records what was attacked and held, so it doubles as a "don't re-audit this" list
 ├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
@@ -401,8 +401,9 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-11, after the Arabic pass shipped: IQ 825,
-JO 800, zero skips, 46 `test_*.py` files each** (`COMPARISON.md` §55, §56, §57).
+growing since. **Re-measured 2026-09-11, after the Arabic pass shipped and the language
+became a clinic setting: IQ 826, JO 801, zero skips, 46 `test_*.py` files
+each** (`COMPARISON.md` §55, §56, §57, §58).
 The four new files are all localization guards, and every one was mutation-tested
 against the bug it names before being believed: `test_enum_labels`,
 `test_placeholder_args`, `test_js_localization`, `test_bind_port`. The

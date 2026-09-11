@@ -142,6 +142,22 @@ def db(app):
     return psycopg.connect(APPS[app]["db"])
 
 
+def set_language(app, lang):
+    """Set the clinic's language the way the app now stores it.
+
+    There is no `/set-language` route and no `lang` cookie any more: the
+    language is a row in `settings`, set from the Clinic Settings form, and
+    it applies clinic-wide. Writing the row directly is the right move for a
+    harness that wants to RENDER in a language — driving the settings form
+    for it would re-save fifteen unrelated fields on every call.
+    `repro_language_setting.py` is the one that exercises the real form.
+    """
+    with db(app) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO settings (key, value) VALUES ('language', %s) "
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (lang,))
+        conn.commit()
+
 def q(app, sql, params=None):
     with db(app) as c, c.cursor() as cur:
         cur.execute(sql, params or ())

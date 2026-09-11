@@ -29,7 +29,7 @@ import tempfile
 import time
 
 sys.path.insert(0, "/Users/omaraldbabi/Desktop/VetClinicSystem/scripts/simulation")
-from vzsim import Client  # noqa: E402
+from vzsim import Client, set_language  # noqa: E402
 
 SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S)
 
@@ -60,7 +60,7 @@ def pages(app):
     if out.returncode != 0:
         raise SystemExit(f"could not enumerate {app} routes:\n{out.stderr[-800:]}")
     return [r for r in json.loads(out.stdout)
-            if r not in ("/logout", "/health", "/set-language/<lang>")]
+            if r not in ("/logout", "/health")]
 
 
 
@@ -104,7 +104,7 @@ def check(app):
     bad = []
     page_list = pages(app)
     for lang in ("en", "ar"):
-        c.post(f"/set-language/{lang}", {})
+        set_language(app, lang)
         for page in page_list:
             r = _follow_loading_shell(c, c.s.get(c.base + page))
             if r.status_code >= 500:
@@ -133,7 +133,7 @@ def check(app):
                     first = p.stderr.strip().splitlines()
                     detail = next((l for l in first if "SyntaxError" in l), first[0] if first else "")
                     bad.append(f"{lang} {page} script#{i}: {detail}")
-    c.post("/set-language/en", {})
+    set_language(app, "en")
     return bad
 
 
