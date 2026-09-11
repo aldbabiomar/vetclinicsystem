@@ -15,3 +15,6 @@ webapps/
 # Python bytecode from scripts/simulation
 __pycache__/
 *.pyc
+
+# simulation run output, regenerated on every run
+scripts/findings_*.json
