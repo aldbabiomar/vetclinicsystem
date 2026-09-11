@@ -1,5 +1,13 @@
 # Transition notes — for a new Claude account picking up this project
 
+> **In flight as of 2026-09-11: one unreleased user-facing string.** The
+> grooming service "Zoning" is corrected to `تهذيب المنطقة الحساسة` on `main`
+> in both repos (IQ `2ed7cc3`, JO `6d75df9`), but clinics on v1.15.0 / v1.13.0
+> still see the earlier `تشذيب`. Deliberately held rather than shipped as a
+> PATCH — a one-word change is not worth prompting every clinic to update.
+> **Fold it into the next release's CHANGELOG**; the code side is already done.
+
+
 **Rewritten 2026-08-26; §1, §2 and §4 rewritten again 2026-09-10** after the
 full-application review and the blueprint split made them wrong in every row.
 §3, §5 and §6 are cumulative and still hold — §3 gained six entries on
