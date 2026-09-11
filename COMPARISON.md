@@ -4665,6 +4665,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 56 | ⚠ **three more seam bugs (a lock only one side took, two unvalidated date filters), and the Arabic toggle: mechanism done, translation partial** | **before adding a cross-cutting rule — read SEAM_RULES.md; before touching localization or a .po file** |
 | 57 | ⚠ **Arabic finished (IQ v1.15.0 / JO v1.13.0), and three bugs it flushed out: a translated `<option>` posting Arabic into the cash register's totals, a `%(name)s` Jinja insists on filling that 500'd six pages per app in BOTH languages, and `~` escaping markup before `|safe` sees it** | **before translating anything, before adding an `<option>`, and before writing a checker you have not watched fail — this one reported CLEAN against a broken page three times** |
 | 58 | ⚠ **released IQ v1.16.0 / JO v1.14.0 — the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
+| 59 | ⚠ **five UI bugs a clinic found by USING the app — every one HTTP 200 with valid JS and invisible to 823 tests; plus the loading-shell blind spot that meant the JavaScript-error test never covered /insights or /retention** | **before trusting a green browser suite; before reading any page straight after goto; before porting chart or palette code between the apps** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -4915,6 +4916,103 @@ switches the language, an unknown value is refused, **a second session
 agrees**, and the old route really is gone. Each was mutation-tested —
 reverting the selector to a cookie fails eight of them, and a stub route
 brought back for ten seconds fails the fourth.
+
+---
+
+## 59. Five UI bugs a clinic found by using the app — 2026-09-12
+
+Reported from real use of the v1.16.0 / v1.14.0 build. **Unreleased on `main`
+as of writing.** What they have in common is worth more than any one of them:
+every single one rendered a page that is HTTP 200, has valid JavaScript, and
+looks plausible in a screenshot. Nothing in a 823-test suite, a 1,028-probe
+hostile sweep or a 50-page render checker saw any of them.
+
+| # | Symptom | Cause |
+|---|---|---|
+| 1 | the Grooming badge printed over the next column in Arabic | `white-space: nowrap` on a badge whose text got four times longer |
+| 2 | Create Barcode drew nothing, in both languages | the render function was bound to a load event that had already fired |
+| 3 | the bar chart could not fill its card; the doughnut was enormous | Chart.js sized the WIDTH from an aspect ratio derived from a height attribute |
+| 4 | Add Role barely fitted a laptop, and could not be submitted on a phone | six category blocks stacked, and no height cap or scroll on any modal |
+| 5 | the payment chart was a blank white card | it was empty, and an empty chart said nothing |
+
+### 59.1 Measured, not eyeballed
+
+Each was quantified before it was touched, because three of the five look like
+taste and are not:
+
+- **The badge.** `nowrap` keeps the text on one line but does **not** stop the
+  box shrinking. At a 900px table the text needed 99px inside a 71px box — 28px
+  of it rendered outside the badge and over the neighbouring cell; at 700px,
+  50px. `normal` gives zero spill at every width and costs two extra lines of
+  height. JO never had the `nowrap`: an IQ-only divergence.
+- **The modal.** 894px tall in a 900px viewport — six pixels of headroom. On a
+  390x844 phone: 1374px, top clipped at -281, **submit button unreachable**,
+  `overflow-y: visible`, `max-height: none`. A role could not be created on a
+  phone at all. Flowed into three columns it is 682px on a laptop; capped and
+  scrollable it fits every size with the button reachable.
+- **The charts.** Both canvases were 510px wide because their height times an
+  inferred 1.36 (revenue) or 1.00 (payment) ratio said so — the doughnut is a
+  square as tall as the card is wide, by construction.
+
+### 59.2 The pie chart was not broken, and that matters
+
+It had empty labels and empty data because `payments` had no rows in the
+window — corroborated by the clinic's own screenshot, which reads *العملاء ذوو
+زيارات مدفوعة: 0* two inches above the blank card. Inserting three payments
+drew it immediately.
+
+So the defect was never the chart. It was that **an empty chart renders as a
+blank white card with a title**, which is indistinguishable from a broken one.
+The tables on the same page have had empty notes all along; the charts did not.
+
+### 59.3 What the fix broke, and what caught it
+
+Porting IQ's chart code into JO carried `_cssVar('--primary')` across. **JO has
+no `_cssVar`**: it ships one palette and writes hex literals, where IQ reads
+CSS custom properties because it has several to follow (§1). The result is a
+`ReferenceError`, the doughnut is never constructed, and its canvas sits at
+Chart.js's 300x150 default inside a 510x320 box.
+
+The new chart guard caught it within minutes. `CLAUDE.md` §2 exists for exactly
+this and was not followed; the guard is what made the cost minutes instead of a
+release.
+
+### 59.4 The blind spot worth more than the five bugs
+
+`/insights` and `/retention` answer with a **loading shell** that polls a
+background job and then navigates itself to the real page. `_visit()` in
+`tests/test_browser.py` did `goto(..., networkidle)` and read its error list
+immediately — so it has always been reading the placeholder, and
+`test_no_page_raises_a_javascript_error_or_fails_an_asset` **has never covered
+the two heaviest pages in the app**. That is how the `_cssVar` ReferenceError
+above sat on /insights while the JS-error test passed.
+
+`_visit` now waits for the shell to resolve, and with that it catches the error
+it previously missed — verified by reintroducing it.
+
+**This is the third time this shell has hidden something** (§57.7 has the other
+two: a checker whose page list omitted /retention, and one reading the shell
+instead of the page). Anything that reads a page straight after `goto` is
+looking at a placeholder on these routes.
+
+### 59.5 Guards added
+
+Five, each mutation-tested against the bug it names:
+
+| Guard | Refuses |
+|---|---|
+| `test_the_barcode_label_actually_draws_a_barcode` | an empty `<svg>` — asserts on the drawing, since the PAGE rendered fine throughout |
+| `test_a_modal_never_grows_taller_than_the_screen` | a modal taller than a phone, or a submit button it cannot reach |
+| `test_a_chart_fills_its_card_rather_than_its_aspect_ratio` | a canvas leaving its card unused |
+| `test_an_empty_chart_explains_itself` | a chart card with neither a chart nor a note — with a floor, because the selector going stale would otherwise make it pass while checking nothing |
+| `test_nowrap_translations.py` | translated text pinned to one line in an INLINE box |
+
+The last one is deliberately narrow. It flags `<span>`/`<button>`/`<a>` and
+**not** `<td style="white-space:nowrap">` — measured, not assumed: a table cell
+is sized by the table layout to fit its content, and four such cells across
+/price-list, /pos/history and /distributors overflow by zero in Arabic at
+900px. Keeping a row of action buttons on one line is legitimate; pinning a
+word you are going to translate is not.
 
 ---
 

@@ -340,6 +340,15 @@ be a guard** — §7.3, in tooling rather than in a test. This is
 the only sanctioned way to replicate a bug or verify a fix live — never
 test against a real install.
 
+**A page that answers with a LOADING SHELL is not the page.** `/insights` and
+`/retention` return a placeholder that polls a background job and then
+navigates itself. Anything reading the page straight after `goto` is reading
+the placeholder — which is how `test_browser.py`'s JavaScript-error test came
+to have never covered the two heaviest pages in the app, and how a real
+`ReferenceError` sat on /insights while it passed (`COMPARISON.md` §59.4).
+Three separate tools have now been fooled by this shell. Wait for
+`.vz-progress-shell` to disappear before asserting anything.
+
 **Restarting one of these apps: kill by PORT, never by a command pattern.**
 `up` launches the app as `exec nohup env … "$VENV/bin/python3" app.py`, and
 `exec` rewrites the command line to the resolved `Python.app` path — so
@@ -401,9 +410,16 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-11, after the Arabic pass shipped and the language
-became a clinic setting: IQ 826, JO 801, zero skips, 46 `test_*.py` files
-each** (`COMPARISON.md` §55, §56, §57, §58).
+growing since. **Re-measured 2026-09-12, after five UI bugs a clinic found by using the app:
+IQ 832, JO 807, 47 `test_*.py` files each** (`COMPARISON.md` §55-§59). Those
+totals include nine `test_scheduler_catchup` skips if you run before ~01:05 —
+see the wall-clock note below, which is exactly the trap it describes.
+
+**§59 is the one to read before trusting a green browser run.** All five of
+those bugs rendered HTTP 200 with valid JavaScript and looked plausible in a
+screenshot; none was visible to the suite, the 1,028-probe sweep or the
+50-page render checker. One of them — Create Barcode drawing nothing at all,
+in both languages, deterministically — had been shipped and unnoticed.
 The four new files are all localization guards, and every one was mutation-tested
 against the bug it names before being believed: `test_enum_labels`,
 `test_placeholder_args`, `test_js_localization`, `test_bind_port`. The
