@@ -1,5 +1,13 @@
 # Transition notes — for a new Claude account picking up this project
 
+> **In flight as of 2026-09-12: JO's update progress bar, on `main`,
+> unreleased.** JO's Update/Rollback showed plain text where every other long
+> job draws a bar; the component was already shipped and already used on the
+> same screen (`SEAM_RULES.md` S6). Fixing it also translated every job step
+> label in BOTH apps — they were English in the progress panel — and renamed
+> Ordering Sheet to كشف النواقص. `COMPARISON.md` §61. User-visible, no schema
+> change: a PATCH when it ships.
+
 > **Nothing in flight as of 2026-09-12.** The five UI bugs and the health-banner
 > translation shipped together as **IQ v1.16.1 / JO v1.14.1**, verified through
 > each app's own updater. `COMPARISON.md` §59 and §60.
