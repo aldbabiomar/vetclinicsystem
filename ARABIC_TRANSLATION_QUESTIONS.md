@@ -4,8 +4,9 @@
 asked to resolve anything genuinely unclear rather than have it guessed —
 `ARABIC_LOCALIZATION_PLAN.md` §3).
 
-**Status of the work:** the mechanism is built, tested and working in both
-apps. The toggle flips, `<html lang>`/`dir` flip server-side, RTL layout
+**Status:** the mechanism is built, tested and working in both apps, and the
+three decisions in §4 are ANSWERED and shipped. **What remains is §1–§3 below
+— the 24 strings.** The toggle flips, `<html lang>`/`dir` flip server-side, RTL layout
 works, and money renders in Arabic-Indic digits. **22 of 46 extracted strings
 are translated** — the ones §3 names as safe to do directly. The 24 below are
 the ones §3 says to stop and ask about.
@@ -71,7 +72,20 @@ user-facing validation messages, so tone matters as much as wording.
 
 ---
 
-## 4. Three decisions I made that you may want to overturn
+## 4. Three decisions — ANSWERED 2026-09-11, implemented and pinned by tests
+
+All three were confirmed and are live in both apps. Recorded here as the
+decision trail; each is one line to revisit.
+
+| Decision | Answer | What shipped |
+|---|---|---|
+| Numeric column alignment | **Always right-aligned** | Fixed `text-align: right` on `.num-col`/`.cell-input.num`; digits stay put when the UI flips. Prose alignment is still direction-aware |
+| Dates | **Arabic-Indic digits too** | `\|localdate` applied to 34 read-only date renders per app. `<input type="date">` deliberately still carries a Western ISO value — the browser cannot parse anything else |
+| Currency label | **Arabic abbreviation** (د.ع / د.أ), same position | `currency_label()` template global across ~110 sites. `pdf_export.py` keeps the Latin code permanently (§0) |
+
+### Superseded — the original wording of these three
+
+
 
 These were not in §3's "must ask" list, but they are choices rather than
 facts, and each is a one-line change to reverse.
