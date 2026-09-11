@@ -1,4 +1,27 @@
-# Arabic translation — open questions, Batch 1
+# Arabic translation — Batch 1: CLOSED 2026-09-11
+
+> **All 24 answered, applied, compiled and pushed. The catalogue is 46/46.**
+> Kept as the decision trail — what was asked, what was answered, and the two
+> places the answer changed the code rather than just the catalogue.
+>
+> **Two outcomes worth carrying forward:**
+>
+> 1. **"Clean Up" is الإعفاء عن الفئات القليلة, never الخصم.** The first
+>    rendering supplied was الخصم, which is what *Discount* already reads as —
+>    two separate features whose refusal messages would have been
+>    indistinguishable to a cashier. Flagged before applying; a distinct term
+>    was supplied. This is the §3 collision risk being real, not theoretical.
+> 2. **A translation pass reviewed the English.** The cap message read
+>    *"Clean Up can't exceed 1000 IQD total on this bill"*, which the
+>    translator — reasonably — read as "the bill's total". The rule is a flat
+>    per-bill ceiling on the cumulative write-off. The **English was changed**
+>    to "Clean Up on this bill can't exceed %(cap)s IQD in total." Worth
+>    remembering that an ambiguous source string is a defect in the source.
+>
+> Note the two apps' caps genuinely differ: IQ 1,000 IQD, JO `Decimal("1.000")`
+> = **one** JOD. The Arabic renders that as ١.٠٠٠ in JO, which an Arabic reader
+> could plausibly read as one thousand. Not changed — flagging it as the one
+> loose thread in this batch.
 
 **For: the person commissioning the Arabic toggle** (who speaks Arabic and
 asked to resolve anything genuinely unclear rather than have it guessed —
