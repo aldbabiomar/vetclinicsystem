@@ -131,7 +131,7 @@ facts, and each is a one-line change to reverse.
 
 ---
 
-## Batch 2 — one grooming service whose English is unclear
+## Batch 2 — CLOSED, answered 2026-09-11
 
 Opened 2026-09-11, while rebuilding `enum_labels.py` from the constants the
 code actually uses. Ten grooming services became translatable at once
@@ -140,14 +140,18 @@ does not, and it is not an Arabic problem — **"Zoning" is not a standard
 grooming term in English either**, so guessing the Arabic would just move the
 ambiguity somewhere harder to find.
 
-| # | English | Applied now | What I assumed |
+| # | English | Applied now | Where it came from |
 |---|---|---|---|
-| 25 | `Zoning` | `تشذيب المنطقة الحساسة` | that it means a sanitary trim — the grooming sense closest to "zone" |
+| 25 | `Zoning` | `تهذيب المنطقة الحساسة` | **the clinic's own word** — my guess was `تشذيب`, one letter off |
 
-If the clinic means something else by it (a coat-pattern trim, a specific
-package, a word staff already use), give the Arabic and the English gets
-corrected too — the same way "Clean Up" did in Batch 1, where the confusing
-English was the actual bug.
+**Answered 2026-09-11: `تهذيب المنطقة الحساسة`.** My guess had been
+`تشذيب المنطقة الحساسة` — the same phrase with one letter different (ش vs ه).
+Close enough to look right to someone who does not speak Arabic, which is
+exactly why this was flagged rather than applied silently. The English is left
+as "Zoning" because that is what the clinic calls it.
+
+The batch-1 precedent still stands for the other direction: when the English
+itself is the confusing part, it gets corrected too, as "Clean Up" did.
 
 The nine applied without a question: Bath `استحمام`, Haircut `قص الشعر`,
 De-shedding `إزالة الوبر المتساقط`, Nail Trim `تقليم الأظافر`, Ear Cleaning

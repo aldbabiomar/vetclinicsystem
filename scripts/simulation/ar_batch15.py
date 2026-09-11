@@ -24,7 +24,7 @@ BATCH = {
     "Paw Clipping": "قص شعر الكفوف",
     "Nail Caps": "أغطية الأظافر",
     "Anal Gland Emptying": "تفريغ الغدد الشرجية",
-    "Zoning": "تشذيب المنطقة الحساسة",
+    "Zoning": "تهذيب المنطقة الحساسة",
 
     # visits.grooming_status
     "Waiting": "قيد الانتظار",
