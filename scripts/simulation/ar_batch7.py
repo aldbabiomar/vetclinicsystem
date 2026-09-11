@@ -160,7 +160,7 @@ BATCH = {
     "View grooming queue →": "عرض قائمة العناية والتصفيف →",
     "No grooming in progress.": "لا توجد عمليات عناية وتصفيف جارية.",
     "Low Stock": "مخزون منخفض",
-    "View ordering sheet →": "عرض كشف الطلبات →",
+    "View ordering sheet →": "عرض كشف النواقص →",
     "Nothing below threshold.": "لا يوجد ما هو دون الحد.",
     "Audit & Expiry Alerts": "تنبيهات الجرد والانتهاء",
     "View inventory status →": "عرض حالة المخزون →",

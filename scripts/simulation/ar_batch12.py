@@ -21,7 +21,7 @@ BATCH = {
     "One session per shelf-walk. Only Confirmed audits count toward Inventory Status and "
     "the Ordering Sheet. %(total_count)s shown.":
         "جلسة واحدة لكل جولة على الرفوف. تُحتسب عمليات الجرد المؤكدة فقط في حالة المخزون "
-        "وكشف الطلبات. المعروض %(total_count)s.",
+        "وكشف النواقص. المعروض %(total_count)s.",
 
     "One or more barcodes could not be rendered — check the flagged item(s) below before printing.":
         "تعذّر عرض باركود واحد أو أكثر — تحقق من الأصناف المميزة أدناه قبل الطباعة.",

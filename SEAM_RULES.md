@@ -57,6 +57,15 @@ What actually catches this:
 | S3 | (the same rule) | as above | `/consignment/sales` | a sales report silently narrowed to nothing |
 | S4 | the served address is **derived**, never a literal | JO's `BIND_PORT`, a module-level constant exposed to templates | IQ read the port only inside `main()`; its dashboard and Settings hard-coded `:5050` | IQ told staff the wrong address on any other port — and the two installs collide on the defaults, which is why JO already runs on 5051 |
 | S5 | an `<option>` carries the stored constant in `value=` | IQ's refunds, settlements and distributor payments | JO's same three forms, and 18 options in both apps whose translated text *was* the submitted value | in Arabic a visit payment stored `method='نقدًا'`; the cash register bucketed it as "other", so the **drawer count reported a surplus that was not real** |
+| S6 | a long job reports through the shared progress component | JO's Backup and Restore, and IQ's Update | **JO's Update and Rollback** — they polled `job-status` by hand and wrote plain text | the LONGEST job in the app showed no bar, no fraction and no elapsed time while the app restarted under the admin watching it |
+
+**S6 is the cheapest one to have avoided.** Nothing was missing: `progress.js`
+ships in both apps, and JO already called `VZProgress.poll`/`render` for two of
+its four long jobs — in the same file, a hundred lines from the code that did
+not. The update path simply predated the component and was never brought
+across, and nothing failed because each path was individually correct. It took
+a user watching an update to notice, because a progress bar is only missing at
+the one moment nobody is running tests.
 
 **S5 is the one that shows what a seam is.** Nothing about it is a
 localization bug in the usual sense — the translation was correct, the page

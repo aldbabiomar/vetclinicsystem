@@ -56,7 +56,7 @@ BATCH = {
         "لم يتم عدّ أي شيء في هذا الجرد بعد — أدخل صنفًا واحدًا على الأقل قبل التأكيد.",
 
     "Audit confirmed and locked. Inventory Status and Ordering Sheet now reflect these counts.":
-        "تم تأكيد الجرد وقفله. تعكس الآن حالة المخزون وكشف الطلبات هذه الأعداد.",
+        "تم تأكيد الجرد وقفله. تعكس الآن حالة المخزون وكشف النواقص هذه الأعداد.",
 
     "Look up a sale first — a retail refund must be linked to the sale it's refunding.":
         "ابحث عن عملية البيع أولًا — يجب ربط استرداد التجزئة بعملية البيع التي يستردها.",

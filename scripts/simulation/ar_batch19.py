@@ -29,7 +29,7 @@ BATCH = {
     "Manage Appointments": "إدارة المواعيد",
     "Manage Inpatient Cases": "إدارة حالات التنويم",
     "View Inventory Status": "عرض حالة المخزون",
-    "Manage Ordering Sheet": "إدارة كشف الطلبات",
+    "Manage Ordering Sheet": "إدارة كشف النواقص",
     "Manage Audit History": "إدارة سجل الجرد",
     "Manage Inventory Catalog": "إدارة كتالوج المخزون",
     "Manage Distributors": "إدارة الموردين",

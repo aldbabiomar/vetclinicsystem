@@ -4667,6 +4667,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 58 | ⚠ **released IQ v1.16.0 / JO v1.14.0 — the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
 | 59 | ⚠ **five UI bugs a clinic found by USING the app — every one HTTP 200 with valid JS and invisible to 823 tests; plus the loading-shell blind spot that meant the JavaScript-error test never covered /insights or /retention** | **before trusting a green browser suite; before reading any page straight after goto; before porting chart or palette code between the apps** |
 | 60 | ⚠ **the health banner (self-check + backup alert) translated — and why a message that is STORED cannot be translated where it is written; one of them was untranslatable by construction, not merely untranslated** | **before touching selfcheck.py, backup_alert_message, or any message written to a table and read back later** |
+| 61 | ⚠ **JO's update had no progress bar: the component shipped, was styled, and was already used by two of the four long jobs on the same screen — SEAM_RULES S6; plus every job step label was English in both apps** | **before adding a long-running job, and before assuming a missing feature means missing code** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -5082,6 +5083,69 @@ pybabel can see it (an f-string cannot be), a floor so the scanner cannot pass
 by matching nothing, `message` still carrying its values, and a mismatched
 argument set falling back rather than raising — because the thing that would
 disappear is the banner reporting the problem.
+
+---
+
+## 61. Why JO's update had no progress bar — 2026-09-12
+
+Asked after watching an IQ update draw one. **Unreleased on `main`.**
+
+### 61.1 The answer
+
+JO's Update and Rollback reported progress as a single line of plain text —
+`Validating release (2/6)` and nothing else. No bar, no elapsed time, while
+the app restarted underneath the person watching.
+
+**Nothing was missing.** `progress.js` ships in both apps. JO already called
+`VZProgress.poll`/`render` for its Backup and Restore jobs — in the same
+template, about a hundred lines from the code that did not. Only the
+Update/Rollback path hand-rolled a `setInterval` over `job-status` and wrote
+into `panel.textContent`. `waitForRestart()` had the same split, so even when
+IQ's bar was drawn JO dropped back to plain text for the restart phase.
+
+Two of four sibling paths had the rule. Nothing failed, because each path was
+individually correct. `SEAM_RULES.md` S6 — and the cheapest entry in that
+register to have avoided, since the component was already imported, already
+styled and already used on the same screen.
+
+Fixed by matching **JO's own Backup/Restore handlers**, not IQ's update
+handler. Same component, this app's idiom.
+
+### 61.2 Three things that were English in both apps
+
+Fixing the bar made them visible, because a bar with English labels is more
+obviously wrong than a line of English text:
+
+- **The job step labels.** `"Backing up database"`, `"Validating release"`,
+  `"Restoring database"`, and the loading-shell steps on the heavy reports —
+  twenty-odd literals across `routes/settings.py`, `app.py` and
+  `routes/consignment.py`. They are sent to the browser as JSON and drawn in
+  the panel, so they are display text, and they were the last English a clinic
+  would see at the moment it is watching most closely. Wrapped in `_()` rather
+  than `N_()`, because `jobs.start()` runs inside the request the admin
+  clicked in — the locale is the one on their screen.
+- **The action labels**, concatenated as `successMessagePrefix + ' complete.'`,
+  so "Update complete." and "Rollback failed." could never translate.
+- **`waitForRestart` wrote its argument straight into the panel**, so a job
+  finishing without a message printed `undefined` on the one screen an admin
+  stares at during a restart.
+
+### 61.3 The guard that earned its keep the same afternoon
+
+Rewriting JO's handler, I wrote `_('%(job)s failed to start.')` where the
+placeholder is filled by JavaScript — the exact bug §57.2 documents, which
+raises `KeyError: 'job'` while rendering and turned `/settings` into a 500.
+
+`tests/test_placeholder_args.py` catches it, and I found it by loading the
+page rather than by running the tests first. The guard was right, the order of
+operations was not. Verified afterwards by reintroducing it: the test fails.
+
+### 61.4 Also
+
+Ordering Sheet is **كشف النواقص**, the clinic's term, replacing كشف الطلبات
+everywhere — including inside the help sentences, since leaving those would
+have one page calling it two different things. Changed in the catalogues and
+in the `ar_batch*.py` sources, so a rebuild from source keeps it.
 
 ---
 
