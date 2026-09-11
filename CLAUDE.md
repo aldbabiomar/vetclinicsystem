@@ -260,6 +260,25 @@ section** rather than leaving the doc silently stale. Don't rewrite
 history in it — add to it, the same way each app's own `CHANGELOG.md`
 only ever gets new entries at the top.
 
+## 4a. The two real installs on this machine
+
+Both apps are installed here, and **both ship the same two default ports**, so
+JO was moved (`COMPARISON.md` §54):
+
+| | app | Postgres (host) | data dir |
+|---|---|---|---|
+| IQ | 5050 | 5432 | `~/Downloads/vetclinicsystemiq-data` |
+| JO | **5051** | **5433** | `~/Downloads/vetclinicsystemjo-data` |
+
+JO's database port lives in `DATABASE_URL`; `setup.py` feeds it to docker
+compose via `POSTGRES_HOST_PORT` so the two cannot disagree. Its app port is
+the launcher default in the data directory. Both survive updates because both
+live outside the release folder.
+
+**Read these installs; do not write to them.** Neither autostarts — JO's
+LaunchAgent exits 126 under macOS TCC (launchd cannot read `~/Downloads`) and
+has been removed; IQ never had one. Start either from its Desktop shortcut.
+
 ## 5. Isolated test environment
 
 **Both apps now have real test suites — run them before and after any
@@ -300,13 +319,13 @@ With no path it picks the newest `.dump` it can find for that app —
 `~/Downloads/vetclinicsystem{iq,jo}-data/backups/` and `~/Desktop/backups/`
 (it recurses, so a `pre_update/` backup counts).
 
-**Last run 2026-09-11. IQ passed all eight checks. JO could not run: there is
-no JO install on this machine any more** — no data directory, no releases
-directory, no `.app`, and no `vetclinicsystemjo_postgres` container. Only the
-dev clone under `webapps/` remains, and that is source, not an install. The
-drill reports that as a failure, correctly: "this app has no reachable backup"
-is a true statement about JO on this machine. It is not evidence that JO's
-backup *code* is broken. `COMPARISON.md` §52.
+**Last run 2026-09-11. IQ passed all eight checks.** JO could not run that
+day because it had no install at all; it was reinstalled the same day
+(`COMPARISON.md` §54) but has **still taken no backup**, so the drill has
+nothing to read for it yet. Run it for JO once the app has been up across a
+nightly slot. "This app has no reachable backup" is a true statement, and it
+is not evidence that JO's backup *code* is broken — two findings one red line
+reports identically. `COMPARISON.md` §52.
 
 "Currently pass" is not a property a file can keep — **next run due
 ~2026-10-11.**

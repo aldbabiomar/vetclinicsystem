@@ -4261,6 +4261,115 @@ bug; worth knowing before diagnosing one.
 
 ---
 
+---
+
+## 54. JO reinstalled on this machine — 2026-09-11
+
+`COMPARISON.md` §52 recorded that JO's install had disappeared. It is back:
+**v1.11.0, on the versioned-release layout, serving on 5051 with its own
+Postgres on 5433.** IQ is untouched and still on 5050/5432. Both run at once,
+which they could not do before today.
+
+**The old data is gone and this is a fresh clinic, not a restoration.** A
+full-disk search (Spotlight, including the Trash) found no JO dump anywhere —
+the only surviving artefact was an orphaned LaunchAgent. `seed_data.json`
+ships empty by design, so the new database has one admin account, 3 roles and
+29 permissions, and no owners, patients or price list.
+
+### Two collisions, not one
+
+Both apps default to the same two ports, and nothing in either repo said so:
+
+| | IQ | JO (before) | JO (now) |
+|---|---|---|---|
+| App | 5050 | 5050 | **5051** |
+| Postgres, host | 5432 | 5432 | **5433** |
+
+The app port was already overridable (`VETCLINICSYSTEMJO_PORT`), so that one
+is a default changed in the launcher, which lives in the data directory and
+survives updates. The database port was not overridable at all, and that is
+what made "reinstall JO" a code change rather than a copy: `docker compose up
+-d` fails with *port is already allocated*, `setup.py` aborts on `check=True`,
+and the install never completes. Whichever app was installed second simply
+could not be installed while the first one's container was up.
+
+### Three install-layer bugs, all found by doing it rather than reading it
+
+`setup.py` sits at 14% coverage and `updater.py` at 36%; this is what lives
+down there.
+
+1. **The Postgres host port was hardcoded** in `docker-compose.yml` in both
+   apps. Now `${POSTGRES_HOST_PORT:-5432}` — the default is exactly today's
+   behaviour, so no existing install changes — and `setup.py` derives it from
+   `DATABASE_URL` so the two cannot drift. They disagreeing presents as
+   "PostgreSQL didn't become ready in time" while `docker compose logs` shows
+   a perfectly healthy database.
+
+2. **`--enable-updates` excluded `.env.example` from the release it built.**
+   The ignore predicate was `n.startswith(".env")`, meant to keep a real `.env`
+   out of a versioned release; `.env.example` is part of the app and
+   `ensure_env_file()` reads it. Running `setup.py` inside a release built this
+   way dies with `FileNotFoundError`. Releases unpacked by `updater.py` were
+   fine, because that path copies the tarball wholesale — **which is why this
+   survived: the only way to reach it is a fresh `--enable-updates` install,
+   the one path no test covers and nobody repeats.**
+
+3. **`setup.py` looked for `.env` in the release folder, not the data
+   directory.** On a managed install `load_dotenv_now()` therefore loaded
+   nothing, and `ensure_env_file()` — finding no `.env` — helpfully *created*
+   one, inventing a fresh `SECRET_KEY` and a `DATABASE_URL` on port 5432. On
+   this machine that port is IQ's. The file sat in the release folder
+   shadowing nothing during normal operation, because the launcher exports the
+   data directory, but it was one `python3 app.py` in the wrong directory away
+   from connecting to the wrong database with a secret key that signs everyone
+   out. Both now resolve through `_env_dir()`.
+
+All three are fixed on JO's branch `install-port-override`, **not released**.
+**IQ has all three, identically.** Not changed there today: IQ's install is
+already on the managed layout and working, so nothing re-runs those paths —
+but a fresh IQ install hits all three, and the compose fix is what lets a
+future third app coexist at all.
+
+### Autostart is off, and was already broken
+
+JO's LaunchAgent survived the install's removal, pointing at
+`app_v1.4.4`, and `launchctl list` showed it exiting **126** at every login.
+Repointing it at the new install produced the same 126: `Operation not
+permitted`. The launcher runs fine from a shell, so this is macOS TCC —
+launchd cannot read `~/Downloads` without a Full Disk Access grant.
+
+**The agent has been removed** rather than left logging a failure every login
+(kept at `/tmp/com.vetclinicsystemjo.autostart.plist.disabled`). **IQ has never
+had one**, so both apps now start the same way: the Desktop shortcut, or
+`Start VetClinicSystem JO.command` in the data directory. Enabling autostart
+needs either a Full Disk Access grant for launchd in System Settings — a
+manual step — or moving the install out of `~/Downloads`, which would diverge
+from IQ's layout.
+
+That 126 is worth keeping in mind: **it is what an autostart failure looks
+like, and it looks identical whether the target is missing or merely
+unreadable.** The first reading here was "the agent points at a deleted
+install", which was true and was not the whole story.
+
+### Verified, and what was deliberately not verified
+
+Auth gate (`/`, `/pos`, `/settings` all 302 to `/login?next=…`), login page
+200 and rendering correctly branded and styled with no console errors, schema
+applied, `billing.total` restored as `numeric` (JO's money model, not IQ's),
+Admin holding all 29 permissions, `/health` green on both apps at once.
+
+**Not verified: a logged-in session.** That needs a password typed into a
+form, which is not something to do on the user's behalf. The documented first
+login is `admin` / `admin123`, and the account is flagged
+`must_change_password`.
+
+One thing the fresh install proves incidentally: **JO v1.11.0 serves
+`script-src 'self' 'nonce-…'` while IQ's running v1.12.2 still serves
+`'unsafe-inline'`.** IQ is one release behind — S6 shipped in v1.13.0 — so
+IQ's in-app updater has something to do.
+
+---
+
 ## Index — every section, and when to read it
 
 Added 2026-08-26. This file is append-only, so the sections below are in
@@ -4325,6 +4434,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 51 | ⚠ **the last three findings: CSP nonce (and the runtime-generated handlers the review missed), pos_checkout extracted, inline styles — plus two guards that were born blind** | **before touching a template's on*= or style=; before trusting a new static guard** |
 | 52 | ⚠ **restore drill 2026-09-11: IQ passes on a pre-update backup; JO has no install on this machine at all** | **before a release; and before assuming a red drill means the backup code is broken** |
 | 53 | released as IQ v1.13.0 / JO v1.11.0; the CHECK constraint that would have worked on fresh installs and failed on upgrades; setup.py installs an app if given an unknown flag | before any release; before running setup.py by hand |
+| 54 | ⚠ **JO reinstalled: both apps default to the same two ports, and three install-layer bugs that only a fresh install can reach** | **before installing either app anywhere; before touching setup.py or docker-compose.yml** |
 
 ### The four sections a new session should read first
 

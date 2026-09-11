@@ -20,7 +20,7 @@ project changed, only who is driving.
 1. **`CLAUDE.md`** — ground rules. The apps are siblings, not twins. §7
    covers the test suites; "Where the code lives" covers the module layout.
 2. **This file.**
-3. **`COMPARISON.md` §1.1** — the money models. Non-negotiable before
+8. **`COMPARISON.md` §1.1** — the money models. Non-negotiable before
    touching anything money-adjacent. There is now an index at the bottom of
    that file.
 4. **`RELEASE_WORKFLOW.md`** — before publishing anything.
@@ -216,45 +216,51 @@ Nothing here is broken; these are decisions or unbuilt work.
    schema, but no clinic has actually taken this update yet. `COMPARISON.md`
    §53.
 
-2. **The five remaining long functions**, which M4 deliberately deferred:
+2. **Three install-layer fixes sit unreleased on JO's `install-port-override`
+   branch**, and IQ has all three bugs identically (`COMPARISON.md` §54): the
+   hardcoded Postgres host port, `.env.example` excluded from a release built
+   by `--enable-updates`, and `setup.py` reading `.env` from the release
+   folder instead of the data directory. None affects a running install; all
+   three break a *fresh* install, which is the path no test covers.
+
+3. **The five remaining long functions**, which M4 deliberately deferred:
    `refund_retail_save` (137/134) and `refund_service_save` (125/126) are now
    the longest in `routes/sales.py`. M4's own prompt says to do these only
    once `pos_checkout` has shipped cleanly, so they are waiting on the release
    in item 1, not on a decision.
 
-3. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
+4. **No HTTPS by default.** `BEHIND_TLS_PROXY` exists and is off. Plain HTTP
    over the clinic LAN. `HOSTING_MIGRATION_PLAN.md` and
    `CLINIC_PC_TUNNEL_PLAN.md` are both DRAFTS and neither has been executed.
 
-4. **`updater.py` is at 36% coverage** — its first unit tests landed with the
+5. **`updater.py` is at 36% coverage** — its first unit tests landed with the
    review (release ordering and the update check). The apply/rollback path is
    still verified end-to-end on macOS only.
 
-5. **No automated contrast check.** Deliberately removed after two attempts
+6. **No automated contrast check.** Deliberately removed after two attempts
    produced 117 then 142 false positives; the reasoning is in
    `tests/test_browser.py`. A future attempt should sample rendered pixels,
    not parse stylesheets.
 
-6. **The workspace has git history but NO REMOTE.** `CLAUDE.md`,
+7. **The workspace has git history but NO REMOTE.** `CLAUDE.md`,
    `COMPARISON.md` (now ~3,900 lines), `RELEASE_WORKFLOW.md`, this file, the
    audits, the features and `scripts/` are version-controlled here and exist on
    this one disk and nowhere else. A `git init` is not a backup.
 
-7. **The restore drill: IQ passes, JO cannot run.** Last run 2026-09-11. IQ
-   passed all eight checks against a real pre-update backup. **JO has no
-   install on this machine at all any more** — see §5. Next run ~2026-10-11.
-   `scripts/restore_drill.sh {iq|jo}`, `CLAUDE.md` §6, `COMPARISON.md` §52.
+8. **The restore drill.** Last run 2026-09-11: IQ passed all eight checks.
+   JO could not run then because it had no install; it has one now
+   (`COMPARISON.md` §54) but **still no backup** — a fresh install has taken
+   none yet, and nightly only runs while the app is up. Run the drill for JO
+   once it has produced its first backup. Next IQ run ~2026-10-11.
+   `scripts/restore_drill.sh {iq|jo}`, `CLAUDE.md` §6.
 
 ## 5. Things not to do without asking
 
-- **`~/Downloads/vetclinicsystemjo-data` no longer exists** (checked
-  2026-09-11). Nor does a JO releases directory, a JO `.app`, or the
-  `vetclinicsystemjo_postgres` container. JO's install is gone from this
-  machine; only the dev clone under `webapps/` remains, which is source, not
-  an install. **Whether that was deliberate is not recorded anywhere** — if it
-  was not, the data is unrecoverable, because JO also has no backup here. The
-  old standing rule was "do not touch it beyond reading"; there is now nothing
-  to touch. Ask before recreating it.
+- **`~/Downloads/vetclinicsystemjo-data` exists again** — JO was reinstalled
+  2026-09-11 (`COMPARISON.md` §54). It is a **fresh, empty clinic**: the
+  previous install's data was unrecoverable (no backup existed anywhere on
+  this machine). Treat it as the user's real install: read it, do not write
+  to it.
 - **`~/Downloads/vetclinicsystemiq-data` is the user's real IQ install.** Read
   it; do not write to it. It holds exactly one backup, taken automatically
   before the 2026-09-10 update, and that backup restores cleanly.
@@ -279,10 +285,22 @@ Nothing here is broken; these are decisions or unbuilt work.
   is blocked, everything needs a venv.
 - A pytest venv needs `--system-site-packages` **or** the app's own
   `requirements.txt` installed, because the tests `import app`.
-- Port 5432 is taken by the user's real **IQ** Postgres container
-  (`vetclinicsystemiq_postgres`, up and healthy, bound to 127.0.0.1).
-  **Corrected 2026-09-11 — this used to say JO's container, which no longer
-  exists.** Throwaway environments use 55491/55492, the restore drill 55499.
+- **Four ports are permanently in use by the two real installs**, as of
+  2026-09-11. Both apps ship the same two defaults, so JO was moved:
+
+  | | app | Postgres (host) |
+  |---|---|---|
+  | IQ | 5050 | 5432 |
+  | JO | **5051** | **5433** |
+
+  JO's app port comes from the launcher default in its data directory; its
+  database port from `DATABASE_URL`, which `setup.py` now feeds to docker
+  compose so the two cannot disagree (`COMPARISON.md` §54). Throwaway
+  environments use 5091/5092 and 55491/55492; the restore drill 55499.
+- **Neither app autostarts.** JO's LaunchAgent was removed on 2026-09-11: it
+  exits 126 under launchd because macOS TCC blocks reading `~/Downloads`
+  without a Full Disk Access grant. It runs fine from a shell. IQ never had
+  one. Both start from their Desktop shortcut.
 - `pg_dump` / `pg_restore` 16.15 are on PATH.
 - `docker exec` needs `-i` to accept a heredoc on stdin.
 - The scratch repo `aldbabiomar/scratchup` is public and usable.
