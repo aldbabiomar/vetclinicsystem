@@ -100,7 +100,7 @@ BATCH = {
     "Expiry Warning Window (Days)": "مدة التنبيه قبل الانتهاء (أيام)",
     "Day Starts At": "يبدأ اليوم عند",
     "Day Ends At": "ينتهي اليوم عند",
-    "Slot Length (Minutes)": "مدة الفترة (بالدقائق)",
+    "Slot Length (Minutes)": "مدة الموعد (بالدقائق)",
     "Backup Folder (on this computer)": "مجلد النسخ الاحتياطي (على هذا الجهاز)",
     "e.g. /Users/you/VetClinicSystemBackups or D:\\\\VetClinicSystemBackups":
         "مثال: /Users/you/VetClinicSystemBackups أو D:\\\\VetClinicSystemBackups",

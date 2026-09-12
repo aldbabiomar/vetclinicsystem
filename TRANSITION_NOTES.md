@@ -1,6 +1,10 @@
 # Transition notes — for a new Claude account picking up this project
 
-> **Nothing in flight as of 2026-09-12.** JO's update progress bar, the Arabic
+> **Nothing in flight as of 2026-09-12.** The invisible health-check modal, the
+> Arabic mid-word break and the مدة الموعد rename shipped as **IQ v1.16.3 / JO
+> v1.14.3**. `COMPARISON.md` §62.
+
+> **Earlier the same day.** JO's update progress bar, the Arabic
 > progress labels and the كشف النواقص rename shipped as **IQ v1.16.2 / JO
 > v1.14.2**. `COMPARISON.md` §61, `SEAM_RULES.md` S6.
 

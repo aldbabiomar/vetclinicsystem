@@ -410,10 +410,16 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-12: IQ 841, JO 816, 49 `test_*.py` files each**
-(`COMPARISON.md` §55-§61), released as IQ v1.16.2 / JO v1.14.2. Three PATCH
-releases landed that day, all from things a clinic found by *using* the app
-rather than from anything the suite caught. Those
+growing since. **Re-measured 2026-09-12: IQ 849 over 51 `test_*.py` files, JO 820 over 50**
+(`COMPARISON.md` §55-§62), released as IQ v1.16.3 / JO v1.14.3. **The file
+counts differ on purpose now** — `test_arabic_wrapping.py` is IQ-only, because
+the bug it guards (a cursive Arabic word broken mid-letter by `overflow-wrap:
+anywhere`) cannot happen in JO, whose badge is `nowrap`. Do not "sync" it
+across; §62.2 is the reasoning.
+
+**Five PATCH releases landed that day, every one from something the clinic
+found by USING the app** — none from the suite, the 1,028-probe sweep or the
+render checker. That is the honest weight to give a green run. Those
 totals include nine `test_scheduler_catchup` skips if you run before ~01:05 —
 see the wall-clock note below, which is exactly the trap it describes.
 

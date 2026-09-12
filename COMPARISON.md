@@ -4668,6 +4668,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 59 | ⚠ **five UI bugs a clinic found by USING the app — every one HTTP 200 with valid JS and invisible to 823 tests; plus the loading-shell blind spot that meant the JavaScript-error test never covered /insights or /retention** | **before trusting a green browser suite; before reading any page straight after goto; before porting chart or palette code between the apps** |
 | 60 | ⚠ **the health banner (self-check + backup alert) translated — and why a message that is STORED cannot be translated where it is written; one of them was untranslatable by construction, not merely untranslated** | **before touching selfcheck.py, backup_alert_message, or any message written to a table and read back later** |
 | 61 | ⚠ **released IQ v1.16.2 / JO v1.14.2 — JO's update had no progress bar: the component shipped, was styled, and was already used by two of the four long jobs on the same screen — SEAM_RULES S6; plus every job step label was English in both apps** | **before adding a long-running job, and before assuming a missing feature means missing code** |
+| 62 | ⚠ **a modal that was invisible rather than auto-dismissing (opacity 0 with a raw display assignment), and an Arabic word broken mid-letter by `overflow-wrap: anywhere` — where the ENGLISH rule was correct and had to stay** | **before showing a modal without VZSpring; before 'fixing' a script-specific bug in shared CSS — 62.2 has the control test that refuses it** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -5147,6 +5148,74 @@ Ordering Sheet is **كشف النواقص**, the clinic's term, replacing كشف
 everywhere — including inside the help sentences, since leaving those would
 have one page calling it two different things. Changed in the catalogues and
 in the `ar_batch*.py` sources, so a rebuild from source keeps it.
+
+---
+
+## 62. A dialog nobody could read, and a word broken in half — released IQ v1.16.3 / JO v1.14.3 — 2026-09-12
+
+Both reported from use. Both look cosmetic and neither is.
+
+### 62.1 The modal was never dismissing itself — it was never painted
+
+The health-check warning appeared for a frame and vanished. It took a
+**frame-by-frame screen recording** to find out what it said.
+
+There is no timer anywhere in that code. `.modal-overlay { opacity: 0 }` hands
+opacity to `static/motion.js`, and this one modal was opened with a bare
+`el.style.display = 'flex'` instead of `VZSpring.present`, so it laid out at
+full size and fully transparent. What was briefly visible was the frame
+**before `style.css` applied**, when the overlay still had its default
+opacity — which is exactly what a dialog closing instantly looks like.
+
+Measured: IQ `display:flex / opacity:0`, JO `display:flex / opacity:1`.
+
+**IQ only**, and the reason is instructive: IQ migrated its modals to
+`motion.js` and every other one goes through `data-open-modal` or
+`VZSpring.present` — this was the single straggler. JO has no such CSS rule
+and opens all its modals with a raw display assignment perfectly correctly, so
+JO's show path was deliberately left alone: animating just this one would make
+it the odd one out in its own app.
+
+It also no longer closes on a backdrop click, in **both** apps. It reports
+three consecutive failed health checks; a stray click should not dismiss
+something unread. `data-no-backdrop-close`, honoured in `ui.js`.
+
+### 62.2 نجح split between its letters — and the fix that must NOT be shared
+
+`overflow-wrap: anywhere` on `.badge` is **correct for English**: a failure
+badge interpolates a raw error with no spaces to break at, and breaking
+anywhere keeps it inside the pill instead of stretching the row. Arabic is
+cursive, so a break inside a word severs the joined letterforms.
+
+`anywhere` has a second effect that causes the first: it drops the element's
+min-content width to a single character, so the column collapses around it and
+the word then *has* to break. Measured on the status badge: **32px tall (two
+lines) with `anywhere`, 19px (one) with `break-word`**.
+
+The first attempt changed the rule globally. **The user stopped it**: the
+English rendering was correct and was not to be touched. The fix is scoped to
+`html[dir="rtl"]`, and `tests/test_arabic_wrapping.py` carries a control
+asserting the English rule is *still* `anywhere` — so "fixing" this by
+changing English fails the suite. That control is the whole point of the
+section: a shared symptom does not mean a shared fix.
+
+IQ only again, for an unrelated reason: JO's `.badge` is `white-space: nowrap`
+and never wraps at all.
+
+### 62.3 The guard that missed its own bug
+
+The first draft of `test_modal_visibility.py` **passed** when the bug was
+reintroduced. It looked for a modal id or the word "modal" in the assignment
+target — and the line is `el.style.display = 'flex'`, where the variable is
+called `el`. It now resolves `var el = document.getElementById('…')` bindings
+before deciding.
+
+Its display check is also **conditional on the stylesheet**: it enforces only
+where CSS drives overlay opacity. IQ enforces it; JO skips that one assertion
+with a stated reason rather than carrying a rule that is wrong for it, and
+starts enforcing automatically if JO ever adopts the same CSS. A guard that is
+wrong for one app gets disabled by whoever it annoys; one that knows why it
+does not apply survives.
 
 ---
 

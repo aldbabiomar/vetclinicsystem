@@ -94,7 +94,7 @@ BATCH = {
         "اختر دورًا لنقلهم إليه قبل إمكانية حذف هذا الدور. لا يُترك أحد دون دور.",
 
     "Weekly schedule of booked appointments. Slot length and hours are set in Settings.":
-        "الجدول الأسبوعي للمواعيد المحجوزة. تُضبط مدة الفترة وساعات العمل من الإعدادات.",
+        "الجدول الأسبوعي للمواعيد المحجوزة. تُضبط مدة الموعد وساعات العمل من الإعدادات.",
 
     'No role is currently marked "Can be assigned as a vet," so there\'s nothing to '
     'schedule against below. Turn it on for at least one role in Users & Roles →':
@@ -105,7 +105,7 @@ BATCH = {
     "time no longer matches the clinic's current scheduling hours/slot length (Settings). "
     "Cancel and rebook to fix.":
         "ما زال محجوزًا، لكن إما أن الطبيب المُسنَد لم يعد نشطًا، أو أن وقت الموعد لم يعد "
-        "يطابق ساعات العمل أو مدة الفترة الحالية للعيادة (الإعدادات). ألغِ الحجز وأعد الحجز للتصحيح.",
+        "يطابق ساعات العمل أو مدة الموعد الحالية للعيادة (الإعدادات). ألغِ الحجز وأعد الحجز للتصحيح.",
 }
 
 BATCH.update(_CUR)
