@@ -4667,7 +4667,7 @@ a real bug that shipped** — read those before touching the area they name.
 | 58 | ⚠ **released IQ v1.16.0 / JO v1.14.0 — the language is a clinic SETTING now, not a per-browser cookie (two staff can no longer be on two languages), and Inpatient/Boarding/Refunds were renamed in Arabic** | **before touching `_select_locale`, the settings form, or any of the three renamed terms — and read 58.2 before any find-and-replace on an Arabic word** |
 | 59 | ⚠ **five UI bugs a clinic found by USING the app — every one HTTP 200 with valid JS and invisible to 823 tests; plus the loading-shell blind spot that meant the JavaScript-error test never covered /insights or /retention** | **before trusting a green browser suite; before reading any page straight after goto; before porting chart or palette code between the apps** |
 | 60 | ⚠ **the health banner (self-check + backup alert) translated — and why a message that is STORED cannot be translated where it is written; one of them was untranslatable by construction, not merely untranslated** | **before touching selfcheck.py, backup_alert_message, or any message written to a table and read back later** |
-| 61 | ⚠ **JO's update had no progress bar: the component shipped, was styled, and was already used by two of the four long jobs on the same screen — SEAM_RULES S6; plus every job step label was English in both apps** | **before adding a long-running job, and before assuming a missing feature means missing code** |
+| 61 | ⚠ **released IQ v1.16.2 / JO v1.14.2 — JO's update had no progress bar: the component shipped, was styled, and was already used by two of the four long jobs on the same screen — SEAM_RULES S6; plus every job step label was English in both apps** | **before adding a long-running job, and before assuming a missing feature means missing code** |
 
 ## 57. Arabic finished, and the bugs it flushed out — released IQ v1.15.0 / JO v1.13.0 — 2026-09-11
 
@@ -5086,9 +5086,10 @@ disappear is the banner reporting the problem.
 
 ---
 
-## 61. Why JO's update had no progress bar — 2026-09-12
+## 61. Why JO's update had no progress bar — released IQ v1.16.2 / JO v1.14.2 — 2026-09-12
 
-Asked after watching an IQ update draw one. **Unreleased on `main`.**
+Asked after watching an IQ update draw one. **Released** as a PATCH, verified
+through each app's own updater.
 
 ### 61.1 The answer
 

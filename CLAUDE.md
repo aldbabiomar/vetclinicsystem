@@ -410,9 +410,10 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-12, after five UI bugs a clinic found by using the app
-and the health-banner translation: IQ 836, JO 811, 48 `test_*.py` files each**
-(`COMPARISON.md` §55-§60), released as IQ v1.16.1 / JO v1.14.1. Those
+growing since. **Re-measured 2026-09-12: IQ 841, JO 816, 49 `test_*.py` files each**
+(`COMPARISON.md` §55-§61), released as IQ v1.16.2 / JO v1.14.2. Three PATCH
+releases landed that day, all from things a clinic found by *using* the app
+rather than from anything the suite caught. Those
 totals include nine `test_scheduler_catchup` skips if you run before ~01:05 —
 see the wall-clock note below, which is exactly the trap it describes.
 
