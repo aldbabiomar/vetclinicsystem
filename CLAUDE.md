@@ -381,11 +381,14 @@ With no path it picks the newest `.dump` it can find for that app —
 
 **Last run 2026-09-11. IQ passed all eight checks.** JO could not run that
 day because it had no install at all; it was reinstalled the same day
-(`COMPARISON.md` §54) but has **still taken no backup**, so the drill has
-nothing to read for it yet. Run it for JO once the app has been up across a
-nightly slot. "This app has no reachable backup" is a true statement, and it
-is not evidence that JO's backup *code* is broken — two findings one red line
-reports identically. `COMPARISON.md` §52.
+(`COMPARISON.md` §54). **Corrected 2026-09-12: JO now HAS backups the drill
+can read** — two `pre_update/` dumps its own updater took on 2026-09-11 while
+the update path was being tested. What is still true is narrower and worth
+stating precisely: **the drill has never once run for JO.** That is now a gap
+in evidence rather than a missing file, and it is the next thing to close.
+Until 2026-09-11, "this app has no reachable backup" was a true statement and
+was never evidence that JO's backup *code* is broken — two findings one red
+line reports identically. `COMPARISON.md` §52.
 
 "Currently pass" is not a property a file can keep — **next run due
 ~2026-10-11.**
