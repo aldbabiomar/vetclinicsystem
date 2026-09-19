@@ -5232,3 +5232,152 @@ does not apply survives.
 4. **§20 and §25–26** — the audits and what they missed. §21 exists because a
    twelve-section line-by-line audit missed a reproducible 500 that a
    five-minute test run caught.
+
+## 63. The rewards card — one rule on four payment paths — IQ v1.17.0 / JO v1.15.0 — 2026-09-19
+
+Built from `features/REWARDS_CARD_PLAN.md`. A member's bill carries one
+clinic-wide percentage, applied automatically, on **eligible items only** —
+which is the part that made this a seam feature rather than a feature.
+
+### 63.1 What is genuinely divergent, and why
+
+| | IQ | JO |
+|---|---|---|
+| The rate | `float`, via `logic.member_discount_rate()` | **`Decimal`**, same function name, `Decimal(str(raw))` |
+| The shared formula | `logic.discounted_raw_total()`, plain `/ 100` | same function, **`/ Decimal(100)`** |
+| Rounding after it | `money.payable_total()` — note-rounding + the anti-"looks free" floor | **none.** `round(x, 3)`. JO has nothing to round |
+| `revenue_by_category` | **apportions** a stored total; fixed by weighting the apportionment by each line's *discounted* amount | **re-derives** per line; fixed with `CASE WHEN discountable` in four SQL arms |
+| Inpatient P&L | apportions in Python; the fix moves a **split between months** | re-derives in Python; the fix moves **the total itself** |
+| `inpatient_billing_add`'s guard | refuses the whole submission | **skips the individual blocked line** |
+| `api_inventory_lookup` | `inventory_status_by_id()` per row | precomputes a `status_by_item` map |
+| Test figures | whole thousands, landing on a 250-note boundary | **fractional JOD** (10.500 each → 19.950), exercising exact fils arithmetic |
+
+The last row is the §7.2 rule in practice: `tests/test_rewards.py` exists in
+both apps and asserts **different numbers on purpose**. A figure carried across
+unchanged would assert IQ's money model against JO's.
+
+The JO P&L row is the one that mattered most. Because JO re-derives revenue
+from lines rather than reading a stored total, leaving it alone would have
+**understated revenue on every member bill carrying a non-discountable
+procedure** — a wrong total, not merely a wrong split. IQ's equivalent bug was
+only ever a mis-attribution between months.
+
+### 63.2 What is deliberately identical
+
+The schema (17 incremental statements per app, none of them money columns —
+verified before assuming), the membership helpers' *shape*, the four seam
+rules, the enrol/revoke/removal routes, and the `_member_discount.html` macro.
+These are new code with no app-specific money in them, so they are the same by
+design rather than by copying something that differed.
+
+### 63.3 Two decisions that overrode the plan
+
+- **A9 is overridden.** The plan said there would be no way to strip a member
+  discount off an existing bill. But §7.1 refuses *every* staff submission on a
+  member's bill — which blocks typing `0` exactly as firmly as typing `15` — so
+  a card discount landing on the wrong bill would have been permanent on
+  visits, inpatient and boarding. There is now an admin-only,
+  **remove-only** action that reads no percentage from the request at all.
+  POS is deliberately excluded: the drawer has already been reconciled against
+  that total, so a mis-rung sale is corrected by refunding and re-ringing.
+- **The rate bypasses the role cap.** `discount_percent_error()` bounds *staff
+  discretion*; the card is clinic policy. Routing it through the cap would have
+  stopped any user whose cap is below the rate from creating a member's bill at
+  all — every receptionist, on every member, silently, from day one. Guarded by
+  a test and its control.
+
+### 63.4 Three things the suites caught in this work
+
+1. **An upgrade-breaking index.** The `member_card_number` unique index was
+   first written into `schema_postgres.sql`, which runs *before* the
+   migrations — so it referenced a column that does not exist yet on any
+   existing install and would have **aborted the whole schema apply on every
+   upgrade**, while fresh installs stayed fine.
+   `test_no_index_in_the_schema_file_depends_on_a_migration_added_column`
+   caught it; it now sits in the migration list beside its `ALTER`.
+2. **A `KeyError` that took the POS page down.** A new string used `%(rate)s`
+   for a value JavaScript fills. gettext %-formats its own result, so with no
+   argument it raised at render. `test_placeholder_args.py` named both the bug
+   and the fix ("If JavaScript fills it, write it `{name}`"). A bare `%` in a
+   Settings label was the same class of bug.
+3. **Babel guessed 21 Arabic translations, and the guesses were nonsense** —
+   "Rewards Card" → تجاهل ("ignore"), "Member" → موظف واحد ("one employee"),
+   "Member discount" → "maximum discount", which is the *discount cap* label.
+   `pybabel update` fuzzy-matches by similarity and marks the result
+   translated-but-fuzzy. All 21 were cleared rather than left in place: a wrong
+   translation that looks reviewed is worse than an obvious gap. Both
+   catalogues compile with **zero** fuzzy entries, and the 41 strings are in
+   `ARABIC_TRANSLATION_QUESTIONS_REWARDS.md` for the clinic. This is
+   `ARABIC_LOCALIZATION_PLAN.md` §3's "don't guess" rule being load-bearing
+   again, the same way the الخصم collision was in Batch 1.
+
+### 63.5 The guards were watched to refuse
+
+`scripts/simulation/prove_rewards_guards.py {iq|jo}` reintroduces nine bugs —
+the guard scoping, the card-only refusal, a default on `discountable_subtotal`,
+per-line refund pricing, the UPSERT re-stamping the snapshot, a new report
+re-deriving revenue, expiry off by one day, the removal action reading a
+percentage, and the rate passing through the role cap — and requires a red run
+for each. **9/9 in both apps.**
+
+Its first run reported **4/9**. Three of the five survivors were real holes:
+the obvious "bill a member" test never reaches the guard that fires on the
+*second* save; enrolling someone does not reach the UPSERT bug without a
+re-save afterwards; and seam rule 6 checks call sites, so it cannot see a
+default added to the signature. Those three tests exist because the mutation
+pass demanded them, not because anyone thought of them.
+
+### 63.6 Closing the two test gaps found two more bugs
+
+The first release of this work left two of the plan's §11 items unwritten —
+the browser-tier POS check and the cross-report agreement. Writing them was
+not a formality:
+
+- **`el.hidden = true` was doing nothing.** The staff-discount field is a
+  `.field`, which is `display: flex`, and the UA stylesheet's
+  `[hidden] { display: none }` is the weakest rule in CSS — so any class that
+  sets `display` beats it. The scripts set the attribute, the attribute was
+  correct, and **the input stayed on screen** on both the POS and boarding
+  member paths. Nothing server-side was wrong, so only a browser could see it.
+  Fixed with `[hidden] { display: none !important; }` in both apps. This is
+  the mirror image of the trap in `CLAUDE.md`'s frontend conventions: there, a
+  class hiding an element defeats an inline style; here, a class defeats the
+  attribute.
+- **A single-month P&L test cannot catch the P&L bug in IQ.** IQ apportions a
+  stored total, so within one month the weighting cancels in the ratio and the
+  month figure is identical whatever weights it uses — only the split BETWEEN
+  months moves. The first version of that test passed with the weighting
+  reverted, and the mutation run is what said so. It now spans a month
+  boundary, which is the case the weighting exists for, and catches both apps.
+  The same applies to `revenue_by_category`: the two fixture items are
+  deliberately in DIFFERENT Price List categories, because summing the row
+  cannot catch a mis-split that always sums to the stored total.
+
+The mutation runner now covers **11 bugs, 11/11 caught in both apps.**
+
+### 63.7 The Arabic came back, and two more things surfaced
+
+All 41 strings were answered by the clinic and applied; both catalogues are
+complete with **zero** untranslated and **zero** fuzzy entries. Checking the
+rendered Arabic page rather than trusting the green suite found two more:
+
+- **The owner panel labelled the row `الخصم`** — the *staff* Discount term,
+  which is the exact collision this batch existed to avoid. The template said
+  `_('Discount')` where it meant `_('Member discount')` (`خصم العضو`). A
+  translation batch cannot fix a template that asks for the wrong string.
+- **The dates rendered in Western digits** on an otherwise Arabic page,
+  because the panel printed them raw instead of through the app's `|localdate`
+  filter, and the rate read "10.0%". `format_percent()` now strips the
+  meaningless decimal tail and composes with `display_number()` at the Jinja
+  boundary, so the sentence reads `١٠%` while the card number stays
+  `RC-00042` — both halves of the identifier rule, side by side on one panel,
+  which is what made this the first place they could disagree.
+
+### 63.8 Counts
+
+Re-measured, not adjusted: **IQ 879 passed / 3 skipped over 52 `test_*.py`
+files, JO 849 / 4 over 51.** Baselines were 849 and 820 over 51 and 50. (An
+earlier draft of this section said 53 and 52 — counted, not measured.) The skips are pre-existing data
+conditions of the seeded database (no barcoded item, nothing to export), not
+dormant tiers.
+

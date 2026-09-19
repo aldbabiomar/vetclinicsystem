@@ -17,8 +17,8 @@ three more. They are listed in §2.
 > validation, locking, rounding or formatting rule, the question is never "is
 > this route correct?" It is **"which other routes do the same job, and do they
 > all now agree?"** `scripts/simulation/seam_audit.py` will list the siblings
-> for you. `tests/test_seam_rules.py` in each app enforces the four rules whose
-> absence has actually cost something.
+> for you. `tests/test_seam_rules.py` in each app enforces the eight rules whose
+> absence has actually cost something (1-4) or would (5-8, the rewards card).
 
 ---
 
@@ -58,6 +58,7 @@ What actually catches this:
 | S4 | the served address is **derived**, never a literal | JO's `BIND_PORT`, a module-level constant exposed to templates | IQ read the port only inside `main()`; its dashboard and Settings hard-coded `:5050` | IQ told staff the wrong address on any other port — and the two installs collide on the defaults, which is why JO already runs on 5051 |
 | S5 | an `<option>` carries the stored constant in `value=` | IQ's refunds, settlements and distributor payments | JO's same three forms, and 18 options in both apps whose translated text *was* the submitted value | in Arabic a visit payment stored `method='نقدًا'`; the cash register bucketed it as "other", so the **drawer count reported a surplus that was not real** |
 | S6 | a long job reports through the shared progress component | JO's Backup and Restore, and IQ's Update | **JO's Update and Rollback** — they polled `job-status` by hand and wrote plain text | the LONGEST job in the app showed no bar, no fraction and no elapsed time while the app restarted under the admin watching it |
+| S7 | "is this item discountable?" is answered from the price_list row the PRICE came from | `item_sale_price()` filters `active=true` | `non_discountable_line_names_for_items()` does not | latent only: an inactive linked row with a different `can_discount` would answer for a price it did not set. Found while building the rewards card (2026-09-19); `discountable_by_item_ids()` was written to match `item_sale_price()`, and the older function was deliberately LEFT as-is rather than changed underneath the staff-discount guard that depends on it. Written down here because a hole that is a decision is fine and a hole nobody looked at is not (§4). |
 
 **S6 is the cheapest one to have avoided.** Nothing was missing: `progress.js`
 ships in both apps, and JO already called `VZProgress.poll`/`render` for two of
@@ -96,8 +97,8 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 ## 3. What is enforced automatically
 
-`tests/test_seam_rules.py`, in **both** apps. Four rules, each one derived from
-a defect above rather than invented:
+`tests/test_seam_rules.py`, in **both** apps. **Eight** rules, each one derived
+from a defect above rather than invented:
 
 | Rule | Asserts | From |
 |---|---|---|
@@ -105,6 +106,23 @@ a defect above rather than invented:
 | 2 | every route reading `?date=`/`?day=`/`?week=`/`?date_from=`/`?date_to=` validates it before use | F4, S2, S3 |
 | 3 | no `float()` is applied to a value derived from `request.form`/`request.args` | F2/F5 |
 | 4 | date arguments use `request.args.get(k) or default`, never `get(k, default)` | F4 |
+| 5 | every `INSERT` into `visit_billing_lines` / `inpatient_billing` / `sale_items` names `discountable` | rewards card |
+| 6 | every call to `compute_bill_totals()` passes `discountable_subtotal` (AST walk) | rewards card |
+| 7 | every function writing a request-supplied `discount_percent` also reads `discount_source` | rewards card |
+| 8 | discount-percentage arithmetic appears only at the allow-listed sites | rewards card |
+
+**Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
+feature by construction: one new rule on four payment paths that were already
+shaped differently from each other.** All four were verified by reintroducing
+their bug — `scripts/simulation/prove_rewards_guards.py {iq|jo}` does this on
+demand, and reported 9/9 in both apps.
+
+**Rule 8 is worth reading as a lesson about scanning guards.** Its first draft
+scanned line by line and its own floor assertion reported finding only 2 of
+the 4 real sites — the P&L weighting reads the rate on one line and divides on
+another, which no line-scoped regex can see. The floor is the only reason that
+was caught rather than shipping as a guard that passed while checking half its
+subject. It now scans per function, with comments stripped.
 
 **Rule 4 is subtle enough to restate:** `request.args.get("day", today)` applies
 the default only when the parameter is **absent**. A present-but-empty `?day=`

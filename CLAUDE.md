@@ -60,6 +60,23 @@ either app's code.
 > times running** — the app had never restarted, then the page list did not
 > contain the page, then the page was a loading shell. Each looked exactly
 > like a pass. `COMPARISON.md` §57.7.
+>
+> **Re-checked 2026-09-19**, after building the rewards card (`COMPARISON.md`
+> §63, IQ v1.17.0 / JO v1.15.0). §7's counts are re-measured, not adjusted:
+> **IQ 879 over 52 `test_*.py` files, JO 849 over 51.** `SEAM_RULES.md` gained
+> rules 5-8 and register entry S7, and the layout block gained its three new
+> files **in the same commit as the files themselves** — which is what this
+> block keeps asking for.
+>
+> Two lessons from that build are worth carrying, and both are about tests
+> rather than code. First: `scripts/simulation/prove_rewards_guards.py`
+> reported **4 of 9** on its first run. Three of the five survivors were real
+> holes in tests that read as thorough — the obvious "bill a member" case
+> never reaches a guard that fires on the SECOND save, and a seam rule that
+> checks call sites cannot see a default added to the signature. Second: a
+> single-month P&L test **cannot** catch the P&L bug in IQ, because IQ
+> apportions a stored total and the weighting cancels within one month. It
+> passed with the fix reverted. Only the mutation run said so.
 
 ## Layout
 
@@ -78,7 +95,9 @@ VetClinicSystem/
 ├── ARABIC_LOCALIZATION_PLAN.md    ← the English/Arabic toggle. **CLOSED — all sections executed**, released 2026-09-11 as IQ v1.15.0 / JO v1.13.0. Read COMPARISON.md §57 before touching a template, an `<option>` or a `.po` file: finishing it flushed out a money bug, six 500s per app, and a checker that could not fail. **§58 supersedes this plan's toggle design** — the language is a clinic SETTING now, not a per-browser cookie, and there is no `/set-language` route
 ├── ARABIC_TRANSLATION_QUESTIONS.md ← **CLOSED — all 25 answered by the clinic.** Worth reading once for the two things it caught: الخصم collided for both Discount and Clean Up (and the confusing English was changed, not just the Arabic), and #25 "Zoning" came back as تهذيب where the guess had been تشذيب — one letter, invisible to a non-speaker. Flag; do not guess
 ├── SIMULATION_AUDIT_2026-09-11.md ← live-use simulation of BOTH apps (a full clinic day + edge cases): 6 findings. **CLOSED — all shipped**, released 2026-09-11 as IQ v1.14.0 / JO v1.12.0 (+ v1.14.1 / v1.12.1 for the upgrade path) — see COMPARISON.md §55. Its §8 records what was attacked and held, so it doubles as a "don't re-audit this" list
-├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0)
+├── ARABIC_REWARDS_FILL_IN.md ← spent scaffolding: the blank sheet the 41 answers were collected on, kept only so the exact wording that was asked for is on record. The decision trail is the file below, and the answers themselves are in each app's `.po`
+├── ARABIC_TRANSLATION_QUESTIONS_REWARDS.md ← **CLOSED — all 41 answered, applied and compiled** — the 41 rewards-card strings. Read its preamble before running `pybabel update` on anything: it fuzzy-matched 21 of these and produced Arabic that LOOKED reviewed and was nonsense ("Rewards Card" → تجاهل, "ignore"). All 21 were cleared; both catalogues carry zero fuzzy entries
+├── features/              ← feature plans: CLEANUP and MONITORING, both built and SHIPPED (IQ 1.11.0 / JO 1.9.0). REWARDS_CARD_PLAN.md is **CLOSED — built and released 2026-09-19 as IQ v1.17.0 / JO v1.15.0** (COMPARISON.md §63): a member % discount on the eligible lines of all four payment surfaces, fixed-term cards, and an admin-only remove-only correction. Its A9 ("no way to strip a member discount") was OVERRIDDEN by the owner and the plan says so in place
 ├── audits/                ← three standing audits, see below
 ├── scripts/
 │   ├── isolated_test_env.sh   ← throwaway Postgres + venv for either app, see §5
@@ -89,7 +108,10 @@ VetClinicSystem/
 │                              Also the localization tools: restart_test_apps.sh (kills by PORT and asserts the pid
 │                              changed — pkill silently matches nothing here), check_rendered_js.py (every page, both
 │                              languages, node as the syntax oracle), ar_coverage.py (English left per page, data
-│                              excluded) and ar_batch*.py (the translations themselves)
+│                              excluded) and ar_batch*.py (the translations themselves).
+│                              prove_rewards_guards.py {iq|jo} is the same idea for the rewards card: it
+│                              reintroduces 11 bugs and REQUIRES a red run for each. Its first run reported
+│                              4/9 — three of the survivors were real holes in tests that looked thorough
 └── webapps/
     ├── vetclinicsystem_iq-main/   ← git clone, aldbabiomar/vetclinicsystem_iq
     └── vetclinicsystem_jo-main/   ← git clone, aldbabiomar/vetclinicsystem_jo
@@ -413,8 +435,8 @@ it read, on the day it read it.
 ## 7. The test suites — run these, and trust them only as far as §7.3
 
 Both apps went from 5-6 tests to real suites on 2026-08-25/26, and have kept
-growing since. **Re-measured 2026-09-12: IQ 849 over 51 `test_*.py` files, JO 820 over 50**
-(`COMPARISON.md` §55-§62), released as IQ v1.16.3 / JO v1.14.3. **The file
+growing since. **Re-measured 2026-09-19: IQ 879 over 52 `test_*.py` files, JO 849 over 51**
+(`COMPARISON.md` §55-§63), released as IQ v1.17.0 / JO v1.15.0. **The file
 counts differ on purpose now** — `test_arabic_wrapping.py` is IQ-only, because
 the bug it guards (a cursive Arabic word broken mid-letter by `overflow-wrap:
 anywhere`) cannot happen in JO, whose badge is `nowrap`. Do not "sync" it
