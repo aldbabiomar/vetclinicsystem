@@ -5388,6 +5388,15 @@ the schema apply on every upgrade while every fresh install stayed fine
 (§63.4). `test_migrations.py` caught it before release; this is the same
 conclusion reached the expensive way, in the field, and it held.
 
+### 63.10 v1.17.1 / v1.15.1 — the enrol form on one row
+
+A PATCH the same day: card number, expiry, hint and Issue Card were each
+getting their own `.form-grid` cell, leaving the hint wrapping around the
+button. Now one flex row, button in the corner via `margin-inline-start` so it
+lands on the correct side in Arabic. Verified LTR, RTL and at 390px, zero
+horizontal overflow in all three. **IQ's install auto-updated to it within
+four minutes**, its second live upgrade of the day; data intact both times.
+
 ### 63.8 Counts
 
 Re-measured, not adjusted: **IQ 879 passed / 3 skipped over 52 `test_*.py`
