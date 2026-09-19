@@ -401,19 +401,38 @@ With no path it picks the newest `.dump` it can find for that app —
 `~/Downloads/vetclinicsystem{iq,jo}-data/backups/` and `~/Desktop/backups/`
 (it recurses, so a `pre_update/` backup counts).
 
-**Last run 2026-09-11. IQ passed all eight checks.** JO could not run that
-day because it had no install at all; it was reinstalled the same day
-(`COMPARISON.md` §54). **Corrected 2026-09-12: JO now HAS backups the drill
-can read** — two `pre_update/` dumps its own updater took on 2026-09-11 while
-the update path was being tested. What is still true is narrower and worth
-stating precisely: **the drill has never once run for JO.** That is now a gap
-in evidence rather than a missing file, and it is the next thing to close.
-Until 2026-09-11, "this app has no reachable backup" was a true statement and
-was never evidence that JO's backup *code* is broken — two findings one red
-line reports identically. `COMPARISON.md` §52.
+**Last run 2026-09-19. JO PASSED all eight checks — the first time the drill
+has ever run for JO**, closing the gap this paragraph had been naming since
+2026-09-11. It read `vetclinicsystemjo_backup_20260919_124620.dump`, the
+`pre_update/` dump JO's own updater took minutes earlier: 45 tables, 79
+foreign keys, `billing.total` back as `numeric`, the app connecting and
+querying.
+
+**Read that pass narrowly.** The backup is of an essentially EMPTY clinic —
+**1 row across all eight core tables** (the seeded admin) and **0 bills** —
+because JO was reinstalled fresh on 2026-09-11 and nothing has been entered
+into it since. So the drill proves the *mechanism* end to end (dump →
+restore → schema + FKs + boot) and the money COLUMN TYPE, and it proves
+nothing at all about clinical data surviving a round trip, because there is
+no JO backup that contains any. Step 7's per-row money assertion ("no bill
+exceeds 3 decimal places") inspected **zero rows** and passed vacuously —
+the check did not skip, it simply had nothing to look at, which reads
+identically in the output. **Re-run this once JO has real data in it**; that
+is the remaining gap, and it is a narrower one than before.
+
+The `TOTAL_ROWS > 0` threshold is what let an almost-empty dump pass at all,
+and that is by design — the archive §6 was validated against had no rows AND
+no users, so it failed both this and the admin check. One seeded user is
+enough to clear it. Worth knowing before reading a green line as "the data
+is fine".
+
+**IQ: last run 2026-09-11, passed all eight checks** against a dump with real
+data in it. Until 2026-09-11 "this app has no reachable backup" was a true
+statement about JO and was never evidence that JO's backup *code* is broken —
+two findings one red line reports identically. `COMPARISON.md` §52.
 
 "Currently pass" is not a property a file can keep — **next run due
-~2026-10-11.**
+~2026-10-19.**
 
 **Why it exists:** both apps back up diligently — nightly, before every
 in-app update, on shutdown — and none of that is worth anything until a
