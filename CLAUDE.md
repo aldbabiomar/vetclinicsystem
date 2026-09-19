@@ -426,10 +426,28 @@ no users, so it failed both this and the admin check. One seeded user is
 enough to clear it. Worth knowing before reading a green line as "the data
 is fine".
 
-**IQ: last run 2026-09-11, passed all eight checks** against a dump with real
-data in it. Until 2026-09-11 "this app has no reachable backup" was a true
-statement about JO and was never evidence that JO's backup *code* is broken —
-two findings one red line reports identically. `COMPARISON.md` §52.
+**IQ also passed all eight checks the same day**, and that run is the
+substantive one: 135 rows across the core tables, 15 users, **15 bills
+totalling 420,000 IQD, every non-zero bill a whole multiple of 250**, and
+`billing.total` back as `double precision`. Step 7 asserted something there.
+Run the two together and the pair is worth more than either: the same script,
+the same eight checks, one app's money model exercised with real rows and the
+other's only as a column type.
+
+**Two things about IQ's backup posture, visible only from the file list.** Its
+newest backup is **7 days old** (2026-09-12), and **every backup it has is a
+`pre_update/` one** — there are no nightly dumps at all. That is explained
+rather than alarming: nightly runs at 00:30 and only while the app is up, and
+this install is not left running overnight. But it means this install's
+backups exist *only because updates happened*. An install that goes a month
+without an update and is never up at 00:30 produces no new backup, and nothing
+reports that as a problem. Worth re-checking after it has been left running
+across a 00:30 boundary — "never produced a file" and "broken" look identical
+from outside.
+
+Until 2026-09-11 "this app has no reachable backup" was a true statement about
+JO and was never evidence that JO's backup *code* is broken — two findings one
+red line reports identically. `COMPARISON.md` §52.
 
 "Currently pass" is not a property a file can keep — **next run due
 ~2026-10-19.**
