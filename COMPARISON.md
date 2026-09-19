@@ -5375,10 +5375,20 @@ rendered Arabic page rather than trusting the green suite found two more:
 
 ### 63.9 Both real installs upgraded to it, on populated data
 
-Not planned, and worth more than any test. JO's install updated itself to
-v1.14.3 at 12:46 (v1.15.0 published at 12:50, so it correctly took the latest
-that existed). IQ's was started at 13:01 to enable nightly backups, **found
-v1.17.0, took its pre_update backup, promoted cleanly and now serves 1.17.0.**
+Not planned, and worth more than any test. JO's install was updated to v1.14.3
+at 12:46 (v1.15.0 published at 12:50, so the newest release that existed at
+that moment). IQ's was started at 13:01 to enable nightly backups and updated
+to v1.17.0 shortly after: **pre_update backup taken, release promoted cleanly,
+now serving 1.17.0.**
+
+**Corrected: these were updated BY HAND, from Settings > Update Now — not
+automatically.** The first draft of this section said the installs "updated
+themselves", inferred from the timing (the app started, and an update
+followed). `backup_log.triggered_by='update'` records that the UPDATE PATH
+took the backup, not who initiated it, so the evidence never distinguished the
+two. The updater checks on its own; **applying is an admin action**, which is
+what `RELEASE_WORKFLOW.md` §9 describes. Worth keeping as an instance of the
+thing this file keeps warning about: a correlation read as a mechanism.
 
 That is a real upgrade of a POPULATED database — 15 owners, 15 visits, 15
 bills, all intact afterwards and none breaking the 250-note rule. All ten
@@ -5394,8 +5404,9 @@ A PATCH the same day: card number, expiry, hint and Issue Card were each
 getting their own `.form-grid` cell, leaving the hint wrapping around the
 button. Now one flex row, button in the corner via `margin-inline-start` so it
 lands on the correct side in Arabic. Verified LTR, RTL and at 390px, zero
-horizontal overflow in all three. **IQ's install auto-updated to it within
-four minutes**, its second live upgrade of the day; data intact both times.
+horizontal overflow in all three. **IQ's install was updated to it by hand a
+few minutes later** — its second live upgrade of the day, data intact both
+times. (An earlier draft said it "auto-updated"; see the correction in §63.9.)
 
 ### 63.8 Counts
 
