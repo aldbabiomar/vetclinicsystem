@@ -5373,6 +5373,21 @@ rendered Arabic page rather than trusting the green suite found two more:
   `RC-00042` — both halves of the identifier rule, side by side on one panel,
   which is what made this the first place they could disagree.
 
+### 63.9 Both real installs upgraded to it, on populated data
+
+Not planned, and worth more than any test. JO's install updated itself to
+v1.14.3 at 12:46 (v1.15.0 published at 12:50, so it correctly took the latest
+that existed). IQ's was started at 13:01 to enable nightly backups, **found
+v1.17.0, took its pre_update backup, promoted cleanly and now serves 1.17.0.**
+
+That is a real upgrade of a POPULATED database — 15 owners, 15 visits, 15
+bills, all intact afterwards and none breaking the 250-note rule. All ten
+rewards columns applied, and **`idx_owners_member_card` is present**: the very
+index that, left in `schema_postgres.sql` where it started, would have aborted
+the schema apply on every upgrade while every fresh install stayed fine
+(§63.4). `test_migrations.py` caught it before release; this is the same
+conclusion reached the expensive way, in the field, and it held.
+
 ### 63.8 Counts
 
 Re-measured, not adjusted: **IQ 879 passed / 3 skipped over 52 `test_*.py`
