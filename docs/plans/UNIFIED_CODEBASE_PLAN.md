@@ -594,6 +594,8 @@ where most bugs in the audit live.
 | D-13 | Documents | All in this repo; IQ/JO-era documents archived under `docs/archive/`; the predecessor clones kept read-only in `webapps/` (untracked) until the merge is done, then removed |
 | D-14 | Execution order | Start from **JO's tree** (already exact-decimal throughout), port IQ's features and money rules into it, and transform it step by step with the suite green at every commit — rather than writing a fresh skeleton. Same end state as §3, less risk |
 
+> **Superseded in part, after the merge** — `DEVELOPER_AND_LICENSING_PLAN.md` (owner decisions, 2026-09-25) makes the repository **private** with a GitHub token per clinic (L-1, over D-1), and moves the choice of **palette** (L-2, over D-12's placement) and of the **money setting** (L-3, over D-9's placement; the lock rule is unchanged) to a vendor-only Developer area. It runs **after** this merge and reuses the storage keys this merge creates, so build D-9 and D-12 in Settings as written here.
+
 ---
 
 ## 11. Risks

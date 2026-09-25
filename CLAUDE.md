@@ -47,6 +47,11 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Time zone | A **Time Zone** setting; "Automatic" follows the money setting's zone. Every clock read goes through `clock.py` — never `datetime.now()` / `date.today()` (a test scans for them) |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
 
+**Next, after the merge:** `docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` (licensing, a vendor-only
+Developer area, native PostgreSQL). Its decisions L-1–L-3 will override three rows above: the repo
+becomes private with a token per clinic, and the palette and the money setting move to the Developer
+area. Until that plan runs, build them as the table says.
+
 **If something comes up that needs a decision, ask the owner with options.**
 They asked for that explicitly.
 
