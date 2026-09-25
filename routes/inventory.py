@@ -23,8 +23,19 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, quantity_json
+from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
 import clock
+
+def _picked_id(raw):
+    """A record picked from a <select> (a linked item, a distributor):
+    (given, id). Blank is (False, None). A value that is not an id at all
+    is (True, None), which the caller refuses exactly as it refuses a record
+    that has vanished — never quietly as "nothing picked", which would
+    unlink an item on a tampered save."""
+    if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+        return False, None
+    return True, parse_id(raw)
+
 
 bp = Blueprint("inventory", __name__)
 
@@ -47,7 +58,7 @@ def api_inventory_lookup():
         # here and the name search below are separate paths into the same cart.
         discountable = logic.discountable_by_item_ids(db, [row["id"]]).get(row["id"], False)
         return jsonify({"id": row["id"], "name": row["name"], "price": price,
-                        "stock": quantity_json(status["current_stock"]) if status else None,
+                        "stock": status["current_stock"] if status else None,
                         "discountable": discountable})
     if q:
         rows = db.execute("SELECT id, name FROM inventory_list WHERE active=true AND category='Retail' AND name ILIKE ? LIMIT 10",
@@ -67,7 +78,7 @@ def api_inventory_lookup():
             price = logic.item_sale_price(db, r["id"])
             status = status_by_item.get(r["id"])
             out.append({"id": r["id"], "name": r["name"], "price": price,
-                        "stock": quantity_json(status["current_stock"]) if status else None,
+                        "stock": status["current_stock"] if status else None,
                         "discountable": discountable_by_item.get(r["id"], False)})
         return jsonify(out)
     return jsonify([])
@@ -89,8 +100,8 @@ def api_price_list_lookup():
     placeholders = ",".join("?" * len(categories))
     sql = (f"SELECT id, name, category, sale_price FROM price_list "
            f"WHERE active=true AND sale_price IS NOT NULL AND category IN ({placeholders}) "
-           f"AND (id ILIKE ? OR name ILIKE ?) ORDER BY name LIMIT 15")
-    params = [*categories, logic.like_pattern(q), logic.like_pattern(q)]
+           f"AND (id = ? OR name ILIKE ?) ORDER BY name LIMIT 15")
+    params = [*categories, parse_id(q, "PL"), logic.like_pattern(q)]
     rows = db.execute(sql, params).fetchall()
     return jsonify([{"id": r["id"], "name": r["name"], "category": r["category"], "price": r["sale_price"]} for r in rows])
 
@@ -154,9 +165,9 @@ def price_list_new():
     if f.get("category") not in PRICE_CATEGORIES:
         flash("Category must be one of: " + ", ".join(PRICE_CATEGORIES) + ".", "error")
         return redisplay()
-    linked_item_id = f.get("linked_item_id") or None
-    if linked_item_id and not db.execute(
-            "SELECT 1 FROM inventory_list WHERE id=?", (linked_item_id,)).fetchone():
+    given, linked_item_id = _picked_id(f.get("linked_item_id"))
+    if given and (linked_item_id is None or not db.execute(
+            "SELECT 1 FROM inventory_list WHERE id=?", (linked_item_id,)).fetchone()):
         flash(_("That inventory item no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if linked_item_id:
@@ -169,12 +180,12 @@ def price_list_new():
             "SELECT id, name FROM price_list WHERE linked_item_id=? AND active=true", (linked_item_id,)
         ).fetchone()
         if existing_link:
-            flash(_("That inventory item is already linked to %(id)s (%(name)s) — an item can only be linked from one active Price List row at a time.", id=existing_link['id'], name=existing_link['name']), "error")
+            flash(_("That inventory item is already linked to %(id)s (%(name)s) — an item can only be linked from one active Price List row at a time.", id=logic.code('PL', existing_link['id']), name=existing_link['name']), "error")
             return redisplay()
     name = required_field(f, "name", "Name")
     if name is None:
         return redisplay()
-    pid = dbmod.next_id(db, "P")
+    pid = dbmod.next_row_id(db, "price_list")
     can_discount = f.get("can_discount") == "on"
     db.execute(
         "INSERT INTO price_list (id,name,category,cost_price,sale_price,notes,active,linked_item_id,can_discount) VALUES (?,?,?,?,?,?,true,?,?)",
@@ -183,12 +194,12 @@ def price_list_new():
     )
     auth.log_change(db, "price_list", pid, "create")
     db.commit()
-    flash(_("%(pid)s added to price list.", pid=pid), "success")
+    flash(_("%(pid)s added to price list.", pid=logic.code("PL", pid)), "success")
     flash_price_rounding_notice(sale_price)
     return redirect(url_for("inventory.price_list"))
 
 
-@bp.route("/price-list/<item_id>/edit", methods=["POST"])
+@bp.route("/price-list/<int:item_id>/edit", methods=["POST"])
 @auth.permission_required("manage_price_list")
 @requires_money_setting
 def price_list_edit(item_id):
@@ -214,9 +225,10 @@ def price_list_edit(item_id):
     if not old:
         flash(_("Price list item not found."), "error")
         return redirect(url_for("inventory.price_list"))
-    new_linked_item_id = (f.get("linked_item_id") or None) if "linked_item_id" in f else old["linked_item_id"]
-    if new_linked_item_id and not db.execute(
-            "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone():
+    given, new_linked_item_id = (_picked_id(f.get("linked_item_id")) if "linked_item_id" in f
+                                 else (bool(old["linked_item_id"]), old["linked_item_id"]))
+    if given and (new_linked_item_id is None or not db.execute(
+            "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone()):
         flash(_("That inventory item no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if new_linked_item_id and new_linked_item_id != old["linked_item_id"]:
@@ -274,33 +286,35 @@ def price_list_bulk_edit():
     any_price_changed = False
     claimed_in_batch = {}
     for item in items:
-        item_id = str(item.get("id", ""))
+        key = str(item.get("id", ""))   # the row's own id, echoed back in errors
+        item_id = parse_id(key)
         fields = item.get("fields") or {}
         try:
             cost_price = parse_money(fields.get("cost_price"))
             sale_price = parse_money(fields.get("sale_price"))
         except BadNumber:
-            errors[item_id] = "Cost Price and Sale Price must be valid numbers."
+            errors[key] = "Cost Price and Sale Price must be valid numbers."
             continue
         if has_negative(cost_price, sale_price):
-            errors[item_id] = "Cost Price and Sale Price can't be negative."
+            errors[key] = "Cost Price and Sale Price can't be negative."
             continue
         old = db.execute("SELECT * FROM price_list WHERE id=?", (item_id,)).fetchone()
         if not old:
-            errors[item_id] = "Item not found."
+            errors[key] = "Item not found."
             continue
         name = (fields.get("name") or "").strip()
         if not name:
-            errors[item_id] = "Name is required."
+            errors[key] = "Name is required."
             continue
         category = fields.get("category", "")
         if category not in PRICE_CATEGORIES:
-            errors[item_id] = "Category must be one of: " + ", ".join(PRICE_CATEGORIES) + "."
+            errors[key] = "Category must be one of: " + ", ".join(PRICE_CATEGORIES) + "."
             continue
-        new_linked_item_id = (fields.get("linked_item_id") or None) if "linked_item_id" in fields else old["linked_item_id"]
-        if new_linked_item_id and not db.execute(
-                "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone():
-            errors[item_id] = "That inventory item no longer exists — reload the page and pick again."
+        given, new_linked_item_id = (_picked_id(fields.get("linked_item_id")) if "linked_item_id" in fields
+                                     else (bool(old["linked_item_id"]), old["linked_item_id"]))
+        if given and (new_linked_item_id is None or not db.execute(
+                "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone()):
+            errors[key] = "That inventory item no longer exists — reload the page and pick again."
             continue
         if new_linked_item_id:
             # Checked against both the database (another row, unrelated to
@@ -312,7 +326,7 @@ def price_list_bulk_edit():
             ).fetchone()
             dup_id = dup["id"] if dup else claimed_in_batch.get(new_linked_item_id)
             if dup_id and dup_id != item_id:
-                errors[item_id] = f"That inventory item is already linked to {dup_id} — an item can only be linked from one active row at a time."
+                errors[key] = f"That inventory item is already linked to {dup_id} — an item can only be linked from one active row at a time."
                 continue
             claimed_in_batch[new_linked_item_id] = item_id
         new_vals = {"name": name, "category": category,
@@ -327,14 +341,14 @@ def price_list_bulk_edit():
         if "cost_price" in changes or "sale_price" in changes:
             any_price_changed = True
         auth.log_change(db, "price_list", item_id, "update", changes)
-        saved.append(item_id)
+        saved.append(key)
     if any_price_changed:
         logic.recompute_full_summary(db)
     db.commit()
     return jsonify({"ok": len(errors) == 0, "saved": saved, "errors": errors})
 
 
-@bp.route("/price-list/<item_id>/delete", methods=["POST"])
+@bp.route("/price-list/<int:item_id>/delete", methods=["POST"])
 @auth.permission_required("manage_price_list")
 @requires_money_setting
 def price_list_delete(item_id):
@@ -407,15 +421,15 @@ def inventory_catalog_new():
     if f.get("category", "Medical") not in INVENTORY_CATEGORIES:
         flash("Category must be one of: " + ", ".join(INVENTORY_CATEGORIES) + ".", "error")
         return redisplay()
-    distributor_id = f.get("distributor_id") or None
-    if distributor_id and not db.execute(
-            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone():
+    given, distributor_id = _picked_id(f.get("distributor_id"))
+    if given and (distributor_id is None or not db.execute(
+            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
         flash(_("That distributor no longer exists — reload the page and pick again."), "error")
         return redisplay()
     name = required_field(f, "name", "Name")
     if name is None:
         return redisplay()
-    iid = dbmod.next_id(db, "INV")
+    iid = dbmod.next_row_id(db, "inventory_list")
     db.execute(
         "INSERT INTO inventory_list (id,name,category,unit,track_expiry,cost_price,distributor_id,active,notes) "
         "VALUES (?,?,?,?,?,?,?,true,?)",
@@ -424,11 +438,11 @@ def inventory_catalog_new():
     )
     auth.log_change(db, "inventory_list", iid, "create")
     db.commit()
-    flash(_("%(iid)s added to inventory catalog.", iid=iid), "success")
+    flash(_("%(iid)s added to inventory catalog.", iid=logic.code("INV", iid)), "success")
     return redirect(url_for("inventory.inventory_catalog"))
 
 
-@bp.route("/inventory-catalog/<item_id>/edit", methods=["POST"])
+@bp.route("/inventory-catalog/<int:item_id>/edit", methods=["POST"])
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_edit(item_id):
     db = get_db()
@@ -456,9 +470,9 @@ def inventory_catalog_edit(item_id):
     if category != old["category"] and old["ownership_type"] == "Consignment":
         flash(_("Set this item back to Owned on the Consignment Items page before changing its category."), "error")
         return redisplay()
-    distributor_id = f.get("distributor_id") or None
-    if distributor_id and not db.execute(
-            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone():
+    given, distributor_id = _picked_id(f.get("distributor_id"))
+    if given and (distributor_id is None or not db.execute(
+            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
         flash(_("That distributor no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if distributor_id != old["distributor_id"] and logic.consignment_item_locked(db, item_id):
@@ -500,40 +514,41 @@ def inventory_catalog_bulk_edit():
     saved, errors = [], {}
     any_cost_changed = False
     for item in items:
-        item_id = str(item.get("id", ""))
+        key = str(item.get("id", ""))   # the row's own id, echoed back in errors
+        item_id = parse_id(key)
         fields = item.get("fields") or {}
         try:
             cost_price = parse_money(fields.get("cost_price"))
         except BadNumber:
-            errors[item_id] = "Cost Price must be a valid number."
+            errors[key] = "Cost Price must be a valid number."
             continue
         # Same guard as inventory_catalog_new — a bulk edit is the easier
         # way to set a negative cost, not the harder one.
         if has_negative(cost_price):
-            errors[item_id] = "Cost Price can't be negative."
+            errors[key] = "Cost Price can't be negative."
             continue
         old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
         if not old:
-            errors[item_id] = "Item not found."
+            errors[key] = "Item not found."
             continue
         name = (fields.get("name") or "").strip()
         if not name:
-            errors[item_id] = "Name is required."
+            errors[key] = "Name is required."
             continue
         category = fields.get("category", "Medical")
         if category not in INVENTORY_CATEGORIES:
-            errors[item_id] = "Category must be one of: " + ", ".join(INVENTORY_CATEGORIES) + "."
+            errors[key] = "Category must be one of: " + ", ".join(INVENTORY_CATEGORIES) + "."
             continue
         if category != old["category"] and old["ownership_type"] == "Consignment":
-            errors[item_id] = "Set this item back to Owned on the Consignment Items page before changing its category."
+            errors[key] = "Set this item back to Owned on the Consignment Items page before changing its category."
             continue
-        distributor_id = fields.get("distributor_id") or None
-        if distributor_id and not db.execute(
-                "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone():
-            errors[item_id] = "That distributor no longer exists — reload the page and pick again."
+        given, distributor_id = _picked_id(fields.get("distributor_id"))
+        if given and (distributor_id is None or not db.execute(
+                "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
+            errors[key] = "That distributor no longer exists — reload the page and pick again."
             continue
         if distributor_id != old["distributor_id"] and logic.consignment_item_locked(db, item_id):
-            errors[item_id] = ("This item has consignment activity against it — its distributor can't be "
+            errors[key] = ("This item has consignment activity against it — its distributor can't be "
                                 "changed here. Create a new inventory item for the new supply source.")
             continue
         new_vals = {"name": name, "category": category,
@@ -548,14 +563,14 @@ def inventory_catalog_bulk_edit():
         if "cost_price" in changes:
             any_cost_changed = True
         auth.log_change(db, "inventory_list", item_id, "update", changes)
-        saved.append(item_id)
+        saved.append(key)
     if any_cost_changed:
         logic.recompute_full_summary(db)
     db.commit()
     return jsonify({"ok": len(errors) == 0, "saved": saved, "errors": errors})
 
 
-@bp.route("/inventory-catalog/<item_id>/toggle-active", methods=["POST"])
+@bp.route("/inventory-catalog/<int:item_id>/toggle-active", methods=["POST"])
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_toggle(item_id):
     db = get_db()
@@ -571,7 +586,7 @@ def inventory_catalog_toggle(item_id):
     return redirect(url_for("inventory.inventory_catalog"))
 
 
-@bp.route("/inventory-catalog/<item_id>/create-barcode", methods=["POST"])
+@bp.route("/inventory-catalog/<int:item_id>/create-barcode", methods=["POST"])
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_generate(item_id):
     db = get_db()
@@ -603,7 +618,7 @@ def inventory_catalog_barcode_generate(item_id):
                      "label_url": url_for("inventory.inventory_barcode_label", item_id=item_id)})
 
 
-@bp.route("/inventory-catalog/<item_id>/barcode/manual", methods=["POST"])
+@bp.route("/inventory-catalog/<int:item_id>/barcode/manual", methods=["POST"])
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_manual(item_id):
     db = get_db()
@@ -636,7 +651,7 @@ def inventory_catalog_barcode_manual(item_id):
     return jsonify({"ok": True, "barcode": raw, "source": "manual"})
 
 
-@bp.route("/inventory-catalog/<item_id>/barcode/remove", methods=["POST"])
+@bp.route("/inventory-catalog/<int:item_id>/barcode/remove", methods=["POST"])
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_remove(item_id):
     db = get_db()
@@ -651,7 +666,7 @@ def inventory_catalog_barcode_remove(item_id):
     return jsonify({"ok": True, "removed": True})
 
 
-@bp.route("/inventory-catalog/<item_id>/barcode/status")
+@bp.route("/inventory-catalog/<int:item_id>/barcode/status")
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_status(item_id):
     db = get_db()
@@ -665,7 +680,7 @@ def inventory_catalog_barcode_status(item_id):
     })
 
 
-@bp.route("/inventory-catalog/<item_id>/barcode-label")
+@bp.route("/inventory-catalog/<int:item_id>/barcode-label")
 @auth.permission_required("manage_inventory_catalog")
 def inventory_barcode_label(item_id):
     db = get_db()

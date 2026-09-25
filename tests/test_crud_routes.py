@@ -26,9 +26,8 @@ pytestmark = needs_db
 
 
 def _uid(prefix):
-    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
-        return new_id()
-    return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
+    # Every record id is a number (plan D-2); the prefix only says which kind.
+    return new_id()
 
 
 def _phone():

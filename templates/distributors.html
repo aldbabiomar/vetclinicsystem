@@ -76,7 +76,7 @@
     <form id="edit-{{ d.id }}" method="post" action="{{ url_for('consignment.distributor_edit', dist_id=d.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     <tr>
-      <td class="muted">{{ d.id }}</td>
+      <td class="muted">{{ d.id|code('D') }}</td>
       <td><input form="edit-{{ d.id }}" name="name" value="{{ fv(row_form, 'name', d.name) }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
       <td><input form="edit-{{ d.id }}" name="contact_person" value="{{ fv(row_form, 'contact_person', d.contact_person or '') }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
       <td><input form="edit-{{ d.id }}" name="phone" value="{{ fv(row_form, 'phone', d.phone or '') }}" style="border:none; background:transparent; padding:2px; width:110px;" data-phone-field></td>

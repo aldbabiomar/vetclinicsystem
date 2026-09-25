@@ -103,7 +103,7 @@ searchInput.addEventListener('input', () => {
 
 function addToCart(item) {
   if (item.price == null) { window.VZToast.show({{ _('{name} has no sale price set in the Price List.')|tojson }}.replace('{name}', item.name), 'error'); return; }
-  const existing = cart.find(c => c.id === item.id);
+  const existing = cart.find(c => String(c.id) === String(item.id));
   if (existing) {
     if (item.stock != null && existing.qty + 1 > item.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', item.stock), 'warn'); return; }
     existing.qty += 1;
@@ -117,14 +117,14 @@ function addToCart(item) {
   renderCart();
 }
 function changeQty(id, delta) {
-  const line = cart.find(c => c.id === id);
+  const line = cart.find(c => String(c.id) === String(id));
   const next = line.qty + delta;
   if (delta > 0 && line.stock != null && next > line.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', line.stock), 'warn'); return; }
   line.qty = Math.max(1, next);
   renderCart();
 }
 function setQty(id, value) {
-  const line = cart.find(c => c.id === id);
+  const line = cart.find(c => String(c.id) === String(id));
   let qty = parseInt(value, 10);
   if (!Number.isFinite(qty) || qty < 1) qty = 1;
   if (line.stock != null && qty > line.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', line.stock), 'warn'); qty = line.stock; }
@@ -132,7 +132,7 @@ function setQty(id, value) {
   renderCart();
 }
 function removeLine(id) {
-  cart = cart.filter(c => c.id !== id);
+  cart = cart.filter(c => String(c.id) !== String(id));
   renderCart();
 }
 function renderCart() {

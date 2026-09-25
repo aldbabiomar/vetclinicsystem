@@ -4,8 +4,8 @@ database restore.
 
 backup.py's backup/restore only covers the Postgres database — the actual
 files under uploads/ are never included (see backup.py, attachments.py).
-Restoring an older backup rewinds `attachments` (and `id_counters` / the
-inpatient_cases identity sequence) back to that backup's state, so any
+Restoring an older backup rewinds `attachments` (and the tables' identity
+sequences) back to that backup's state, so any
 attachment uploaded after the backup was taken loses its DB row even
 though its file is still sitting on disk. attachments.py's own
 serve_attachment() / list_attachments() only ever look through that table
@@ -120,8 +120,8 @@ def _cutoff_from_restore_log(db):
     restored data (its original record survived the restore under the
     same ID, so readopting it is safe). A file uploaded after the backup
     was taken was never captured in that snapshot — its DB row is gone,
-    and because ID allocation (id_counters / the inpatient_cases identity
-    sequence) rewound to the backup's state too, that same ID may already
+    and because ID allocation (the tables' identity
+    sequences) rewound to the backup's state too, that same ID may already
     have been handed to an unrelated new record since the restore.
     Returns None if there's no successful restore on record, or its
     filename doesn't match backup.py's naming (e.g. restored from a

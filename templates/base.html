@@ -10,6 +10,21 @@
 <script nonce="{{ csp_nonce }}">window.VZ_MONEY = {{ money_js|tojson }};</script>
 <script src="{{ url_for('static', filename='money.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
+// In <head>, before any page's own script: a page that renders a list at
+// load (a visit's saved bill, prefilled into its cart) calls this before the
+// end of <body> is reached. It used to be defined there, so such a page
+// threw "escapeHtml is not defined" and showed its list empty.
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+</script>
+<script nonce="{{ csp_nonce }}">
 // Applied before first paint so switching themes never shows a flash of the other theme.
 (function() {
   try {
@@ -222,17 +237,6 @@ document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
   {% endwith %}
   {% block auth_content %}{% endblock %}
 {% endif %}
-<script nonce="{{ csp_nonce }}">
-function escapeHtml(value) {
-  if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-</script>
 <script nonce="{{ csp_nonce }}">
 (function() {
   var token = document.querySelector('meta[name="csrf-token"]').content;

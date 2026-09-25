@@ -14,7 +14,8 @@ What it does, in order:
      columns/tables added since your database was first set up — this runs
      every time, so a schema update never requires remembering to run a
      separate migration script by hand.
-  5. If the database is empty, seeds it from seed_data.json.
+  5. If no one can sign in yet, creates the first administrator with a
+     one-time password and prints it.
   6. Prints next steps.
 
 Safe to re-run any time — every step skips itself if already done.
@@ -177,19 +178,44 @@ def apply_schema():
     print("  Schema is up to date." if not applied else f"  Applied {len(applied)} migration(s).")
 
 
-def migrate_or_seed():
-    step("Loading data")
+def ensure_first_admin():
+    """The first administrator, with a one-time password printed here.
+
+    A random password, not a well-known default: the repository is public
+    and the app listens on the clinic network, so "admin / admin123" would be
+    a working sign-in for anyone on the Wi-Fi until someone changed it. The
+    account must choose its own password at first sign-in. Until it has, a
+    re-run of setup issues a new temporary password, so a lost printout is
+    never a locked-out clinic. Once anyone has signed in and changed it, this
+    does nothing."""
+    step("Checking the first administrator account")
+    import auth
     import db as dbmod
     con = dbmod.connect()
-    existing = con.execute("SELECT COUNT(*) AS n FROM owners").fetchone()["n"]
-    con.close()
-
-    if existing:
-        print("  Database already has data in it — skipping seed.")
-        return
-
-    print("  No existing data found — building a fresh database from seed_data.json...")
-    run([sys.executable, "import_seed.py"], check=True)
+    try:
+        users = con.execute("SELECT id, username, must_change_password FROM users ORDER BY id").fetchall()
+        if len(users) > 1 or (users and not users[0]["must_change_password"]):
+            print("  Accounts already exist — nothing to do.")
+            return
+        password = secrets.token_urlsafe(12)
+        if users:
+            username = users[0]["username"]
+            con.execute("UPDATE users SET password_hash=? WHERE id=?",
+                        (auth.hash_password(password), users[0]["id"]))
+        else:
+            username = "admin"
+            role = con.execute("SELECT id FROM roles WHERE is_system = true").fetchone()
+            con.execute(
+                "INSERT INTO users (username, password_hash, full_name, role_id, active, "
+                "must_change_password, created_at) VALUES (?,?,?,?,true,true,now())",
+                (username, auth.hash_password(password), "Clinic Admin", role["id"]))
+        con.commit()
+    finally:
+        con.close()
+    print(f"\n  First sign-in:   username  {username}\n"
+          f"                   password  {password}\n"
+          "  You will choose your own password straight away. Until you do, running\n"
+          "  setup again prints a new temporary password.\n")
 
 
 def ensure_dependencies():
@@ -224,7 +250,7 @@ def main():
     start_postgres()
     load_dotenv_now()
     apply_schema()
-    migrate_or_seed()
+    ensure_first_admin()
 
     # In-app updates (Settings -> Updates) are on by default for every new
     # install — this switches onto the versioned-release layout

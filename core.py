@@ -587,14 +587,6 @@ def display_quantity(v):
     return display_number(logic.format_quantity(v))
 
 
-def quantity_json(v):
-    """A count for a JSON response: a number, never the string Flask makes of
-    a Decimal. Page scripts do arithmetic on it, and "12" + 1 is "121"."""
-    if v is None:
-        return None
-    return int(v) if v == int(v) else float(v)
-
-
 def display_number(v):
     """A number on its way INTO a user-facing message.
 

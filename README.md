@@ -65,7 +65,9 @@ click **Allow**.
 
 ## First login
 
-- Username: `admin`  Password: `admin123`
+- Username: `admin`. The password is the one-time password `setup.py` printed
+  at the end of setup. Lost it before signing in? Run `python3 setup.py` again
+  and it prints a new one — until the first sign-in, never after.
 - You'll be forced to set a new password immediately — do this first, before
   creating other staff accounts.
 - Create accounts for your team under **Admin → Users**, assigning each

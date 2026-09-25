@@ -655,7 +655,7 @@ def export_distributor_ledger(db, distributor_id):
     ]
 
     for bill in ledger["bills"]:
-        header = f"<b>{X(bill['id'])}</b>"
+        header = f"<b>{X(logic.code('DB', bill['id']))}</b>"
         if bill["bill_reference"]:
             header += f" · {X(bill['bill_reference'])}"
         header += f" · {X(bill['bill_date'])} · {X(bill['status'])}"

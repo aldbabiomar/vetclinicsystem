@@ -226,3 +226,64 @@ def test_the_baseline_does_not_use_if_not_exists():
     text = (REPO / "migrations" / "0001_baseline.sql").read_text(encoding="utf-8")
     code = "\n".join(l.split("--")[0] for l in text.splitlines())
     assert "IF NOT EXISTS" not in code.upper()
+
+
+# ---------------------------------------------------------------------------
+# The first administrator (setup.ensure_first_admin)
+# ---------------------------------------------------------------------------
+
+def _first_admin(url):
+    env = dict(os.environ, DATABASE_URL=url, SECRET_KEY="migration-test")
+    return subprocess.run([sys.executable, "-c", "import setup; setup.ensure_first_admin()"],
+                          cwd=REPO, capture_output=True, text=True, env=env)
+
+
+def _printed_password(out):
+    m = re.search(r"password\s+(\S+)", out)
+    return m.group(1) if m else None
+
+
+@needs_db
+def test_setup_creates_one_admin_with_a_printed_one_time_password(scratch_db):
+    """GUARD. No well-known default password: the repository is public and
+    the app listens on the clinic network."""
+    import auth
+    assert _setup_apply_schema(scratch_db).returncode == 0
+    run = _first_admin(scratch_db)
+    assert run.returncode == 0, run.stderr[-600:]
+    password = _printed_password(run.stdout)
+    assert password and password != "admin123" and len(password) >= 12
+    con = _connect(scratch_db)
+    try:
+        users = con.execute("SELECT username, password_hash, must_change_password FROM users").fetchall()
+    finally:
+        con.close()
+    assert [u["username"] for u in users] == ["admin"]
+    assert users[0]["must_change_password"] is True
+    assert auth.verify_password(users[0]["password_hash"], password)
+
+
+@needs_db
+def test_until_first_sign_in_setup_issues_a_new_password_then_never_again(scratch_db):
+    import auth
+    assert _setup_apply_schema(scratch_db).returncode == 0
+    first = _printed_password(_first_admin(scratch_db).stdout)
+    second = _printed_password(_first_admin(scratch_db).stdout)
+    assert first and second and first != second
+    con = _connect(scratch_db)
+    try:
+        row = con.execute("SELECT password_hash FROM users WHERE username='admin'").fetchone()
+        assert auth.verify_password(row["password_hash"], second), "the reprinted password does not work"
+        # The admin signs in and chooses their own password.
+        con.execute("UPDATE users SET must_change_password=false")
+        con.commit()
+        before = con.execute("SELECT password_hash FROM users").fetchone()["password_hash"]
+    finally:
+        con.close()
+    third = _first_admin(scratch_db)
+    assert _printed_password(third.stdout) is None, "setup reset a password someone had already chosen"
+    con = _connect(scratch_db)
+    try:
+        assert con.execute("SELECT password_hash FROM users").fetchone()["password_hash"] == before
+    finally:
+        con.close()

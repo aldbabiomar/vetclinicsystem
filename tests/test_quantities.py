@@ -20,7 +20,7 @@ import pytest
 
 import core
 import logic
-from conftest import ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, needs_db
 
 SNAPSHOT = pathlib.Path(__file__).parent / "schema_snapshot.json"
 
@@ -42,12 +42,6 @@ def test_control_the_g_format_is_why_the_formatter_exists():
     column it keeps every zero. If this ever stops being true, the formatter
     is still right — but the reason for it is gone."""
     assert f"{D('12.000'):g}" == "12.000"
-
-
-@pytest.mark.parametrize("value,wire", [(D("12.000"), 12), (D("2.500"), 2.5), (None, None)])
-def test_a_count_goes_to_the_browser_as_a_number(value, wire):
-    out = core.quantity_json(value)
-    assert out == wire and type(out) is type(wire)
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +134,7 @@ def audited_three_times(db):
     """One item counted 30 -> 20 -> 13 over twenty days: 1.0/day, then
     0.7/day. The latest line asks for 31 days of cover: 0.7 x 31 = 21.7
     needed, 13 on the shelf, 8.7 short."""
-    inv_id = f"QTY{uuid.uuid4().hex[:8].upper()}"
+    inv_id = new_id()
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
                (inv_id, f"Ordering {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
@@ -191,27 +185,29 @@ def test_the_usage_trend_compares_decimals(db, audited_three_times, client):
 
 @needs_db
 def test_pos_lookup_sends_stock_as_a_number(client, db, audited_three_times):
-    """GUARD. The POS page does `existing.qty + 1` after capping qty at
-    `line.stock`; were stock the string "13.000", the next add would make
-    the quantity "131"."""
+    """The POS page does arithmetic on `stock` (`existing.qty + 1` after
+    capping at it), so it must arrive as a number. It does because of the
+    app's JSON provider (app._DecimalJSONProvider turns every Decimal into a
+    number) — this pins that for the one API a page computes with."""
+    pl_id = new_id()
     db.execute("INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
                "VALUES (?,?,?,?,?,?,?)",
-               (f"PL{audited_three_times}", "x", "Retail", D("5.000"), True, audited_three_times, True))
+               (pl_id, "x", "Retail", D("5.000"), True, audited_three_times, True))
     db.commit()
     try:
         name = f"Ordering {audited_three_times}"
         found = client.get(f"/api/inventory/lookup?q={name}").get_json()
         hit = next(r for r in found if r["id"] == audited_three_times)
-        assert hit["stock"] == 13 and isinstance(hit["stock"], int)
+        assert hit["stock"] == 13 and isinstance(hit["stock"], (int, float))
     finally:
-        db.execute("DELETE FROM price_list WHERE id=?", (f"PL{audited_three_times}",))
+        db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
         db.commit()
 
 
 @pytest.fixture
 def sold_two(client, db):
     from test_money_routes import _checkout, _latest_sale
-    inv_id, pl_id = f"RCT{uuid.uuid4().hex[:8].upper()}", f"PLR{uuid.uuid4().hex[:8].upper()}"
+    inv_id, pl_id = new_id(), new_id()
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
                (inv_id, f"Receipt {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))

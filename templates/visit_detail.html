@@ -202,26 +202,26 @@ visitBillSearchInput.addEventListener('input', () => {
 
 function addToVisitBillCart(item) {
   if (item.price == null) { window.VZToast.show({{ _('{name} has no sale price set in the Price List.')|tojson }}.replace('{name}', item.name), 'error'); return; }
-  const existing = visitBillCart.find(c => c.id === item.id);
+  const existing = visitBillCart.find(c => String(c.id) === String(item.id));
   if (existing) { existing.qty += 1; } else { visitBillCart.push({id: item.id, name: item.name, price: item.price, qty: 1}); }
   visitBillSearchInput.value = '';
   visitBillResultsDiv.innerHTML = '';
   renderVisitBillCart();
 }
 function changeVisitBillQty(id, delta) {
-  const line = visitBillCart.find(c => c.id === id);
+  const line = visitBillCart.find(c => String(c.id) === String(id));
   line.qty = Math.max(1, line.qty + delta);
   renderVisitBillCart();
 }
 function setVisitBillQty(id, value) {
-  const line = visitBillCart.find(c => c.id === id);
+  const line = visitBillCart.find(c => String(c.id) === String(id));
   let qty = parseFloat(value);
   if (!Number.isFinite(qty) || qty <= 0) qty = 1;
   line.qty = qty;
   renderVisitBillCart();
 }
 function removeVisitBillLine(id) {
-  visitBillCart = visitBillCart.filter(c => c.id !== id);
+  visitBillCart = visitBillCart.filter(c => String(c.id) !== String(id));
   renderVisitBillCart();
 }
 function renderVisitBillCart() {

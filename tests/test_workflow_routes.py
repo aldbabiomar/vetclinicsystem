@@ -24,9 +24,8 @@ pytestmark = needs_db
 
 
 def _uid(prefix):
-    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
-        return new_id()
-    return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
+    # Every record id is a number (plan D-2); the prefix only says which kind.
+    return new_id()
 
 
 def _phone():
@@ -450,7 +449,7 @@ def test_consignment_bulk_edit_rejects_a_negative_cost(client, db, catalog_clean
                        json={"items": [{"id": row["id"], "fields": payload}]})
     assert resp.status_code < 500
     body = resp.get_json()
-    assert body.get("errors", {}).get(row["id"]), (
+    assert body.get("errors", {}).get(str(row["id"])), (
         f"a negative consignment cost must be reported as an error, got {body}")
     after = db.execute("SELECT * FROM inventory_list WHERE id=?", (row["id"],)).fetchone()
     assert after["cost_price"] >= 0, "a negative cost must not be saved here either"

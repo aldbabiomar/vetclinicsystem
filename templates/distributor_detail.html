@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>{{ distributor.name }}</h1>
-    <p class="page-sub">{{ distributor.id }} · {{ distributor.phone or "no phone on file" }}</p>
+    <p class="page-sub">{{ distributor.id|code('D') }} · {{ distributor.phone or "no phone on file" }}</p>
   </div>
   <a class="btn secondary" href="{{ url_for('consignment.distributor_export_pdf', dist_id=distributor.id) }}">{{ _('Export PDF') }}</a>
 </div>
@@ -43,7 +43,7 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="page-head">
     <div>
-      <strong>{{ bill.id }}</strong>{% if bill.bill_reference %} · {{ bill.bill_reference }}{% endif %}
+      <strong>{{ bill.id|code('DB') }}</strong>{% if bill.bill_reference %} · {{ bill.bill_reference }}{% endif %}
       · {{ bill.bill_date|localdate }}
       <span class="badge {{ 'ok' if bill.status=='Paid' else ('warn' if bill.status=='Partial' else 'danger') }}">{{ bill.status|tr }}</span>
     </div>

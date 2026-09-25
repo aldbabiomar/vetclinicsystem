@@ -149,8 +149,8 @@ Every tolerance goes through the money setting.
 `scripts/isolated_test_env.sh {up|down|status} {iq|jo}` builds a throwaway
 Postgres container (`vcs_test_iq` / `vcs_test_jo`), a venv
 (`/tmp/vcs_test_venv_<m>`) and a running app (**5091** for iq, **5092** for jo;
-DB ports 55491 / 55492) with admin `admin` / `Admin12345!` and one Retail item
-`INV301`/`PL301`. The second argument is the **money setting** of the
+DB ports 55491 / 55492) with admin `admin` / `Admin12345!` and one Retail item,
+"Test Retail Item". The second argument is the **money setting** of the
 throwaway clinic — same code, different setting, and both can run at once.
 `down` refuses while the app's PID is alive or anything holds its port.
 

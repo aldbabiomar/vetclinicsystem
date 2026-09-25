@@ -45,9 +45,8 @@ D = Decimal
 # ---------------------------------------------------------------------------
 
 def _uid(prefix):
-    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
-        return new_id()
-    return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
+    # Every record id is a number (plan D-2); the prefix only says which kind.
+    return new_id()
 
 
 @pytest.fixture
@@ -849,6 +848,50 @@ def priced_service(db):
         db.execute(sql, (pl_id,))
     db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
     db.commit()
+
+
+@pytest.fixture
+def blocked_service(db):
+    """A priced service that must never be discounted."""
+    pl_id = _uid("PL")
+    db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
+               "VALUES (?,?,?,?,?,?,?)",
+               (pl_id, f"No-Discount Service {pl_id}", "Service", D("1.000"), D("5.000"), True, False))
+    db.commit()
+    yield {"id": pl_id}
+    db.execute("DELETE FROM inpatient_billing WHERE price_id=?", (pl_id,))
+    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.commit()
+
+
+def test_a_non_discountable_procedure_never_lands_on_a_staff_discounted_case(
+        client, db, inpatient_case, priced_service, blocked_service):
+    """GUARD. The block compares the submitted price ids with ids read from
+    the database. When ids became numbers (plan D-2) the submitted TEXT was
+    never `in` the set of ints, so every blocked line would have gone
+    through — with nothing else noticing. Holds under today's rule (the
+    blocked line is skipped) and owner decision D-5's (the whole submission
+    is refused): either way the non-discountable line is not on the bill."""
+    db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_source='staff' WHERE id=?",
+               (D(10), inpatient_case["id"]))
+    db.commit()
+    client.post(f"/inpatient/{inpatient_case['id']}/billing",
+                data={"price_id": [priced_service["id"], blocked_service["id"]],
+                      f"qty_{priced_service['id']}": "1", f"qty_{blocked_service['id']}": "1"},
+                follow_redirects=False)
+    billed = {r["price_id"] for r in db.execute(
+        "SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()}
+    assert blocked_service["id"] not in billed, "a non-discountable procedure was added under a staff discount"
+
+
+def test_control_without_a_discount_the_same_procedure_is_billed(
+        client, db, inpatient_case, blocked_service):
+    client.post(f"/inpatient/{inpatient_case['id']}/billing",
+                data={"price_id": blocked_service["id"], f"qty_{blocked_service['id']}": "1"},
+                follow_redirects=False)
+    billed = {r["price_id"] for r in db.execute(
+        "SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()}
+    assert blocked_service["id"] in billed
 
 
 def _inpatient_pay(client, case_id, **data):

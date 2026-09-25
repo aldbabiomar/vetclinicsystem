@@ -22,7 +22,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     {% endif %}
     <tr {% if not is_locked and has_permission('manage_consignment_items') %}data-edit-form="edit-{{ i.id }}"{% endif %}>
-      <td class="muted" style="white-space:nowrap;">{{ i.id }}</td>
+      <td class="muted" style="white-space:nowrap;">{{ i.id|code('INV') }}</td>
       <td>{{ i.name }}</td>
       <td>
         {% if is_locked %}

@@ -71,7 +71,7 @@ def connect():
 
     Used only by code that doesn't run inside a normal web request and
     therefore has no g.db lifecycle to piggyback on: one-off maintenance
-    scripts (setup.py, import_seed.py, reconcile_attachments.py) and the
+    scripts (setup.py, reconcile_attachments.py) and the
     app's background scheduler (nightly backup). Those are low-frequency,
     long-or-uncertain-duration operations that don't belong sharing a
     small pool with request traffic, so they keep opening their own
@@ -148,7 +148,7 @@ def init_pool():
         # ended with a PythonFinalizationError traceback after the result
         # line, and any script that opens a pool would print the same. app.py
         # already calls close_pool() on its own shutdown paths; this covers
-        # every other entry point (setup.py, import_seed.py, the test runner)
+        # every other entry point (setup.py, the test runner)
         # without them each having to remember.
         global _atexit_registered
         if not _atexit_registered:
@@ -201,40 +201,6 @@ def next_row_id(db, table):
     if table not in _ID_TABLES:
         raise ValueError(f"no generated id for {table!r}")
     return db.execute(f"SELECT nextval(pg_get_serial_sequence('{table}', 'id')) AS n").fetchone()["n"]
-
-
-def next_id(db, prefix, width=3):
-    """
-    Atomically allocate the next sequential ID for a given prefix
-    (e.g. 'P' -> P001, P002, ...; 'V' -> V001, V002, ...).
-
-    This replaces the old MAX(id)+1-in-Python approach, which had a race
-    condition: two people creating a record in the same instant could be
-    handed the same ID. A single UPDATE...RETURNING is atomic under
-    Postgres's row-level locking, so concurrent callers are serialized
-    automatically and never collide.
-    """
-    row = db.execute(
-        """
-        INSERT INTO id_counters (prefix, next_val) VALUES (?, 2)
-        ON CONFLICT (prefix) DO UPDATE SET next_val = id_counters.next_val + 1
-        RETURNING next_val - 1 AS n
-        """,
-        (prefix,),
-    ).fetchone()
-    n = row["n"]
-    return f"{prefix}{n:0{width}d}"
-
-
-def seed_counter(db, prefix, current_max):
-    """Used by the migration script to prime a counter from existing data."""
-    db.execute(
-        """
-        INSERT INTO id_counters (prefix, next_val) VALUES (?, ?)
-        ON CONFLICT (prefix) DO UPDATE SET next_val = GREATEST(id_counters.next_val, ?)
-        """,
-        (prefix, current_max + 1, current_max + 1),
-    )
 
 
 def run_script(con, sql_text):

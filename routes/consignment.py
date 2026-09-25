@@ -22,7 +22,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
 import clock
 
 bp = Blueprint("consignment", __name__)
@@ -80,7 +80,7 @@ def distributor_new():
     name = required_field(f, "name", "Name")
     if name is None:
         return redisplay()
-    did = dbmod.next_id(db, "D")
+    did = dbmod.next_row_id(db, "distributors")
     db.execute(
         "INSERT INTO distributors (id,name,contact_person,phone,email,catalog_link,lead_time_days,payment_terms,notes) "
         "VALUES (?,?,?,?,?,?,?,?,?)",
@@ -89,11 +89,11 @@ def distributor_new():
     )
     auth.log_change(db, "distributors", did, "create")
     db.commit()
-    flash(_("%(did)s added.", did=did), "success")
+    flash(_("%(did)s added.", did=logic.code("D", did)), "success")
     return redirect(url_for("consignment.distributors_list"))
 
 
-@bp.route("/distributors/<dist_id>/edit", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/edit", methods=["POST"])
 @auth.permission_required("manage_distributors")
 def distributor_edit(dist_id):
     db = get_db()
@@ -144,7 +144,7 @@ def distributor_edit(dist_id):
     return redirect(url_for("consignment.distributors_list"))
 
 
-@bp.route("/distributors/<dist_id>/delete", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/delete", methods=["POST"])
 @auth.permission_required("manage_distributors")
 def distributor_delete(dist_id):
     db = get_db()
@@ -196,7 +196,7 @@ def _distributor_detail_context(dist_id):
     return dict(distributor=dist, **ledger)
 
 
-@bp.route("/distributors/<dist_id>")
+@bp.route("/distributors/<int:dist_id>")
 @auth.permission_required("manage_distributors")
 def distributor_detail(dist_id):
     ctx = _distributor_detail_context(dist_id)
@@ -206,7 +206,7 @@ def distributor_detail(dist_id):
     return render_template("distributor_detail.html", **ctx)
 
 
-@bp.route("/distributors/<dist_id>/bills/new", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/bills/new", methods=["POST"])
 @auth.permission_required("manage_distributors")
 @requires_money_setting
 def distributor_bill_new(dist_id):
@@ -232,7 +232,7 @@ def distributor_bill_new(dist_id):
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
-    bid = dbmod.next_id(db, "DB")
+    bid = dbmod.next_row_id(db, "distributor_bills")
     db.execute(
         "INSERT INTO distributor_bills (id,distributor_id,bill_date,bill_reference,total_amount,notes,created_at,created_by) "
         "VALUES (?,?,?,?,?,?,?,?)",
@@ -241,11 +241,11 @@ def distributor_bill_new(dist_id):
     )
     auth.log_change(db, "distributor_bills", bid, "create")
     db.commit()
-    flash(_("Bill %(bid)s logged.", bid=bid), "success")
+    flash(_("Bill %(bid)s logged.", bid=logic.code("DB", bid)), "success")
     return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
 
 
-@bp.route("/distributors/<dist_id>/bills/<bill_id>/delete", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/bills/<int:bill_id>/delete", methods=["POST"])
 @auth.permission_required("manage_distributors")
 @requires_money_setting
 def distributor_bill_delete(dist_id, bill_id):
@@ -266,7 +266,7 @@ def distributor_bill_delete(dist_id, bill_id):
     return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
 
 
-@bp.route("/distributors/<dist_id>/bills/<bill_id>/payments/new", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/bills/<int:bill_id>/payments/new", methods=["POST"])
 @auth.permission_required("manage_distributors")
 @requires_money_setting
 def distributor_payment_new(dist_id, bill_id):
@@ -328,7 +328,7 @@ def distributor_payment_new(dist_id, bill_id):
     return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
 
 
-@bp.route("/distributors/<dist_id>/payments/<int:payment_id>/delete", methods=["POST"])
+@bp.route("/distributors/<int:dist_id>/payments/<int:payment_id>/delete", methods=["POST"])
 @auth.permission_required("manage_distributors")
 @requires_money_setting
 def distributor_payment_delete(dist_id, payment_id):
@@ -348,7 +348,7 @@ def distributor_payment_delete(dist_id, payment_id):
     return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
 
 
-@bp.route("/distributors/<dist_id>/export.pdf")
+@bp.route("/distributors/<int:dist_id>/export.pdf")
 @auth.permission_required("manage_distributors")
 @requires_money_setting
 def distributor_export_pdf(dist_id):
@@ -436,27 +436,28 @@ def consignment_items_bulk_edit():
     items = payload.get("items") or []
     saved, errors = [], {}
     for item in items:
-        item_id = str(item.get("id", ""))
+        key = str(item.get("id", ""))   # the row's own id, echoed back in errors
+        item_id = parse_id(key)
         fields = item.get("fields") or {}
         old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
         if not old or old["category"] != "Retail":
-            errors[item_id] = "Item not found."
+            errors[key] = "Item not found."
             continue
         if logic.consignment_item_locked(db, item_id):
             continue
         want_consignment = fields.get("is_consignment") == "on"
         if want_consignment:
-            distributor_id = fields.get("distributor_id") or None
+            distributor_id = parse_id(fields.get("distributor_id"))
             if not distributor_id:
-                errors[item_id] = "Pick a distributor to flag this item as Consignment."
+                errors[key] = "Pick a distributor to flag this item as Consignment."
                 continue
             try:
                 cost_price = parse_money(fields.get("cost_price"), required=True)
             except BadNumber:
-                errors[item_id] = "Cost Price is required and must be a valid number to flag an item as Consignment."
+                errors[key] = "Cost Price is required and must be a valid number to flag an item as Consignment."
                 continue
             if cost_price < 0:
-                errors[item_id] = "Cost Price can't be negative."
+                errors[key] = "Cost Price can't be negative."
                 continue
             consignment_since = (
                 old["consignment_since"] if old["ownership_type"] == "Consignment"
@@ -480,7 +481,7 @@ def consignment_items_bulk_edit():
              new_vals["consignment_since"], item_id),
         )
         auth.log_change(db, "inventory_list", item_id, "update", changes)
-        saved.append(item_id)
+        saved.append(key)
     db.commit()
     return jsonify({"ok": len(errors) == 0, "saved": saved, "errors": errors})
 
@@ -528,7 +529,7 @@ def consignment_receiving_new():
         ctx["open_new_form"] = True
         return render_template("consignment_receiving.html", **ctx)
 
-    item_id = f.get("item_id")
+    item_id = parse_id(f.get("item_id"))
     item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
@@ -591,7 +592,7 @@ def consignment_shrinkage_new():
         ctx["open_new_form"] = True
         return render_template("consignment_shrinkage.html", **ctx)
 
-    item_id = f.get("item_id")
+    item_id = parse_id(f.get("item_id"))
     item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
@@ -663,7 +664,7 @@ def consignment_returns_new():
         ctx["open_new_form"] = True
         return render_template("consignment_returns.html", **ctx)
 
-    item_id = f.get("item_id")
+    item_id = parse_id(f.get("item_id"))
     item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
@@ -689,7 +690,7 @@ def consignment_returns_new():
         return redisplay()
     auth.log_change(db, "consignment_returns", item_id, "create")
     db.commit()
-    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=display_quantity(quantity), name=item['name'], distributor_id=item['distributor_id']), "success")
+    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=display_quantity(quantity), name=item['name'], distributor_id=logic.code('D', item['distributor_id'])), "success")
     return redirect(url_for("consignment.consignment_returns_page"))
 
 
@@ -698,7 +699,7 @@ def consignment_returns_new():
 @requires_money_setting
 def consignment_sales_page():
     db = get_db()
-    distributor_id = request.args.get("distributor_id") or None
+    distributor_id = parse_id(request.args.get("distributor_id"))
     # Validated like every other date-filtered list page, through the helper
     # the others already use. These went straight into the query: a malformed
     # date silently narrowed the report to nothing with no warning, which reads
@@ -737,7 +738,7 @@ def _consignment_settlements_page_context(distributor_id):
     return dict(distributor=distributor, balance=balance, history=history)
 
 
-@bp.route("/consignment/settlements/<distributor_id>")
+@bp.route("/consignment/settlements/<int:distributor_id>")
 @auth.permission_required("manage_consignment_settlements")
 @requires_money_setting
 def consignment_settlements_page(distributor_id):
@@ -748,7 +749,7 @@ def consignment_settlements_page(distributor_id):
     return render_template("consignment_settlements.html", **ctx)
 
 
-@bp.route("/consignment/settlements/<distributor_id>/new", methods=["POST"])
+@bp.route("/consignment/settlements/<int:distributor_id>/new", methods=["POST"])
 @auth.permission_required("manage_consignment_settlements")
 @requires_money_setting
 def consignment_settlement_new(distributor_id):

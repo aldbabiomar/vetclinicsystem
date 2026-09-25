@@ -639,9 +639,8 @@ from decimal import Decimal
 
 
 def _rid(prefix):
-    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
-        return new_id()
-    return f"{prefix}{_uuid.uuid4().hex[:8].upper()}"
+    # Every record id is a number (plan D-2); the prefix only says which kind.
+    return new_id()
 
 
 def _seed_member_cart(db, sale_price):
@@ -898,5 +897,109 @@ def test_the_iq_preview_matches_the_server_on_a_member_mixed_cart(browser, db, i
         assert row["discount_source"] == "member"
         assert row["total"] == previewed, f"the till showed {previewed} and the server charged {row['total']}"
         assert not errors, f"JavaScript errors during the sale: {errors}"
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------------------
+# The cart's own buttons, now that ids are numbers (plan D-2)
+# ---------------------------------------------------------------------------
+
+def test_the_pos_quantity_and_remove_buttons_act_on_their_line(browser, db, member_cart):
+    """GUARD. The buttons pass `this.dataset.lineId` — always a STRING — to
+    functions that find the cart line by id. Once item ids became numbers,
+    `c.id === id` matched nothing: + and × silently did nothing (and a click
+    on + raised on the missing line). A page-load test cannot see it."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/pos", wait_until="networkidle")
+        _add_item_to_cart(page, member_cart["items"]["a"]["name"])
+        assert page.evaluate("() => cart.length") == 1
+        page.click('[data-vz-act="pos-7"]')
+        assert page.evaluate("() => cart[0].qty") == 2, "+ did not add one to its line"
+        page.click('[data-vz-act="pos-5"]')
+        assert page.evaluate("() => cart[0].qty") == 1, "- did not take one from its line"
+        page.click('[data-vz-act="pos-8"]')
+        assert page.evaluate("() => cart.length") == 0, "× did not remove its line"
+        assert not errors, f"JavaScript errors while using the cart: {errors}"
+    finally:
+        ctx.close()
+
+
+@pytest.fixture
+def billable_visit(db):
+    o, p, v, pl = new_id(), new_id(), new_id(), new_id()
+    name = f"Cart Button Service {pl}"
+    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, "Cart Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, "Cart Pet"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+               (v, p, clock.today(), "Ongoing"))
+    db.execute("INSERT INTO price_list (id, name, category, sale_price, active, can_discount) VALUES (?,?,?,?,?,?)",
+               (pl, name, "Service", Decimal("3.000"), True, True))
+    db.commit()
+    yield {"visit": v, "name": name}
+    for sql, arg in (("DELETE FROM visit_billing_lines WHERE visit_id=?", v), ("DELETE FROM billing WHERE visit_id=?", v),
+                     ("DELETE FROM visits WHERE id=?", v), ("DELETE FROM patients WHERE id=?", p),
+                     ("DELETE FROM owners WHERE id=?", o), ("DELETE FROM price_list WHERE id=?", pl)):
+        db.execute(sql, (arg,))
+    db.commit()
+
+
+def test_the_visit_bill_quantity_and_remove_buttons_act_on_their_line(browser, billable_visit):
+    """GUARD. The same string-against-number match as the POS cart, on the
+    visit's billed-items list."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/visits/{billable_visit['visit']}", wait_until="networkidle")
+        page.fill("#visitBillSearch", billable_visit["name"])
+        hit = f'#visitBillResults [data-vz-act="visit-detail-5"]:has-text("{billable_visit["name"]}")'
+        page.wait_for_selector(hit, timeout=10000)
+        page.click(hit)
+        assert page.evaluate("() => visitBillCart.length") == 1
+        page.click('#visitBillCart [data-vz-act="visit-detail-8"]')
+        assert page.evaluate("() => visitBillCart[0].qty") == 2, "+ did not add one to its line"
+        page.click('#visitBillCart [data-vz-act="visit-detail-6"]')
+        assert page.evaluate("() => visitBillCart[0].qty") == 1, "- did not take one from its line"
+        page.click('#visitBillCart [data-vz-act="visit-detail-9"]')
+        assert page.evaluate("() => visitBillCart.length") == 0, "× did not remove its line"
+        assert not errors, f"JavaScript errors while using the bill: {errors}"
+    finally:
+        ctx.close()
+
+
+def test_a_saved_bill_line_counts_up_as_a_number(browser, db, billable_visit):
+    """GUARD. A saved bill's lines are prefilled into the page's cart and
+    drawn at load — which called escapeHtml() before base.html had defined
+    it, so the page threw and showed the saved bill as an EMPTY list. An
+    inherited bug in both predecessor apps; the JS-error sweep only ever
+    opens visits with no bill. The + at the end is the control that the
+    prefilled line is a working line, not just text."""
+    pl = db.execute("SELECT id FROM price_list WHERE name=?", (billable_visit["name"],)).fetchone()["id"]
+    v = billable_visit["visit"]
+    db.execute("INSERT INTO billing (visit_id, billing_type, total, discount_percent, cleanup_amount) "
+               "VALUES (?,?,?,?,?)", (v, "Automatic", Decimal("6.000"), Decimal(0), Decimal(0)))
+    db.execute("INSERT INTO visit_billing_lines (visit_id, price_id, name, category, quantity, unit_price, "
+               "unit_cost, discountable, created_at) VALUES (?,?,?,?,?,?,?,?,now())",
+               (v, pl, billable_visit["name"], "Service", Decimal("2.000"), Decimal("3.000"), Decimal(0), True))
+    db.commit()
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/visits/{v}", wait_until="networkidle")
+        assert not errors, f"the page threw while drawing the saved bill: {errors}"
+        assert billable_visit["name"] in page.inner_text("#visitBillCart"), "the saved bill is shown empty"
+        page.click('#visitBillCart [data-vz-act="visit-detail-8"]')
+        assert page.evaluate("() => visitBillCart[0].qty") == 3
     finally:
         ctx.close()

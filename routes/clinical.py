@@ -1024,14 +1024,15 @@ def visit_billing_save(visit_id):
         # free text, so an invalid price_id here only happens on a
         # tampered request — skipped with a flash rather than a raw
         # database error.
-        for pid in f.getlist("price_id"):
+        for raw_pid in f.getlist("price_id"):
             try:
-                qty = parse_quantity(f.get(f"qty_{pid}", "").strip())
+                qty = parse_quantity(f.get(f"qty_{raw_pid}", "").strip())
             except BadNumber:
                 had_bad_number = True
                 continue
             if not qty or qty <= 0:
                 continue
+            pid = parse_id(raw_pid)
             price_row = db.execute(
                 "SELECT name, category, sale_price, cost_price, can_discount FROM price_list WHERE id=?", (pid,)
             ).fetchone()
@@ -1255,7 +1256,7 @@ _REWARD_REMOVAL_SURFACES = {
 }
 
 
-@bp.route("/rewards/<surface>/<bill_id>/remove-discount", methods=["POST"])
+@bp.route("/rewards/<surface>/<int:bill_id>/remove-discount", methods=["POST"])
 @auth.permission_required("manage_rewards")
 @requires_money_setting
 def rewards_remove_discount(surface, bill_id):
@@ -2150,7 +2151,12 @@ def inpatient_billing_add(case_id):
     if not db.execute("SELECT id FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
-    price_ids = request.form.getlist("price_id")
+    # (the raw value, which names this line's qty_<id> field; the id itself).
+    # Numbers, not the submitted text: blocked_pids below holds ids read from
+    # the database, and a text id is never `in` a set of ints — the
+    # non-discountable block would have let every line through.
+    picked = [(raw, parse_id(raw)) for raw in request.form.getlist("price_id")]
+    price_ids = [pid for _, pid in picked if pid is not None]
     now = clock.now().isoformat(timespec="seconds")
     added = 0
     had_bad_number = False
@@ -2175,14 +2181,17 @@ def inpatient_billing_add(case_id):
             f"SELECT id FROM price_list WHERE id IN ({','.join('?' * len(price_ids))}) AND can_discount=false",
             price_ids,
         ).fetchall()} if price_ids else set()
-    for pid in price_ids:
-        raw_qty = request.form.get(f"qty_{pid}", "").strip()
+    for raw_pid, pid in picked:
+        raw_qty = request.form.get(f"qty_{raw_pid}", "").strip()
         try:
             qty = parse_quantity(raw_qty)
         except BadNumber:
             had_bad_number = True
             continue
         if not qty or qty <= 0:
+            continue
+        if pid is None:
+            had_bad_price = True
             continue
         if pid in blocked_pids:
             had_blocked = True

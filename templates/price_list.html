@@ -62,7 +62,7 @@
     <form id="edit-{{ i.id }}" method="post" action="{{ url_for('inventory.price_list_edit', item_id=i.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     <tr data-edit-form="edit-{{ i.id }}" class="{{ 'row-flag-mismatch' if i.id in flagged_price }}" {% if i.id in flagged_price %}title="{{ _('Retail data inconsistency: this item\'s Linked Inventory Item doesn\'t match an active Retail item in Inventory Catalog.') }}"{% endif %}>
-      <td class="muted">{{ i.id }}</td>
+      <td class="muted">{{ i.id|code('PL') }}</td>
       <td><input form="edit-{{ i.id }}" name="name" value="{{ fv(row_form, 'name', i.name) }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
       <td>
         <select form="edit-{{ i.id }}" name="category" style="border:none; background:transparent;">

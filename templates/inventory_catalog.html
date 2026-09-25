@@ -72,7 +72,7 @@
     <form id="edit-{{ i.id }}" method="post" action="{{ url_for('inventory.inventory_catalog_edit', item_id=i.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     <tr data-edit-form="edit-{{ i.id }}" class="{{ 'row-flag-mismatch' if i.id in flagged_inventory }}" {% if i.id in flagged_inventory %}title="{{ _('Retail data inconsistency: no active Retail Price List item is linked to this inventory item.') }}"{% endif %}>
-      <td class="muted">{{ i.id }}</td>
+      <td class="muted">{{ i.id|code('INV') }}</td>
       <td><input class="cell-input" form="edit-{{ i.id }}" name="name" value="{{ fv(row_form, 'name', i.name) }}"></td>
       <td><select class="cell-input-plain" form="edit-{{ i.id }}" name="category">{% for c in categories %}<option value="{{ c }}" {{ 'selected' if fv(row_form, 'category', i.category)==c }}> {{ c|tr }} </option>{% endfor %}</select></td>
       <td><input class="cell-input short" form="edit-{{ i.id }}" name="unit" value="{{ fv(row_form, 'unit', i.unit or '') }}"></td>
@@ -272,7 +272,7 @@ function openBarcodeManager(itemId, itemName) {
 
 async function barcodeManagerRefresh() {
   try {
-    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_status', item_id='__ID__') }}`.replace('__ID__', encodeURIComponent(barcodeManagerItemId)));
+    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_status', item_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(barcodeManagerItemId)));
     const data = await res.json();
     if (!res.ok) {
       window.VZToast.show(data.error || {{ _('Could not load barcode status.')|tojson }}, 'error');
@@ -333,7 +333,7 @@ async function barcodeManagerSaveManual() {
   const raw = input.value.trim();
   if (!raw) { window.VZToast.show('Enter a barcode.', 'error'); return; }
   try {
-    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_manual', item_id='__ID__') }}`.replace('__ID__', encodeURIComponent(barcodeManagerItemId)), {
+    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_manual', item_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(barcodeManagerItemId)), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -353,7 +353,7 @@ async function barcodeManagerSaveManual() {
 
 async function barcodeManagerGenerate() {
   try {
-    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_generate', item_id='__ID__') }}`.replace('__ID__', encodeURIComponent(barcodeManagerItemId)), {
+    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_generate', item_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(barcodeManagerItemId)), {
       method: 'POST',
       headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
     });
@@ -371,7 +371,7 @@ async function barcodeManagerRemove() {
   const ok = await window.VZDialog.confirm({{ _('Remove this barcode? You can add a new one afterward.')|tojson }});
   if (!ok) return;
   try {
-    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_remove', item_id='__ID__') }}`.replace('__ID__', encodeURIComponent(barcodeManagerItemId)), {
+    const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_remove', item_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(barcodeManagerItemId)), {
       method: 'POST',
       headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
     });

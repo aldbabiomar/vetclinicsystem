@@ -775,4 +775,33 @@ result under each money setting.
   renders them only on a near-empty database.
   **Suite:** IQ **1115 passed, 4 skipped**; JO **1115 passed, 4 skipped**; no
   database 481 passed.
+- **Correction to the 2b entry above.** It says the POS stock "goes to the
+  browser as a JSON number (a string would have turned a capped quantity plus
+  one into "131")". Wrong: `app._DecimalJSONProvider` already turned every
+  Decimal into a number, so stock was `13.0`, never `"13.000"`. Found in 2d
+  when a mutation that should have produced the string did not; the helper
+  that 2b added for it (`core.quantity_json`) was removed as dead code.
+- **2026-09-25 — Phase 2d: numeric keys, shown as codes (D-2).** Every table
+  that had a text id (`"V0042"`, `"U1A2B…"`, `"INV301"`) has an identity
+  integer — users, roles, owners, patients, visits, inventory, price list,
+  distributors, distributor bills — and the 68 columns that point at them are
+  INTEGER; `permissions.id` stays text (it is the permission's name). Staff
+  see codes: `logic.code("V", 123)` → `V-00123`, the `|code` filter, a `code`
+  field in the patient search API; `parse_id(raw, prefix)` reads a typed code
+  or number back and returns None for anything else, including a code for the
+  wrong kind of record. `id_counters`, `db.next_id` and `import_seed.py` (a
+  spreadsheet importer for an always-empty `seed_data.json`) are gone; setup
+  creates the first admin with a printed one-time password instead of the
+  public `admin/admin123`, reissued by setup until first sign-in.
+  Integer ids broke things silently wherever text met a number, each fixed and
+  pinned by a mutation-checked test: the inpatient non-discountable block
+  (`text in set_of_ints` is never true — every blocked line would have gone
+  through), the appointment vet check, the POS and visit-bill cart buttons
+  (`dataset.lineId` is a string), `<select>` re-selection on an error page,
+  a distributor edit that `!=`-compared text with an int and refused every
+  consignment save, URL placeholders built with `'__ID__'` for `<int:>` routes,
+  and JSON error keys. Found on the way and fixed: M10 (a visit's saved bill
+  shown empty) — see the audit.
+  **Suite:** IQ **1142 passed, 4 skipped**; JO **1142 passed, 4 skipped**; no
+  database 498 passed.
 

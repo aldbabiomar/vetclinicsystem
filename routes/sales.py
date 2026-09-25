@@ -252,12 +252,15 @@ def _merged_cart_quantities(item_ids, quantities):
     it. Merging first is what makes the stock check below mean anything.
     """
     qty_by_item = {}
-    for iid, qty in zip(item_ids, quantities):
+    for raw_iid, qty in zip(item_ids, quantities):
         try:
             qty = parse_quantity(qty, required=True)
         except BadNumber:
             return None, _("Cart quantities must be valid numbers.")
-        if qty <= 0:
+        # A number, so "12" and "012" are one line and the lock order below
+        # sorts numerically; anything that is not an id names no item.
+        iid = parse_id(raw_iid)
+        if qty <= 0 or iid is None:
             continue
         qty_by_item[iid] = qty_by_item.get(iid, 0) + qty
     return qty_by_item, None
@@ -312,7 +315,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     for iid, qty in qty_by_item.items():
         price = logic.item_sale_price(db, iid)
         if price is None:
-            notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=iid))
+            notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=logic.code("INV", iid)))
             continue
         status = logic.inventory_status_by_id(db, iid)
         # current_stock is None until this item has been through at least one

@@ -236,7 +236,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "nearest_expiry_date": {
     "default": null,
@@ -844,7 +844,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -856,7 +856,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "notes": {
     "default": null,
@@ -915,7 +915,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -927,7 +927,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "notes": {
     "default": null,
@@ -1004,7 +1004,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -1062,7 +1062,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -1074,7 +1074,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "liability_overridden": {
     "default": "false",
@@ -1153,7 +1153,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "created_at": {
     "default": null,
@@ -1234,13 +1234,13 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "notes": {
     "default": null,
@@ -1289,9 +1289,9 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "lead_time_days": {
     "default": null,
@@ -1331,28 +1331,6 @@
    "distributors_pkey": "CREATE UNIQUE INDEX distributors_pkey ON public.distributors USING btree (id)"
   }
  },
- "id_counters": {
-  "columns": {
-   "next_val": {
-    "default": "1",
-    "identity": null,
-    "null": false,
-    "type": "integer"
-   },
-   "prefix": {
-    "default": null,
-    "identity": null,
-    "null": false,
-    "type": "text"
-   }
-  },
-  "constraints": {
-   "id_counters_pkey": "PRIMARY KEY (prefix)"
-  },
-  "indexes": {
-   "id_counters_pkey": "CREATE UNIQUE INDEX id_counters_pkey ON public.id_counters USING btree (prefix)"
-  }
- },
  "inpatient_billing": {
   "columns": {
    "case_id": {
@@ -1383,7 +1361,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "quantity": {
     "default": "1",
@@ -1709,13 +1687,13 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "name": {
     "default": null,
@@ -1781,7 +1759,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "reason": {
     "default": null,
@@ -2239,15 +2217,15 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "linked_item_id": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "name": {
     "default": null,
@@ -2291,7 +2269,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "line_total": {
     "default": null,
@@ -2592,7 +2570,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -2604,7 +2582,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "line_total": {
     "default": null,
@@ -2969,7 +2947,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "quantity": {
     "default": "1",

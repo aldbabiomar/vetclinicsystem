@@ -17,7 +17,7 @@
 # run at once. Every change should be verified under BOTH.
 #
 # After `up`, the app is reachable at the printed URL, logged in as
-# admin/Admin12345!. A single Retail item (INV301 / PL301) is seeded for
+# admin/Admin12345!. A single Retail item ("Test Retail Item") is seeded for
 # POS/checkout testing. Stop the app process yourself when you're done testing
 # (its PID is printed by `up`), then run `down` to remove the
 # container/venv/data — `down` does not kill the app process.
@@ -254,13 +254,13 @@ con.execute(
 # Priced in the throwaway clinic's own currency: 5,000 / 1,000 IQD under IQ
 # (a real note amount), 5.000 / 1.000 JOD under JO.
 cost, price = ("1000", "5000") if money_setting == "IQ" else ("1.000", "5.000")
+item_id = con.execute(
+    "INSERT INTO inventory_list (name, category, unit, track_expiry, cost_price, active) "
+    "VALUES ('Test Retail Item', 'Retail', 'unit', false, ?, true) RETURNING id", (cost,)
+).fetchone()["id"]
 con.execute(
-    "INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, active) "
-    "VALUES ('INV301', 'Test Retail Item', 'Retail', 'unit', false, ?, true)", (cost,)
-)
-con.execute(
-    "INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
-    "VALUES ('PL301', 'Test Retail Item', 'Retail', ?, true, 'INV301', true)", (price,)
+    "INSERT INTO price_list (name, category, sale_price, active, linked_item_id, can_discount) "
+    "VALUES ('Test Retail Item', 'Retail', ?, true, ?, true)", (price, item_id)
 )
 con.commit()
 con.close()
@@ -331,7 +331,7 @@ up() {
   echo "== Ready =="
   echo "  URL:      http://127.0.0.1:${APP_PORT}"
   echo "  Login:    admin / Admin12345!"
-  echo "  Test item: INV301 / PL301 (Retail; 5,000 IQD or 5.000 JOD)"
+  echo "  Test item: \"Test Retail Item\" (Retail; 5,000 IQD or 5.000 JOD)"
   echo "  App PID:  $(cat "$PID_FILE")  (kill this yourself when done testing)"
   echo "  App log:  $DATA_DIR/app_stdout.log"
   echo "  Errors:   $DATA_DIR/logs/errors.log"

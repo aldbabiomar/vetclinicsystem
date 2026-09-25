@@ -115,8 +115,8 @@ def get_setting(db, key, default=None):
 
 
 def int_setting(db, key, default):
-    """Never raises. Settings can be written by import_seed.py (unvalidated)
-    and by hand, so a stored non-numeric value must degrade to the default
+    """Never raises. Settings can arrive unvalidated (a restored backup, a
+    hand edit), so a stored non-numeric value must degrade to the default
     rather than take down every page that reads it. See ERROR_500_AUDIT.md
     E-13."""
     try:
@@ -185,8 +185,8 @@ def member_discount_rate(db):
     safe to change; do not "simplify" this to float.
 
     A stored value outside the allowed range degrades to 0 (programme off)
-    rather than raising: settings can be written by import_seed.py and by
-    hand, so this fails closed the same way int_setting() does.
+    rather than raising: settings can arrive from a restored backup or a
+    hand edit, so this fails closed the same way int_setting() does.
     """
     raw = get_setting(db, "member_discount_percent", "0") or "0"
     try:

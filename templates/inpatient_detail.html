@@ -137,7 +137,7 @@
         {% for p in proc_items %}
         <label class="checkbox-row small" data-search="{{ (p.id ~ ' ' ~ p.name)|lower }}" style="text-transform:none; font-weight:500; gap:10px;">
           <input type="checkbox" name="price_id" value="{{ p.id }}" data-vzh="inpatient-detail-10" data-vz-arg="{{ p.id }}">
-          <span class="muted small">{{ p.id }}</span> {{ p.name }} <span class="muted">({{ p.sale_price|money }} {{ currency_label() }})</span>
+          <span class="muted small">{{ p.id|code('PL') }}</span> {{ p.name }} <span class="muted">({{ p.sale_price|money }} {{ currency_label() }})</span>
           <input type="number" id="qty_{{ p.id }}" name="qty_{{ p.id }}" min="1" value="1" style="display:none; width:60px;">
         </label>
         {% endfor %}
