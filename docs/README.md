@@ -38,6 +38,7 @@ citation stops resolving.
 
 | Document | What it is |
 |---|---|
+| `plans/DEVELOPER_AND_LICENSING_PLAN.md` | The Developer area, signed license keys with read-only expiry, developer-controlled money setting and palette, a private update repo with per-clinic tokens, and native PostgreSQL. Decisions taken 2026-09-25. **Starts after the merge, before 1.0.0.** |
 | `plans/HOSTING_MIGRATION_PLAN.md` | Draft: moving an install off the clinic PC onto a VPS. Written for the predecessor apps; re-check before use. |
 | `plans/CLINIC_PC_TUNNEL_PLAN.md` | Draft: a Cloudflare-tunnel alternative to the above. Same caveat. |
 
