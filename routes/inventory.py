@@ -764,6 +764,7 @@ def audit_history_list():
 def audit_session_start():
     db = get_db()
     session_id = logic.get_or_create_draft_session(db, clock.today().isoformat(), session["user_id"])
+    db.commit()
     return redirect(url_for("inventory.audit_session_view", session_id=session_id))
 
 

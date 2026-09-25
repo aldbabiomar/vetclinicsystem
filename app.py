@@ -4,6 +4,7 @@ import os
 import re
 import signal
 import sys
+import threading
 import time
 import logging
 import logging.handlers
@@ -363,22 +364,28 @@ def _has_null(value):
 _LOGIN_ATTEMPTS_BY_IP = {}
 _LOGIN_RATE_LIMIT_WINDOW_SECONDS = 300
 _LOGIN_RATE_LIMIT_MAX = 20
+# Waitress serves from 8 threads, and they all update the dict above; the
+# cleanup loop could meet a key another thread had just deleted (KeyError,
+# a 500 on the login page) and two sign-ins could each read the list before
+# either wrote it back, losing one from the count (audit B20).
+_LOGIN_RATE_LIMIT_LOCK = threading.Lock()
 
 
 def _login_rate_limit_check(ip):
     now = time.monotonic()
     window_start = now - _LOGIN_RATE_LIMIT_WINDOW_SECONDS
-    attempts = [t for t in _LOGIN_ATTEMPTS_BY_IP.get(ip, []) if t > window_start]
-    attempts.append(now)
-    _LOGIN_ATTEMPTS_BY_IP[ip] = attempts
-    # Opportunistic cleanup so this dict doesn't grow unbounded over a
-    # long-running process — cheap, and only runs on the (low-traffic)
-    # login route.
-    if len(_LOGIN_ATTEMPTS_BY_IP) > 1000:
-        for k in list(_LOGIN_ATTEMPTS_BY_IP.keys()):
-            if not [t for t in _LOGIN_ATTEMPTS_BY_IP[k] if t > window_start]:
-                del _LOGIN_ATTEMPTS_BY_IP[k]
-    return len(attempts) <= _LOGIN_RATE_LIMIT_MAX
+    with _LOGIN_RATE_LIMIT_LOCK:
+        attempts = [t for t in _LOGIN_ATTEMPTS_BY_IP.get(ip, []) if t > window_start]
+        attempts.append(now)
+        _LOGIN_ATTEMPTS_BY_IP[ip] = attempts
+        # Opportunistic cleanup so this dict doesn't grow unbounded over a
+        # long-running process — cheap, and only runs on the (low-traffic)
+        # login route.
+        if len(_LOGIN_ATTEMPTS_BY_IP) > 1000:
+            for k in list(_LOGIN_ATTEMPTS_BY_IP.keys()):
+                if not [t for t in _LOGIN_ATTEMPTS_BY_IP[k] if t > window_start]:
+                    del _LOGIN_ATTEMPTS_BY_IP[k]
+        return len(attempts) <= _LOGIN_RATE_LIMIT_MAX
 
 
 # Max size for any incoming request body (mainly file uploads — X-rays,

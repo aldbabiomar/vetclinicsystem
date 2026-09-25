@@ -926,3 +926,9 @@ result under each money setting.
   **Suite:** IQ **1369 passed, 4 skipped, 1 failed** and JO the same. The
   failure was that guard meeting `restoring.html`. After the allowance,
   `test_frontend.py` passes (27), and a planted saved page is still caught.
+- **2026-09-25 — Audit B20.** One draft audit per day (a partial unique index
+  and `ON CONFLICT`; the helper no longer commits), and the login rate
+  limiter's dict is updated under a lock. Every bug and security finding in
+  the audit (§1, S1–S5) is now closed; F1, F2, the D items and the parity
+  ports remain.
+  **Suite:** IQ **1374 passed, 4 skipped**; JO **1374 passed, 4 skipped**.

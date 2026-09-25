@@ -442,20 +442,23 @@ def fmt_money(amount):
 # Audit sessions (Save / Confirm) — only Confirmed sessions count as history
 # ---------------------------------------------------------------------------
 def get_or_create_draft_session(db, audit_date, user_id):
+    """The day's draft audit, created if there is none.
+
+    One per day, held by the audit_sessions_one_draft_per_day index (audit
+    B20): this used to look first and insert second, so two people pressing
+    Start at once each created one. The insert now yields to a draft that
+    exists or is being created, and waits for it rather than duplicating it.
+    Does not commit -- the caller does, with the rest of its request (D11)."""
     row = db.execute(
-        "SELECT * FROM audit_sessions WHERE audit_date=? AND status='Draft' ORDER BY id DESC LIMIT 1",
-        (audit_date,),
+        "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) VALUES (?,?,'Draft',?) "
+        "ON CONFLICT (audit_date) WHERE status = 'Draft' DO NOTHING RETURNING id",
+        (audit_date, user_id, clock.now()),
     ).fetchone()
     if row:
+        authmod.log_change(db, "audit_sessions", str(row["id"]), "create")
         return row["id"]
-    cur = db.execute(
-        "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) VALUES (?,?,'Draft',?) RETURNING id",
-        (audit_date, user_id, clock.now().isoformat(timespec="seconds")),
-    )
-    new_id = cur.fetchone()["id"]
-    authmod.log_change(db, "audit_sessions", str(new_id), "create")
-    db.commit()
-    return new_id
+    return db.execute("SELECT id FROM audit_sessions WHERE audit_date=? AND status='Draft'",
+                      (audit_date,)).fetchone()["id"]
 
 
 def list_audit_sessions(db, limit=None, offset=0):

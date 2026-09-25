@@ -8,7 +8,7 @@ recorded but never offered there, so unless staff typed them twice, usage
 came out understated or negative, and so did the Ordering Sheet.
 """
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal as D
 
 import pytest
@@ -23,7 +23,7 @@ pytestmark = needs_db
 @pytest.fixture
 def draft(db):
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,'Draft',now()) RETURNING id", (clock.today(), ADMIN_ID)).fetchone()["id"]
+                     "VALUES (?,?,'Draft',now()) RETURNING id", (date(2001, 1, 2), ADMIN_ID)).fetchone()["id"]
     db.commit()
     yield sid
     db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))

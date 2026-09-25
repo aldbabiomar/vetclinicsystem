@@ -609,7 +609,7 @@ a later wellness entry for the same patient and type supersede the old one.
 
 `tests/test_wellness_reminders.py`, mutation-checked four ways.
 
-## B20 — Smaller items
+## B20 — Smaller items — **Fixed**
 
 - `get_or_create_draft_session()` has a check-then-insert race (two drafts for
   one date) and **commits** from inside a helper (see D11).
@@ -617,6 +617,19 @@ a later wellness entry for the same patient and type supersede the old one.
 - `_login_rate_limit_check()` mutates a module dict from 8 Waitress threads
   without a lock; its cleanup loop can raise `KeyError` under contention once
   more than 1,000 IPs are tracked.
+
+**Fixed (merge).** All three:
+
+- **One draft per day.** A partial unique index allows one draft per day.
+  `get_or_create_draft_session()` inserts with `ON CONFLICT … DO NOTHING`,
+  which waits for a concurrent Start instead of duplicating it, and no
+  longer commits (the route does).
+- **The conflict message** was replaced under B4.
+- **The rate limiter** updates its dict under a lock.
+
+`tests/test_small_races.py` plays the draft race with two connections and
+records the lock. The old look-then-insert fails it, and so does removing
+the lock.
 
 ---
 

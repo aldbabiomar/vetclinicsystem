@@ -343,6 +343,7 @@
    "audit_sessions_status_check": "CHECK ((status = ANY (ARRAY['Draft'::text, 'Confirmed'::text])))"
   },
   "indexes": {
+   "audit_sessions_one_draft_per_day": "CREATE UNIQUE INDEX audit_sessions_one_draft_per_day ON public.audit_sessions USING btree (audit_date) WHERE (status = 'Draft'::text)",
    "audit_sessions_pkey": "CREATE UNIQUE INDEX audit_sessions_pkey ON public.audit_sessions USING btree (id)"
   }
  },
