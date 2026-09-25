@@ -72,11 +72,11 @@ Prior audits were read first so closed findings are not re-reported
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | **Fixed** — `mark_transaction_failed()` rolls back; `test_error_pages.py` |
 | **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
 | **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | **Fixed** — phase 3: no summary table, no Rebuild |
-| **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | Confirmed by code |
-| **B16** | Low | both | Refund and payment dates are free-form: a refund can be booked before its sale or in a future month | Confirmed by code |
-| **B17** | Low | JO | A failed appointment booking re-renders the grid for *today*, not the day being booked | Verified live |
-| **B18** | Low | both | Audit-derived usage ignores stock recorded through Consignment Receiving | Confirmed by code |
-| **B19** | Low | both | Wellness "due" never expires; the two apps sort it in opposite orders | Confirmed by code |
+| **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | **Fixed** — a per-day advisory lock; the sale row locked first; `test_locked_caps.py` plays the race |
+| **B16** | Low | both | Refund and payment dates are free-form: a refund can be booked before its sale or in a future month | **Fixed** — refunds between the origin and today; payments today; `test_refund_dates.py` |
+| **B17** | Low | JO | A failed appointment booking re-renders the grid for *today*, not the day being booked | **Fixed** — `test_appointment_redisplay.py` |
+| **B18** | Low | both | Audit-derived usage ignores stock recorded through Consignment Receiving | **Fixed** — pre-filled on the audit sheet; `test_audit_receiving.py` |
+| **B19** | Low | both | Wellness "due" never expires; the two apps sort it in opposite orders | **Fixed** — owner decision D-16; `test_wellness_reminders.py` |
 | **S4** | Low | JO | Dev mode runs the Werkzeug debugger on `0.0.0.0` | Confirmed by code |
 | **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | **Fixed** — phase 3: the route was the Rebuild button's, and it is gone |
 | **P1–P20** | — | — | Parity gaps, non-money | see §4 |
@@ -490,7 +490,7 @@ database, which widens the window.
 of the rebuild (the incremental upsert then waits), or recompute per month
 inside the lock.
 
-## B15 — Two caps checked without their lock — **Confirmed by code**
+## B15 — Two caps checked without their lock — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -504,7 +504,22 @@ inside the lock.
 Every other cap in the app takes a row lock first; these two are the
 exceptions.
 
-## B16 — Refund and payment dates are free-form — **Confirmed by code**
+**Fixed (merge).**
+
+- **Payouts.** A payout takes a transaction-scoped advisory lock on its day
+  before reading the drawer. The cap is a day's drawer, which no single row
+  holds.
+- **Refunds.** A retail refund locks the sale row before its lines,
+  matching the parent-then-children order the other paths use.
+
+`tests/test_locked_caps.py` plays each race deterministically. The test's
+own connection is the first request: it holds the lock with its write not yet
+committed. The route runs in another thread as the second request, which
+must wait and then refuse. Without the advisory lock the second payout does
+not wait. Without the sale lock the two refunds total 20.000 on a sale that
+collected 15.000.
+
+## B16 — Refund and payment dates are free-form — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -516,7 +531,13 @@ Register shows the money leaving on that day. `visit_payment_add` and
 sends; `boarding_payment` always uses today. Clamp both to `[origin date,
 today]`, and make the three payment routes agree.
 
-## B17 — JO's appointment booking error jumps back to today — **Verified live**
+**Fixed (merge).** A refund is refused if it is dated after today, or before
+the day of what it pays back: the sale (`sold_at::date`, the clinic's day),
+the visit, the admission or the stay's entry. All three payment routes record
+today, and the visit and inpatient routes no longer read `date`.
+`tests/test_refund_dates.py`, with each bound mutation-checked.
+
+## B17 — JO's appointment booking error jumps back to today — **Fixed**
 
 **Severity: Low · JO only**
 
@@ -526,7 +547,11 @@ carry. A validation failure while booking for 4 Oct re-rendered the grid for
 **25 Sep** with the modal open. IQ passes the submitted date explicitly and
 keeps the day.
 
-## B18 — Audit usage ignores Consignment Receiving — **Confirmed by code**
+**Fixed (merge).** `appointment_new()` hands the submitted date, when it is
+valid, to `_appointments_page_context(day)`, which uses it for both the week
+and the day. `tests/test_appointment_redisplay.py`.
+
+## B18 — Audit usage ignores Consignment Receiving — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -538,7 +563,13 @@ unless staff type it twice, the item's daily usage comes out understated or
 negative and the Ordering Sheet's suggestion is wrong. Pre-fill the column
 from `consignment_receipt` transactions since the prior audit.
 
-## B19 — Wellness "due" never expires — **Confirmed by code**
+**Fixed (merge).** `logic.consignment_received_since_audit()` sums each
+item's consignment receipts after its latest confirmed audit (the cutoff
+`inventory_status()` uses). The sheet pre-fills "received since prior" with
+that sum, with a hint ("Includes 6 from Consignment Receiving"), until a line
+is saved. `tests/test_audit_receiving.py`.
+
+## B19 — Wellness "due" never expires — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -549,6 +580,19 @@ in the sidebar alert badge. The two apps also sort it oppositely (IQ newest
 first, JO oldest first — `wellness_reminders()`), so the dashboard's top six
 are different lists in the two apps. Bound "due" to the missed window, and let
 a later wellness entry for the same patient and type supersede the old one.
+
+**Fixed (merge).**
+
+- **Due ends when missed begins.** "Due" stops at 14 days past the dose,
+  when "missed" begins, and the reminder moves to the admin's Missed Items
+  list.
+- **A newer entry replaces the old one.** A newer wellness entry for the
+  same pet and type replaces the old one everywhere.
+- **Order.** Both screens put the most urgent first (owner decision D-16):
+  open reminders by the earliest dose, then contacted or missed ones, newest
+  first. The Wellness page does this in SQL so paging is correct.
+
+`tests/test_wellness_reminders.py`, mutation-checked four ways.
 
 ## B20 — Smaller items
 
