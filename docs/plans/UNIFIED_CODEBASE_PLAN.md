@@ -820,3 +820,22 @@ result under each money setting.
   **Suite:** IQ **1151 passed, 4 skipped**; JO **1151 passed, 4 skipped**; no
   database 498 passed.
 
+- **2026-09-25 — Audit S1 and S2: nobody reaches beyond their own access.**
+  S2: `routes/admin.py` has one rule, `_beyond_actor()`: someone outside the
+  system role may create, assign, edit, delete, disable or reset only within
+  the permissions they hold themselves. It covers seven routes, including
+  the long ways round (deleting your own role so its staff land in Admin;
+  demoting an Admin). S1: `SETTING_FIELD_PERMISSION` in `routes/settings.py`
+  is the one table of which permission each Settings field needs. The POST
+  refuses the whole submission if it carries a field the user can't change,
+  and the template draws fields from that same table. `tests/test_privileges.py`
+  has 21 tests (guards with controls). Mutation-checked nine ways, and each
+  mutation fails exactly its own route's tests. Two harness traps came to
+  light on the way, and the fixture now guards against both. First, the
+  app's 20-sign-ins-per-address limit silently refused the fixture's later
+  sign-ins, so every POST bounced off the login gate and the guard tests
+  "passed". Second, a broken guard let the escalation succeed, which left
+  the Admin disabled or moved and failed every later test. Two new Arabic
+  strings are flagged in `docs/ARABIC_REVIEW.md` §7.
+  **Suite:** IQ **1172 passed, 4 skipped**; JO **1172 passed, 4 skipped**; no
+  database 498 passed.

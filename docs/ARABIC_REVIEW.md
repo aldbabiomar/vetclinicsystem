@@ -113,3 +113,15 @@ A new setting chosen by the owner on 2026-09-25. The zone names themselves
 | 2 | Time Zone | المنطقة الزمنية |
 | 3 | Automatic — %(zone)s | تلقائي — %(zone)s |
 | 4 | What "today" and every time in the app mean. Automatic follows the money setting (IQ: Asia/Baghdad, JO: Asia/Amman), or this computer until one is chosen. | ما يعنيه "اليوم" وكل وقت في التطبيق. الخيار التلقائي يتبع إعداد العملة (IQ: Asia/Baghdad، JO: Asia/Amman)، أو هذا الحاسوب إلى أن يُختار. |
+
+## 7. Privilege refusals (2)
+
+Audit S1 and S2 (2026-09-25): a role may no longer hand out, reach, or post
+settings beyond its own permissions. Built from the reviewed terms صلاحية
+(permission), دور (role), المدير (the Admin, as in "لا يمكن تعديل دور
+المدير") and النسخ الاحتياطي (backups).
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | You can't give or reach access you don't hold yourself — ask an Admin. | لا يمكنك منح صلاحيات لا تملكها بنفسك أو الوصول إليها — اطلب ذلك من المدير. |
+| 2 | Nothing was saved: your role can't change the backup and log-retention settings. | لم يُحفظ أي شيء: لا يملك دورك صلاحية تغيير إعدادات النسخ الاحتياطي ومدة الاحتفاظ بالسجلات. |

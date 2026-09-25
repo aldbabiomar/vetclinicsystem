@@ -7050,3 +7050,11 @@ msgstr "مستحق"
 msgid "No wellness reminders on file."
 msgstr "لا توجد تذكيرات رعاية وقائية مسجلة."
 
+
+#: routes/admin.py
+msgid "You can't give or reach access you don't hold yourself — ask an Admin."
+msgstr "لا يمكنك منح صلاحيات لا تملكها بنفسك أو الوصول إليها — اطلب ذلك من المدير."
+
+#: routes/settings.py
+msgid "Nothing was saved: your role can't change the backup and log-retention settings."
+msgstr "لم يُحفظ أي شيء: لا يملك دورك صلاحية تغيير إعدادات النسخ الاحتياطي ومدة الاحتفاظ بالسجلات."

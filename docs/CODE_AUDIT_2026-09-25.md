@@ -56,8 +56,8 @@ Prior audits were read first so closed findings are not re-reported
 | **B1** | High | both | Date filters accept ISO-week / basic dates that Postgres rejects → **HTTP 500** on 4 IQ pages and 2 JO pages; silent empty results on 3 more | Verified live |
 | **B2** | High | both | A Clean Up or boarding discount taken with a payment never refreshes the month's P&L summary | **Fixed** — phase 3 (P&L computed on read, `reports.py`); `tests/test_reports_live.py` |
 | **B3** | High | JO | JO's P&L and Insights ignore boarding discounts (incl. the rewards card) and Clean Ups; `billed_total` is written and never read | **Fixed** — phase 3 (stored totals apportioned, one query for P&L and Insights); `tests/test_reports_live.py` |
-| **S1** | High | both | A `manage_settings`-only role can set `backup_retention=1`, `log_retention_days=90`, `backup_dir`, `backup_time` — fields the UI hides behind `manage_maintenance` | Verified live |
-| **S2** | High | both | `manage_users_roles` is full Admin in one click: a holder promotes themselves to the system Admin role (or resets the Admin's password) | Verified live |
+| **S1** | High | both | A `manage_settings`-only role can set `backup_retention=1`, `log_retention_days=90`, `backup_dir`, `backup_time` — fields the UI hides behind `manage_maintenance` | **Fixed** — `SETTING_FIELD_PERMISSION` in `routes/settings.py`, pinned by `test_privileges.py` |
+| **S2** | High | both | `manage_users_roles` is full Admin in one click: a holder promotes themselves to the system Admin role (or resets the Admin's password) | **Fixed** — `_beyond_actor` in `routes/admin.py` on all seven routes, pinned by `test_privileges.py` |
 | **B4** | Medium | both | The concurrent-edit guard can be defeated by clicking Save twice (JO visit/boarding/inpatient, IQ inpatient) | Verified live (JO), by code (IQ) |
 | **B5** | Medium | both | POS sells a deactivated inventory item with **no stock check** | Verified live |
 | **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | **Fixed** — phase 1 (`money.parse`), pinned by `test_money_routes.py::test_b6_*` |
@@ -519,7 +519,7 @@ Localization reaches inline `<script>` blocks in templates only
 
 # 3. Security and permissions
 
-## S1 — `manage_settings` can write the maintenance-only settings — **Verified live**
+## S1 — `manage_settings` can write the maintenance-only settings — **Fixed**
 
 **Severity: High · both apps**
 
@@ -542,7 +542,19 @@ template only — for four fields.
 **Fix.** In `settings_page()`, only accept those four keys when the user holds
 `manage_maintenance`; add them to the S1 guard tests with a control.
 
-## S2 — `manage_users_roles` is a one-click route to full Admin — **Verified live**
+**Fixed (merge).** `routes/settings.py` keeps one table,
+`SETTING_FIELD_PERMISSION`, of the permission each field needs. The POST
+refuses the whole submission ("Nothing was saved: …") if it carries a field
+the user cannot change, before anything is validated or stored. The template
+draws the Backups section via `setting_editable()`, which reads the same table,
+so what is drawn and what is accepted cannot drift apart again.
+`tests/test_privileges.py` posts each of the four fields as a
+`manage_settings`-only role (all four refused), with controls: the same role
+saves a field it holds, and the Admin sees the fields. Mutation-checked: with
+the refusal disabled all four guard tests fail, and with the template gate
+reverted the drawing test fails.
+
+## S2 — `manage_users_roles` is a one-click route to full Admin — **Fixed**
 
 **Severity: High · both apps**
 
@@ -561,6 +573,20 @@ while the UI presents it as one permission among many.
 **Fix.** Only a system-role user may assign the system role, reset a system
 user's password, or grant permissions they do not themselves hold. At minimum,
 say on the checkbox that it is equivalent to Admin.
+
+**Fixed (merge).** One rule, `_beyond_actor()` in `routes/admin.py`: someone
+not in the system role may only act within the permissions they hold, read
+from the database rather than the session. It applies to creating a user (the
+role given), enabling or disabling a user, changing a user's role (both the
+new role and the one being left, so an Admin cannot be demoted either),
+creating or editing a role (the permissions given and, for an edit, the ones
+the role already has), deleting a role (the role and the one its staff move
+to) and resetting a password (the target's role). `tests/test_privileges.py`
+covers each route with a guard and a control. Mutation-checked seven ways (the
+rule switched off, then each of the six route-specific checks removed); each
+mutation fails exactly the tests for its route. The guard tests for disabling
+or demoting an Admin keep a second active Admin present, so the "last active
+Admin" rule cannot be what refuses them.
 
 ## S3 — Restore runs with the app still serving — **Confirmed by code**
 

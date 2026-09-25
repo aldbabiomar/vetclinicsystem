@@ -6,7 +6,7 @@ app.py -- app.py registers this blueprint, so importing from it here would be
 circular.
 
 Endpoint names carry the `admin.` prefix Flask gives every blueprint route:
-`url_for("admin.admin_users")`, not `url_for("admin.admin_users")`.
+`url_for("admin.admin_users")`, not `url_for("admin_users")`.
 """
 
 from datetime import date
@@ -33,6 +33,44 @@ def _active_admin_count(db):
         "SELECT COUNT(*) c FROM users u JOIN roles r ON r.id = u.role_id "
         "WHERE u.active=true AND r.is_system=true"
     ).fetchone()["c"]
+
+
+# ---------------------------------------------------------------------------
+# Nobody hands out more than they hold (audit S2)
+#
+# manage_users_roles used to be a one-click route to full Admin: its holder
+# could move themselves into the system role, reset the Admin's password and
+# sign in as them, or create a role with every permission. The rule, applied
+# on every route below that grants or reaches access: a user who is not in
+# the system role may only assign, create, edit, reset or disable within the
+# permissions they themselves hold. Read from the database, not the session
+# copy, which can lag a request behind.
+# ---------------------------------------------------------------------------
+def _role_power(db, role_id):
+    """(is_system, {permission ids}) of a role."""
+    row = db.execute("SELECT is_system FROM roles WHERE id=?", (role_id,)).fetchone()
+    perms = {r["permission_id"] for r in db.execute(
+        "SELECT permission_id FROM role_permissions WHERE role_id=?", (role_id,)).fetchall()}
+    return (bool(row["is_system"]) if row else False), perms
+
+
+def _actor_power(db):
+    row = db.execute("SELECT role_id FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    return _role_power(db, row["role_id"]) if row else (False, set())
+
+
+def _beyond_actor(db, is_system, perms):
+    """True when a role (or a user's role) carries power the signed-in user
+    does not hold: the system role, or any permission outside their own."""
+    actor_system, actor_perms = _actor_power(db)
+    if actor_system:
+        return False
+    return is_system or not set(perms) <= actor_perms
+
+
+def _refuse_escalation():
+    flash(_("You can't give or reach access you don't hold yourself — ask an Admin."), "error")
+    return redirect(url_for("admin.admin_users"))
 
 
 def _role_or_404(db, role_id):
@@ -107,6 +145,8 @@ def admin_user_new():
     if not username or not full_name or not role:
         flash(_("Fill in a username, full name, and role."), "error")
         return redirect(url_for("admin.admin_users"))
+    if _beyond_actor(db, *_role_power(db, role_id)):
+        return _refuse_escalation()
     pw_error = auth.password_error(password, username)
     if pw_error:
         flash(pw_error, "error")
@@ -151,6 +191,9 @@ def admin_user_toggle(user_id):
     if row is None:
         flash(_("User not found."), "error")
         return redirect(url_for("admin.admin_users"))
+    target_role = db.execute("SELECT role_id FROM users WHERE id=?", (user_id,)).fetchone()["role_id"]
+    if _beyond_actor(db, *_role_power(db, target_role)):
+        return _refuse_escalation()
     new_val = not row["active"]
     if new_val is False and row["is_system"] and _active_admin_count(db) <= 1:
         flash(_("Can't disable the last active Admin."), "error")
@@ -183,6 +226,8 @@ def admin_user_role(user_id):
     if row is None:
         flash(_("User not found."), "error")
         return redirect(url_for("admin.admin_users"))
+    if _beyond_actor(db, *_role_power(db, new_role_id)) or _beyond_actor(db, *_role_power(db, row["role_id"])):
+        return _refuse_escalation()
     if row["is_system"] and not new_role["is_system"] and _active_admin_count(db) <= 1:
         flash(_("Can't move the last active Admin out of the Admin role."), "error")
         return redirect(url_for("admin.admin_users"))
@@ -225,6 +270,8 @@ def admin_role_new():
         return redirect(url_for("admin.admin_users"))
 
     perms = [p for p in f.getlist("permissions") if p in auth.PERMISSION_KEY_SET]
+    if _beyond_actor(db, False, perms):
+        return _refuse_escalation()
     is_vet_role = bool(f.get("is_vet_role"))
     role_id = db.execute(
         "INSERT INTO roles (name,description,is_system,discount_cap,is_vet_role,created_at) "
@@ -271,6 +318,8 @@ def admin_role_edit(role_id):
         return redirect(url_for("admin.admin_users"))
 
     perms = set(p for p in f.getlist("permissions") if p in auth.PERMISSION_KEY_SET)
+    if _beyond_actor(db, False, perms) or _beyond_actor(db, *_role_power(db, role_id)):
+        return _refuse_escalation()
     is_vet_role = bool(f.get("is_vet_role"))
     before = {
         "name": role["name"], "description": role["description"], "discount_cap": role["discount_cap"],
@@ -319,13 +368,20 @@ def admin_role_delete(role_id):
     if role["is_system"]:
         flash(_("The Admin role can't be deleted."), "error")
         return redirect(url_for("admin.admin_users"))
+    if _beyond_actor(db, *_role_power(db, role_id)):
+        return _refuse_escalation()
     assigned = db.execute("SELECT id FROM users WHERE role_id=?", (role_id,)).fetchall()
-    reassign_to = request.form.get("reassign_to") or None
+    reassign_to = parse_id(request.form.get("reassign_to"))
     if assigned:
-        target = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?", (reassign_to,)).fetchone()
+        target = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?",
+                            (reassign_to,)).fetchone() if reassign_to else None
         if not target or target["id"] == role_id:
             flash(_("Pick a role to move the affected staff to before deleting this one."), "error")
             return redirect(url_for("admin.admin_users"))
+        # Deleting your own role and landing in a bigger one is the same
+        # escalation by a longer road.
+        if _beyond_actor(db, *_role_power(db, target["id"])):
+            return _refuse_escalation()
         for u in assigned:
             db.execute("UPDATE users SET role_id=? WHERE id=?", (target["id"], u["id"]))
         db.execute("DELETE FROM roles WHERE id=?", (role_id,))
@@ -361,8 +417,14 @@ def admin_role_delete(role_id):
 def admin_user_reset_password(user_id):
     db = get_db()
     new_pw = request.form.get("new_password", "")
-    target = db.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
-    pw_error = auth.password_error(new_pw, target["username"] if target else None)
+    target = db.execute("SELECT username, role_id FROM users WHERE id=?", (user_id,)).fetchone()
+    if target is None:
+        flash(_("User not found."), "error")
+        return redirect(url_for("admin.admin_users"))
+    # Resetting someone's password is signing in as them.
+    if _beyond_actor(db, *_role_power(db, target["role_id"])):
+        return _refuse_escalation()
+    pw_error = auth.password_error(new_pw, target["username"])
     if pw_error:
         flash(pw_error, "error")
         return redirect(url_for("admin.admin_users"))

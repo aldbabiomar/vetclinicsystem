@@ -14,7 +14,7 @@ from core.py rather than app.py -- app.py registers this blueprint, so
 importing from it here would be circular.
 
 Endpoint names carry the `settings.` prefix Flask gives every blueprint route:
-`url_for("settings.settings_page")`, not `url_for("settings.settings_page")`.
+`url_for("settings.settings_page")`, not `url_for("settings_page")`.
 """
 import os
 from datetime import datetime
@@ -160,11 +160,38 @@ def api_browse_folder_new():
 # ---------------------------------------------------------------------------
 # Settings (Admin only)
 # ---------------------------------------------------------------------------
+# Which permission each field of the Settings form needs. The POST refuses a
+# field the user cannot change and the template draws only the fields it can
+# (setting_editable), from this one table — audit S1 was four maintenance
+# fields hidden by the template and still saved by the POST. A field not
+# listed here needs manage_settings, the route's own gate.
+SETTING_FIELD_PERMISSION = {
+    "backup_dir": "manage_maintenance",
+    "backup_time": "manage_maintenance",
+    "backup_retention": "manage_maintenance",
+    "log_retention_days": "manage_maintenance",
+}
+
+
+@bp.app_template_global("setting_editable")
+def setting_editable(key):
+    """For the template: may the signed-in user change this field?"""
+    return auth.has_permission(SETTING_FIELD_PERMISSION.get(key, "manage_settings"))
+
+
 @bp.route("/settings", methods=["GET", "POST"])
 @auth.permission_required("manage_settings")
 def settings_page():
     db = get_db()
     if request.method == "POST":
+        # One definition of who may change what (audit S1): refused here, on
+        # the server, before anything is validated or saved — hiding a field
+        # in the template is not a permission.
+        denied = [k for k, perm in SETTING_FIELD_PERMISSION.items()
+                  if k in request.form and not auth.has_permission(perm)]
+        if denied:
+            flash(_("Nothing was saved: your role can't change the backup and log-retention settings."), "error")
+            return redirect(url_for("settings.settings_page"))
         # (field, min, max) — keeps schedule generation and alert windows sane.
         # Settings whose VALUE must never be written to the audit log. The
         # fact that they changed is the auditable part.

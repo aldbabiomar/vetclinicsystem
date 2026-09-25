@@ -75,7 +75,7 @@
     <div class="field"><label for="settings-8-appt_slot_minutes">{{ _('Slot Length (Minutes)') }}</label><input id="settings-8-appt_slot_minutes" type="number" name="appt_slot_minutes" value="{{ settings.appt_slot_minutes }}" min="5" max="240" step="1"></div>
   </div>
 
-  {% if has_permission("manage_maintenance") %}
+  {% if setting_editable("backup_dir") %}
   <div class="section-title">{{ _('Backups') }}</div>
   <div class="form-grid">
     <div class="field full"><label for="backupDirInput">{{ _('Backup Folder (on this computer)') }}</label>

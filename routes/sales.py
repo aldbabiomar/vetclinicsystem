@@ -6,7 +6,7 @@ app.py -- app.py registers this blueprint, so importing from it here would be
 circular.
 
 Endpoint names carry the `sales.` prefix Flask gives every blueprint route:
-`url_for("sales.api_sale_refundable_items")`, not `url_for("sales.api_sale_refundable_items")`.
+`url_for("sales.api_sale_refundable_items")`, not `url_for("api_sale_refundable_items")`.
 """
 
 from datetime import date
