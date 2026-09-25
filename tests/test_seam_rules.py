@@ -266,7 +266,7 @@ def test_date_arguments_use_or_rather_than_a_get_default():
 def _money_modules():
     """Every module that can do bill arithmetic — a live walk, not a list."""
     mods = _route_modules()
-    for extra in ("logic.py", "pdf_export.py", "core.py", "money.py"):
+    for extra in ("logic.py", "pdf_export.py", "core.py", "money.py", "reports.py"):
         p = ROOT / extra
         if p.exists():
             mods.append(p)
@@ -381,11 +381,11 @@ def test_rule7_a_route_writing_a_discount_from_a_request_checks_its_source():
 # A new report that re-derives `lines x (1 - d)` is exactly how JO's P&L gap
 # would come back (features/REWARDS_CARD_PLAN.md §2.1).
 DISCOUNT_ARITHMETIC_ALLOWED = {
-    "discounted_raw_total",       # the one shared formula
+    "discounted_raw_total",       # the one shared formula (logic), which calls…
+    "discounted",                 # …money.discounted(), where it actually lives
     "compute_bill_totals",        # calls it
     "refundable_sale_items",      # per line, against the line's own snapshot
-    "_revenue_and_cogs_by_month",  # weights a stored total by discounted share
-    "revenue_by_category",        # ditto, in SQL
+    "_lines_sql",                 # reports.py: weights a STORED total by discounted share
     "payable_total",              # rounding, not discounting
     "member_discount_rate",       # reads the setting
 }
@@ -406,7 +406,10 @@ def _without_comments(src):
     return "\n".join(out)
 
 
-DIVIDES_BY_100 = re.compile(r"/\s*100(?:\.0)?\b|Decimal\(100\)")
+# `/ HUNDRED` too: money.py names the constant, and a pattern that only knew
+# the literal missed the ONE shared formula (money.discounted) from phase 1
+# until phase 3, when the floor below reported the scan had lost a site.
+DIVIDES_BY_100 = re.compile(r"/\s*100(?:\.0)?\b|Decimal\(100\)|/\s*HUNDRED\b")
 
 
 def test_rule8_discount_arithmetic_only_happens_where_it_is_allowed():

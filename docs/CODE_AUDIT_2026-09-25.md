@@ -54,8 +54,8 @@ Prior audits were read first so closed findings are not re-reported
 | ID | Severity | Apps | Finding | Status |
 |---|---|---|---|---|
 | **B1** | High | both | Date filters accept ISO-week / basic dates that Postgres rejects → **HTTP 500** on 4 IQ pages and 2 JO pages; silent empty results on 3 more | Verified live |
-| **B2** | High | both | A Clean Up or boarding discount taken with a payment never refreshes the month's P&L summary | Verified live |
-| **B3** | High | JO | JO's P&L and Insights ignore boarding discounts (incl. the rewards card) and Clean Ups; `billed_total` is written and never read | Verified live |
+| **B2** | High | both | A Clean Up or boarding discount taken with a payment never refreshes the month's P&L summary | **Fixed** — phase 3 (P&L computed on read, `reports.py`); `tests/test_reports_live.py` |
+| **B3** | High | JO | JO's P&L and Insights ignore boarding discounts (incl. the rewards card) and Clean Ups; `billed_total` is written and never read | **Fixed** — phase 3 (stored totals apportioned, one query for P&L and Insights); `tests/test_reports_live.py` |
 | **S1** | High | both | A `manage_settings`-only role can set `backup_retention=1`, `log_retention_days=90`, `backup_dir`, `backup_time` — fields the UI hides behind `manage_maintenance` | Verified live |
 | **S2** | High | both | `manage_users_roles` is full Admin in one click: a holder promotes themselves to the system Admin role (or resets the Admin's password) | Verified live |
 | **B4** | Medium | both | The concurrent-edit guard can be defeated by clicking Save twice (JO visit/boarding/inpatient, IQ inpatient) | Verified live (JO), by code (IQ) |
@@ -63,7 +63,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | **Fixed** — phase 1 (`money.parse`), pinned by `test_money_routes.py::test_b6_*` |
 | **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | **Fixed** — phase 1 (`money.audit_status`), pinned by `test_money_routes.py::test_b7_*` |
 | **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | Confirmed by code |
-| **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | Confirmed by code |
+| **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Partly fixed** — phase 3: the P&L's restock reversal uses the sale line's cost. The consignment restock credit is still open |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
@@ -71,14 +71,14 @@ Prior audits were read first so closed findings are not re-reported
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | Verified live |
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | Verified (logs) |
 | **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
-| **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | Inferred |
+| **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | **Fixed** — phase 3: no summary table, no Rebuild |
 | **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | Confirmed by code |
 | **B16** | Low | both | Refund and payment dates are free-form: a refund can be booked before its sale or in a future month | Confirmed by code |
 | **B17** | Low | JO | A failed appointment booking re-renders the grid for *today*, not the day being booked | Verified live |
 | **B18** | Low | both | Audit-derived usage ignores stock recorded through Consignment Receiving | Confirmed by code |
 | **B19** | Low | both | Wellness "due" never expires; the two apps sort it in opposite orders | Confirmed by code |
 | **S4** | Low | JO | Dev mode runs the Werkzeug debugger on `0.0.0.0` | Confirmed by code |
-| **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | Confirmed by code |
+| **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | **Fixed** — phase 3: the route was the Rebuild button's, and it is gone |
 | **P1–P20** | — | — | Parity gaps, non-money | see §4 |
 | **D1–D12** | — | — | Design that could be simplified | see §5 |
 | **M1–M10** | — | — | Found while merging, after this audit | see §10 |

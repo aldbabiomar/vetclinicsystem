@@ -249,13 +249,6 @@ def price_list_edit(item_id):
     changes = auth.diff_dict(old, new_vals)
     db.execute("UPDATE price_list SET name=?, category=?, cost_price=?, sale_price=?, notes=?, linked_item_id=?, can_discount=? WHERE id=?",
               (*new_vals.values(), item_id))
-    if "cost_price" in changes or "sale_price" in changes:
-        # Billing/inpatient revenue and COGS are computed against the
-        # *current* Price List value, not one frozen at transaction time —
-        # so a cost/sale price edit can retroactively change any past
-        # month that ever billed this code. Full rebuild is the only way
-        # to know which months without re-scanning anyway.
-        logic.recompute_full_summary(db)
     auth.log_change(db, "price_list", item_id, "update", changes)
     db.commit()
     flash(_("Price updated."), "success")
@@ -269,21 +262,15 @@ def price_list_edit(item_id):
 def price_list_bulk_edit():
     """
     Saves many Price List row edits in a single request instead of one
-    request per row. This matters a lot at scale: each row edit that
-    touches cost_price/sale_price triggers a full recompute of the
-    materialized financial summary (since billing/inpatient revenue and
-    COGS are looked up against the *current* Price List value — see
-    logic._revenue_and_cogs_by_month) — that full recompute is cheap once,
-    but doing it 50 separate times back-to-back for a 50-row bulk edit is
-    what actually caused the lag. Batching means it runs at most once
-    total, in one DB transaction, with one response instead of 50 full
-    page redirects being fetched and thrown away by the browser.
+    request per row: one DB transaction and one response, instead of 50
+    full page redirects fetched and thrown away by the browser. (A price
+    edit no longer touches any report: bills keep the prices snapshotted
+    when they were billed, and the P&L is computed from those on read.)
     """
     db = get_db()
     payload = request.get_json(silent=True) or {}
     items = payload.get("items") or []
     saved, errors = [], {}
-    any_price_changed = False
     claimed_in_batch = {}
     for item in items:
         key = str(item.get("id", ""))   # the row's own id, echoed back in errors
@@ -338,12 +325,8 @@ def price_list_bulk_edit():
             "UPDATE price_list SET name=?, category=?, cost_price=?, sale_price=?, notes=?, linked_item_id=?, can_discount=? WHERE id=?",
             (*new_vals.values(), item_id),
         )
-        if "cost_price" in changes or "sale_price" in changes:
-            any_price_changed = True
         auth.log_change(db, "price_list", item_id, "update", changes)
         saved.append(key)
-    if any_price_changed:
-        logic.recompute_full_summary(db)
     db.commit()
     return jsonify({"ok": len(errors) == 0, "saved": saved, "errors": errors})
 
@@ -491,11 +474,6 @@ def inventory_catalog_edit(item_id):
         "UPDATE inventory_list SET name=?, category=?, unit=?, track_expiry=?, cost_price=?, distributor_id=?, notes=?, active=? WHERE id=?",
         (*new_vals.values(), item_id),
     )
-    if "cost_price" in changes:
-        # Retail COGS is computed against the *current* inventory cost_price,
-        # not a value frozen at sale time — so this can retroactively change
-        # COGS for any past month that ever sold or refunded this item.
-        logic.recompute_full_summary(db)
     auth.log_change(db, "inventory_list", item_id, "update", changes)
     db.commit()
     flash(_("Inventory item updated."), "success")
@@ -512,7 +490,6 @@ def inventory_catalog_bulk_edit():
     payload = request.get_json(silent=True) or {}
     items = payload.get("items") or []
     saved, errors = [], {}
-    any_cost_changed = False
     for item in items:
         key = str(item.get("id", ""))   # the row's own id, echoed back in errors
         item_id = parse_id(key)
@@ -560,12 +537,8 @@ def inventory_catalog_bulk_edit():
             "UPDATE inventory_list SET name=?, category=?, unit=?, track_expiry=?, cost_price=?, distributor_id=?, notes=?, active=? WHERE id=?",
             (*new_vals.values(), item_id),
         )
-        if "cost_price" in changes:
-            any_cost_changed = True
         auth.log_change(db, "inventory_list", item_id, "update", changes)
         saved.append(key)
-    if any_cost_changed:
-        logic.recompute_full_summary(db)
     db.commit()
     return jsonify({"ok": len(errors) == 0, "saved": saved, "errors": errors})
 

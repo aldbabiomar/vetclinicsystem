@@ -804,4 +804,19 @@ result under each money setting.
   shown empty) — see the audit.
   **Suite:** IQ **1142 passed, 4 skipped**; JO **1142 passed, 4 skipped**; no
   database 498 passed.
+- **2026-09-25 — Phase 3 (first part): the P&L is computed on read (D-3).**
+  `reports.py` holds one query that yields every revenue and cost line with
+  its month and category, apportioned from the STORED totals — a visit's
+  `billing.total`, a sale's `sales.total`, an inpatient case's `total` (spread
+  over its procedures' months), a stay's `billed_total` — minus refunds; costs
+  from the lines' own snapshots, and a restock reverses the SALE LINE's cost.
+  The Monthly and Yearly P&L and Insights' revenue by category all sum those
+  lines, so they agree to the fils. `monthly_financial_summary`, its 16
+  recompute calls, the Rebuild button and its route are gone — closing B2,
+  B3, B14 and S5 (the unvalidated `return_to` lived on that route) and the
+  P&L half of B9. Seam rule 8 had a blind spot since phase 1 (it knew `/ 100`
+  but not money.py's `/ HUNDRED`, so it had never seen the shared formula);
+  its floor reported it the moment the old report functions went.
+  **Suite:** IQ **1151 passed, 4 skipped**; JO **1151 passed, 4 skipped**; no
+  database 498 passed.
 

@@ -13,6 +13,7 @@ from collections import defaultdict
 
 import auth as authmod
 import money
+import reports
 import clock
 
 MISSED_WINDOW_DAYS = 14   # 2 weeks — used for follow-ups, wellness, and Lost to Follow Up
@@ -1342,214 +1343,6 @@ def opex_reminder_due(db):
 # ---------------------------------------------------------------------------
 # Monthly / Yearly P&L (admin-only; enforced at the route level)
 # ---------------------------------------------------------------------------
-def _revenue_and_cogs_by_month(db, month=None):
-    """
-    Computes revenue and COGS from every transactional source (billing,
-    retail sales, inpatient billing, boarding, refunds).
-
-    With month=None (the original behavior, still used for full rebuilds),
-    it scans every row ever recorded and returns one dict entry per month
-    found. With month='YYYY-MM', every underlying query is scoped down to
-    just that month at the SQL level, so the exact same per-row math runs
-    but only over that month's rows — the returned dicts then have at most
-    one key. This is what makes fast, targeted per-month recomputation
-    possible: same formulas, just filtered, so results are guaranteed
-    consistent with a full scan.
-    """
-    # Decimal, not float — every value accumulated into these below is now
-    # Decimal (billing.total, sales.total, unit_cost/unit_price/quantity,
-    # ...), and a defaultdict(float) seed of 0.0 would raise TypeError the
-    # first time += touches a key that doesn't exist yet.
-    revenue_by_month = defaultdict(Decimal)
-    cost_by_item = {r["id"]: r["cost_price"] or 0 for r in db.execute("SELECT id, cost_price FROM inventory_list").fetchall()}
-    cogs_by_month = defaultdict(Decimal)
-    # A month is a range: [first, next) as dates for DATE columns, and as
-    # clinic-zone instants for timestamptz ones.
-    d_from, d_to = month_dates(month) if month else (None, None)
-    t_from, t_to = month_bounds(month) if month else (None, None)
-
-    # Automatic visit billing: cost basis comes from the snapshot taken at
-    # Save time (visit_billing_lines) — this is what stops editing today's
-    # prices from retroactively changing a past month's COGS. Revenue reads
-    # the stored billing.total (kept in sync by
-    # logic.refresh_visit_billing_total()) instead of re-deriving it, so
-    # reports always agree with what the bill actually shows.
-    billing_where = " WHERE date_billed >= ? AND date_billed < ?" if month else ""
-    billing_params = [d_from, d_to] if month else []
-    for r in db.execute(
-        "SELECT visit_id, billing_type, date_billed, total FROM billing" + billing_where,
-        billing_params,
-    ).fetchall():
-        if not r["date_billed"]:
-            continue
-        mth = month_key(r["date_billed"])
-        if r["billing_type"] != "Manual":
-            for l in db.execute(
-                "SELECT quantity, unit_cost FROM visit_billing_lines WHERE visit_id=?", (r["visit_id"],)
-            ).fetchall():
-                cogs_by_month[mth] += (l["unit_cost"] or 0) * l["quantity"]
-        revenue_by_month[mth] += r["total"] or 0
-
-    sales_where = " WHERE sold_at >= ? AND sold_at < ?" if month else ""
-    sales_params = [t_from, t_to] if month else []
-    for r in db.execute("SELECT sold_at, total FROM sales" + sales_where, sales_params).fetchall():
-        mth = month_key(r["sold_at"])
-        revenue_by_month[mth] += r["total"] or 0
-
-    # Inpatient billing (procedures checked off during a stay). Each line has
-    # its own timestamp, so revenue is attributed to the month each
-    # procedure was actually logged, with the case's overall discount
-    # applied proportionally to every line. Prefers the unit_price/unit_cost
-    # snapshotted when the line was added; a NULL snapshot (added before
-    # these columns existed, or the price_list item had no sale_price/
-    # cost_price set at billing time) falls back to the live Price List join.
-    case_discounts = {r["id"]: r["discount_percent"] or 0 for r in db.execute(
-        "SELECT id, discount_percent FROM inpatient_cases").fetchall()}
-    ib_where = " WHERE ib.timestamp >= ? AND ib.timestamp < ?" if month else ""
-    ib_params = [t_from, t_to] if month else []
-    for r in db.execute(
-        "SELECT ib.case_id, ib.price_id, ib.quantity, ib.timestamp, ib.unit_price, ib.unit_cost, ib.discountable, "
-        "p.sale_price, p.cost_price FROM inpatient_billing ib "
-        "JOIN price_list p ON p.id = ib.price_id" + ib_where, ib_params
-    ).fetchall():
-        mth = month_key(r["timestamp"])
-        unit_price = r["unit_price"] if r["unit_price"] is not None else (r["sale_price"] or 0)
-        unit_cost = r["unit_cost"] if r["unit_cost"] is not None else (r["cost_price"] or 0)
-        # Against the LINE's own eligibility, not the case's discount alone.
-        # JO re-derives revenue here (IQ apportions a stored total), so
-        # without this the P&L UNDERSTATES revenue on every member bill
-        # carrying a non-discountable procedure — a wrong total, not merely a
-        # wrong split between months. features/REWARDS_CARD_PLAN.md §2.1.
-        discount = case_discounts.get(r["case_id"], 0) if r["discountable"] else 0
-        revenue_by_month[mth] += (unit_price * r["quantity"]) * (1 - discount / Decimal(100))
-        cogs_by_month[mth] += unit_cost * r["quantity"]
-
-    # Boarding revenue is attributed to the month the stay started (entry_date).
-    # No COGS — boarding is a service, same treatment as a Service price_list item.
-    boarding_where = " AND entry_date >= ? AND entry_date < ?" if month else ""
-    boarding_params = [d_from, d_to] if month else []
-    for r in db.execute(
-        "SELECT entry_date, total FROM boarding_sessions WHERE total IS NOT NULL" + boarding_where, boarding_params
-    ).fetchall():
-        revenue_by_month[month_key(r["entry_date"])] += r["total"]
-
-    # Retail COGS: cost basis comes from the snapshot taken at sale time
-    # (sale_items.unit_cost) — falls back to the live Inventory Catalog
-    # join only for a sale that predates this column.
-    si_where = " WHERE s.sold_at >= ? AND s.sold_at < ?" if month else ""
-    si_params = [t_from, t_to] if month else []
-    for r in db.execute(
-        "SELECT si.item_id, si.quantity, si.unit_cost, s.sold_at FROM sale_items si "
-        "JOIN sales s ON s.id=si.sale_id" + si_where, si_params
-    ).fetchall():
-        unit_cost = r["unit_cost"] if r["unit_cost"] is not None else cost_by_item.get(r["item_id"], 0)
-        cogs_by_month[month_key(r["sold_at"])] += r["quantity"] * unit_cost
-
-    # Refunds reduce revenue in the month the refund itself was processed
-    # (not the original sale/visit's month) — standard accounting practice,
-    # and it means closed prior months never silently change. A restocked
-    # retail refund also reverses the COGS that was booked on the original
-    # sale, since the item's cost basis is back in inventory, not spent.
-    refunds_where = " WHERE refund_date >= ? AND refund_date < ?" if month else ""
-    refunds_params = [d_from, d_to] if month else []
-    for r in db.execute(
-        "SELECT id, refund_type, refund_date, amount, restocked FROM refunds" + refunds_where, refunds_params
-    ).fetchall():
-        mth = month_key(r["refund_date"])
-        revenue_by_month[mth] -= r["amount"]
-        if r["refund_type"] == "retail" and r["restocked"]:
-            for it in db.execute("SELECT item_id, quantity FROM refund_items WHERE refund_id=?", (r["id"],)).fetchall():
-                cogs_by_month[mth] -= it["quantity"] * cost_by_item.get(it["item_id"], 0)
-
-    return revenue_by_month, cogs_by_month
-
-
-def recompute_month_summary(db, month):
-    """
-    Recomputes and upserts the monthly_financial_summary row for a single
-    'YYYY-MM' month from current source data. Called right after any write
-    that affects that month's revenue/COGS (new sale, new billing, a refund,
-    an edited boarding total, etc.) so the summary table never drifts from
-    the transactional tables. Does not commit — call sites include this in
-    the same transaction/commit as the write that triggered it, so the
-    summary and the underlying data change atomically together.
-    """
-    if not month:
-        return
-    revenue_by_month, cogs_by_month = _revenue_and_cogs_by_month(db, month=month)
-    revenue = money.to_store(revenue_by_month.get(month, 0))
-    cogs = money.to_store(cogs_by_month.get(month, 0))
-    now_str = clock.now().isoformat(timespec="seconds")
-    db.execute(
-        "INSERT INTO monthly_financial_summary (month, revenue, cogs, updated_at) VALUES (?,?,?,?) "
-        "ON CONFLICT (month) DO UPDATE SET revenue=EXCLUDED.revenue, cogs=EXCLUDED.cogs, updated_at=EXCLUDED.updated_at",
-        (month, revenue, cogs, now_str),
-    )
-
-
-def recompute_months_summary(db, months):
-    """Convenience wrapper: recompute several months (deduplicated) in one go."""
-    for month in sorted(set(m for m in months if m)):
-        recompute_month_summary(db, month)
-
-
-def recompute_full_summary(db):
-    """
-    Full rebuild of monthly_financial_summary from scratch, across every
-    month that has ever had financial activity. This is the same full scan
-    the reports used to do on every single page load — but with the summary
-    table in place, it now only needs to run in the rare cases where a
-    shared cost/price value changes (which can retroactively affect COGS or
-    revenue for many past months at once, since billing/inpatient revenue
-    and COGS are both looked up against *current* Price List / Inventory
-    Catalog values, not a value frozen at transaction time — see
-    _revenue_and_cogs_by_month), plus as a manual admin "Rebuild" action and
-    a one-time backfill for historical data. Does not commit.
-    """
-    revenue_by_month, cogs_by_month = _revenue_and_cogs_by_month(db)
-    months = set(revenue_by_month) | set(cogs_by_month)
-    now_str = clock.now().isoformat(timespec="seconds")
-    db.execute("DELETE FROM monthly_financial_summary")
-    for month in months:
-        revenue = money.to_store(revenue_by_month.get(month, 0))
-        cogs = money.to_store(cogs_by_month.get(month, 0))
-        db.execute(
-            "INSERT INTO monthly_financial_summary (month, revenue, cogs, updated_at) VALUES (?,?,?,?)",
-            (month, revenue, cogs, now_str),
-        )
-
-
-def months_touched_by_inpatient_case(db, case_id):
-    """Distinct 'YYYY-MM' months a given inpatient case has logged billing
-    lines in — used to recompute every month a case's discount change could
-    have affected, since a long stay can span more than one month."""
-    rows = db.execute(
-        "SELECT DISTINCT to_char(timestamp, 'YYYY-MM') as m FROM inpatient_billing WHERE case_id=?", (case_id,)
-    ).fetchall()
-    return [r["m"] for r in rows if r["m"]]
-
-
-def _ensure_summary_populated(db):
-    """
-    Self-healing: if monthly_financial_summary has never been populated
-    (fresh deploy of this feature against an existing database, or a manual
-    data import that bypassed the normal app routes), do one full rebuild so
-    the reports never silently show zeros. Only runs when the table is
-    genuinely empty, so it costs nothing on every normal page load.
-    """
-    has_any = db.execute("SELECT EXISTS(SELECT 1 FROM monthly_financial_summary) as e").fetchone()["e"]
-    if has_any:
-        return
-    any_data = db.execute(
-        "SELECT (EXISTS(SELECT 1 FROM billing) OR EXISTS(SELECT 1 FROM sales) OR "
-        "EXISTS(SELECT 1 FROM inpatient_billing) OR EXISTS(SELECT 1 FROM boarding_sessions WHERE total IS NOT NULL) OR "
-        "EXISTS(SELECT 1 FROM refunds)) as has_data"
-    ).fetchone()["has_data"]
-    if any_data:
-        recompute_full_summary(db)
-        db.commit()
-
-
 def monthly_pl(db, months_back=12):
     today = clock.today()
     months = []
@@ -1562,17 +1355,15 @@ def monthly_pl(db, months_back=12):
             yy -= 1
         months.append(f"{yy:04d}-{mm:02d}")
 
-    _ensure_summary_populated(db)
-    summary_rows = {r["month"]: r for r in db.execute(
-        "SELECT month, revenue, cogs FROM monthly_financial_summary").fetchall()}
+    # Computed on read from the stored bill totals (reports.py); there is no
+    # summary table to go stale (plan D-3, audit B2/B14).
+    summary_rows = reports.by_month(db, since_month=months[0])
     opex_rows = {r["month"]: dict(r) for r in db.execute("SELECT * FROM monthly_opex").fetchall()}
 
     out = []
     prior_net = None
     for month in months:
-        row = summary_rows.get(month)
-        revenue = money.to_store(row["revenue"]) if row else 0
-        cogs = money.to_store(row["cogs"]) if row else 0
+        revenue, cogs = summary_rows.get(month, (0, 0))
         gross_profit = money.to_store(revenue - cogs)
         opex = opex_rows.get(month, {"rent": 0, "salaries": 0, "utilities": 0, "marketing": 0, "other": 0})
         total_opex = money.to_store(sum(opex.get(k, 0) or 0 for k in ("rent", "salaries", "utilities", "marketing", "other")))
@@ -1596,16 +1387,13 @@ def monthly_pl(db, months_back=12):
 def yearly_pl(db):
     """
     Every year that has ever had revenue/COGS or opex activity, oldest
-    first. Reads straight from the materialized monthly summary + opex
-    tables (each one row per month regardless of transaction volume), so
-    this is cheap however many years of history exist — no fixed window.
+    first, from the same per-month figures as the Monthly P&L (reports.py).
     """
-    _ensure_summary_populated(db)
     by_year = defaultdict(lambda: {"revenue": 0, "cogs": 0, "total_opex": 0})
-    for r in db.execute("SELECT month, revenue, cogs FROM monthly_financial_summary").fetchall():
-        y = r["month"][:4]
-        by_year[y]["revenue"] += r["revenue"] or 0
-        by_year[y]["cogs"] += r["cogs"] or 0
+    for month, (revenue, cogs) in reports.by_month(db).items():
+        y = month[:4]
+        by_year[y]["revenue"] += revenue
+        by_year[y]["cogs"] += cogs
     for r in db.execute("SELECT * FROM monthly_opex").fetchall():
         y = r["month"][:4]
         by_year[y]["total_opex"] += sum((r[k] or 0) for k in ("rent", "salaries", "utilities", "marketing", "other"))
@@ -2571,83 +2359,14 @@ def month_list(months_back):
 
 def revenue_by_category(db, months_back=12):
     """
-    Revenue per month per Price List category (Service/Medicine/Retail),
-    plus a synthetic 'Boarding' category, net of that month's refunds.
-    Mirrors the same revenue formulas as the Monthly P&L (logic.monthly_pl),
-    just split out by category instead of collapsed into one number.
+    Revenue per month per category (Service/Medicine/Retail, plus
+    Boarding), net of that month's refunds. The same lines the Monthly P&L
+    sums (reports.py) — so for any month the categories add up to the P&L's
+    revenue exactly, which is what audit B3 found they did not.
     """
     months = month_list(months_back)
-    cutoff = months[0] + "-01"
-    rows = db.execute(
-        """
-        WITH auto_lines AS (
-          SELECT to_char(b.date_billed, 'YYYY-MM') AS month, vbl.category AS category,
-                 -- Per line, against that line's own eligibility snapshot.
-                 -- JO RE-DERIVES here where IQ apportions a stored total —
-                 -- a real divergence, fixed in each app's own shape rather
-                 -- than one implementation copied across (CLAUDE.md §1).
-                 vbl.unit_price * vbl.quantity
-                   * (1 - CASE WHEN vbl.discountable THEN COALESCE(b.discount_percent,0) ELSE 0 END/100.0) AS amount
-          FROM billing b
-          JOIN visit_billing_lines vbl ON vbl.visit_id = b.visit_id
-          WHERE b.billing_type = 'Automatic' AND b.date_billed IS NOT NULL
-            AND b.date_billed >= ?
-        ),
-        manual_lines AS (
-          SELECT to_char(b.date_billed, 'YYYY-MM') AS month, 'Service' AS category,
-                 COALESCE(b.manual_amount,0) * (1 - COALESCE(b.discount_percent,0)/100.0) AS amount
-          FROM billing b
-          WHERE b.billing_type='Manual' AND b.date_billed IS NOT NULL AND b.date_billed >= ?
-        ),
-        retail_lines AS (
-          SELECT to_char(s.sold_at, 'YYYY-MM') AS month, 'Retail' AS category,
-                 si.line_total
-                   * (1 - CASE WHEN si.discountable THEN COALESCE(s.discount_percent,0) ELSE 0 END/100.0) AS amount
-          FROM sale_items si JOIN sales s ON s.id = si.sale_id
-          WHERE s.sold_at >= ?
-        ),
-        inpatient_lines AS (
-          SELECT to_char(ib.timestamp, 'YYYY-MM') AS month, pl.category AS category,
-                 COALESCE(ib.unit_price, pl.sale_price) * ib.quantity
-                   * (1 - CASE WHEN ib.discountable THEN COALESCE(ic.discount_percent,0) ELSE 0 END/100.0) AS amount
-          FROM inpatient_billing ib
-          JOIN price_list pl ON pl.id = ib.price_id
-          JOIN inpatient_cases ic ON ic.id = ib.case_id
-          WHERE ib.timestamp >= ?
-        ),
-        boarding_lines AS (
-          SELECT to_char(bs.entry_date, 'YYYY-MM') AS month, 'Boarding' AS category, COALESCE(bs.total,0) AS amount
-          FROM boarding_sessions bs
-          WHERE bs.total IS NOT NULL AND bs.entry_date >= ?
-        ),
-        refund_lines AS (
-          -- A refund nets against the category it actually reverses. Boarding
-          -- revenue has its own column (boarding_lines above), so a boarding
-          -- refund has to land there and not in Service -- otherwise the two
-          -- columns drift in opposite directions and neither is right.
-          -- Boarding refunds only became possible on 2026-09-10; before that
-          -- every service refund was a visit or an inpatient case, which is
-          -- why this CASE had two arms.
-          SELECT to_char(r.refund_date, 'YYYY-MM') AS month,
-                 CASE WHEN r.refund_type='retail' THEN 'Retail'
-                      WHEN r.boarding_id IS NOT NULL THEN 'Boarding'
-                      ELSE 'Service' END AS category,
-                 -r.amount AS amount
-          FROM refunds r
-          WHERE r.refund_date >= ?
-        ),
-        all_rev AS (
-          SELECT * FROM auto_lines UNION ALL SELECT * FROM manual_lines UNION ALL SELECT * FROM retail_lines
-          UNION ALL SELECT * FROM inpatient_lines UNION ALL SELECT * FROM boarding_lines UNION ALL SELECT * FROM refund_lines
-        )
-        SELECT month, category, SUM(amount) AS revenue
-        FROM all_rev
-        GROUP BY month, category
-        """,
-        (cutoff,) * 6,
-    ).fetchall()
-
-    grid = {(r["month"], r["category"]): money.to_store(r["revenue"] or 0) for r in rows}
+    rows = reports.by_month_and_category(db, since_month=months[0])
+    grid = {(m, c): rev for m, cats in rows.items() for c, (rev, _cogs) in cats.items()}
     return {
         "months": months,
         "categories": REVENUE_CATEGORIES,

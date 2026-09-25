@@ -1084,7 +1084,7 @@ def visit_billing_save(visit_id):
         return redisplay()
     if not date_billed:
         # A blank Date Billed used to reach the database as NULL — and
-        # logic._revenue_and_cogs_by_month() silently skips any billing row
+        # reports.py counts a bill in its date_billed month and skips any row
         # with no date_billed, so the revenue never appears in P&L, forever,
         # with nothing flagging it. Falls back to the visit's own date
         # (itself nullable) or today, same as the template's displayed
@@ -1112,7 +1112,6 @@ def visit_billing_save(visit_id):
         if paid_row["s"] > new_total:
             flash(_("That change would leave %(fmt_money)s paid against a %(fmt_money2)s %(currency)s bill. Process a service refund for the difference first.", fmt_money=display_money(paid_row['s']), fmt_money2=display_money(new_total), currency=currency_label()), "error")
             return redisplay()
-    old_month = logic.month_key(existing["date_billed"]) if existing else None
     # UPSERT rather than a SELECT-then-branch INSERT/UPDATE — visit_id is
     # billing's primary key, so two near-simultaneous saves (double-click,
     # a retried request) racing this as a plain branch could both read no
@@ -1147,8 +1146,6 @@ def visit_billing_save(visit_id):
         # snapshot for this visit no longer applies.
         db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
     logic.refresh_visit_billing_total(db, visit_id)
-    new_month = logic.month_key(date_billed)
-    logic.recompute_months_summary(db, [old_month, new_month])
     auth.log_change(db, "billing", visit_id, "update" if existing else "create")
     db.commit()
     if had_bad_number:
@@ -1221,8 +1218,6 @@ def visit_discount_save(visit_id):
         (percent, session["user_id"], visit_id),
     )
     logic.refresh_visit_billing_total(db, visit_id)
-    if existing and existing["date_billed"]:
-        logic.recompute_month_summary(db, logic.month_key(existing["date_billed"]))
     auth.log_change(db, "billing", visit_id, "update", {"discount_percent": (existing["discount_percent"] if existing else 0, percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")
@@ -1288,12 +1283,8 @@ def rewards_remove_discount(surface, bill_id):
     # of the system already understands, not a fourth kind of bill.
     if surface == "visit":
         logic.refresh_visit_billing_total(db, bill_id)
-        b = db.execute("SELECT date_billed FROM billing WHERE visit_id=?", (bill_id,)).fetchone()
-        if b and b["date_billed"]:
-            logic.recompute_month_summary(db, logic.month_key(b["date_billed"]))
     elif surface == "inpatient":
         logic.refresh_inpatient_total(db, bill_id)
-        logic.recompute_months_summary(db, logic.months_touched_by_inpatient_case(db, bill_id))
     else:
         logic.refresh_boarding_total(db, bill_id)
     auth.log_change(db, table, str(bill_id), "update", {
@@ -1655,7 +1646,6 @@ def boarding_new():
     )
     boarding_id = cur.fetchone()["id"]
     logic.refresh_boarding_total(db, boarding_id)
-    logic.recompute_month_summary(db, logic.month_key(entry_date))
     auth.log_change(db, "boarding_sessions", str(boarding_id), "create")
     db.commit()
     flash(_("Boarding session added."), "success")
@@ -1730,9 +1720,6 @@ def boarding_edit(boarding_id):
         (*new_vals.values(), clock.now().isoformat(timespec="seconds"), boarding_id),
     )
     logic.refresh_boarding_total(db, boarding_id)
-    old_month = logic.month_key(old["entry_date"])
-    new_month = logic.month_key(entry_date)
-    logic.recompute_months_summary(db, [old_month, new_month])
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes)
     db.commit()
     flash(_("Boarding session updated."), "success")
@@ -1771,7 +1758,6 @@ def boarding_dismiss(boarding_id):
     # placeholder, per the comment above). Locking in the real final total
     # here without this would leave that month's cached revenue
     # permanently understated.
-    logic.recompute_month_summary(db, logic.month_key(row["entry_date"]))
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update", {"dismissed": (False, True)})
     db.commit()
     flash(_("Marked as picked up."), "success")
@@ -2213,7 +2199,6 @@ def inpatient_billing_add(case_id):
         added += 1
     if added:
         logic.refresh_inpatient_total(db, case_id)
-        logic.recompute_month_summary(db, now[:7])
         auth.log_change(db, "inpatient_billing", str(case_id), "create")
     db.commit()
     if had_bad_number:
@@ -2257,8 +2242,6 @@ def inpatient_billing_delete(case_id, line_id):
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
     db.execute("DELETE FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id))
     logic.refresh_inpatient_total(db, case_id)
-    if row["timestamp"]:
-        logic.recompute_month_summary(db, logic.month_key(row["timestamp"]))
     auth.log_change(db, "inpatient_billing", str(line_id), "delete")
     db.commit()
     flash(_("Line removed."), "success")
@@ -2315,7 +2298,6 @@ def inpatient_discount_save(case_id):
     db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_applied_by=? WHERE id=?",
               (percent, session["user_id"], case_id))
     logic.refresh_inpatient_total(db, case_id)
-    logic.recompute_months_summary(db, logic.months_touched_by_inpatient_case(db, case_id))
     auth.log_change(db, "inpatient_cases", str(case_id), "update", {"discount_percent": (old["discount_percent"], percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")

@@ -1850,40 +1850,6 @@
    "login_log_pkey": "CREATE UNIQUE INDEX login_log_pkey ON public.login_log USING btree (id)"
   }
  },
- "monthly_financial_summary": {
-  "columns": {
-   "cogs": {
-    "default": "0",
-    "identity": null,
-    "null": false,
-    "type": "numeric(15,3)"
-   },
-   "month": {
-    "default": null,
-    "identity": null,
-    "null": false,
-    "type": "text"
-   },
-   "revenue": {
-    "default": "0",
-    "identity": null,
-    "null": false,
-    "type": "numeric(15,3)"
-   },
-   "updated_at": {
-    "default": null,
-    "identity": null,
-    "null": true,
-    "type": "timestamp with time zone"
-   }
-  },
-  "constraints": {
-   "monthly_financial_summary_pkey": "PRIMARY KEY (month)"
-  },
-  "indexes": {
-   "monthly_financial_summary_pkey": "CREATE UNIQUE INDEX monthly_financial_summary_pkey ON public.monthly_financial_summary USING btree (month)"
-  }
- },
  "monthly_opex": {
   "columns": {
    "marketing": {

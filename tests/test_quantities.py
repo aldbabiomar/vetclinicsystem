@@ -59,9 +59,8 @@ def test_no_column_is_a_float():
     assert not floats, f"float columns: {floats} — counts and money are NUMERIC"
 
 
-# monthly_financial_summary is dropped when the P&L is computed live (plan
-# D-3); its two columns are written only by the rebuild, never from a form.
-_EXEMPT_TABLES = {"monthly_financial_summary"}
+# Tables whose numeric columns may skip the rule, each with a reason. None.
+_EXEMPT_TABLES = set()
 
 
 def _nan_guarded(defs, column):

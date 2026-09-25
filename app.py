@@ -1155,7 +1155,7 @@ def dashboard():
     missed = all_missed[missed_offset:missed_offset + PER_PAGE]
     opex_due = logic.opex_reminder_due(db) if auth.has_permission("view_financial_reports") else False
     # A blank Date Billed silently drops that bill from every P&L figure
-    # forever (see logic._revenue_and_cogs_by_month()'s `continue`) — this
+    # forever (reports.py counts a bill in the month of its date_billed) — this
     # is the visible half of the fix in visit_billing_save(), which now
     # defaults date_billed instead of allowing it blank going forward; this
     # catches anything that slipped through before that fix, or via direct
@@ -1253,17 +1253,6 @@ def reports_yearly():
     pl = all_pl[offset:offset + PER_PAGE]
     return render_template("reports_yearly.html", pl=pl,
                             page=page, total_pages=page_count(total), total_count=total)
-
-
-@app.route("/reports/rebuild", methods=["POST"])
-@auth.permission_required("view_financial_reports")
-@requires_money_setting
-def reports_rebuild_summary():
-    db = get_db()
-    logic.recompute_full_summary(db)
-    db.commit()
-    flash(_("Report data rebuilt from current billing, sales, and cost data."), "success")
-    return redirect(request.form.get("return_to") or url_for("reports"))
 
 
 # ---------------------------------------------------------------------------

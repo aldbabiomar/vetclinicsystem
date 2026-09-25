@@ -1097,21 +1097,6 @@ CREATE TABLE monthly_opex (
     CHECK (other >= 0 AND other <> 'NaN')
 );
 
--- Materialized per-month revenue/COGS, kept in sync incrementally by app.py
--- on every write that affects it (new sale, billing, refund, boarding total,
--- inpatient billing/discount, etc.) and fully rebuilt by
--- logic.recompute_full_summary() whenever a shared Price List / Inventory
--- Catalog cost or sale price changes, since those can retroactively affect
--- COGS/revenue for many past months at once. This is what lets Monthly &
--- Yearly P&L load instantly regardless of how many historical
--- billing/sales/refund rows exist, instead of re-scanning all of them on
--- every page view.
-CREATE TABLE monthly_financial_summary (
-    month TEXT PRIMARY KEY,           -- 'YYYY-MM'
-    revenue NUMERIC(15,3) NOT NULL DEFAULT 0,
-    cogs NUMERIC(15,3) NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ
-);
 
 -- ============================================================ APPOINTMENTS
 -- Slot grid is generated dynamically from settings (appt_start_time / appt_end_time /

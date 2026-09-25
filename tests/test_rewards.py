@@ -544,7 +544,8 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
         db.commit()
 
         summary = logic.inpatient_billing_summary(db, case_id)
-        revenue = logic._revenue_and_cogs_by_month(db)[0]
+        import reports
+        revenue = {m: rev for m, (rev, _cogs) in reports.by_month(db).items()}
 
         # This case is the only thing these two fixtures put in either month,
         # but the seeded database may hold more — so measure this case's own

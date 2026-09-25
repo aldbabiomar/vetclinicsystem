@@ -411,7 +411,6 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
             "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
             "VALUES (?,?,?,?,?,?)",
             (iid, -qty, "sale", str(sale_id), now, session["user_id"]))
-    logic.recompute_month_summary(db, now[:7])
     auth.log_change(db, "sales", str(sale_id), "create")
     return sale_id
 
@@ -771,7 +770,6 @@ def refund_retail_save():
                 (iid, qty, "refund", str(refund_id), now, session["user_id"]),
             )
 
-    logic.recompute_month_summary(db, logic.month_key(refund_date))
     auth.log_change(db, "refunds", str(refund_id), "create")
     db.commit()
     if restock:
@@ -919,7 +917,6 @@ def refund_service_save():
          cleanup_amount_at_refund),
     )
     refund_id = cur.fetchone()["id"]
-    logic.recompute_month_summary(db, logic.month_key(refund_date))
     auth.log_change(db, "refunds", str(refund_id), "create")
     db.commit()
     flash(_("Service refund of %(amount)s %(currency)s recorded.", amount=display_money(payout), currency=currency_label()), "success")
