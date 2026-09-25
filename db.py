@@ -188,6 +188,21 @@ def close_pool():
         _pool = None
 
 
+_ID_TABLES = frozenset({"owners", "patients", "visits", "inventory_list", "price_list",
+                        "distributors", "distributor_bills"})
+
+
+def next_row_id(db, table):
+    """The next id from `table`'s own identity sequence, for a caller that
+    needs the id before its INSERT (a flash message, log_change(), an
+    attachment folder). Atomic like any nextval(); a rolled-back insert
+    leaves a gap, which is harmless — ids are for joining, and staff see
+    them as codes (logic.code), not as a count."""
+    if table not in _ID_TABLES:
+        raise ValueError(f"no generated id for {table!r}")
+    return db.execute(f"SELECT nextval(pg_get_serial_sequence('{table}', 'id')) AS n").fetchone()["n"]
+
+
 def next_id(db, prefix, width=3):
     """
     Atomically allocate the next sequential ID for a given prefix

@@ -147,7 +147,7 @@ def export_patient_file(db, patient_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Patient file — {X(patient['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(patient_id)} \u00b7 {X(patient['species'] or '')}"
+        Paragraph(f"{X(logic.code('PT', patient_id))} \u00b7 {X(patient['species'] or '')}"
                   f"{' \u00b7 Chip: ' + X(patient['microchip']) if patient['microchip'] else ''}"
                   f" \u00b7 Owner: {X(patient['owner_name'])}"
                   f"{' (' + X(patient['owner_phone']) + ')' if patient['owner_phone'] else ''}", ss["Small"]),
@@ -213,7 +213,7 @@ def export_patient_billing(db, patient_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Billing history — {X(patient['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(patient_id)} \u00b7 Owner: {X(patient['owner_name'])}", ss["Small"]),
+        Paragraph(f"{X(logic.code('PT', patient_id))} \u00b7 Owner: {X(patient['owner_name'])}", ss["Small"]),
         Spacer(1, 10),
     ]
 
@@ -222,7 +222,7 @@ def export_patient_billing(db, patient_id):
         summary = logic.visit_billing_summary(db, v["id"])
         if not summary["lines"]:
             continue
-        story.append(Paragraph(f"<b>{X(v['date'] or '')}</b> \u2014 {X(v['id'])}", ss["H2"]))
+        story.append(Paragraph(f"<b>{X(v['date'] or '')}</b> \u2014 {X(logic.code('V', v['id']))}", ss["H2"]))
         data = [["Service", f"Price ({_cur()})"]]
         for l in summary["lines"]:
             amount = l.get("line_total", l["price"])
@@ -336,7 +336,7 @@ def export_visit_pdf(db, visit_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Visit record \u2014 {X(v['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(visit_id)} \u00b7 {X(v['species'] or '')}"
+        Paragraph(f"{X(logic.code('V', visit_id))} \u00b7 {X(v['species'] or '')}"
                   f"{' \u00b7 Chip: ' + X(v['microchip']) if v['microchip'] else ''}"
                   f" \u00b7 Owner: {X(v['owner_name'])}"
                   f"{' (' + X(v['owner_phone']) + ')' if v['owner_phone'] else ''}"

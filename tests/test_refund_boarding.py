@@ -24,12 +24,14 @@ from decimal import Decimal
 import pytest
 
 import logic
-from conftest import ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
 
 
 def _uid(prefix):
+    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
+        return new_id()
     return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
 
 
@@ -167,7 +169,7 @@ def test_the_database_itself_refuses_a_two_anchor_service_refund(db, paid_stay):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, boarding_id, "
             "processed_by, created_at) VALUES ('service',?,?,?,?,?,?)",
-            (clock.today().isoformat(), Decimal("1.000"), "V001", paid_stay["id"], ADMIN_ID, "2026-01-01T00:00:00"))
+            (clock.today().isoformat(), Decimal("1.000"), 1, paid_stay["id"], ADMIN_ID, "2026-01-01T00:00:00"))
     db.rollback()
 
 

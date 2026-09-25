@@ -34,10 +34,12 @@ import pytest
 
 import logic
 
-from conftest import ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, needs_db
 
 
 def _uid(prefix):
+    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
+        return new_id()
     return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
 
 

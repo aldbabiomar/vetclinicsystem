@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% from "_member_discount.html" import member_discount_line with context %}
-{% block title %}{{ visit.id }} — {{ clinic_name }}{% endblock %}
+{% block title %}{{ visit.id|code('V') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
     <h1>{{ visit.animal_name }} <span class="muted" style="font-weight:400;font-size:16px;">— {{ visit.date|localdate }}</span></h1>
-    <p class="page-sub">{{ visit.id }} · {{ _('Owner: %(owner)s', owner=visit.owner_name) }}{% if visit.owner_phone %} ({{ visit.owner_phone }}){% endif %}</p>
+    <p class="page-sub">{{ visit.id|code('V') }} · {{ _('Owner: %(owner)s', owner=visit.owner_name) }}{% if visit.owner_phone %} ({{ visit.owner_phone }}){% endif %}</p>
   </div>
   <div style="display:flex; gap:10px;">
     <a class="btn secondary" href="{{ url_for('clinical.visit_export_pdf', visit_id=visit.id) }}">{{ _('Export Visit (PDF)') }}</a>

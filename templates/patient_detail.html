@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>{{ patient.animal_name }} <span class="muted" style="font-weight:400;font-size:16px;">— <a href="{{ url_for('clinical.owner_detail', owner_id=patient.owner_id) }}">{{ patient.owner_name }}</a></span></h1>
-    <p class="page-sub">{{ patient.id }} · {{ patient.species|tr }}{% if patient.sex %} · {{ patient.sex|tr }}{% endif %}{% if patient.repro_status %} · {{ patient.repro_status|tr }}{% endif %}</p>
+    <p class="page-sub">{{ patient.id|code('PT') }} · {{ patient.species|tr }}{% if patient.sex %} · {{ patient.sex|tr }}{% endif %}{% if patient.repro_status %} · {{ patient.repro_status|tr }}{% endif %}</p>
   </div>
   <div style="display:flex; gap:10px; flex-wrap:wrap;">
     <a class="btn secondary" href="{{ url_for('clinical.patient_edit', patient_id=patient.id) }}">{{ _('Edit Patient Details') }}</a>

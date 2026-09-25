@@ -564,6 +564,12 @@ def localdate_filter(d):
     return formatted
 
 
+@app.template_filter("code")
+def code_filter(record_id, prefix):
+    """{{ visit.id|code('V') }} -> V-00123 (logic.code)."""
+    return logic.code(prefix, record_id)
+
+
 @app.template_filter("localtime")
 def localtime_filter(v, fmt="%Y-%m-%d %H:%M"):
     """A stored moment, shown in the clinic's zone (the Time Zone setting),

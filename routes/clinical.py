@@ -156,7 +156,8 @@ def api_patients_search():
     if len(term) < 2:
         return jsonify([])
     rows = logic.search_patients(db, term)
-    return jsonify([{"id": r["id"], "animal_name": r["animal_name"], "species": r["species"],
+    return jsonify([{"id": r["id"], "code": logic.code("PT", r["id"]),
+                     "animal_name": r["animal_name"], "species": r["species"],
                       "owner_name": r["owner_name"], "owner_phone": r["owner_phone"],
                       "microchip": r["microchip"]} for r in rows])
 
@@ -231,12 +232,12 @@ def owner_new():
         if phone:
             existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
             if existing:
-                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=existing['id']), "error")
+                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=logic.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
         name = required_field(f, "name", "Owner name")
         if name is None:
             return render_template("owner_form.html", owner=None, form=f)
-        oid = dbmod.next_id(db, "OW")
+        oid = dbmod.next_row_id(db, "owners")
         try:
             db.execute("INSERT INTO owners (id,name,phone,address,notes) VALUES (?,?,?,?,?)",
                       (oid, name, phone, f.get("address"), f.get("notes")))
@@ -252,16 +253,16 @@ def owner_new():
             db.rollback()
             existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
             if existing:
-                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=existing['id']), "error")
+                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=logic.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
             flash(_("That phone number is already on file for another owner."), "error")
             return render_template("owner_form.html", owner=None, form=f)
-        flash(_("Owner %(oid)s added.", oid=oid), "success")
+        flash(_("Owner %(oid)s added.", oid=logic.code("OW", oid)), "success")
         return redirect(url_for("clinical.owner_detail", owner_id=oid))
     return render_template("owner_form.html", owner=None)
 
 
-@bp.route("/owners/<owner_id>")
+@bp.route("/owners/<int:owner_id>")
 @auth.permission_required("manage_owners")
 def owner_detail(owner_id):
     db = get_db()
@@ -284,7 +285,7 @@ def owner_detail(owner_id):
         default_expiry=logic.member_default_expiry(db).isoformat())
 
 
-@bp.route("/owners/<owner_id>/rewards/enroll", methods=["POST"])
+@bp.route("/owners/<int:owner_id>/rewards/enroll", methods=["POST"])
 @auth.permission_required("manage_rewards")
 def owner_rewards_enroll(owner_id):
     """Issue (or re-issue) a rewards card to this owner.
@@ -340,7 +341,7 @@ def owner_rewards_enroll(owner_id):
     return back
 
 
-@bp.route("/owners/<owner_id>/rewards/unenroll", methods=["POST"])
+@bp.route("/owners/<int:owner_id>/rewards/unenroll", methods=["POST"])
 @auth.permission_required("manage_rewards")
 def owner_rewards_unenroll(owner_id):
     """Revoke this owner's card. Future bills only -- a bill created while
@@ -367,7 +368,7 @@ def owner_rewards_unenroll(owner_id):
     return redirect(url_for("clinical.owner_detail", owner_id=owner_id))
 
 
-@bp.route("/owners/<owner_id>/edit", methods=["GET", "POST"])
+@bp.route("/owners/<int:owner_id>/edit", methods=["GET", "POST"])
 @auth.permission_required("manage_owners")
 def owner_edit(owner_id):
     db = get_db()
@@ -433,7 +434,7 @@ def patients_list():
                             page=page, total_pages=total_pages_, total_count=total)
 
 
-@bp.route("/patients/<patient_id>")
+@bp.route("/patients/<int:patient_id>")
 @auth.permission_required("manage_patients")
 def patient_detail(patient_id):
     db = get_db()
@@ -455,7 +456,7 @@ def patient_detail(patient_id):
                             grooming_sessions=grooming_sessions, boarding_sessions=boarding_sessions)
 
 
-@bp.route("/patients/<patient_id>/edit", methods=["GET", "POST"])
+@bp.route("/patients/<int:patient_id>/edit", methods=["GET", "POST"])
 @auth.permission_required("manage_patients")
 def patient_edit(patient_id):
     db = get_db()
@@ -510,7 +511,7 @@ def patient_edit(patient_id):
     return render_template("patient_form_edit.html", patient=patient)
 
 
-@bp.route("/patients/<patient_id>/history")
+@bp.route("/patients/<int:patient_id>/history")
 @auth.permission_required("manage_patients")
 def patient_history(patient_id):
     db = get_db()
@@ -524,7 +525,7 @@ def patient_history(patient_id):
     return render_template("patient_history.html", patient=patient, events=events)
 
 
-@bp.route("/patients/<patient_id>/export/file")
+@bp.route("/patients/<int:patient_id>/export/file")
 @auth.permission_required("manage_patients")
 def patient_export_file(patient_id):
     db = get_db()
@@ -534,7 +535,7 @@ def patient_export_file(patient_id):
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"{patient_id}_patient_file.pdf")
 
 
-@bp.route("/patients/<patient_id>/export/billing")
+@bp.route("/patients/<int:patient_id>/export/billing")
 @auth.permission_required("manage_patients")
 def patient_export_billing(patient_id):
     db = get_db()
@@ -544,7 +545,7 @@ def patient_export_billing(patient_id):
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"{patient_id}_billing.pdf")
 
 
-@bp.route("/visits/<visit_id>/export")
+@bp.route("/visits/<int:visit_id>/export")
 @auth.permission_required("manage_visits")
 def visit_export_pdf(visit_id):
     db = get_db()
@@ -585,7 +586,7 @@ def visit_new_start():
 def visit_new_existing():
     db = get_db()
     if request.method == "POST":
-        patient_id = request.form.get("patient_id", "").strip()
+        patient_id = parse_id(request.form.get("patient_id"), "PT")
         patient_row = db.execute(
             "SELECT p.animal_name, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=?",
             (patient_id,),
@@ -667,9 +668,9 @@ def visit_new_patient():
         existing_owner = db.execute("SELECT id FROM owners WHERE phone=?", (owner_phone,)).fetchone() if owner_phone else None
         if existing_owner:
             oid = existing_owner["id"]
-            flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=oid), "success")
+            flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=logic.code("OW", oid)), "success")
         else:
-            oid = dbmod.next_id(db, "OW")
+            oid = dbmod.next_row_id(db, "owners")
             try:
                 db.execute("INSERT INTO owners (id,name,phone,address) VALUES (?,?,?,?)",
                           (oid, owner_name, owner_phone, f.get("owner_address")))
@@ -694,9 +695,9 @@ def visit_new_patient():
                           "and try again."), "error")
                     return redisplay()
                 oid = existing["id"]
-                flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=oid), "success")
+                flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=logic.code("OW", oid)), "success")
 
-        pid = dbmod.next_id(db, "PT")
+        pid = dbmod.next_row_id(db, "patients")
         try:
             db.execute(
                 "INSERT INTO patients (id,owner_id,animal_name,species,sex,age_note,repro_status,housing,microchip) "
@@ -757,7 +758,7 @@ def _parse_visit_fields(f):
 
 
 def _create_visit(db, patient_id, f):
-    vid = dbmod.next_id(db, "V")
+    vid = dbmod.next_row_id(db, "visits")
     admit_now = f.get("admit_inpatient") == "on"
     visit_date, weight_kg, bcs, wellness_needed, grooming_needed, wellness_next_dose_date = _parse_visit_fields(f)
     grooming_services = ",".join(f.getlist("grooming_services")) if grooming_needed == "Y" else None
@@ -862,7 +863,7 @@ def _visit_detail_context(db, visit_id):
     return dict(visit=visit, billing=billing_row, summary=summary, payments=payments, files=files, discount_cap=cap)
 
 
-@bp.route("/visits/<visit_id>")
+@bp.route("/visits/<int:visit_id>")
 @auth.permission_required("manage_visits")
 def visit_detail(visit_id):
     db = get_db()
@@ -873,7 +874,7 @@ def visit_detail(visit_id):
     return render_template("visit_detail.html", **ctx)
 
 
-@bp.route("/visits/<visit_id>/edit", methods=["GET", "POST"])
+@bp.route("/visits/<int:visit_id>/edit", methods=["GET", "POST"])
 @auth.permission_required("manage_visits")
 def visit_edit(visit_id):
     db = get_db()
@@ -982,7 +983,7 @@ def visit_edit(visit_id):
                             grooming_services=GROOMING_SERVICES, vets=vet_users(db))
 
 
-@bp.route("/visits/<visit_id>/billing", methods=["POST"])
+@bp.route("/visits/<int:visit_id>/billing", methods=["POST"])
 @auth.permission_required("manage_visits")
 @requires_money_setting
 def visit_billing_save(visit_id):
@@ -1157,7 +1158,7 @@ def visit_billing_save(visit_id):
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
 
-@bp.route("/visits/<visit_id>/discount", methods=["POST"])
+@bp.route("/visits/<int:visit_id>/discount", methods=["POST"])
 @auth.permission_required("manage_visits")
 @requires_money_setting
 def visit_discount_save(visit_id):
@@ -1303,7 +1304,7 @@ def rewards_remove_discount(surface, bill_id):
     return back
 
 
-@bp.route("/visits/<visit_id>/payment", methods=["POST"])
+@bp.route("/visits/<int:visit_id>/payment", methods=["POST"])
 @auth.permission_required("manage_visits")
 @requires_money_setting
 def visit_payment_add(visit_id):
@@ -1371,7 +1372,7 @@ def visit_payment_add(visit_id):
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
 
-@bp.route("/visits/<visit_id>/attachments", methods=["POST"])
+@bp.route("/visits/<int:visit_id>/attachments", methods=["POST"])
 @auth.permission_required("manage_visits")
 def visit_attachment_upload(visit_id):
     db = get_db()
@@ -1461,7 +1462,7 @@ def followups_list():
                             page=page, total_pages=page_count(total), total_count=total)
 
 
-@bp.route("/followups/<visit_id>/status", methods=["POST"])
+@bp.route("/followups/<int:visit_id>/status", methods=["POST"])
 @auth.permission_required("manage_followups")
 def followup_status_update(visit_id):
     db = get_db()
@@ -1490,7 +1491,7 @@ def wellness_list():
                             page=page, total_pages=page_count(total), total_count=total)
 
 
-@bp.route("/wellness/<visit_id>/update", methods=["POST"])
+@bp.route("/wellness/<int:visit_id>/update", methods=["POST"])
 @auth.permission_required("manage_wellness")
 def wellness_update(visit_id):
     db = get_db()
@@ -1521,7 +1522,7 @@ def grooming_list():
                             page=page, total_pages=page_count(total), total_count=total)
 
 
-@bp.route("/grooming/<visit_id>/update", methods=["POST"])
+@bp.route("/grooming/<int:visit_id>/update", methods=["POST"])
 @auth.permission_required("manage_grooming")
 def grooming_update(visit_id):
     db = get_db()
@@ -1605,7 +1606,7 @@ def boarding_new():
         ctx = _boarding_page_context(show_all=False)
         ctx["form"] = f
         ctx["open_new_form"] = True
-        pid = f.get("patient_id")
+        pid = parse_id(f.get("patient_id"), "PT")
         if pid:
             prow = db.execute(
                 "SELECT p.animal_name, p.species, o.name AS owner_name FROM patients p "
@@ -1615,7 +1616,7 @@ def boarding_new():
                 ctx["new_form_patient_label"] = f"{prow['animal_name']} — {prow['owner_name']} ({pid})"
         return render_template("boarding.html", **ctx)
 
-    patient_id = f.get("patient_id")
+    patient_id = parse_id(f.get("patient_id"), "PT")
     if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
         flash(_("Pick a patient from the search results first."), "error")
         return redisplay()
@@ -1962,7 +1963,7 @@ def inpatient_new():
     if request.method == "POST":
         f = request.form
         def redisplay():
-            pid = f.get("patient_id")
+            pid = parse_id(f.get("patient_id"), "PT")
             prow = db.execute(
                 "SELECT p.animal_name, o.name AS owner_name FROM patients p "
                 "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (pid,),
@@ -1986,7 +1987,7 @@ def inpatient_new():
         if has_negative(new_weight_kg):
             flash(_("Weight can't be negative."), "error")
             return redisplay()
-        patient_id = (f.get("patient_id") or "").strip()
+        patient_id = parse_id(f.get("patient_id"), "PT")
         if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
             flash(_("Pick a patient from the search results first."), "error")
             return redisplay()

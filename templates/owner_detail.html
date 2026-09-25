@@ -2,7 +2,7 @@
 {% block title %}{{ owner.name }} — {{ clinic_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ owner.name }}</h1><p class="page-sub">{{ owner.id }} · {{ owner.phone or "no phone on file" }}</p></div>
+  <div><h1>{{ owner.name }}</h1><p class="page-sub">{{ owner.id|code('OW') }} · {{ owner.phone or "no phone on file" }}</p></div>
   <a class="btn secondary" href="{{ url_for('clinical.owner_edit', owner_id=owner.id) }}">{{ _('Edit Owner') }}</a>
 </div>
 <div class="card" style="margin-bottom:16px;">
@@ -64,7 +64,7 @@
   <tbody>
     {% for p in patients %}
     <tr data-vz-href="{{ url_for('clinical.patient_detail', patient_id=p.id) }}" tabindex="0" role="link" style="cursor:pointer;">
-      <td class="muted">{{ p.id }}</td><td><strong>{{ p.animal_name }}</strong></td><td>{{ p.species|tr }}</td><td>{{ p.sex or "—" }}</td>
+      <td class="muted">{{ p.id|code('PT') }}</td><td><strong>{{ p.animal_name }}</strong></td><td>{{ p.species|tr }}</td><td>{{ p.sex or "—" }}</td>
     </tr>
     {% else %}<tr><td colspan="4" class="empty-note">{{ _('No patients under this owner yet.') }}</td></tr>{% endfor %}
   </tbody>

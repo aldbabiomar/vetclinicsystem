@@ -28,7 +28,7 @@ from decimal import Decimal
 
 import pytest
 
-from conftest import needs_db
+from conftest import new_id, needs_db
 
 
 pytestmark = needs_db
@@ -114,7 +114,7 @@ def seeded_ids(flask_app):
     import db as dbmod
     con = dbmod.connect()
     tag = uuid.uuid4().hex[:8].upper()
-    o_id, p_id, v_id = f"O{tag}", f"P{tag}", f"V{tag}"
+    o_id, p_id, v_id = new_id(), new_id(), new_id()
     inv_id, pl_id = f"INV{tag}", f"PL{tag}"
     con.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Smoke Owner {tag}"))
     con.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",

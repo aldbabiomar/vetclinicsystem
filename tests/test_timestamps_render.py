@@ -17,7 +17,7 @@ from decimal import Decimal as D
 import pytest
 
 import clock
-from conftest import ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
 
@@ -42,7 +42,7 @@ def timed_rows(db):
     """One row of every kind whose time some page prints."""
     tag = uuid.uuid4().hex[:8].upper()
     now = clock.now()
-    o, p, v, dist, inv = f"TO{tag}", f"TP{tag}", f"TV{tag}", f"TD{tag}", f"TI{tag}"
+    o, p, v, dist, inv = new_id(), new_id(), new_id(), f"TD{tag}", f"TI{tag}"
     ids = {"tag": tag}
     db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, f"Time Owner {tag}"))
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, f"Time Pet {tag}"))

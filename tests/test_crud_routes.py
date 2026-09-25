@@ -19,13 +19,15 @@ from decimal import Decimal
 
 import pytest
 
-from conftest import needs_db
+from conftest import new_id, needs_db
 
 
 pytestmark = needs_db
 
 
 def _uid(prefix):
+    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
+        return new_id()
     return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
 
 
@@ -101,7 +103,7 @@ def test_a_duplicate_phone_sends_staff_to_the_existing_owner(client, db, cleanup
     assert db.execute("SELECT count(*) AS c FROM owners").fetchone()["c"] == before, (
         "a second owner must not be created for a phone number already on file")
     assert resp.status_code == 302
-    assert first["id"] in resp.headers["Location"], (
+    assert resp.headers["Location"].endswith(f"/owners/{first['id']}"), (
         "should redirect to the owner who already holds this number")
     # Stored normalized to E.164, not as typed — query the stored form.
     import app as app_module

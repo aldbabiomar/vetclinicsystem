@@ -25,7 +25,7 @@ from flask import (
 )
 
 from core import display_number, display_quantity
-from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity
+from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
 import clock
 
 bp = Blueprint("sales", __name__)
@@ -462,10 +462,11 @@ def pos_checkout():
     # Identifying the customer is OPTIONAL and opt-in — nothing prompts for
     # it and the walk-in path is unchanged, so owner_id is NULL on most sales
     # by design. It is filled in when a rewards card is presented.
-    owner_id = (f.get("owner_id") or "").strip() or None
+    owner_raw = (f.get("owner_id") or "").strip()
+    owner_id = parse_id(owner_raw, "OW")
     owner = None
-    if owner_id:
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone()
+    if owner_raw:
+        owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone() if owner_id else None
         if not owner:
             return refuse(_("That customer no longer exists — search again."))
     member_percent, discount_source = logic.member_discount_for(db, owner)
@@ -807,7 +808,9 @@ def refund_service_save():
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
-    visit_id = (f.get("visit_id") or "").strip() or None
+    visit_raw = (f.get("visit_id") or "").strip()
+    # Staff type the code they read (V-00123) or just the number.
+    visit_id = parse_id(visit_raw, "V")
     case_id_raw = (f.get("inpatient_case_id") or "").strip()
     boarding_id_raw = (f.get("boarding_id") or "").strip()
 
@@ -822,7 +825,7 @@ def refund_service_save():
     # visit / inpatient case / boarding since it existed, so a boarding stay
     # could be paid for and there was no way to hand the money back through
     # this page.
-    if [bool(visit_id), bool(case_id_raw), bool(boarding_id_raw)].count(True) != 1:
+    if [bool(visit_raw), bool(case_id_raw), bool(boarding_id_raw)].count(True) != 1:
         flash(_("A service refund must be linked to exactly one visit, inpatient case, "
               "or boarding stay."), "error")
         return redisplay()
@@ -832,9 +835,10 @@ def refund_service_save():
     # near-simultaneous service refunds against the same visit/case could
     # each read the same "amount paid so far minus prior refunds" before
     # either commits, and both pass a cap check that together they exceed.
-    if visit_id:
-        if not db.execute("SELECT 1 FROM visits WHERE id=? FOR UPDATE", (visit_id,)).fetchone():
-            flash(_("Visit %(visit_id)s not found.", visit_id=visit_id), "error")
+    if visit_raw:
+        if visit_id is None or not db.execute("SELECT 1 FROM visits WHERE id=? FOR UPDATE",
+                                              (visit_id,)).fetchone():
+            flash(_("Visit %(visit_id)s not found.", visit_id=visit_raw), "error")
             return redisplay()
         paid = logic.visit_billing_summary(db, visit_id)["paid"]
         already_refunded = db.execute(

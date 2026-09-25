@@ -105,7 +105,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "relative_path": {
     "default": null,
@@ -129,7 +129,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -472,7 +472,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -630,7 +630,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "price_per_day": {
     "default": null,
@@ -1520,7 +1520,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "supervising_vet_id": {
     "default": null,
@@ -1544,7 +1544,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "weight_kg": {
     "default": null,
@@ -1967,9 +1967,9 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "is_member": {
     "default": "false",
@@ -2052,9 +2052,9 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "microchip": {
     "default": null,
@@ -2072,7 +2072,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "repro_status": {
     "default": null,
@@ -2157,7 +2157,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -2423,7 +2423,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -2719,7 +2719,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "payment_method": {
     "default": null,
@@ -2993,7 +2993,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -3133,15 +3133,15 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "patient_id": {
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "payment_status": {
     "default": null,

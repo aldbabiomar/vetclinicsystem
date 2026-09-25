@@ -17,7 +17,7 @@ import uuid
 import pytest
 
 import logic
-from conftest import needs_db
+from conftest import new_id, needs_db
 
 pytestmark = needs_db
 
@@ -72,7 +72,7 @@ def owners(db):
     names = [f"A_B{tag}", f"AXB{tag}", f"50%off{tag}"]
     ids = []
     for name in names:
-        oid = f"OW{uuid.uuid4().hex[:8].upper()}"
+        oid = new_id()
         db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",
                    (oid, name, f"0770{uuid.uuid4().int % 1000000:06d}"))
         ids.append(oid)
@@ -108,8 +108,9 @@ def test_percent_does_not_match_everything(db, owners):
     tag, names = owners
     # A decoy that shares the "50" but not the rest of the name.
     decoy = f"5000 Dinars Clinic {tag}"
+    decoy_id = new_id()
     db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",
-               (f"OWDECOY{tag.upper()}", decoy, f"0771{tag[:6]}"))
+               (decoy_id, decoy, f"0771{tag[:6]}"))
     db.commit()
     try:
         found = _search(db, "50%")
@@ -117,7 +118,7 @@ def test_percent_does_not_match_everything(db, owners):
             f"percent behaved as a wildcard and pulled in unrelated rows: {found}")
         assert decoy not in found
     finally:
-        db.execute("DELETE FROM owners WHERE id=?", (f"OWDECOY{tag.upper()}",))
+        db.execute("DELETE FROM owners WHERE id=?", (decoy_id,))
         db.commit()
 
 

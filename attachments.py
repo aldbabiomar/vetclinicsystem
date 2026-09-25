@@ -35,8 +35,11 @@ SIGNATURES = {
 
 
 def record_key(record_type, record_id):
+    """The record's folder under its patient's: "V42" for visit 42, "IC7"
+    for inpatient case 7. Both ids are numbers now, so both get a prefix —
+    reconcile_attachments.resolve_record_key() reads it back."""
     prefix = "V" if record_type == "visit" else "IC"
-    return f"{prefix}{record_id}" if record_type != "visit" else str(record_id)
+    return f"{prefix}{int(record_id)}"
 
 
 def _ext(filename):

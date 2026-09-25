@@ -31,7 +31,7 @@ import pytest
 from decimal import Decimal
 
 import logic
-from conftest import ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, needs_db
 
 
 pytestmark = needs_db
@@ -45,6 +45,8 @@ D = Decimal
 # ---------------------------------------------------------------------------
 
 def _uid(prefix):
+    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
+        return new_id()
     return f"{prefix}{uuid.uuid4().hex[:8].upper()}"
 
 
@@ -376,12 +378,12 @@ def test_billing_a_missing_visit_is_refused(client, db):
     """JO has always had the existence guard on the happy path; IQ did not,
     and its route tests found the gap. Kept here so the guard cannot be
     removed from JO in a future tidy-up."""
-    resp = client.post("/visits/NOPE-DOES-NOT-EXIST/billing",
+    resp = client.post("/visits/2000000001/billing",   # a number no visit has
                        data={"billing_type": "Manual", "manual_amount": "1000"},
                        follow_redirects=False)
     assert resp.status_code == 302, "should redirect with a message, not raise"
     assert resp.status_code != 500
-    assert db.execute("SELECT * FROM billing WHERE visit_id=?", ("NOPE-DOES-NOT-EXIST",)).fetchone() is None
+    assert db.execute("SELECT * FROM billing WHERE visit_id=?", (2000000001,)).fetchone() is None
 
 
 # ---------------------------------------------------------------------------
@@ -764,11 +766,18 @@ def test_visit_payment_rejects_a_non_numeric_amount(client, db, visit):
     assert _payments_for(db, visit["visit_id"]) == []
 
 
+def test_a_visit_address_that_is_not_a_number_is_not_found(client):
+    """Visit ids are numbers (plan D-2): anything else in the address is a
+    404 from the router — never a query that fails on the type."""
+    for path in ("/visits/NOPE/billing", "/visits/V-00001x/payment"):
+        assert client.post(path, data={"amount": "1"}).status_code == 404
+
+
 def test_visit_payment_on_a_missing_visit_is_refused(client, db):
-    resp = _pay_visit(client, "NOPE-NOT-A-VISIT", amount="10.000", method="Cash")
+    resp = _pay_visit(client, 2000000001, amount="10.000", method="Cash")
     assert resp.status_code != 500, "must degrade, not raise"
     assert db.execute("SELECT * FROM payments WHERE visit_id=?",
-                      ("NOPE-NOT-A-VISIT",)).fetchall() == []
+                      (2000000001,)).fetchall() == []
 
 
 def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):

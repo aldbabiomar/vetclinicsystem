@@ -94,19 +94,18 @@ def resolve_record_key(key):
     """Reverses attachments.py's record_key(). Returns ("visit", visit_id)
     or ("inpatient", case_id), or None if `key` matches neither pattern.
 
-    Unlike IQ, JO's record_key() special-cases visits to avoid a doubled
-    prefix: a visit's record_id (db.next_id(db, "V")) is already "V0042"
-    by the time it reaches record_key(), so JO's version returns
-    str(record_id) as-is for visits — the on-disk folder is "V0042", not
-    "VV0042". Inpatient case IDs are plain integers (an IDENTITY column),
-    so that branch matches IQ: "IC" + 7 = "IC7"."""
+    Visit and inpatient case ids are both numbers: "V42" is visit 42,
+    "IC7" is inpatient case 7."""
     if key.startswith("IC"):
         try:
             return "inpatient", int(key[2:])
         except ValueError:
             return None
     if key.startswith("V"):
-        return "visit", key
+        try:
+            return "visit", int(key[1:])
+        except ValueError:
+            return None
     return None
 
 

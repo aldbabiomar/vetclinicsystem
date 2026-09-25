@@ -51,7 +51,7 @@ import clock
 import os
 
 import pytest
-from conftest import ADMIN_ID
+from conftest import new_id, ADMIN_ID
 
 playwright_api = pytest.importorskip(
     "playwright.sync_api",
@@ -639,6 +639,8 @@ from decimal import Decimal
 
 
 def _rid(prefix):
+    if prefix in ('O', 'OW', 'P', 'PT', 'V'):   # owners, patients, visits have numeric ids (plan D-2)
+        return new_id()
     return f"{prefix}{_uuid.uuid4().hex[:8].upper()}"
 
 

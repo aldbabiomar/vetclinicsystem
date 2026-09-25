@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 import pytest
 import requests
 
-from conftest import needs_db
+from conftest import new_id, needs_db
 
 pytestmark = needs_db
 
@@ -115,7 +115,7 @@ def test_payload_contains_no_names_phones_or_money(hb, db):
     import heartbeat
     marker_name = "ZZTESTOWNERNAME"
     marker_phone = "0791234567"
-    owner_id = "ZZTEST_HB_OWNER"
+    owner_id = new_id()
 
     db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
     db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",

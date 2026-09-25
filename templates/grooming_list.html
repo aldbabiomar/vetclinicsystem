@@ -16,7 +16,7 @@
     <form id="g-{{ gr.visit_id }}" method="post" action="{{ url_for('clinical.grooming_update', visit_id=gr.visit_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     <tr>
-      <td class="muted">{{ gr.patient_id }}</td>
+      <td class="muted">{{ gr.patient_id|code('PT') }}</td>
       <td><a href="{{ url_for('clinical.visit_detail', visit_id=gr.visit_id) }}"><strong>{{ gr.animal_name }}</strong></a></td>
       <td>{{ gr.owner_name }}</td><td>{{ gr.phone or "—" }}</td>
       <td class="small">{{ gr.grooming_admitted_items or "—" }}</td>
