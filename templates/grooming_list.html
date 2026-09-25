@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Grooming') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('Grooming Queue') }}</h1><p class="page-sub">{{ _('Ongoing grooming requests logged as part of a visit. %(total_count)s shown.', total_count=total_count) }}</p></div></div>
+
+<div class="filter-chips">
+  <a class="chip {{ 'active' if not include_finished }}" href="{{ url_for('clinical.grooming_list') }}">{{ _('In Progress') }}</a>
+  <a class="chip {{ 'active' if include_finished }}" href="{{ url_for('clinical.grooming_list', all=1) }}">{{ _('Include Finished') }}</a>
+</div>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('Patient ID') }}</th><th scope="col">{{ _('Animal') }}</th><th scope="col">{{ _('Owner') }}</th><th scope="col">{{ _('Phone') }}</th><th scope="col">{{ _('Admitted Items') }}</th><th scope="col">{{ _('Status') }}</th><th scope="col">{{ _('Contacted?') }}</th><th scope="col"></th></tr></thead>
+  <tbody>
+    {% for gr in rows %}
+    <form id="g-{{ gr.visit_id }}" method="post" action="{{ url_for('clinical.grooming_update', visit_id=gr.visit_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+    <tr>
+      <td class="muted">{{ gr.patient_id }}</td>
+      <td><a href="{{ url_for('clinical.visit_detail', visit_id=gr.visit_id) }}"><strong>{{ gr.animal_name }}</strong></a></td>
+      <td>{{ gr.owner_name }}</td><td>{{ gr.phone or "—" }}</td>
+      <td class="small">{{ gr.grooming_admitted_items or "—" }}</td>
+      <td>
+        <select form="g-{{ gr.visit_id }}" name="grooming_status" class="small">
+          {% for s in ['Waiting','Ongoing','Finished'] %}<option value="{{ s }}" {{ 'selected' if gr.grooming_status==s }}> {{ s|tr }} </option>{% endfor %}
+        </select>
+      </td>
+      <td>
+        <select form="g-{{ gr.visit_id }}" name="grooming_contacted" class="small">
+          <option value="N" {{ 'selected' if gr.grooming_contacted=='N' }}>{{ _('No') }}</option>
+          <option value="Y" {{ 'selected' if gr.grooming_contacted=='Y' }}>{{ _('Yes') }}</option>
+        </select>
+      </td>
+      <td><button class="btn small secondary" form="g-{{ gr.visit_id }}" type="submit">{{ _('Save') }}</button></td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="empty-note">{{ _('Nothing in the grooming queue.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}

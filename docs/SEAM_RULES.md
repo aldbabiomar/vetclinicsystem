@@ -1,6 +1,13 @@
 # Seam rules — rules that must hold on every sibling surface, not just one
 
-**Written 2026-09-11.** This file exists because of a pattern, not a bug.
+**Written 2026-09-11** for the two predecessor apps (IQ and JO); **carried into
+the merged VetClinicSystem**, where it applies unchanged: the siblings it talks
+about (the four payment surfaces, the date filters, the discount routes) are
+all still here, now in one codebase and under two money settings. Where it
+says "each app" or "both apps", read "this codebase, under both money
+settings". Its document citations resolve under `docs/archive/`.
+
+This file exists because of a pattern, not a bug.
 
 Of the six defects in `SIMULATION_AUDIT_2026-09-11.md`, **five had the same
 shape**: a rule written into one code path and missing from the equivalent one
@@ -17,7 +24,7 @@ three more. They are listed in §2.
 > validation, locking, rounding or formatting rule, the question is never "is
 > this route correct?" It is **"which other routes do the same job, and do they
 > all now agree?"** `scripts/simulation/seam_audit.py` will list the siblings
-> for you. `tests/test_seam_rules.py` in each app enforces the eight rules whose
+> for you. `tests/test_seam_rules.py` enforces the eight rules whose
 > absence has actually cost something (1-4) or would (5-8, the rewards card).
 
 ---

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Wellness') }} — {{ clinic_name }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('Wellness Reminders') }}</h1><p class="page-sub">{{ _('Reminders start 5 days before the next dose date. Flagged for admin if 2+ weeks overdue and uncontacted. %(total_count)s shown.', total_count=total_count) }}</p></div></div>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('Next Dose Date') }}</th><th scope="col">{{ _('Animal') }}</th><th scope="col">{{ _('Owner') }}</th><th scope="col">{{ _('Phone') }}</th><th scope="col">{{ _('Type') }}</th><th scope="col">{{ _('Remind From') }}</th><th scope="col">{{ _('Contacted?') }}</th><th scope="col">{{ _('Method?') }}</th><th scope="col"></th><th scope="col"></th></tr></thead>
+  <tbody>
+    {% for w in rows %}
+    <form id="w-{{ w.visit_id }}" method="post" action="{{ url_for('clinical.wellness_update', visit_id=w.visit_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+    <tr>
+      <td>{{ w.wellness_next_dose_date|localdate }} {% if w.missed %}<span class="badge danger">{{ _('MISSED') }}</span>{% elif w.due %}<span class="badge warn">{{ _('DUE') }}</span>{% endif %}</td>
+      <td><a href="{{ url_for('clinical.visit_detail', visit_id=w.visit_id) }}"><strong>{{ w.animal_name }}</strong></a></td>
+      <td>{{ w.owner_name }}</td><td>{{ w.phone or "—" }}</td><td>{{ w.wellness_type|tr }}</td>
+      <td class="muted">{{ w.remind_from_date|localdate }}</td>
+      <td>
+        <select form="w-{{ w.visit_id }}" name="wellness_contacted" class="small">
+          <option value="N" {{ 'selected' if w.wellness_contacted=='N' }}>{{ _('No') }}</option>
+          <option value="Y" {{ 'selected' if w.wellness_contacted=='Y' }}>{{ _('Yes') }}</option>
+        </select>
+      </td>
+      <td>
+        <select form="w-{{ w.visit_id }}" name="wellness_contact_method" class="small">
+          <option value="">—</option>
+          <option value="Phone Call" {{ 'selected' if w.wellness_contact_method=='Phone Call' }}>{{ _('Phone Call') }}</option>
+          <option value="Message" {{ 'selected' if w.wellness_contact_method=='Message' }}>{{ _('Message') }}</option>
+        </select>
+      </td>
+      <td><button class="btn small secondary" form="w-{{ w.visit_id }}" type="submit">{{ _('Save') }}</button></td>
+      <td>
+        {% if w.phone %}
+        <a class="btn small ok" target="_blank" rel="noopener"
+           href="https://wa.me/{{ w.phone|replace('+','') }}?text={{ ('Hi ' ~ w.owner_name ~ ', this is a reminder that ' ~ w.animal_name ~ ' is due for their ' ~ w.wellness_type ~ ' on ' ~ w.wellness_next_dose_date ~ '. Please contact us to schedule. - ' ~ clinic_name)|urlencode }}">{{ _('Send WhatsApp Message') }}</a>
+        {% else %}
+        <a class="btn small secondary" href="{{ url_for('clinical.owner_edit', owner_id=w.owner_id) }}">{{ _('Add phone') }}</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="10" class="empty-note">{{ _('No wellness reminders on file.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}

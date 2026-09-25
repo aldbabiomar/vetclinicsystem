@@ -1,0 +1,542 @@
+"""
+Frontend regression tests — VetClinicSystem.
+
+**What these do and do not do.** They are static analysis of `style.css`
+and `templates/`, not a browser. They cannot tell you a page *looks*
+right — nothing short of screenshot comparison can. What they do is catch
+the specific classes of breakage that have actually happened in this
+codebase, each of which was previously found only by a person noticing
+it:
+
+  - a colour hardcoded instead of taken from the palette, so it stays
+    wrong in dark mode and in the ChamPet palette;
+  - a `var(--token)` that no longer resolves, which renders as nothing
+    at all rather than as an obviously wrong colour;
+  - a token defined only inside a theme block, so one theme silently
+    falls back to another theme's value;
+  - a layout guard being removed — the `min-width: 0` flex/grid traps
+    that produced the over-narrow modal and the overflowing table;
+  - an asset reference pointing at a file that isn't there.
+
+They run in milliseconds, need no browser, no database and no running
+app. See the equivalent file in IQ — the two are close but not identical,
+because IQ has four palette/theme combinations to keep in step and JO has
+two (light and dark). Several of the guards below exist *because* the bug
+happened in JO first.
+"""
+import re
+import pathlib
+
+import pytest
+
+
+ROOT = pathlib.Path(__file__).parent.parent
+CSS_PATH = ROOT / "static" / "style.css"
+TEMPLATES = sorted((ROOT / "templates").glob("*.html"))
+
+# Pure white and pure black are structural, not palette choices — white
+# label text on a coloured button stays white in every theme. Anything
+# else with a hex value belongs in a token.
+STRUCTURAL_COLOURS = {"#fff", "#ffffff", "#000", "#000000", "#fff0", "#0000"}
+
+# Partials and the base layout itself do not extend anything.
+STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
+                        "_error_dog.html", "_pagination.html",
+                        # A macro file, imported by the three bill screens.
+                        "_member_discount.html"}
+
+
+@pytest.fixture(scope="module")
+def css():
+    return CSS_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def css_no_comments():
+    """Block comments blanked out but line numbering preserved, so a hex
+    value mentioned in prose doesn't read as a hardcoded colour."""
+    src = CSS_PATH.read_text(encoding="utf-8")
+    return re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group()), src, flags=re.S)
+
+
+def _tokens_in(block_body):
+    return set(re.findall(r"(--[\w-]+)\s*:", block_body))
+
+
+def _block_bodies(css_text, header_pattern):
+    """Maps selector -> token set, for each block whose header matches."""
+    out = {}
+    for m in re.finditer(header_pattern, css_text):
+        body = css_text[m.end():css_text.index("}", m.end())]
+        out[m.group(0).rstrip("{").strip()] = _tokens_in(body)
+    return out
+
+
+def _bare_root_tokens(css_text):
+    """Every plain `:root {` block — there is more than one — excluding
+    the themed `html[data-theme=...]` overrides."""
+    toks = set()
+    for m in re.finditer(r"(?m)^:root\s*\{", css_text):
+        toks |= _tokens_in(css_text[m.end():css_text.index("}", m.end())])
+    return toks
+
+
+# ---------------------------------------------------------------------------
+# Palette integrity — the bug class that actually happened (COMPARISON.md §8)
+# ---------------------------------------------------------------------------
+
+def test_no_hardcoded_colours_outside_the_palette(css_no_comments):
+    """This app once shipped a Settings restore button in a colour that
+    existed nowhere in its palette. A hardcoded hex looks fine in the theme it was
+    picked in and is wrong in every other one — and nothing reports it,
+    because it is valid CSS."""
+    offenders = []
+    for lineno, line in enumerate(css_no_comments.splitlines(), 1):
+        for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", line):
+            if m.group().lower() in STRUCTURAL_COLOURS:
+                continue
+            # A hex on a `--token: ...` line *is* the palette definition.
+            if re.search(r"--[\w-]+\s*:[^;]*$", line[:m.start()]):
+                continue
+            offenders.append(f"line {lineno}: {m.group()} in {line.strip()[:70]}")
+    assert not offenders, (
+        "Hardcoded colour(s) outside a palette token — put the value in a "
+        "token in :root and reference it with var():\n  " + "\n  ".join(offenders))
+
+
+def test_every_var_reference_resolves(css):
+    """A typo'd or renamed token doesn't error — the property is simply
+    dropped, so the element renders with no colour at all. Caught here
+    instead of by someone noticing an invisible button."""
+    defined = set(re.findall(r"(--[\w-]+)\s*:", css))
+    used = set(re.findall(r"var\((--[\w-]+)", css))
+    assert not (used - defined), f"var() references with no definition: {sorted(used - defined)}"
+
+
+def test_no_token_is_defined_only_inside_a_theme_block(css):
+    """A token that exists only in the dark block has no light value, so
+    light mode falls back to whatever it inherits — usually invisible.
+    Every token must have a base value in a bare :root."""
+    bare = _bare_root_tokens(css)
+    overrides = _block_bodies(css, r'(?m)^html\[data-(?:theme|palette)[^{]*\{')
+    theme_only = set().union(*overrides.values()) - bare if overrides else set()
+    assert not theme_only, f"tokens with no base :root value: {sorted(theme_only)}"
+
+
+def test_dark_theme_covers_the_palette_it_overrides():
+    """JO has one override block (dark). Every token it sets must exist in
+    the base palette, and it must cover enough of it to be a real theme
+    rather than a partial one that leaves light-mode colours showing through
+    on a dark background — the contrast bug in COMPARISON.md §12."""
+    css_text = CSS_PATH.read_text(encoding="utf-8")
+    bare = _bare_root_tokens(css_text)
+    overrides = _block_bodies(css_text, r'(?m)^html\[data-theme[^{]*\{')
+    dark = max(overrides.values(), key=len) if overrides else set()
+    assert dark, "no dark-theme token block found"
+    assert dark <= bare, f"dark theme defines tokens absent from :root: {sorted(dark - bare)}"
+    # Colour tokens specifically — spacing/radius tokens rightly do not vary.
+    colourish = {t for t in bare if any(k in t for k in
+                 ("bg", "ink", "line", "primary", "accent", "danger", "warn", "ok", "sidebar"))}
+    uncovered = colourish - dark
+    assert not uncovered, f"colour tokens with no dark-mode value: {sorted(uncovered)}"
+
+
+def test_css_braces_are_balanced(css):
+    """A stray brace silently kills every rule after it — the page keeps
+    rendering, just unstyled from that point down."""
+    assert css.count("{") == css.count("}"), (
+        f"unbalanced braces: {css.count('{')} open, {css.count('}')} close")
+
+
+# ---------------------------------------------------------------------------
+# Layout guards — each one is a fix that a later edit could silently undo
+# ---------------------------------------------------------------------------
+
+def test_modal_box_keeps_its_min_width_reset(css):
+    """COMPARISON.md §19. A flex item defaults to `min-width: auto`, which
+    overrides `max-width` and lets the box size to its widest child — the
+    over-narrow/over-wide modal bug. Removing this line brings it straight
+    back, and nothing else in the file compensates."""
+    body = re.search(r"\.modal-box\s*\{([^}]*)\}", css)
+    assert body, ".modal-box rule not found"
+    assert re.search(r"min-width:\s*0", body.group(1)), (
+        ".modal-box lost `min-width: 0` — the flex trap that caused the modal "
+        "width bug will reappear")
+
+
+def test_main_column_keeps_its_min_width_reset(css):
+    """Same trap, grid edition: without it the main column refuses to shrink
+    and a wide table pushes the whole page into horizontal scroll."""
+    body = re.search(r"\.main\s*\{([^}]*)\}", css)
+    assert body, ".main rule not found"
+    assert re.search(r"min-width:\s*0", body.group(1)), ".main lost `min-width: 0`"
+
+
+def test_keyboard_focus_is_visible(css):
+    """Without this, the app cannot be used without a mouse — you cannot see
+    what you have selected. JO shipped with none of it until v1.8.0; this
+    guard is the reason it cannot quietly disappear again."""
+    assert "focus-visible" in css, "no :focus-visible styling at all"
+    focus_rules = [r for r in re.findall(r"([^{}]*focus-visible[^{}]*)\{([^}]*)\}", css)]
+    assert focus_rules, ":focus-visible present but not as a real rule"
+    selectors = " ".join(sel for sel, _ in focus_rules)
+    for essential in ("a:focus-visible", "button:focus-visible", "input:focus-visible"):
+        assert essential in selectors, f"{essential} is not covered"
+    outlines = " ".join(body for _, body in focus_rules)
+    assert "outline" in outlines, ":focus-visible rules set no outline"
+
+
+def test_folder_browser_rows_are_styled(css):
+    """Shipped unstyled here until v1.8.0 — a wall of undifferentiated text
+    in the backup-folder picker. Cheap to lose again in a CSS tidy-up."""
+    assert "folder-browser-row" in css, "folder browser rows have no styling"
+
+
+# ---------------------------------------------------------------------------
+# Touch / mobile — the pass in COMPARISON.md §16, easy to erode
+# ---------------------------------------------------------------------------
+
+def test_mobile_breakpoints_still_exist(css):
+    assert len(re.findall(r"@media", css)) >= 3, "responsive breakpoints have been removed"
+
+
+def test_touch_targets_meet_the_minimum_size(css):
+    """44px is the accessibility floor for a touch target. These were added
+    deliberately; a later 'tidy' that drops them is silent on desktop and
+    only shows up on a tablet at the front desk."""
+    assert len(re.findall(r"44px", css)) >= 4, (
+        "the 44px touch-target minimums have been reduced or removed")
+
+
+def test_mobile_inputs_are_16px_to_stop_ios_zooming(css):
+    """iOS Safari zooms the whole page when a focused input's font is under
+    16px. The fix is invisible on every desktop browser, which is exactly
+    why it gets removed by accident."""
+    assert re.search(r"font-size:\s*16px", css), (
+        "the 16px mobile input size is gone — iOS will zoom on focus again")
+
+
+# ---------------------------------------------------------------------------
+# Assets and templates
+# ---------------------------------------------------------------------------
+
+def test_every_static_reference_points_at_a_real_file():
+    """A renamed asset leaves a broken reference that only shows up as a
+    missing image or an unstyled page in the browser."""
+    missing = []
+    for template in TEMPLATES:
+        for ref in re.findall(r"url_for\('static',\s*filename='([^']+)'", template.read_text()):
+            if "{{" in ref or "~" in ref:
+                continue  # dynamically built (palette-branched); checked at runtime
+            if not (ROOT / "static" / ref).exists():
+                missing.append(f"{template.name} -> static/{ref}")
+    assert not missing, "template(s) reference missing static files:\n  " + "\n  ".join(missing)
+
+
+def test_no_external_resources_are_loaded():
+    """The app must keep working on a clinic network with no internet, and
+    keep working in ten years. Anchors to wa.me are fine — those are the
+    user choosing to navigate. A stylesheet, script or image from a CDN is
+    not: it makes the UI depend on someone else's uptime."""
+    offenders = []
+    for template in TEMPLATES:
+        text = template.read_text()
+        for tag, attr in (("script", "src"), ("link", "href"), ("img", "src")):
+            for m in re.finditer(rf"<{tag}\b[^>]*{attr}=\"(https?://[^\"]+)\"", text):
+                offenders.append(f"{template.name}: <{tag}> {m.group(1)[:60]}")
+    assert not offenders, "external resource load(s):\n  " + "\n  ".join(offenders)
+
+
+def test_page_templates_extend_the_base_layout():
+    """A page that forgets to extend base.html renders with no navigation,
+    no stylesheet and no theme — obvious once opened, invisible in review."""
+    orphans = [t.name for t in TEMPLATES
+               if t.name not in STANDALONE_TEMPLATES and "extends" not in t.read_text()]
+    assert not orphans, f"template(s) not extending a base layout: {orphans}"
+
+
+def test_templates_are_not_empty():
+    empty = [t.name for t in TEMPLATES if not t.read_text().strip()]
+    assert not empty, f"empty template(s): {empty}"
+
+
+def test_the_health_banner_is_not_a_flash():
+    """toast.js converts every `main .flash` into a toast and REMOVES it from
+    the page. A health warning must not be one.
+
+    Found 2026-08-31 on a real failing install: the banner used
+    class="flash error", so it was a transient notification that
+    auto-dismissed -- and the class mapping meant the `error` (fail) banner
+    dismissed itself while the milder `warn` one persisted as a "status"
+    toast, i.e. the worse the problem the sooner it disappeared.
+
+    That defeats the feature's premise: the three-day modal exists because "a
+    banner is what is currently being ignored", which requires the banner to
+    still be on the page to ignore. It passed a 2026-08-26 check that asserted
+    on the SERVER-rendered HTML, which the JS then undid.
+
+    This is a static check on purpose. The runtime version can only see a
+    banner when the install happens to be unhealthy, so on a healthy test
+    install it passes while checking nothing.
+    """
+    html = (ROOT / "templates" / "dashboard.html").read_text()
+    start = html.index("{% if self_check %}")
+    end = html.index("{% endif %}", start)
+    block = html[start:end]
+
+    assert "selfcheck-banner" in block, "the health banner lost its own class"
+    assert 'class="flash' not in block and "class='flash" not in block, (
+        "the health banner is a .flash again — toast.js will convert it to a "
+        "toast and remove it from the page, so nobody will see it for more "
+        "than a few seconds"
+    )
+
+
+def test_toast_js_still_only_sweeps_flash_elements():
+    """The control for the test above, and the assumption it rests on.
+
+    If toast.js is ever broadened to sweep more than `main .flash`, the
+    health banner silently becomes a toast again and the guard above stops
+    meaning anything.
+    """
+    js = (ROOT / "static" / "toast.js").read_text()
+    assert 'querySelectorAll("main .flash, .auth-flash-wrap .flash")' in js, (
+        "toast.js's sweep selector changed — recheck that .selfcheck-banner "
+        "is still outside it"
+    )
+
+
+def test_no_saved_page_has_been_committed_into_static():
+    """static/ holds assets. It must not hold rendered pages.
+
+    Both apps accumulated these by accident during the 2026-08-28/29 styling
+    work — one "Save Page As" copy in IQ, nine in JO — and nothing noticed for
+    two weeks, because nothing references them and nothing fails. Flask serves
+    everything in static/, so each was reachable at its own URL, carrying a
+    snapshot of the page: the install's LAN address and port, the configured
+    backup folder path, and a CSRF token from whoever saved it.
+
+    Detected as a complete HTML document sitting in static/, which no asset
+    is. The first version of this test keyed off the csrf-token meta tag those
+    pages carry — and flagged static/rebuild.js, a perfectly good script whose
+    job includes READING that tag. A guard with a false positive is worse than
+    none: this project already deleted an automated contrast check after two
+    attempts produced 117 then 142 of them. COMPARISON.md §47.
+    """
+    offenders = []
+    for path in sorted((ROOT / "static").rglob("*.html")):
+        if not path.is_file():
+            continue
+        try:
+            head = path.read_text(encoding="utf-8", errors="ignore").lstrip()[:200].lower()
+        except OSError:
+            continue
+        if head.startswith("<!doctype html") or head.startswith("<html"):
+            offenders.append(path.name)
+    assert not offenders, (
+        "saved rendered page(s) committed into static/, where they are served "
+        f"publicly: {offenders}. Delete them; they are in git history if needed."
+    )
+
+
+def test_no_patient_attachment_has_been_committed():
+    """uploads/ holds patient X-rays, bloodwork and test results.
+
+    attachments.py anchors UPLOAD_ROOT inside this directory whenever the
+    data-dir environment variable is unset, which is exactly the case for a
+    dev clone. Both repos are published to GitHub, so a `git add -A` in a
+    clone that has been run locally would commit clinical files. IQ's
+    .gitignore has covered uploads/ for a while; JO's did not until the full
+    review, and nothing would have reported it -- the same shape as the saved
+    pages above, but with real patient data.
+
+    .gitkeep is the one permitted entry: it is what keeps the empty directory
+    in the repo so a fresh clone has somewhere to write.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "ls-files", "uploads"],
+        cwd=str(ROOT), capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip("not a git checkout")
+    tracked = [line for line in result.stdout.split("\n") if line.strip()]
+    offenders = [t for t in tracked if not t.endswith(".gitkeep")]
+    assert not offenders, (
+        f"patient attachment(s) are tracked in git: {offenders}. Remove them "
+        f"from the index and from history, and check .gitignore covers uploads/."
+    )
+
+
+def test_every_label_names_a_control():
+    """A <label> must be tied to the control it names — `for=` pointing at an
+    id, or the control nested inside it. Roughly 230 per app were neither:
+    siblings with no association at all, so a screen reader announced "edit
+    text, blank" and clicking the label did not focus the field.
+
+    A heading over a group of controls, or over a static value, is not a label
+    and must not be one — those are <span class="field-label"> plus, where it
+    heads a real group, role="group" with aria-labelledby.
+    """
+    offenders = []
+    for template in TEMPLATES:
+        txt = template.read_text(encoding="utf-8")
+        for m in re.finditer(r"<label([^>]*)>(.*?)</label>", txt, re.S):
+            if "for=" in m.group(1):
+                continue
+            if re.search(r"<(input|select|textarea)\b", m.group(2)):
+                continue
+            offenders.append(f"{template.name}: {re.sub(r'\\s+', ' ', m.group(2))[:40]!r}")
+    assert not offenders, (
+        f"{len(offenders)} label(s) name no control:\n  " + "\n  ".join(offenders[:20]))
+
+
+def test_every_label_points_at_an_id_that_exists():
+    """A `for=` aimed at nothing is worse than no `for=` — it reads as done.
+    Jinja-built ids are checked for shape only; the value depends on the row."""
+    offenders = []
+    for template in TEMPLATES:
+        txt = template.read_text(encoding="utf-8")
+        ids = set(re.findall(r'(?<![-\w])id="([^"]+)"', txt))
+        for target in re.findall(r'<label[^>]*\bfor="([^"]+)"', txt):
+            if "{{" in target:
+                if target not in ids:
+                    offenders.append(f"{template.name}: dynamic for={target!r} has no matching id")
+                continue
+            if target not in ids:
+                offenders.append(f"{template.name}: for={target!r} has no matching id")
+    assert not offenders, "dangling label targets:\n  " + "\n  ".join(offenders)
+
+
+def test_no_template_declares_the_same_id_twice():
+    """Duplicate ids break `for=` silently — the browser binds to the first.
+    The risk here is real: several pages carry two forms with the same field
+    names (Refunds has `amount` in both the retail and service forms), which is
+    why generated ids are keyed per file and position rather than per name."""
+    offenders = []
+    for template in TEMPLATES:
+        txt = template.read_text(encoding="utf-8")
+        seen = {}
+        # (?<![-\w]) so this does not also match data-role-id=", data-appt-id="
+        # and friends — '-' is a word boundary, so a bare \b matches inside them
+        # and reports every row's data attribute as a duplicate id.
+        for i in re.findall(r'(?<![-\w])id="([^"{]+)"', txt):
+            seen[i] = seen.get(i, 0) + 1
+        dupes = [i for i, c in seen.items() if c > 1]
+        if dupes:
+            offenders.append(f"{template.name}: {dupes}")
+    assert not offenders, "duplicate ids:\n  " + "\n  ".join(offenders)
+
+
+def test_every_table_header_declares_its_scope():
+    """349 <th> elements carried no scope, so assistive technology could not
+    tell which cells each header governs — on clinical and financial tables."""
+    offenders = []
+    for template in TEMPLATES:
+        txt = template.read_text(encoding="utf-8")
+        for m in re.finditer(r"<th(?:\s[^>]*)?>", txt):
+            if "scope=" not in m.group(0):
+                offenders.append(f"{template.name}: {m.group(0)[:60]}")
+    assert not offenders, (
+        f"{len(offenders)} <th> without scope:\n  " + "\n  ".join(offenders[:20]))
+
+
+def test_credential_fields_tell_the_password_manager_what_they_are():
+    """Without a hint the browser guesses, and on a shared front-desk machine
+    it guesses wrong — offering the admin's own saved credentials into a form
+    that creates someone else's account."""
+    offenders = []
+    for template in TEMPLATES:
+        txt = template.read_text(encoding="utf-8")
+        for m in re.finditer(
+                r'<input[^>]*\bname="(username|password|current_password|new_password|confirm_password)"[^>]*>',
+                txt):
+            if "autocomplete=" not in m.group(0):
+                offenders.append(f"{template.name}: {m.group(1)}")
+    assert not offenders, "credential field(s) with no autocomplete hint: " + ", ".join(offenders)
+
+
+def test_no_template_hardcodes_an_application_url():
+    """URLs the JavaScript builds must come from url_for(), not string literals.
+
+    Twenty-two templates in IQ and twenty-one in JO built request URLs by
+    concatenation — fetch(`/api/sales/${id}/refundable-items`), form.action =
+    '/admin/roles/' + id + '/delete'. Renaming or re-prefixing a route then
+    breaks the UI silently: no import error, no template error, and no test
+    failure, because route tests POST to the path directly and never click.
+    That is exactly the shape of the POS "Complete Sale" bug, which did nothing
+    for 25 releases while the suite stayed green (COMPARISON.md §27).
+
+    Built from url_for(), a renamed route raises BuildError while the page is
+    rendering — loud, and at the first page load rather than the first click.
+    Routes with a dynamic segment render a template carrying a sentinel
+    (__ID__, or 999999999 where an int converter refuses a non-numeric value
+    at build time) which the script substitutes.
+
+    Anchors and form actions written in HTML are already url_for() and are not
+    what this looks at; the target here is JavaScript.
+    """
+    offenders = []
+    # Any string literal that starts a path, wherever it appears — assigned to
+    # a variable, passed as an argument, concatenated. The first version of
+    # this guard only looked for fetch(, .action= and window.location=, and
+    # missed four more per app: `const url = '/api/browse-folder'` and two
+    # runUpdateJob('/settings/updates/...') calls. Two of those were routes
+    # about to move into a blueprint, which would have broken them silently —
+    # the exact failure this guard exists to prevent, hiding just outside the
+    # shape it was looking for.
+    pattern = re.compile(r"""[=(,]\s*["'`]/[a-z][a-z0-9/_-]*""")
+    for template in TEMPLATES:
+        for i, line in enumerate(template.read_text(encoding="utf-8").splitlines(), 1):
+            m = pattern.search(line)
+            if m and "url_for" not in line[max(0, m.start() - 40):m.start()]:
+                offenders.append(f"{template.name}:{i}: {line.strip()[:90]}")
+    assert not offenders, (
+        f"{len(offenders)} hardcoded application URL(s) in JavaScript:\n  "
+        + "\n  ".join(offenders[:20]))
+
+
+def test_every_cited_document_can_be_found():
+    """A comment citing a document nobody can open is worse than no comment.
+
+    Both repos are published. Sixty-odd comments cite design and audit
+    documents by filename — "see ORPHANED_RECORDS_AUDIT.md F-12" — and none of
+    those documents ship here. Seven of the titles cited existed nowhere at all,
+    including on the author's own machine, so they could not be followed by
+    anyone; those citations now carry the reasoning inline instead.
+
+    The rest live in the shared workspace on purpose (they describe BOTH apps),
+    and docs/README.md says where. This fails if a citation appears that is
+    neither in the repository nor listed there — which is the only thing that
+    keeps that list from falling behind the code again.
+    """
+    root = ROOT
+    index = root / "docs" / "README.md"
+    assert index.exists(), "docs/README.md is missing — the citation index"
+    listed = set(re.findall(r"`([A-Za-z0-9_ .-]+\.md)`", index.read_text(encoding="utf-8")))
+    in_repo = {p.name for p in root.rglob("*.md") if ".git" not in p.parts}
+
+    cited, unresolved = set(), []
+    # routes/*.py as well as the top level: after the blueprint split most of
+    # the code -- and most of the citations -- moved there, and a glob that
+    # stops at the root would check a fraction of the surface while still
+    # passing. CLAUDE.md makes this point about source-parsing tests generally.
+    #
+    # The filename pattern allows `-` and `.` after the first character, so a
+    # dated document (SIMULATION_AUDIT_2026-09-11.md) matches whole. Without
+    # that it matched only the tail, "11.md", and reported an unresolvable
+    # citation no entry in docs/README.md could ever satisfy.
+    sources = (list(root.glob("*.py")) + list(root.glob("*.sql"))
+               + sorted((root / "routes").glob("*.py")))
+    for path in sources:
+        for name in re.findall(r"\b([A-Za-z0-9_][A-Za-z0-9_.-]*\.md)\b",
+                               path.read_text(encoding="utf-8")):
+            cited.add(name)
+            if name not in listed and name not in in_repo:
+                unresolved.append(f"{path.name} -> {name}")
+
+    assert cited, "no .md citations found at all — this guard would pass vacuously"
+    assert not unresolved, (
+        "comment(s) cite a document that is neither in this repo nor listed in "
+        "docs/README.md:\n  " + "\n  ".join(sorted(set(unresolved))))

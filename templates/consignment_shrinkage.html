@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Consignment Shrinkage') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Consignment Shrinkage') }}</h1>
+    <p class="page-sub">{{ _('Damaged/expired Consignment stock, written off before it sold.') }} {% if total_count == 1 %}{{ _('1 entry on file.') }}{% else %}{{ _('%(total_count)s entries on file.', total_count=total_count) }}{% endif %}</p>
+  </div>
+  {% if has_permission('manage_consignment_stock') %}
+  <button class="btn" id="newItemBtn" style="display:{{ 'none' if open_new_form else 'inline-flex' }};" data-vzh="consignment-shrinkage-1">{{ _('+ Log Shrinkage') }}</button>
+  {% endif %}
+</div>
+
+{% if has_permission('manage_consignment_stock') %}
+<div class="card" id="newForm" style="display:{{ 'block' if open_new_form else 'none' }}; margin-bottom:16px;">
+  <form method="post" action="{{ url_for('consignment.consignment_shrinkage_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label for="consignmentshrinkage-1-item_id">{{ _('Item') }}</label>
+        <select id="consignmentshrinkage-1-item_id" name="item_id" required>
+          <option value="">—</option>
+          {% for i in items %}<option value="{{ i.id }}" {{ 'selected' if fv(form, 'item_id')==i.id }}>{{ i.name }} ({{ i.distributor_name }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label for="consignmentshrinkage-2-quantity">{{ _('Quantity') }}</label><input id="consignmentshrinkage-2-quantity" type="number" step="any" name="quantity" required value="{{ fv(form, 'quantity') }}"></div>
+      <div class="field"><label for="consignmentshrinkage-3-reason">{{ _('Reason') }}</label>
+        <select id="consignmentshrinkage-3-reason" name="reason" required>
+          <option value="Damaged" {{ 'selected' if fv(form, 'reason', 'Damaged')=='Damaged' }}>{{ _('Damaged') }}</option>
+          <option value="Expired" {{ 'selected' if fv(form, 'reason', 'Damaged')=='Expired' }}>{{ _('Expired') }}</option>
+          <option value="Other" {{ 'selected' if fv(form, 'reason', 'Damaged')=='Other' }}>{{ _('Other') }}</option>
+        </select>
+      </div>
+      <div class="field"><label for="consignmentshrinkage-4-liable_party">{{ _('Liable Party') }}</label>
+        <select id="consignmentshrinkage-4-liable_party" name="liable_party">
+          <option value="" {{ 'selected' if fv(form, 'liable_party')=='' }}>{{ _('Default for reason (Expired → Distributor, else → Clinic)') }}</option>
+          <option value="Distributor" {{ 'selected' if fv(form, 'liable_party')=='Distributor' }}>{{ _('Distributor') }}</option>
+          <option value="Clinic" {{ 'selected' if fv(form, 'liable_party')=='Clinic' }}>{{ _('Clinic') }}</option>
+        </select>
+      </div>
+      <div class="field full"><label for="consignmentshrinkage-5-notes">{{ _('Notes') }}</label><input id="consignmentshrinkage-5-notes" name="notes" value="{{ fv(form, 'notes') }}"></div>
+    </div>
+    <p class="small muted" style="margin:4px 0 12px;">{{ _('Clinic-liable shrinkage adds to what\'s owed the distributor at settlement — they\'re still owed for stock lost on your side. Distributor-liable shrinkage adds nothing — they absorb that loss directly.') }}</p>
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Log Shrinkage') }}</button>
+      <button class="btn secondary" type="button" data-vzh="consignment-shrinkage-2">{{ _('Cancel') }}</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead class="sticky-header"><tr>
+    <th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Item') }}</th><th scope="col">{{ _('Distributor') }}</th><th scope="col" class="num-col">{{ _('Quantity') }}</th>
+    <th scope="col">{{ _('Reason') }}</th><th scope="col">{{ _('Liable') }}</th><th scope="col" class="num-col">{{ _('Unit Cost (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Notes') }}</th>
+  </tr></thead>
+  <tbody>
+    {% for l in lines %}
+    <tr>
+      <td>{{ l.logged_at[:10] }}</td>
+      <td>{{ l.item_name }}</td>
+      <td>{{ l.distributor_name }}</td>
+      <td class="num-col">{{ l.quantity|round(2) }}</td>
+      <td>{{ l.reason }}</td>
+      <td>{{ l.liable_party|tr }}{% if l.liability_overridden %} <span class="small muted">{{ _('(overridden)') }}</span>{% endif %}</td>
+      <td class="num-col">{{ l.unit_cost|money }}</td>
+      <td>{{ l.notes or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-note">{{ _('No shrinkage logged yet.') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+<script nonce="{{ csp_nonce }}">
+VZ.bind('consignment-shrinkage-1', 'click', function (event) { document.getElementById('newForm').style.display='block'; this.style.display='none'; });
+VZ.bind('consignment-shrinkage-2', 'click', function (event) { document.getElementById('newForm').style.display='none'; document.getElementById('newItemBtn').style.display='inline-flex'; });
+</script>
+{% endblock %}

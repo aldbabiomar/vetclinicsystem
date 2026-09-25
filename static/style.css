@@ -1,0 +1,1104 @@
+:root {
+  /* Light-palette accents darkened to WCAG AA 2026-08-24: these carry white
+     button text AND are used as badge text on their own tint, and both uses
+     were failing (2.2-3.6:1). Hue and saturation are unchanged — only
+     lightness — and each -dark hover was re-derived to stay deeper than its
+     new base. See COMPARISON.md §13. */
+  --bg: #FAF5F1;
+  --paper: #FFFFFF;
+  --ink: #2B1620;
+  --ink-soft: #8C7680;
+  --line: #EDE1E5;
+  --line-soft: #F5EEF0;
+
+  --primary: #B21C43;
+  --primary-dark: #8A1534;
+  --primary-tint: #F8E5EA;
+
+  --sidebar-bg: #051335;
+  --sidebar-ink: #E8EAF2;
+  --sidebar-muted: #8892B0;
+  --sidebar-active: #122253;
+
+  --ok: #3F7759;
+  --ok-tint: #E7F2EC;
+  --warn: #B5791F;
+  --warn-ink: #9B671B;
+  --warn-tint: #FDF8EC;
+  --danger: #B5442D;
+  --danger-dark: #943825;
+  --danger-tint: #F8E7E2;
+  --muted: #A79AA0;
+  --muted-tint: #F3EDEF;
+
+  --radius: 14px;
+  /* Height of the fixed mobile top bar. Sticky table headers offset by
+     exactly this much below 760px, so they pin under the bar instead of
+     behind it — kept as one value so the two cannot drift apart. */
+  --topbar-h: 62px;
+  --radius-sm: 9px;
+  --shadow-sm: 0 1px 2px rgba(43,22,32,0.05);
+  --shadow: 0 2px 10px rgba(43,22,32,0.06), 0 1px 2px rgba(43,22,32,0.04);
+  --shadow-lg: 0 16px 48px rgba(43,22,32,0.16);
+  font-size: 15px;
+}
+
+/* ---- Dark theme (per-user toggle in the sidebar; same variables, new values) ----
+   Derived from JO's own light palette rather than copied from IQ's: the
+   neutrals stay plum-tinted to match --ink (#2B1620), and the sidebar is
+   DEEPENED rather than inverted, because unlike IQ's light-blue sidebar
+   JO's is already dark navy in light mode. --primary is lifted to #E76A8C
+   so it reads as link text on a dark background (6.20:1) while still taking
+   dark button text at the same ratio — see the filled-button rule below for
+   why button text flips instead of the fill being deepened. */
+html[data-theme="dark"] {
+  /* Tells the browser to render its OWN chrome dark too — date/time
+     pickers, select dropdowns, scrollbars. Without it those stay light
+     and punch white holes in a dark page. Inherited by the ChamPet dark
+     palette as well, since that element still matches this selector. */
+  color-scheme: dark;
+
+  --bg: #150E12;
+  --paper: #1F161B;
+  --ink: #F5E9EE;
+  --ink-soft: #B3A0A8;
+  --line: #3A2C33;
+  --line-soft: #291F25;
+
+  --primary: #E76A8C;
+  --primary-dark: #F07EA0;
+  --primary-tint: #3A1522;
+
+  --sidebar-bg: #030B21;
+  --sidebar-ink: #E8EAF2;
+  --sidebar-muted: #98A2C0;
+  --sidebar-active: #16265C;
+
+  --ok: #7FBF9B;
+  --ok-tint: #16281E;
+  --warn: #D9A85C;
+  --warn-ink: #D9A85C;
+  --warn-tint: #2E2312;
+  --danger: #E08A72;
+  --danger-dark: #EC9A82;
+  --danger-tint: #33201B;
+  --muted: #9C8E95;
+  --muted-tint: #272025;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+  --shadow: 0 2px 10px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+a { color: var(--primary); text-decoration: none; transition: opacity 0.15s ease; }
+a:hover { opacity: 0.75; text-decoration: none; }
+
+h1, h2, h3 { letter-spacing: -0.015em; font-weight: 650; }
+
+.app-shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+/* ---------------- Sidebar ---------------- */
+.sidebar {
+  background: var(--sidebar-bg);
+  color: var(--sidebar-ink);
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 2px 10px 20px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 16px;
+}
+.brand .mark { flex: none; width: 26px; height: 26px; color: #fff; }
+.brand .mark svg { width: 100%; height: 100%; display: block; }
+.brand-name { font-weight: 650; font-size: 16.5px; letter-spacing: -0.01em; color: #fff; }
+.brand-sub {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.4px;
+  color: var(--sidebar-muted); padding: 0 10px 18px;
+}
+
+.nav-group { margin-bottom: 16px; }
+.nav-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.1px;
+  color: var(--sidebar-muted); padding: 6px 10px 7px; font-weight: 650;
+}
+.nav-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 11px; border-radius: 9px;
+  color: var(--sidebar-ink); font-size: 13.6px; font-weight: 480;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-link:hover { background: rgba(255,255,255,0.05); opacity: 1; text-decoration: none; }
+.nav-link.active { background: var(--sidebar-active); color: #fff; font-weight: 600; }
+.nav-badge {
+  background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 700;
+  border-radius: 999px; padding: 1px 7px; line-height: 16px;
+}
+
+/* ---------------- Theme toggle ---------------- */
+/* Lives inside .brand, at the right edge next to the clinic name — icon
+   only, no label (the sun/moon glyph + aria-label carry the meaning). */
+.theme-toggle-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.12); color: var(--sidebar-ink); cursor: pointer; padding: 0;
+  transition: background 0.15s ease;
+  flex: none; margin-inline-start: auto;
+}
+.theme-toggle-btn:hover { background: rgba(255,255,255,0.22); }
+.theme-toggle-btn svg { width: 16px; height: 16px; display: block; }
+.theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-moon { display: block; }
+
+/* ---------------- Main ---------------- */
+/* min-width:0 — .main is a grid item, and a grid item's default
+   min-width:auto lets its widest content (a table) inflate the column
+   past the viewport. Same trap as .modal-box. Inert on desktop, where
+   there is slack; it is what stops tablet portrait scrolling sideways. */
+.main { padding: 28px 36px 64px; max-width: 1200px; min-width: 0; }
+.main.main-wide { max-width: 1520px; }
+
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.page-head h1 { font-size: 23px; margin: 0 0 4px; }
+.page-sub { color: var(--ink-soft); font-size: 13.5px; margin: 0; line-height: 1.5; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--primary); color: #fff; border: none;
+  padding: 9px 17px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn:hover { background: var(--primary-dark); text-decoration: none; opacity: 1; }
+.btn:active { transform: scale(0.98); }
+.btn.secondary { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+.btn.secondary:hover { background: var(--muted-tint); }
+.btn.small { padding: 5px 11px; font-size: 12.5px; border-radius: 7px; }
+.btn.disabled, .btn.small.disabled { opacity: 0.4; pointer-events: none; cursor: default; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 18px 0 4px; }
+.pagination-info { font-size: 13px; color: var(--ink-soft); }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover { background: var(--danger-dark); }
+.btn.ok { background: var(--ok); }
+.btn.ok:hover { opacity: 0.9; }
+
+/* ---- Filled controls in dark mode ----
+   The palette's accent colours are lifted in dark mode so they read as TEXT
+   against a dark background — which is exactly what makes white text on top
+   of them fail (2.0–2.8:1 across every palette). Flipping the label to the
+   page colour fixes it everywhere at once (6.5–9.2:1) and keeps the fills
+   vivid, instead of deepening every accent and breaking its text use.
+   .secondary is excluded: it is not a filled control — it sits on --paper
+   and keeps --ink. */
+html[data-theme="dark"] .btn:not(.secondary),
+html[data-theme="dark"] .nav-badge,
+html[data-theme="dark"] .chip.active { color: var(--bg); }
+
+.actions-cell { max-width: 300px; }
+.action-btns { display: flex; flex-direction: column; align-items: stretch; width: fit-content; gap: 6px; }
+.action-btns form { display: contents; }
+.action-btns .btn { width: 100%; justify-content: center; }
+.action-btns-row { display: flex; gap: 6px; width: 100%; }
+.action-btns-row form { display: contents; }
+.action-btns-row .btn { flex: 1 1 0; width: auto; }
+
+.inv-table tbody td { vertical-align: middle; }
+.inv-table .dist-cell { overflow-wrap: break-word; word-break: break-word; }
+.inv-table .dist-label {
+  display: inline-block; cursor: pointer; line-height: 1.35;
+  border-bottom: 1px dashed var(--ink-soft);
+}
+.inv-table .dist-select { display: none; border: none; background: var(--line-soft); width: 100%; }
+
+/* ---------------- Cards / grid ---------------- */
+.card {
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px 22px;
+}
+
+/* ---------------- Upload progress (universal, static/upload-progress.js) ---------------- */
+.upload-status { margin-top: 4px; flex-basis: 100%; }
+.upload-status-error { color: var(--danger); }
+.upload-progress-wrap { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-basis: 100%; }
+.upload-progress-bar {
+  flex: 1; height: 7px; border-radius: 999px; background: var(--line-soft);
+  overflow: hidden;
+}
+.upload-progress-fill {
+  height: 100%; width: 0%; background: var(--primary);
+  transition: width 0.15s ease;
+}
+.upload-progress-pct { min-width: 34px; text-align: right; }
+
+/* ---------------- Error pages (404 / 403 / 500) ---------------- */
+.error-page { display: flex; justify-content: center; padding-top: 4vh; }
+.error-card {
+  max-width: 420px; width: 100%; text-align: center;
+  padding: 36px 32px 30px;
+}
+.error-card-wide { max-width: 560px; }
+.error-dog { width: 150px; height: auto; color: var(--primary); margin: 0 auto 6px; display: block; }
+.error-card h1 { font-size: 20px; margin: 4px 0 6px; }
+.error-card .page-sub { margin: 0 auto 20px; max-width: 320px; }
+.error-card-wide .page-sub { max-width: 420px; }
+.error-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.error-report { text-align: start; }
+.error-report-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.error-report-box {
+  background: var(--muted-tint); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  color: var(--ink); margin: 0;
+}
+.error-report-box-full { max-height: 260px; overflow-y: auto; }
+
+/* ---- Card spacing is 16px everywhere ----
+   One unit for the gap between cards, whether they sit in a grid (here,
+   .panel-grid, .settings-stack) or are stacked with a margin in a template.
+   It had drifted to four values -- 10, 14, 16 and 20px -- across 27 inline
+   styles and these grids; 16 was the plurality and is what the Dashboard's
+   .panel-grid already used. If you add a card, use 16. */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px 20px; box-shadow: var(--shadow);
+}
+.stat-card .num { font-size: 32px; font-weight: 680; line-height: 1; margin-bottom: 7px; letter-spacing: -0.02em; }
+.stat-card .label { font-size: 12.5px; color: var(--ink-soft); }
+.stat-card.alert .num { color: var(--danger); }
+.stat-card.warn .num { color: var(--warn-ink); }
+.stat-card.ok .num { color: var(--primary); }
+
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* .panel-grid holds two side-by-side cards. The collapse to a single
+   column lived at 760px, but a standard tablet is 768px -- eight pixels
+   above it -- so on the most common tablet width the grid stayed at two
+   columns and the second card ran off the right edge, taking the whole
+   page into horizontal scroll (/refunds: 1046px of content in a 768px
+   window). Collapsed at 900px instead. .stat-grid stays at two columns:
+   the stat tiles are narrow and stacking them makes the page very long. */
+@media (max-width: 900px) { .panel-grid { grid-template-columns: 1fr; } .stat-grid { grid-template-columns: 1fr 1fr; } }
+
+.panel h2 { font-size: 14.5px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; font-weight: 620; }
+.panel h2 .count { color: var(--ink-soft); font-weight: 480; font-size: 12.5px; }
+.section-title .count { color: var(--ink-soft); font-weight: 480; font-size: 12.5px; }
+
+.empty-note { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+.list-line {
+  display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
+}
+.list-line:last-child { border-bottom: none; }
+.list-line .who { font-weight: 600; }
+.list-line .meta { color: var(--ink-soft); font-size: 12.5px; }
+
+/* Clickable rows in the backup-folder browser (Settings). The rows are built
+   by settings.html with the same class and inline cursor/padding as IQ, but
+   the separators and hover feedback live here — they were missed when the
+   folder browser was ported, leaving the rows visually undivided. */
+.folder-browser-row { border-bottom: 1px solid var(--line-soft); transition: background 0.1s ease; }
+.folder-browser-row:last-child { border-bottom: none; }
+.folder-browser-row:hover { background: var(--line-soft); }
+
+/* ---------------- Tables ---------------- */
+.table-wrap {
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: auto; box-shadow: var(--shadow);
+}
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  text-align: start; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.7px;
+  color: var(--ink-soft); background: var(--muted-tint); padding: 11px 14px;
+  border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; font-weight: 650;
+}
+tbody td { padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--line-soft); }
+.row-dirty td { background: var(--primary-tint) !important; border-inline-start: 3px solid var(--primary); }
+tfoot td {
+  padding: 11px 14px; border-top: 2px solid var(--line); background: var(--muted-tint);
+  font-weight: 700; color: var(--ink); position: sticky; bottom: 0;
+}
+tfoot tr:first-child td { border-top: 2px solid var(--line); }
+.table-wrap.sticky-scroll { overflow: visible; }
+/* These wraps deliberately do NOT scroll (the header sticks to the PAGE, not
+   to the card), so a table wider than the card overflows it: the white card
+   stops short and the whole page scrolls sideways. Letting the header labels
+   wrap gives the columns back the width they need to fit.
+   Scoped to sticky-scroll — every other table scrolls inside its card and
+   keeps single-line headers. */
+.table-wrap.sticky-scroll thead th { white-space: normal; }
+.sticky-header th { z-index: 2; }
+.row-flag-mismatch td { background: var(--warn-tint) !important; border-inline-start: 3px solid var(--warn); }
+/* Numeric columns keep a FIXED right alignment rather than the direction-aware
+   `end` used for prose above. Deliberate, and confirmed with the person who
+   owns this decision: a column of digits stays visually where it is when the
+   UI flips to Arabic, which is what most Arabic business software does. If
+   this is ever revisited, `end` is the one-word alternative and the English
+   rendering is identical either way. ARABIC_LOCALIZATION_PLAN.md §6.2. */
+.num-col { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------------- Badges ---------------- */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 650; padding: 3px 9px;
+  border-radius: 999px; white-space: nowrap; letter-spacing: 0.15px;
+}
+.badge.ok { background: var(--ok-tint); color: var(--ok); }
+.badge.warn { background: var(--warn-tint); color: var(--warn-ink); }
+.badge.danger { background: var(--danger-tint); color: var(--danger); }
+.badge.muted { background: var(--muted-tint); color: var(--muted); }
+.badge.primary { background: var(--primary-tint); color: var(--primary); }
+
+/* ---------------- Forms ---------------- */
+/* Column count follows the space actually available, not a fixed number plus
+   a breakpoint. The old `1fr 1fr` + `max-width: 760px` meant a 768px iPad --
+   8px on the wrong side of the breakpoint -- kept BOTH the expanded sidebar
+   and two columns, leaving 196px per column and a backup-path field of 182px.
+   With auto-fit the same viewport gets one 410px column, and a wide desktop
+   gets three, so three-field sections stop orphaning one onto a second row.
+   Anything long (a filesystem path, a URL) still opts out with .full. */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 15px 18px; }
+.form-grid.full, .field.full { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label, .field .field-label {
+  font-size: 11.5px; font-weight: 620; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+input, select, textarea {
+  font-family: inherit; font-size: 14px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--paper); color: var(--ink); transition: border-color 0.15s ease;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint);
+}
+textarea { resize: vertical; min-height: 72px; }
+.form-actions { display: flex; gap: 10px; margin-top: 20px; }
+/* Opt-in: push a form's buttons to the far corner. A MODIFIER rather than a
+   change to .form-actions itself, which 19 templates share — right-aligning
+   all of them is not what was asked for. justify-content follows the writing
+   direction, so this is the left corner in Arabic. */
+.form-actions.form-actions-end { justify-content: flex-end; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; flex-direction: row; }
+.checkbox-row input { width: auto; }
+
+/* wrap, or the buttons beside the search input push past the right edge
+   on a phone -- /visits rendered 482px of content in a 390px window. */
+.search-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.search-bar input[type=text] { flex: 1; max-width: 320px; }
+
+/* ---------------- Flash ---------------- */
+.flash { padding: 11px 15px; border-radius: var(--radius-sm); margin-bottom: 18px; font-size: 13.5px; font-weight: 500; }
+.flash.success { background: var(--ok-tint); color: var(--ok); }
+.flash.error { background: var(--danger-tint); color: var(--danger); }
+/* A third state, for an action that SUCCEEDED but carries something the
+   user must act on — a cash-drawer count that saved and came out short is
+   the case this was added for. It was previously flashed as .error, so a
+   saved audit looked identical to a failed one and staff re-ran it. */
+.flash.warning { background: var(--warn-tint); color: var(--warn-ink); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
+.tabs a { padding: 9px 14px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tabs a.active { color: var(--primary); border-bottom-color: var(--primary); opacity: 1; }
+.tabs a:hover { text-decoration: none; color: var(--primary); }
+
+.filter-chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+/* A primary action sharing the filter row sits in the far corner.
+   margin-inline-start so it lands correctly under RTL; flex-wrap above means
+   it drops to its own line on a phone rather than squashing the chips. */
+.filter-chips > .btn { margin-inline-start: auto; }
+/* The attachments upload row: file picker on the left, button in the corner.
+   Was an inline style; moved here so it stays off the inline-style ratchet. */
+.inpatient-upload-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inpatient-upload-row .btn { margin-inline-start: auto; }
+.chip {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
+  font-size: 12.5px; font-weight: 600; color: var(--ink-soft); background: var(--paper);
+  transition: background 0.15s ease;
+}
+.chip:hover { text-decoration: none; background: var(--muted-tint); opacity: 1; }
+.chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.section-title {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--ink-soft); font-weight: 700; margin: 28px 0 11px;
+}
+.section-title:first-child { margin-top: 0; }
+
+.muted { color: var(--ink-soft); }
+.small { font-size: 12.5px; }
+.updates-log { white-space: pre-wrap; font-size: 13px; line-height: 1.55; }
+
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-bottom: 6px; }
+.detail-item .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.detail-item .v { font-size: 14px; margin-bottom: 11px; }
+
+.inline-form { display: inline; }
+
+/* ---------------- Auth pages ---------------- */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+.auth-card { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 40px 36px; width: 100%; max-width: 370px; }
+.auth-card .brand .mark { width: 40px; height: 40px; }
+.auth-flash-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 50; width: 100%; max-width: 360px; }
+
+/* ---------------- Modal ---------------- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(32,28,27,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px); }
+.modal-box { background: var(--paper); border-radius: 18px; padding: 26px 28px; max-width: 420px; min-width: 0; box-shadow: var(--shadow-lg); }
+
+/* ---------------- Chart sizing ---------------- */
+/* Charts get an explicit height here and maintainAspectRatio:false in the
+   page, rather than Chart.js inferring an aspect ratio from a canvas height
+   attribute. With the attribute approach the chart's WIDTH is computed from
+   its height, so it cannot fill a wide card and a doughnut grows into a
+   square as big as the card is wide. */
+.chart-box { position: relative; height: 320px; width: 100%; }
+@media (max-width: 900px) { .chart-box { height: 260px; } }
+/* A modal must never be taller than the screen it is on. Without a cap the
+   Add Role box grew to 1374px on a 375x812 phone — top clipped off-screen,
+   and the submit button simply unreachable, so a role could not be created
+   at all. The cap plus overflow makes the modal scroll inside itself. */
+.modal-box { max-height: calc(100vh - 32px); overflow-y: auto; }
+.modal-box.modal-wide { max-width: min(1040px, 96vw); }
+
+/* The permission blocks flow into columns instead of stacking. Six category
+   blocks in one column is what made the Add Role modal 894px tall on a
+   1440x900 laptop — 6px of headroom. Flowed into three it is 682px.
+   `break-inside: avoid` keeps a category and its checkboxes together. */
+.perm-columns { column-count: 1; column-gap: 26px; }
+.perm-columns .perm-block { break-inside: avoid; -webkit-column-break-inside: avoid; }
+@media (min-width: 700px)  { .perm-columns { column-count: 2; } }
+@media (min-width: 1000px) { .perm-columns { column-count: 3; } }
+
+/* ---------------- Appointments grid ---------------- */
+.appt-grid { display: grid; border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; background: var(--paper); }
+.appt-cell { border-bottom: 1px solid var(--line-soft); border-inline-end: 1px solid var(--line-soft); padding: 6px; min-height: 46px; font-size: 12.5px; }
+.appt-head-cell { background: var(--muted-tint); font-weight: 700; font-size: 12px; padding: 9px 6px; border-bottom: 1px solid var(--line); border-inline-end: 1px solid var(--line-soft); text-align: center; }
+.appt-slot-label { background: var(--muted-tint); font-size: 11px; color: var(--ink-soft); font-weight: 700; display: flex; align-items: center; justify-content: center; border-inline-end: 1px solid var(--line); border-bottom: 1px solid var(--line-soft); }
+.appt-chip { background: var(--primary-tint); color: var(--primary-dark); border-radius: 6px; padding: 3px 6px; font-size: 11px; font-weight: 600; margin-bottom: 3px; cursor: pointer; }
+.appt-chip.grooming { background: var(--warn-tint); color: var(--warn-ink); }
+.appt-add-btn { width: 100%; border: 1px dashed var(--line); background: none; color: var(--muted); border-radius: 6px; font-size: 11px; padding: 3px; cursor: pointer; }
+.appt-add-btn:hover { background: var(--muted-tint); }
+
+/* ---------------- Barcode label ---------------- */
+.barcode-label-box { border: 1px dashed var(--line); border-radius: var(--radius); padding: 20px 22px; width: 260px; text-align: center; background: var(--paper); }
+.barcode-sheet { display: flex; flex-wrap: wrap; gap: 14px; }
+.barcode-sheet .barcode-label-box { break-inside: avoid; page-break-inside: avoid; }
+@media print { .sidebar, .page-head, .no-print { display: none !important; } .main { padding: 0; } }
+
+/* ---------------- POS ---------------- */
+.pos-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+.pos-cart-line { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
+@media (max-width: 900px) { .pos-grid { grid-template-columns: 1fr; } }
+
+/* ---------------- Mobile top bar, hamburger & off-canvas sidebar ---------------- */
+.mobile-topbar { display: none; }
+.hamburger-btn {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  width: 34px; height: 34px; background: none; border: none; cursor: pointer; padding: 0; flex: none;
+}
+.hamburger-btn span { display: block; width: 100%; height: 2px; background: #fff; border-radius: 2px; }
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0; background: rgba(20,17,16,0.45); z-index: 40;
+}
+.sidebar-backdrop.open { display: block; }
+.sidebar-close-btn { display: none; }
+
+/* ---- Wide tables below desktop width ----
+   .sticky-scroll drops the card's own side-scroll so the header can pin
+   against the page. That only works while the table actually fits: the widest
+   one (Price List, 805px natural width) needs viewport - 240px sidebar - 72px
+   padding >= 805, i.e. about 1117px. Under that it drags the whole PAGE
+   sideways, taking the sidebar and top bar with it — much worse than losing a
+   pinned header. So below 1120px the card gets its scroll back.
+
+   This cannot be solved per-table in CSS: an element cannot scroll on one axis
+   and stay overflow-visible on the other (the visible axis computes to auto),
+   so horizontal scrolling and page-level sticky are mutually exclusive here. */
+@media (max-width: 1120px) {
+  .table-wrap.sticky-scroll { overflow: auto; }
+}
+
+@media (max-width: 760px) {
+  .stat-grid, .panel-grid, .detail-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: 1fr; padding-top: 64px; }
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--sidebar-bg); color: #fff; padding: 14px 16px;
+    padding-inline-start: calc(16px + env(safe-area-inset-left));
+    padding-inline-end: calc(16px + env(safe-area-inset-right));
+    position: fixed; top: 0; left: 0; width: 100vw; z-index: 30;
+    height: var(--topbar-h);
+  }
+  /* The bar is fixed at the top of the viewport, so a header pinning to
+     top:0 lands behind it. Offset by the bar's own height instead. */
+  thead th { top: var(--topbar-h); }
+  .mobile-topbar-brand {
+    font-weight: 650; font-size: 15.5px; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar {
+    display: flex; position: fixed; top: 0; left: 0; height: 100vh; width: 260px; max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 50;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close-btn {
+    display: block; align-self: flex-end; background: none; border: none; color: var(--sidebar-ink);
+    font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; margin-bottom: 4px;
+  }
+  .main { padding: 16px 16px 48px; }
+}
+
+/* ---------------------------------------------------------------------
+   Touch / iOS accommodations.
+
+   Keyed off the INPUT DEVICE, not the viewport width. These lived inside a
+   `max-width: 760px` query, so an iPad in portrait -- 768px, 8px on the wrong
+   side -- got none of them. Measured on the running app at 768px: every form
+   field 14px (so iOS Safari zoomed on focus and never zoomed back), buttons
+   34-37px, 36 nav links under 44px, and the appointment "+" button 21px --
+   the very bug IQ 1.10.8 / JO 1.8.9 shipped a fix for, still live on tablets
+   because that fix was inside the same 760px query.
+
+   `pointer: coarse` covers a touch device at ANY width, which is the real
+   condition; the width half is a fallback for narrow mouse-driven windows.
+   Neither affects a desktop with a mouse at any size.
+   --------------------------------------------------------------------- */
+@media (pointer: coarse), (max-width: 900px) {
+
+  /* iOS Safari zooms the page whenever a focused field is under 16px, and
+     does not zoom back out — so every form entry leaves the page magnified. */
+  input, select, textarea { font-size: 16px; }
+
+  /* Touch targets to ~44px (Apple HIG / WCAG 2.5.5). These are all already
+     flex or inline-flex with centred content, so min-height grows the hit
+     area without moving any text. textarea is excluded (already 72px tall)
+     and so are checkboxes/radios, which are sized deliberately. */
+  .btn, .btn.small { min-height: 44px; }
+  .nav-link, .nav-group-toggle { min-height: 44px; }
+  .hamburger-btn { width: 44px; height: 44px; }
+  .sidebar-close-btn { min-height: 44px; min-width: 44px; }
+  .theme-toggle-btn { width: 44px; height: 44px; }
+  .chip { display: inline-flex; align-items: center; min-height: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]), select { min-height: 44px; }
+}
+
+/* =====================================================================
+   Toast / dialog / progress-UI framework (ported from IQ)
+   ===================================================================== */
+
+/* ---------------- Progress bars (Settings updates, Insights, Retention, Consignment Overview) ---------------- */
+.vz-progress-panel { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--muted-tint); }
+.vz-progress-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; word-break: break-word; }
+.vz-progress-bar-track { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.vz-progress-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.35s ease; }
+.vz-progress-bar-fill.error { background: var(--danger); }
+.vz-progress-meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 6px; }
+.vz-progress-shell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; text-align: center; }
+.vz-progress-shell .vz-progress-panel { width: 100%; max-width: 420px; text-align: start; }
+
+/* Inline validation message */
+.field-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-tint) !important; }
+.field-error { color: var(--danger); font-size: 12px; font-weight: 600; margin-top: 4px; }
+
+/* Scroll-edge fade instead of a hard cut under sticky table headers */
+.table-wrap { position: relative; }
+.table-wrap::before {
+  content: ""; position: sticky; top: 0; left: 0; right: 0; height: 0;
+  display: block; z-index: 3; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.06), transparent);
+  opacity: 0; transition: opacity 0.15s ease, height 0.15s ease;
+}
+.table-wrap.is-scrolled::before { height: 10px; opacity: 1; }
+
+/* ---------------- Sidebar collapsible groups ---------------- */
+.nav-group-toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 6px 10px 7px; margin: 0;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.1px;
+  color: var(--sidebar-muted); font-weight: 700; font-family: inherit;
+}
+.nav-group-toggle .chevron { transition: transform 0.2s ease; flex: none; }
+.nav-group-toggle .chevron svg { width: 11px; height: 11px; display: block; }
+.nav-group.collapsed .nav-group-toggle .chevron { transform: rotate(-90deg); }
+.nav-group-links { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.nav-group.collapsed .nav-group-links { display: none; }
+
+/* ---------------- Accessibility baseline: visible focus rings ----------------
+   Keyboard users had no focus indicator anywhere in this app. Uses --primary,
+   so it themes itself in both light and dark. tr[tabindex="0"] insets its
+   outline because a table row's outline would otherwise be clipped by the
+   scroll container. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.chip:focus-visible,
+.nav-link:focus-visible,
+.theme-toggle-btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+tr[tabindex="0"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
+
+/* ---------------- Toast component ---------------- */
+.vz-toast-stack {
+  position: fixed; right: 18px; bottom: 18px; z-index: 200;
+  display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+  pointer-events: none;
+}
+.vz-toast {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 9px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg); padding: 11px 12px 11px 14px; font-size: 13.5px; font-weight: 550;
+  color: var(--ink); opacity: 0; transform: translateY(10px) scale(0.98);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.vz-toast.vz-toast-in { opacity: 1; transform: translateY(0) scale(1); }
+.vz-toast.vz-toast-out { opacity: 0; transform: translateY(6px) scale(0.98); }
+.vz-toast-icon {
+  flex: none; width: 20px; height: 20px; border-radius: 999px; display: flex; align-items: center;
+  justify-content: center; font-size: 12px; font-weight: 800; color: #fff;
+}
+.vz-toast-success .vz-toast-icon { background: var(--ok); }
+.vz-toast-error .vz-toast-icon { background: var(--danger); }
+.vz-toast-warn .vz-toast-icon { background: var(--warn); }
+.vz-toast-status .vz-toast-icon { background: var(--muted); }
+.vz-toast-msg { flex: 1; min-width: 0; line-height: 1.4; overflow-wrap: anywhere; word-break: break-word; }
+.vz-toast-close {
+  flex: none; background: none; border: none; cursor: pointer; color: var(--ink-soft);
+  font-size: 16px; line-height: 1; padding: 2px 4px;
+}
+.vz-toast-close:hover { color: var(--ink); }
+@media (pointer: coarse), (max-width: 900px) {
+  /* Found by tests/test_browser.py driving a real 390px viewport: the
+     slot '+' button rendered 273px wide but only 20px tall, and the toast
+     dismiss 17x20 — both well under the 44px touch minimum the rest of
+     this block already applies. Width was never the problem; height was. */
+  .appt-add-btn { min-height: 44px; font-size: 14px; }
+  .vz-toast-close { min-width: 44px; min-height: 44px; }
+  .vz-toast-stack { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* ---------------- Styled confirm dialog ---------------- */
+.vz-confirm-box { max-width: 400px; }
+.vz-confirm-msg { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; word-break: break-word; }
+
+/* ---------------- Optimistic "Saving…" button state ---------------- */
+.btn.is-saving, button.is-saving { opacity: 0.75; cursor: progress; }
+
+/* htmx loading indicator on the element that triggered a boosted request */
+.is-loading { opacity: 0.6; pointer-events: none; }
+.htmx-request .table-wrap, .htmx-request.table-wrap { opacity: 0.6; transition: opacity 0.1s ease; }
+
+/* =====================================================================
+   Users & Roles (custom role creation/editing, ported from IQ)
+   ===================================================================== */
+.radio-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.radio-row input { width: auto; accent-color: var(--primary); }
+
+.role-cards { display: flex; flex-direction: column; gap: 14px; }
+.role-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px 20px; }
+.role-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.role-card-title { flex: 1 1 320px; min-width: 220px; }
+.role-card-title h3 { margin: 0 0 2px; font-size: 16px; display: flex; align-items: center; gap: 9px; }
+.role-card-desc { font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+.role-card-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+.lock-ico { color: var(--muted); font-size: 13px; }
+.perm-block { margin-bottom: 13px; }
+.perm-cat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--primary-dark); font-weight: 750; margin-bottom: 7px; opacity: .85; }
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 7px 16px; }
+.perm-row { display: flex; align-items: center; gap: 8px; font-size: 12.8px; }
+.perm-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); flex: none; }
+.role-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; margin-top: 2px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
+.cap-field { display: flex; align-items: center; gap: 8px; }
+.cap-field input { width: 74px; text-align: right; }
+.staff-count { font-size: 12.5px; color: var(--ink-soft); }
+.new-role-card { border: 1.5px dashed var(--line); background: transparent; box-shadow: none; display: flex; align-items: center; justify-content: center; padding: 22px; cursor: pointer; color: var(--ink-soft); font-weight: 650; font-size: 13.5px; }
+.new-role-card:hover { background: var(--line-soft); border-color: var(--primary-tint); color: var(--primary-dark); }
+.reassign-note { background: var(--warn-tint); border: 1px solid var(--warn); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 13px; color: var(--ink); margin-bottom: 16px; line-height: 1.5; }
+.reassign-note strong { color: var(--warn-ink); }
+.role-card.removing { opacity: .4; transform: scale(0.98); pointer-events: none; transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .role-card.removing { transform: none !important; }
+}
+
+/* Name/description become real inputs but sit flush with the card at rest
+   so the card still reads like plain text until focused. */
+.role-name-input {
+  font: inherit; font-weight: 650; font-size: 16px; border: none; background: transparent;
+  padding: 2px 4px; margin: 0 0 2px -4px; color: inherit; width: auto; min-width: 120px;
+}
+.role-desc-input {
+  font: inherit; font-size: 12.5px; color: var(--ink-soft); border: none; background: transparent;
+  padding: 2px 4px; margin: 0 0 0 -4px; width: 100%; max-width: 640px;
+}
+.role-name-input:focus, .role-desc-input:focus {
+  outline: none; background: var(--line-soft); border-radius: 5px; box-shadow: 0 0 0 2px var(--primary-tint);
+}
+.role-card-save {
+  display: none; align-items: center; gap: 8px;
+}
+.role-card.is-dirty .role-card-save { display: flex; }
+.role-card-dirty-note { font-size: 12px; color: var(--warn-ink); font-weight: 650; }
+
+
+/* ---------------- Settings page grouping ----------------
+   The whole page used to be one card, so nothing signalled which fields the
+   single "Save Settings" button actually wrote. Now: one card per group, and
+   a card whose contents are saved ends in a save bar that says so. */
+.settings-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.settings-tag.saved { background: var(--primary-tint); color: var(--primary-dark); }
+.settings-tag.now { background: var(--warn-tint); color: var(--warn-ink); }
+.settings-card-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.settings-card-head h2 { margin: 0; font-size: 15.5px; letter-spacing: -0.01em; }
+.settings-save-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin: 20px -22px 0; padding: 14px 22px;
+  border-top: 1px solid var(--line); background: var(--line-soft);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.settings-save-bar .what { font-size: 12.5px; color: var(--ink-soft); }
+.card.has-save-bar { padding-bottom: 0; }
+
+/* Settings is a stack of sibling cards rather than a grid of them, so it has
+   no `gap` of its own and the cards would otherwise butt together. Spacing
+   comes from the layout, matching .panel-grid's 16px on the Dashboard --
+   not a margin on .card, which would double up with the gap wherever cards
+   DO sit in a grid. */
+/* A grid item defaults to min-width:auto, i.e. it refuses to shrink below its
+   own max-content width. Without the minmax(0, 1fr) below, each .card here
+   resolved to max-content, which let the auto-fit .form-grid inside lay out
+   ALL its columns (4 x 260px + gaps = 1056px) instead of collapsing to one --
+   so the redesigned Settings page scrolled sideways at every phone and tablet
+   width. Caught 2026-08-31, once IQ's browser tier could actually run. */
+.settings-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+/* ---------------- Health-check banner ----------------
+   Deliberately NOT class="flash". toast.js converts every `main .flash` into
+   a toast and then REMOVES it from the page, so a .flash health warning is a
+   transient notification that auto-dismisses -- and the `error` kind
+   auto-dismisses faster than the milder `status` one, so the worse the
+   problem the sooner it vanished. This must persist until the underlying
+   fault is fixed: the whole reason the 3-day modal exists is that a banner
+   sitting there is the thing being ignored, which requires it to sit there. */
+.selfcheck-banner {
+  padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 16px;
+  font-size: 13.5px; line-height: 1.5;
+  background: var(--warn-tint); color: var(--warn-ink);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+}
+.selfcheck-banner.fail {
+  background: var(--danger-tint); color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+}
+.selfcheck-banner ul { margin: 6px 0 0; padding-inline-start: 20px; }
+.selfcheck-banner a { color: inherit; }
+
+/* ---------------------------------------------------------------------------
+   Layout utilities and shared component classes (review finding M8)
+
+   These exist so a spacing or theming change is one edit here rather than
+   sixty edits across templates — which is exactly how the card-spacing drift
+   in COMPARISON.md §38 became app-wide and identical in both apps.
+
+   The convention, also written in the README: when you edit a template for
+   any reason, move its inline style= declarations up here. Two things stay
+   inline and are not a lapse — a value the server computes
+   (style="display:{{ 'none' if ... }}") and a genuine one-off print style.
+   --------------------------------------------------------------------------- */
+
+/* Spacing scale. 16px is the card-spacing unit from §38; the rest are the
+   values already in use across the templates, named rather than repeated. */
+:root {
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 22px;
+}
+
+.u-hidden      { display: none; }
+.u-inline      { display: inline; }
+.u-nowrap      { white-space: nowrap; }
+.u-wrap        { white-space: normal; }
+.u-grow        { flex: 1; }
+.u-mono        { font-family: monospace; }
+.u-strong.u-strong { font-weight: 600; }   /* doubled: see the note below */
+
+.u-row         { display: flex; gap: var(--space-4); }
+.u-row-sm      { display: flex; gap: var(--space-3); }
+.u-row-center  { display: flex; align-items: center; gap: var(--space-3); }
+.u-row-end     { display: flex; justify-content: flex-end; gap: var(--space-4); }
+
+.u-mt-0        { margin-top: 0; }
+.u-mt-1        { margin-top: var(--space-1); }
+.u-mt-3        { margin-top: var(--space-3); }
+.u-mt-4        { margin-top: var(--space-4); }
+.u-mt-6        { margin-top: var(--space-6); }
+.u-mt-7        { margin-top: var(--space-7); }
+.u-mt-8        { margin-top: var(--space-8); }
+/* Pulls a caption up under the heading it belongs to. */
+.u-mt-tight    { margin-top: -6px; }
+.u-mb-0        { margin-bottom: 0; }
+.u-mb-1        { margin-bottom: var(--space-1); }
+.u-mb-2        { margin-bottom: var(--space-2); }
+.u-mb-3        { margin-bottom: var(--space-3); }
+.u-mb-4        { margin-bottom: var(--space-4); }
+.u-mb-5        { margin-bottom: var(--space-5); }
+.u-mb-7        { margin-bottom: var(--space-7); }
+.u-m-0         { margin: 0; }
+.u-stack-tight { margin: 2px 0 0; }
+.u-stack-1     { margin: var(--space-1) 0 0; }
+.u-stack-2     { margin: var(--space-2) 0 0; }
+.u-lead-out    { margin: -4px 0 var(--space-5); }
+
+.u-w-520       { max-width: 520px; }
+.u-w-560       { max-width: 560px; }
+.u-w-640       { max-width: 640px; }
+
+/* A checkbox's own label sits next to the box, so it opts out of the
+   uppercase treatment field labels get. */
+
+
+/* An inline error line inside a modal: hidden until a script fills it, and
+   allowed to break anywhere because it can carry an unspaced identifier. */
+.form-error-note {
+  color: var(--danger); display: none; margin-bottom: var(--space-4);
+  overflow-wrap: anywhere; word-break: break-word;
+}
+
+/* A bordered sub-panel inside a modal or card. */
+.sub-panel {
+  padding: var(--space-5); border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+.sub-panel-title { font-weight: 650; margin-bottom: var(--space-1); }
+
+/* A value shown for reading or copying — a barcode, a path, a token. */
+.code-box {
+  font-family: monospace; padding: var(--space-3) var(--space-4);
+  background: var(--muted-tint); border-radius: 6px;
+}
+.code-box.break {
+  margin: var(--space-4) 0; padding: var(--space-3) var(--space-4);
+  border-radius: 8px; word-break: break-all;
+}
+
+/* A scrolling list inside a fixed-height box. */
+.scroll-box {
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--line-soft); border-radius: 8px;
+}
+.scroll-box.tall { max-height: 360px; border: none; border-radius: 0; }
+
+/* Table cells that are editable in place: the input has to look like text
+   until it is focused, or the row reads as a form rather than a row. */
+.cell-input {
+  border: none; background: transparent; padding: 2px; width: 100%;
+}
+.cell-input-plain { border: none; background: transparent; }
+.cell-input.short { width: 70px; }
+.cell-input.num   { width: 80px; text-align: right; }
+
+/* Column widths for the Inventory Catalog's fixed-layout table. Keyed by
+   position, so they move if a column is inserted — add the new width here in
+   the same edit. */
+.inv-table.fixed { table-layout: fixed; width: 100%; }
+.inv-table.fixed col:nth-child(1) { width: 5%; }
+.inv-table.fixed col:nth-child(2) { width: 24%; }
+.inv-table.fixed col:nth-child(3) { width: 11%; }
+.inv-table.fixed col:nth-child(4) { width: 7%; }
+.inv-table.fixed col:nth-child(5) { width: 13%; }
+.inv-table.fixed col:nth-child(6) { width: 6%; }
+.inv-table.fixed col:nth-child(7) { width: 9%; }
+.inv-table.fixed col:nth-child(8) { width: 11%; }
+.inv-table.fixed col:nth-child(9) { width: 14%; }
+
+/* The "expiry tracked" key swatch under the catalog heading. */
+.legend-swatch {
+  display: inline-block; width: 10px; height: 10px;
+  background: var(--warn-tint); border-inline-start: 3px solid var(--warn);
+  vertical-align: middle;
+}
+
+/* The last of settings.html / inventory_catalog.html's inline styles. These
+   describe specific pieces rather than generic spacing, so they get names. */
+
+/* An inline warning strip inside a card (not a page-level flash). */
+.notice-warn {
+  background: var(--warn-tint); color: var(--warn-ink);
+  margin-bottom: var(--space-5);
+}
+
+/* A panel a script reveals — the barcode scanner box, the restore preview. */
+.reveal-panel {
+  display: none; margin-top: var(--space-6); padding: var(--space-6);
+  border: 1px solid var(--line-soft); border-radius: 10px;
+}
+.reveal-panel.plain { padding: 0; border: none; margin-top: var(--space-5); }
+
+/* Server-rendered text that must keep its own line breaks — a log excerpt,
+   a stored note. font-family:inherit stops <pre> reverting to monospace. */
+.preserve-lines {
+  white-space: pre-wrap; font-family: inherit; margin: 0 0 var(--space-5);
+}
+
+/* The search/filter bar above a table: a growing input, then buttons that
+   keep their size, wrapping to a second line on a narrow screen. */
+.filter-bar        { display: flex; gap: var(--space-3); flex: 1 1 260px; }
+.filter-bar-field  { flex: 1 1 auto; min-width: 120px; }
+.filter-bar-actions{ display: flex; gap: var(--space-3); flex: 0 0 auto; }
+
+.u-row-center-mt   { display: flex; gap: var(--space-4); align-items: center; margin-top: var(--space-4); }
+.u-row-wrap-center {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6);
+}
+.u-pad-5           { padding: var(--space-5); }
+/* A footer rule inside a card, separating actions from content. */
+.card-footer-rule  { padding: var(--space-5) 0; border-top: 1px solid var(--line-soft); }
+
+/* Doubled selectors, deliberately. `.field label` is 0,0,1,1 and outranks a
+   single utility class, so the inline style these replaced was the only thing
+   winning. Repeating the class raises this to 0,0,2,0 without coupling the
+   utility to where it is used. Checked by diffing computed style before and
+   after — a label that quietly went from 500 to 620 is exactly the kind of
+   drift nothing else here would report. */
+.u-label-inline.u-label-inline { text-transform: none; font-weight: 500; }
+.u-weight-normal.u-weight-normal { font-weight: 400; }
+
+/* margin:0 0 8px also zeroes the top margin — a <p>'s default would otherwise
+   come back. Not the same as u-mb-3. */
+.u-mb-3-flush { margin: 0 0 var(--space-3); }
+
+/* The gapless variant. u-row-end carries gap:10px; these had none. */
+.u-row-end-plain { display: flex; justify-content: flex-end; }
+
+/* ---------------------------------------------------------------------------
+   Language toggle — a matched pair with .theme-toggle-btn beside it. A plain
+   form POST rather than a scripted click: script-src carries a nonce and does
+   not authorise inline handlers, and this needs no JS at all. The form is
+   styled here rather than with style="display:inline" so it stays off the
+   inline-style ratchet (tests/test_inline_styles.py).
+--------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   RTL — everything above uses logical properties, so direction is handled by
+   the browser. What remains here is the handful of cases a property
+   substitution cannot express. Same override idiom the theme already uses
+   (html[data-theme="dark"] ...), applied to direction instead.
+--------------------------------------------------------------------------- */
+html[dir="rtl"] .icon-chevron,
+html[dir="rtl"] .chevron { transform: scaleX(-1); }
+html[dir="rtl"] .vz-toast-stack { left: 16px; right: auto; }
+/* ---------------------------------------------------------------------------
+   Rewards card — the owner panel, the per-bill discount line, and the POS
+   customer picker. Declared here rather than inline so none of it lands on
+   the inline-style ratchet (tests/test_inline_styles.py).
+
+   Nothing here sets `display` on an element a script shows or hides: those
+   toggle the `hidden` ATTRIBUTE instead of an inline style, which a class
+   cannot defeat and which keeps them off the ratchet too. (An element hidden
+   by a CSS class cannot be revealed by clearing an inline style — the exact
+   failure that ratchet's own docstring describes.)
+--------------------------------------------------------------------------- */
+.rewards-panel { margin-bottom: 16px; }
+/* Revoke Card sits in the panel's far corner, matching Issue Card on the
+   enrol form. justify-content: flex-end follows the writing direction on its
+   own, so this is the LEFT corner in Arabic without a second rule. */
+.rewards-actions { margin-top: 12px; display: flex; justify-content: flex-end; }
+.member-discount-row { margin: 8px 0; }
+.member-discount-remove { display: inline; margin-inline-start: 8px; }
+.pos-field-row { margin: 10px 0; }
+.pos-customer-chosen { margin-top: 4px; }
+
+/* The `hidden` attribute must actually hide.
+   The UA stylesheet's `[hidden] { display: none }` is the weakest possible
+   rule, so ANY class that sets `display` beats it — `.field` is
+   `display: flex`, which silently made `el.hidden = true` a no-op on the POS
+   and boarding discount fields. The scripts said the field was hidden, the
+   attribute was set, and the input was still on screen.
+   Found by tests/test_browser.py, which is the only tier that could see it:
+   the attribute was correct, so nothing server-side was wrong.
+   `!important` because the whole point is to outrank whatever class the
+   element happens to carry. */
+[hidden] { display: none !important; }
+
+/* The "issue a card" row: card number, expiry, the hint, and the button all
+   on one line, with the button pushed to the far corner and sitting on the
+   inputs' baseline.
+
+   margin-inline-start (not margin-left) so the button lands in the correct
+   corner under RTL as well — this panel renders in Arabic too.
+   flex-wrap keeps it usable at phone width: the parts stack and the button
+   stays on the corner of whatever line it ends up on. */
+.rewards-enrol-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 18px; }
+.rewards-enrol-row .field { flex: 0 1 220px; }
+.rewards-enrol-row .rewards-enrol-hint { flex: 1 1 180px; min-width: 0; margin: 0; }
+.rewards-enrol-row .btn { margin-inline-start: auto; }
+
+/* Column proportions for two tables whose auto-layout spread seven columns
+   evenly across a wide card, leaving gaps between short values. Declared here
+   rather than as <col style="width:..."> so they stay off the inline-style
+   ratchet (tests/test_inline_styles.py); .table-fixed makes them
+   authoritative. The slack goes where it is used: the action buttons on
+   Sales History, and Reset Password's input on the staff table. */
+.table-sales-history col:nth-child(1) { width: 16%; }
+.table-sales-history col:nth-child(2) { width: 14%; }
+.table-sales-history col:nth-child(3) { width: 11%; }
+.table-sales-history col:nth-child(4) { width: 12%; }
+.table-sales-history col:nth-child(5) { width: 12%; }
+.table-sales-history col:nth-child(6) { width: 10%; }
+.table-sales-history col:nth-child(7) { width: 25%; }
+.table-staff col:nth-child(1) { width: 16%; }
+.table-staff col:nth-child(2) { width: 12%; }
+.table-staff col:nth-child(3) { width: 12%; }
+.table-staff col:nth-child(4) { width: 14%; }
+.table-staff col:nth-child(5) { width: 9%; }
+.table-staff col:nth-child(6) { width: 24%; }
+.table-staff col:nth-child(7) { width: 13%; }

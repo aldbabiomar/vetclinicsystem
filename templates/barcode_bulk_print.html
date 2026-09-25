@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Bulk Barcode Print') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head no-print">
+  <div><h1>{{ _('Bulk Barcode Print') }}</h1><p class="page-sub">{{ _('%(labels)s label(s) across %(items)s item(s).', labels=labels|sum(attribute='qty'), items=labels|length) }}</p></div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn secondary" id="printBtn" data-vzh="barcode-bulk-print-1" disabled>{{ _('Print') }}</button>
+    <a class="btn secondary" href="{{ url_for('inventory.inventory_catalog') }}">{{ _('Back') }}</a>
+  </div>
+</div>
+<p class="small muted no-print" id="bulkPrintError" style="display:none; color:var(--danger);">
+  {{ _('One or more barcodes could not be rendered — check the flagged item(s) below before printing.') }}
+</p>
+<div class="barcode-sheet">
+  {% for label in labels %}
+    {% for n in range(label.qty) %}
+    <div class="barcode-label-box">
+      <div style="font-weight:700; font-size:13px; margin-bottom:6px;">{{ label.name }}</div>
+      <svg id="barcodeSvg_{{ loop.index0 }}_{{ label.id }}_{{ n }}" data-code="{{ label.barcode }}"></svg>
+      <div style="font-size:11px; color:var(--ink-soft);">{{ clinic_name }}</div>
+      <p class="small muted no-print barcode-render-error" style="display:none; color:var(--danger);">
+        {{ _('Could not render this barcode.') }}
+      </p>
+    </div>
+    {% endfor %}
+  {% endfor %}
+</div>
+<script nonce="{{ csp_nonce }}">
+function renderAllBarcodes() {
+  var svgs = document.querySelectorAll('.barcode-sheet svg');
+  var anyError = false;
+  svgs.forEach(function (svg) {
+    try {
+      vzRenderBarcode(svg, svg.dataset.code);
+    } catch (e) {
+      anyError = true;
+      var box = svg.closest('.barcode-label-box');
+      var err = box ? box.querySelector('.barcode-render-error') : null;
+      if (err) err.style.display = 'block';
+    }
+  });
+  if (anyError) document.getElementById('bulkPrintError').style.display = 'block';
+  document.getElementById('printBtn').disabled = false;
+}
+</script>
+<script src="{{ url_for('static', filename='barcode-render.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/JsBarcode.all.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+VZ.bind('barcode-bulk-print-1', 'click', function (event) { window.print(); });
+// Direct call — see barcode_label.html: the vendor script's load event has
+// already fired before this inline script runs, so binding to it renders
+// nothing at all.
+renderAllBarcodes();
+</script>
+{% endblock %}

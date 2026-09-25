@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Dashboard') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Dashboard') }}</h1>
+    <p class="page-sub">{{ _('Snapshot as of today, %(today)s.', today=today) }}{% if current_role == 'Admin' %} {{ _('Staff on the clinic network can reach this app at') }} <strong>http://{{ lan_address }}:{{ bind_port }}</strong>.{% endif %}</p>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a class="btn secondary" href="{{ url_for('clinical.visit_new_start') }}">{{ _('+ Log a Visit') }}</a>
+  </div>
+</div>
+
+{% if opex_due %}
+<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+  {{ _('This month\'s operating costs haven\'t been entered yet — add them on the Monthly P&L page before the month closes.') }}
+</div>
+{% endif %}
+
+{% if backup_alert %}
+<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+  {{ backup_alert|finding }} <a href="{{ url_for('settings.settings_page') }}">{{ _('Open Settings →') }}</a>
+</div>
+{% endif %}
+
+{% if unbilled_count %}
+<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+  {% if unbilled_count == 1 %}{{ _('1 bill has no Date Billed set — it is missing from Monthly & Yearly P&L until fixed.') }}{% else %}{{ _('%(unbilled_count)s bills have no Date Billed set — they are missing from Monthly & Yearly P&L until fixed.', unbilled_count=unbilled_count) }}{% endif %}
+</div>
+{% endif %}
+
+{% if migration_failures %}
+<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+  {{ _("Some schema updates couldn't be applied on the last launch — some newer "
+        "features may not work correctly: %(migration_failures)s", migration_failures=migration_failures) }}
+</div>
+{% endif %}
+
+{% if self_check %}
+<div class="selfcheck-banner {{ 'fail' if self_check.status == 'fail' else 'warn' }}">
+  <strong>{{ _('This install needs attention') if self_check.status == 'fail' else _('Health check warning') }}</strong>
+  <ul style="margin:6px 0 0; padding-left:20px;">
+    {% for f in self_check.findings %}<li>{{ f|finding }}</li>{% endfor %}
+  </ul>
+  <div class="small" style="margin-top:6px;">
+    {{ _('Last checked %(ran_at)s', ran_at=self_check.ran_at.replace('T', ' ')) }} —
+    <a href="{{ url_for('settings.settings_page') }}" style="color:inherit; text-decoration:underline;">{{ _('Open Settings →') }}</a>
+  </div>
+</div>
+{% endif %}
+
+{% if self_check_modal %}
+<div id="selfCheckModal" class="modal-overlay" data-no-backdrop-close
+     style="display:none;">
+  <div class="modal-box" style="max-width:560px;">
+    <h2 style="margin-top:0; color:var(--danger);">{{ _('This install has failed its health check for 3 days running') }}</h2>
+    <p class="small muted" style="margin-top:-4px;">
+      {{ _('You\'re seeing this because you can change Settings. It will come back next time you sign in, until the problem below is fixed.') }}
+    </p>
+    <ul style="margin:10px 0 14px; padding-left:20px;">
+      {% for f in self_check.findings %}<li>{{ f|finding }}</li>{% endfor %}
+    </ul>
+    <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+      <button class="btn secondary" type="button" data-vzh="dashboard-1">{{ _('Not now') }}</button>
+      <a class="btn" href="{{ url_for('settings.settings_page') }}">{{ _('Open Settings') }}</a>
+    </div>
+  </div>
+</div>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  // Session-only dismissal, deliberately: a day-long {{ _('don\'t show again')|tojson }} means
+  // a machine rebooted every morning never shows it again. sessionStorage
+  // clears when the browser session ends, so a reboot re-surfaces it.
+  var KEY = 'vetclinicsystem-selfcheck-dismissed';
+  var el = document.getElementById('selfCheckModal');
+  window.dismissSelfCheckModal = function () {
+    try { sessionStorage.setItem(KEY, '1'); } catch (e) { /* private mode */ }
+    if (el) el.style.display = 'none';
+  };
+  var dismissed = false;
+  try { dismissed = sessionStorage.getItem(KEY) === '1'; } catch (e) { dismissed = false; }
+  if (el && !dismissed) el.style.display = 'flex';
+})();
+</script>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="num">{{ snap.total_patients }}</div><div class="label">{{ _('Total Patients on File') }}</div></div>
+  <div class="stat-card ok"><div class="num">{{ snap.active_cases }}</div><div class="label">{{ _('Active / Ongoing Cases') }}</div></div>
+  <div class="stat-card {{ 'alert' if snap.due_today }}"><div class="num">{{ snap.due_today|length }}</div><div class="label">{{ _('Follow-Ups Due Today') }}</div></div>
+  <div class="stat-card {{ 'warn' if snap.admitted_now }}"><div class="num">{{ snap.admitted_now }}</div><div class="label">{{ _('Currently Admitted (Inpatient)') }}</div></div>
+</div>
+
+<div class="panel-grid">
+  <div class="card panel">
+    <h2>{{ _('Follow-Ups Due Today') }} <span class="count">{{ snap.due_today|length }}</span></h2>
+    {% if snap.due_today %}
+      {% for f in snap.due_today[:6] %}
+      <div class="list-line">
+        <div><div class="who">{{ f.animal_name }} <span class="meta">({{ f.owner_name }})</span></div><div class="meta">{{ f.followup_method|tr }} — {{ f.followup_reason }}</div></div>
+        <a class="btn small secondary" href="{{ url_for('clinical.visit_detail', visit_id=f.visit_id) }}">{{ _('Open') }}</a>
+      </div>
+      {% endfor %}
+      {% if snap.due_today|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('clinical.followups_list') }}">{{ _('View all follow-ups →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('Nothing due today.') }}</div>{% endif %}
+  </div>
+
+  <div class="card panel">
+    <h2>{{ _('Reminder Calls — Call Today for Tomorrow\'s Visit') }} <span class="count">{{ snap.reminders_tomorrow|length }}</span></h2>
+    {% if snap.reminders_tomorrow %}
+      {% for f in snap.reminders_tomorrow[:6] %}
+      <div class="list-line">
+        <div><div class="who">{{ f.animal_name }} <span class="meta">({{ f.owner_name }}, {{ f.phone or "no phone on file" }})</span></div><div class="meta">{{ _('Visit set for %(f)s', f=f.followup_date|localdate) }}</div></div>
+        <a class="btn small secondary" href="{{ url_for('clinical.visit_detail', visit_id=f.visit_id) }}">{{ _('Open') }}</a>
+      </div>
+      {% endfor %}
+      {% if snap.reminders_tomorrow|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('clinical.followups_list') }}">{{ _('View all follow-ups →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('No reminder calls needed today.') }}</div>{% endif %}
+  </div>
+
+  <div class="card panel">
+    <h2>{{ _('Wellness Reminders Due') }} <span class="count">{{ snap.wellness_due|length }}</span></h2>
+    {% if snap.wellness_due %}
+      {% for w in snap.wellness_due[:6] %}
+      <div class="list-line">
+        <div><div class="who">{{ w.animal_name }} <span class="meta">({{ w.owner_name }})</span></div><div class="meta">{{ _('%(wellness_type)s due %(due_date)s', wellness_type=w.wellness_type|tr, due_date=w.wellness_next_dose_date|localdate) }}</div></div>
+        <a class="btn small secondary" href="{{ url_for('clinical.wellness_list') }}">{{ _('Open') }}</a>
+      </div>
+      {% endfor %}
+      {% if snap.wellness_due|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('clinical.wellness_list') }}">{{ _('View all wellness reminders →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('No wellness reminders due.') }}</div>{% endif %}
+  </div>
+
+  <div class="card panel">
+    <h2>{{ _('Grooming Queue') }} <span class="count">{{ snap.grooming_queue|length }}</span></h2>
+    {% if snap.grooming_queue %}
+      {% for gr in snap.grooming_queue[:6] %}
+      <div class="list-line">
+        <div><div class="who">{{ gr.animal_name }} <span class="meta">({{ gr.owner_name }})</span></div><div class="meta">{{ (gr.grooming_status or "Waiting")|tr }}</div></div>
+      </div>
+      {% endfor %}
+      {% if snap.grooming_queue|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('clinical.grooming_list') }}">{{ _('View grooming queue →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('No grooming in progress.') }}</div>{% endif %}
+  </div>
+
+  <div class="card panel">
+    <h2>{{ _('Low Stock') }} <span class="count">{{ snap.low_stock|length }}</span></h2>
+    {% if snap.low_stock %}
+      {% for i in snap.low_stock[:6] %}<div class="list-line"><div class="who">{{ i.name }}</div><div class="meta">{{ _('%(i)s %(i2)s left (threshold %(i3)s)', i=i.current_stock, i2=i.unit, i3=i.reorder_threshold) }}</div></div>{% endfor %}
+      {% if snap.low_stock|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('inventory.ordering_sheet_page') }}">{{ _('View ordering sheet →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('Nothing below threshold.') }}</div>{% endif %}
+  </div>
+
+  <div class="card panel">
+    <h2>{{ _('Audit & Expiry Alerts') }} <span class="count">{{ (snap.overdue_audit|length) + (snap.expiring|length) }}</span></h2>
+    {% if snap.overdue_audit or snap.expiring %}
+      {% set audit_expiry_combined = snap.overdue_audit + snap.expiring %}
+      {% for i in audit_expiry_combined[:6] %}
+        {% if i.audit_status in ('OVERDUE', 'Never audited') %}
+          <div class="list-line"><div class="who">{{ i.name }}</div><span class="badge danger">{{ i.audit_status|tr }}</span></div>
+        {% else %}
+          <div class="list-line"><div class="who">{{ i.name }}</div><span class="badge warn">{{ i.expiry_status|tr }}</span></div>
+        {% endif %}
+      {% endfor %}
+      {% if audit_expiry_combined|length > 6 %}<div style="margin-top:10px;"><a href="{{ url_for('inventory.inventory_status_page') }}">{{ _('View inventory status →') }}</a></div>{% endif %}
+    {% else %}<div class="empty-note">{{ _('No audit or expiry issues.') }}</div>{% endif %}
+  </div>
+</div>
+
+{% if is_overseer %}
+<div class="section-title" style="margin-top:28px;">{{ _('Missed Items — Needs Admin Review') }} <span class="count">{{ missed_total }}</span></div>
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('Type') }}</th><th scope="col">{{ _('Patient') }}</th><th scope="col">{{ _('Deadline Passed') }}</th><th scope="col">{{ _('Responsible Staff') }}</th><th scope="col"></th></tr></thead>
+  <tbody>
+    {% for m in missed %}
+    <tr>
+      <td><span class="badge danger">{{ m.kind }}</span></td>
+      <td>{{ m.animal_name }}</td>
+      <td class="muted">{{ m.deadline }}</td>
+      <td>{{ m.responsible or "Unassigned" }}</td>
+      <td><a class="btn small secondary" href="{{ url_for('clinical.visit_detail', visit_id=m.visit_id) }}">{{ _('Open') }}</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty-note">{{ _('Nothing overdue by more than two weeks.') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% with page=missed_page, total_pages=missed_total_pages, total_count=missed_total %}
+{% include "_pagination.html" %}
+{% endwith %}
+{% endif %}
+<script nonce="{{ csp_nonce }}">
+VZ.bind('dashboard-1', 'click', function (event) { dismissSelfCheckModal(); });
+</script>
+{% endblock %}

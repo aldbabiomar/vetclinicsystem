@@ -1,13 +1,16 @@
-"""Shared harness for simulating real use of VetClinicSystem_IQ / _JO."""
+"""Shared harness for simulating real use of VetClinicSystem.
+
+The "iq" and "jo" keys are the two throwaway environments from
+scripts/isolated_test_env.sh — the same app under each money setting."""
 import re, html, json, sys, time
 import requests
 
 APPS = {
     "iq": dict(base="http://127.0.0.1:5091",
-               db="postgresql://postgres:test@localhost:55491/vetclinicsystemiq",
+               db="postgresql://postgres:test@localhost:55491/vetclinicsystem",
                currency="IQD"),
     "jo": dict(base="http://127.0.0.1:5092",
-               db="postgresql://postgres:test@localhost:55492/vetclinicsystemjo",
+               db="postgresql://postgres:test@localhost:55492/vetclinicsystem",
                currency="JOD"),
 }
 

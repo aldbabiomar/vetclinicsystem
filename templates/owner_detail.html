@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ owner.name }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ owner.name }}</h1><p class="page-sub">{{ owner.id }} · {{ owner.phone or "no phone on file" }}</p></div>
+  <a class="btn secondary" href="{{ url_for('clinical.owner_edit', owner_id=owner.id) }}">{{ _('Edit Owner') }}</a>
+</div>
+<div class="card" style="margin-bottom:16px;">
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Address') }}</div><div class="v">{{ owner.address or "—" }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Notes') }}</div><div class="v">{{ owner.notes or "—" }}</div></div>
+  </div>
+</div>
+{% if has_permission('manage_rewards') %}
+<div class="card rewards-panel">
+  <h2>{{ _('Rewards Card') }}</h2>
+  {% if is_active_member %}
+    <div class="detail-grid">
+      <div class="detail-item"><div class="k">{{ _('Status') }}</div><div class="v">
+        <span class="badge primary">{{ _('Member') }}</span>
+        {% if member_expires_in_days is not none and member_expires_in_days <= member_expiring_soon_days %}
+          <span class="badge warn">{{ _('Expires in %(days)s days', days=member_expires_in_days) }}</span>
+        {% endif %}
+      </div></div>
+      {# A card number is an IDENTIFIER: never converted to Eastern Arabic
+         digits, unlike the dates and the day count beside it. #}
+      <div class="detail-item"><div class="k">{{ _('Card Number') }}</div><div class="v" dir="ltr">{{ owner.member_card_number or "—" }}</div></div>
+      <div class="detail-item"><div class="k">{{ _('Member Since') }}</div><div class="v">{{ owner.member_since|localdate or "—" }}</div></div>
+      <div class="detail-item"><div class="k">{{ _('Expires') }}</div><div class="v">{{ owner.member_expires_on|localdate or _('Never') }}</div></div>
+      <div class="detail-item"><div class="k">{{ _('Issued By') }}</div><div class="v">{{ member_enrolled_by or "—" }}</div></div>
+      <div class="detail-item"><div class="k">{{ _('Member discount') }}</div><div class="v">
+        {% if member_rate %}{{ _('%(rate)s%% on eligible items', rate=format_percent(member_rate)) }}{% else %}{{ _('The rewards programme is switched off in Settings.') }}{% endif %}
+      </div></div>
+    </div>
+    <form method="post" action="{{ url_for('clinical.owner_rewards_unenroll', owner_id=owner.id) }}" class="rewards-actions">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn secondary" type="submit">{{ _('Revoke Card') }}</button>
+    </form>
+  {% else %}
+    <p class="small muted">
+      {% if owner.is_member %}{{ _('This card lapsed on %(date)s. Issuing a new one starts a fresh term.', date=owner.member_expires_on|localdate) }}
+      {% else %}{{ _('Not a member.') }}{% endif %}
+    </p>
+    <form method="post" action="{{ url_for('clinical.owner_rewards_enroll', owner_id=owner.id) }}" class="rewards-enrol-row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field">
+        <label for="rewards-card-number">{{ _('Card Number (optional)') }}</label>
+        <input id="rewards-card-number" type="text" name="member_card_number" dir="ltr" value="{{ owner.member_card_number or '' }}">
+      </div>
+      <div class="field">
+        <label for="rewards-expires">{{ _('Expires') }}</label>
+        <input id="rewards-expires" type="date" name="member_expires_on" value="{{ default_expiry }}">
+      </div>
+      <p class="small muted rewards-enrol-hint">{{ _('Pre-filled from the term in Settings. Clear it for a card that never expires.') }}</p>
+      <button class="btn" type="submit">{{ _('Issue Card') }}</button>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
+<div class="section-title">{{ _('Patients (%(count)s)', count=patients|length) }}</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Animal') }}</th><th scope="col">{{ _('Species') }}</th><th scope="col">{{ _('Sex') }}</th></tr></thead>
+  <tbody>
+    {% for p in patients %}
+    <tr data-vz-href="{{ url_for('clinical.patient_detail', patient_id=p.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td class="muted">{{ p.id }}</td><td><strong>{{ p.animal_name }}</strong></td><td>{{ p.species|tr }}</td><td>{{ p.sex or "—" }}</td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="empty-note">{{ _('No patients under this owner yet.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

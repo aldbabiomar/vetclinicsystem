@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Consignment Returns') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Consignment Returns') }}</h1>
+    <p class="page-sub">{{ _('Unsold stock handed back to the distributor. %(total_count)s return(s) on file. No revenue, COGS, or settlement impact — nothing sold, so nothing owed either way.', total_count=total_count) }}</p>
+  </div>
+  {% if has_permission('manage_consignment_stock') %}
+  <button class="btn" id="newItemBtn" style="display:{{ 'none' if open_new_form else 'inline-flex' }};" data-vzh="consignment-returns-1">{{ _('+ Log Return') }}</button>
+  {% endif %}
+</div>
+
+{% if has_permission('manage_consignment_stock') %}
+<div class="card" id="newForm" style="display:{{ 'block' if open_new_form else 'none' }}; margin-bottom:16px;">
+  <form method="post" action="{{ url_for('consignment.consignment_returns_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label for="consignmentreturns-1-item_id">{{ _('Item') }}</label>
+        <select id="consignmentreturns-1-item_id" name="item_id" required>
+          <option value="">—</option>
+          {% for i in items %}<option value="{{ i.id }}" {{ 'selected' if fv(form, 'item_id')==i.id }}>{{ i.name }} ({{ i.distributor_name }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label for="consignmentreturns-2-quantity">{{ _('Quantity') }}</label><input id="consignmentreturns-2-quantity" type="number" step="any" name="quantity" required value="{{ fv(form, 'quantity') }}"></div>
+      <div class="field"><label for="consignmentreturns-3-return_date">{{ _('Return Date') }}</label><input id="consignmentreturns-3-return_date" type="date" name="return_date" value="{{ fv(form, 'return_date', today) }}"></div>
+      <div class="field"><label for="consignmentreturns-4-reason">{{ _('Reason') }}</label><input id="consignmentreturns-4-reason" name="reason" value="{{ fv(form, 'reason') }}" placeholder="{{ _('E.g. slow-moving, discontinued') }}"></div>
+      <div class="field full"><label for="consignmentreturns-5-notes">{{ _('Notes') }}</label><input id="consignmentreturns-5-notes" name="notes" value="{{ fv(form, 'notes') }}"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Log Return') }}</button>
+      <button class="btn secondary" type="button" data-vzh="consignment-returns-2">{{ _('Cancel') }}</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead class="sticky-header"><tr>
+    <th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Item') }}</th><th scope="col">{{ _('Distributor') }}</th><th scope="col" class="num-col">{{ _('Quantity') }}</th>
+    <th scope="col" class="num-col">{{ _('Unit Cost (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Reason') }}</th><th scope="col">{{ _('Notes') }}</th>
+  </tr></thead>
+  <tbody>
+    {% for r in returns %}
+    <tr>
+      <td>{{ r.return_date|localdate }}</td>
+      <td>{{ r.item_name }}</td>
+      <td>{{ r.distributor_name }}</td>
+      <td class="num-col">{{ r.quantity|round(2) }}</td>
+      <td class="num-col">{{ r.unit_cost_at_return|money }}</td>
+      <td>{{ r.reason or '—' }}</td>
+      <td>{{ r.notes or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty-note">{{ _('No returns logged yet.') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+<script nonce="{{ csp_nonce }}">
+VZ.bind('consignment-returns-1', 'click', function (event) { document.getElementById('newForm').style.display='block'; this.style.display='none'; });
+VZ.bind('consignment-returns-2', 'click', function (event) { document.getElementById('newForm').style.display='none'; document.getElementById('newItemBtn').style.display='inline-flex'; });
+</script>
+{% endblock %}

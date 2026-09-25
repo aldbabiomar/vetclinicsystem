@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vetclinicsystem_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vetclinicsystem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vetclinicsystem_local_password}
+      POSTGRES_DB: vetclinicsystem
+    ports:
+      # Bound only to localhost — the app connects locally; other devices on
+      # the clinic WiFi keep talking to the Flask app on port 5050 as before,
+      # never directly to the database.
+      #
+      # The HOST port is overridable because IQ and JO both shipped this file
+      # hardcoded to 5432, which means the two apps cannot both have a running
+      # database on one machine — the second `docker compose up` fails with
+      # "port is already allocated" and its setup aborts. That is not
+      # hypothetical: this machine runs both. Set POSTGRES_HOST_PORT (and make
+      # DATABASE_URL agree) on the install that is not on the default port.
+      # The container port stays 5432, so nothing inside the container or in
+      # any other install changes.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - vetclinicsystem_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetclinicsystem -d vetclinicsystem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vetclinicsystem_pgdata:
+    name: vetclinicsystem_pgdata

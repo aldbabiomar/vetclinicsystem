@@ -1,0 +1,812 @@
+# Changelog
+
+All notable changes to VetClinicSystem JO are documented in this file, in
+[Keep a Changelog](https://keepachangelog.com) style.
+
+## [1.15.2] - 2026-09-19
+
+### Fixed
+- **Follow-Ups and Wellness no longer run off the edge of their table.** On a
+  laptop-width screen the table was wider than the white panel behind it, so
+  it spilled out of the panel and the whole page could be scrolled sideways.
+  The column headings now wrap instead, and everything fits.
+- **Action buttons now sit in the bottom-right corner** of the panel they
+  belong to, rather than under the fields on the left: Revoke Card and Issue
+  Card on an owner, Save Operating Costs on Monthly P&L, and every button on
+  an inpatient case (Save, Log Update, Log Contact Attempt, Add to Bill,
+  Upload). In Arabic they move to the opposite corner, as they should.
+- **"+ Admit Patient" moved up onto the filter row** on Inpatient Cases,
+  alongside Currently Admitted / All Cases / Balance Due, at the far end.
+- **Sales History and Users & Roles read more tightly.** Their columns were
+  being stretched evenly across the full width, which left gaps between short
+  values; the space now goes to the columns that use it.
+
+All of the above was checked on a laptop, an iPad and a phone: nothing is cut
+off, no page scrolls sideways, and on small screens the wide tables still
+scroll within their own panel.
+
+## [1.15.1] - 2026-09-19
+
+### Fixed
+- **The "issue a rewards card" form now sits on one line.** The card number,
+  the expiry date, the note explaining it and the Issue Card button were each
+  being placed on their own row, which left the note wrapping awkwardly around
+  the button. They now read across in one row with the button in the corner.
+  In Arabic the button moves to the opposite corner, as it should.
+
+## [1.15.0] - 2026-09-19
+
+### Added
+- **Rewards cards.** A member's bill is discounted automatically, at one
+  clinic-wide percentage set in Settings (Settings > Rewards Card; 0 switches
+  the programme off). Staff issue and revoke cards from the owner's page.
+  The discount applies to **eligible Price List items only** — anything marked
+  "Can Be Discounted?" — and everything else on the same bill is charged in
+  full. It works on all four places money is taken: visits, inpatient stays,
+  boarding and the till.
+- **Cards are valid for a fixed term**, 12 months by default, editable per
+  card when it is issued and changeable in Settings. The owner's page warns
+  when a card is within 30 days of lapsing. A lapsed card simply stops
+  discounting; it is never deleted, so you can still see who used to be a
+  member.
+- **A customer can be identified at the till.** This is optional — an ordinary
+  walk-in sale is unchanged and needs no extra click — and is there for when a
+  card is presented.
+- Retail sales with a customer recorded now count towards that customer's
+  spending on Insights.
+
+### Changed
+- **The card's discount is the only discount a member's bill can carry.** Staff
+  discounts are refused on a member's bill rather than silently ignored, so the
+  reason is visible. An administrator can remove a card discount from a bill it
+  should not have landed on — that action can only ever remove one, never add
+  or change one.
+- **Insights now covers the last 12 months instead of all time**, and subtracts
+  refunds. **The two client figures on that page will drop, in some cases
+  sharply** — that is the change, not a fault. They previously counted every
+  payment ever made and never subtracted money that was given back. The labels
+  now say which period they cover.
+- A member's bill is decided once, when the bill is raised. Enrolling someone
+  afterwards, revoking their card, or changing the rate never alters a bill
+  that already exists.
+- Receipts and exports name the discount they are showing — "Member discount"
+  rather than just "Discount".
+
+### Note for setup
+- **Price List items are not discountable by default.** Before handing out
+  cards, go through Price List and tick "Can Be Discounted?" on everything the
+  card should apply to — otherwise the card will discount nothing. The bulk
+  editor on that page does this a page at a time.
+
+## [1.14.3] - 2026-09-12
+
+### Fixed
+- **The health-check warning now waits for an answer.** Clicking the
+  background used to dismiss it. It is telling you the install has failed its
+  health check three days running, so it now stays until you choose "Open
+  Settings" or "Not now".
+- In Arabic, "Slot Length" in Settings now reads مدة الموعد.
+
+## [1.14.2] - 2026-09-12
+
+### Fixed
+- **Updating now shows a progress bar.** Update and Rollback reported one line
+  of plain text while the app restarted — no bar and no elapsed time, on the
+  longest job in the app. They now show the same progress panel that Backup
+  and Restore already did.
+- **The progress bar reads Arabic.** The step names during an update, a backup,
+  a restore or a rebuild ("Validating release", "Restoring database") were
+  still in English — on the one screen you watch most closely while waiting.
+- **"Ordering Sheet" is now كشف النواقص** in Arabic, everywhere it appears.
+- A restart that finished without a message showed the word "undefined" on the
+  progress panel instead of saying it was done.
+
+## [1.14.1] - 2026-09-12
+
+### Fixed
+- **Create Barcode now actually prints a barcode.** The label page was showing
+  the item name and the clinic name with an empty space where the barcode
+  should be, in both languages, every time. Bulk barcode printing was affected
+  the same way.
+- **The "Grooming" tag no longer prints over the next column in Arabic.** Its
+  Arabic wording is several words long and was being forced onto one line, so
+  it ran across the vet's name beside it. It wraps now.
+- **The Add Role window fits the screen.** It was barely fitting a laptop and
+  did not fit a phone at all — the Add Role button sat below the bottom of the
+  screen with no way to scroll to it, so a role could not be created on a
+  phone. Permissions are now laid out in up to three columns, and the window
+  scrolls if it ever needs to.
+- **The Insights charts fill their cards** instead of one being squeezed while
+  the other grew far too large.
+- **An empty chart now says it is empty** rather than showing a blank white
+  card, which looked like something had broken. The Payment Method chart is
+  empty until payments have been recorded.
+- **The health banner is in Arabic.** The messages about backups failing, a
+  missing backup folder or a restore that could not be verified were still in
+  English — the ones that matter most when they appear. File paths and error
+  details inside them stay exactly as the system reported them.
+
+## [1.14.0] - 2026-09-11
+
+### Changed
+- **The language is now chosen in Settings, not from the header.** Open
+  Settings, pick English or العربية from the Language dropdown in Clinic
+  Settings, and press Save Settings the same as any other field there. It
+  applies to the whole clinic now, so every screen shows the same language
+  instead of each one remembering its own.
+  **If you were using Arabic, set it once after updating.** The old header
+  button remembered the choice inside each browser, and that memory cannot
+  carry across to the new setting — the app will start in English until
+  someone picks العربية in Settings.
+- Three things are renamed in Arabic, at the clinic's request: Inpatient is
+  now الإقامة المرضية, Boarding is الإقامة الفندقية, and Refunds is
+  المرتجعات النقدية. Consignment Returns — stock going back to a distributor —
+  is deliberately unchanged, because it has always been a different thing from
+  a refund to a client.
+
+### Fixed
+- The grooming service "Zoning" now reads تهذيب المنطقة الحساسة.
+
+## [1.13.0] - 2026-09-11
+
+### Added
+- **Arabic.** The whole app now runs in Arabic — every page, every message,
+  every button, and the text inside pop-ups and search boxes as well. Switch
+  with the "العربية" link in the header; the choice sticks per browser, and
+  nobody else's screen changes. Numbers and dates show in Arabic-Indic
+  digits, currency reads د.أ, and the layout flips right-to-left.
+- Stored values now read in Arabic too — a visit's status, a payment method,
+  a species, the roles and permissions list, the cash register's ledger and
+  the inventory badges. Only the display changes; what is saved is unchanged,
+  so nothing about your existing records or reports is affected.
+
+### Fixed
+- **A payment recorded while the app was in Arabic could be missed by the
+  end-of-day cash count.** The payment method was saved in Arabic rather than
+  as "Cash", so the Cash Register did not count it as cash and the drawer
+  looked to have more money in it than the system expected. Every such form
+  now saves the same value it always did, whichever language you are using.
+  Any payment already recorded this way will need its method set again.
+- The Dashboard and Settings told staff to reach the app on port 5050 even
+  when it was running on a different one.
+
+## [1.12.1] - 2026-09-11
+
+### Fixed
+- **The new stock-count checks now also reach an existing installation.** In
+  v1.12.0 they were applied when a database was created, which meant a clinic
+  updating an existing one did not get them. Updating now adds them, and
+  quietly corrects any impossible count already stored.
+
+## [1.12.0] - 2026-09-11
+
+### Fixed
+- **A stock count can no longer be saved as a nonsense number.** "nan",
+  "infinity" and negative counts were accepted and could be confirmed into a
+  locked audit. A count like that broke the till outright: every attempt to
+  sell that item failed with a server error until the count was corrected.
+  Counts must now be a real number of zero or more.
+- **The appointment book no longer errors when the date filter is cleared.**
+  Emptying the date box produced a server error page instead of returning to
+  today.
+- **An inpatient case can no longer be discharged before it was admitted.** A
+  mistyped year recorded a stay of negative length, which fed length-of-stay
+  figures and the case's billing period. Boarding already refused this.
+
+### Changed
+- **A cash-drawer count that comes out over or short now shows in amber, not
+  red.** The count was always saved, but it was reported in the same red as a
+  failure, so staff re-ran counts that had already been recorded. A genuine
+  failure is still red.
+
+## [1.11.0] - 2026-09-11
+
+### Added
+- **Refunds now cover boarding stays.** Money could be taken for a boarding
+  stay but never given back — the refund form only offered a visit or an
+  inpatient case. Boarding is now a third option, alongside them.
+- **Old log entries are cleared out automatically.** Login history, change
+  history, job history and health-check history were kept forever. They are
+  now trimmed on a schedule, so the database does not grow without limit.
+
+### Changed
+- **Installation maintenance is now separate from ordinary clinic settings.**
+  Backups, restore, updates and the folder browser sit behind their own
+  permission. A role that can edit clinic settings can no longer take a
+  backup, restore one, or apply an update unless it is given that permission
+  too. **Admin keeps everything it had** — no action needed after updating.
+- **Stronger password rules.** New and changed passwords now need more than a
+  minimum length. Existing passwords keep working; the rules apply the next
+  time one is set.
+- The Settings folder browser can no longer be pointed outside the app's own
+  data and backup folders.
+
+### Fixed
+- **A wrong password locked an account for the wrong length of time.** The
+  lockout barely grew for a steady stream of guesses: fifteen attempts in a row
+  cost about thirteen minutes, while the same fifteen spread into three batches
+  cost an hour. Pausing is no longer the cheaper option.
+- **Rollback could offer the wrong version.** With three or more releases
+  installed, "roll back" compared version numbers as text, so 1.9.0 looked
+  newer than 1.11.0. It now compares them as numbers.
+- **The service refund form said a field was optional when it was required.**
+  It said the visit or inpatient case was optional, then refused the refund
+  without one.
+- **Searching for a name containing `%` or `_` returned the wrong rows.**
+  Those characters were treated as wildcards instead of as themselves.
+- **Editing a record someone else had changed silently discarded your work.**
+  It now tells you rather than saving over it.
+- The login history now records the real device address when the app is behind
+  a reverse proxy, instead of the proxy's own.
+- A failed scheduled job now records why it failed.
+- Patient file attachments are no longer tracked in a way that could leave a
+  stale entry after the file was removed.
+- Form labels are now linked to the field they name, so tapping a label focuses
+  the right box and screen readers announce it correctly.
+- The health check no longer repeats a database driver's raw error text.
+
+## [1.10.2] - 2026-09-10
+
+### Removed
+- **Leftover copies of several screens that were never meant to be part of the
+  app.** They were saved into the app's folder by mistake during design work
+  in August, and anyone on the clinic's own network who knew the exact web
+  address could open them. They contained no patient, owner or financial
+  records — but one did show this computer's backup folder location and
+  network address. Installing this update removes them. Nothing about how the
+  app works changes.
+
+## [1.10.1] - 2026-09-10
+
+### Fixed
+- **"Check for Updates" could wrongly report the clinic as offline.** GitHub
+  limits how many times an hour it can be asked for the latest version, and
+  the Settings page was using up that allowance every time it was opened —
+  even just to show which version you are on, which it already knows without
+  asking. Once the allowance ran out, checking for updates reported the
+  computer as offline when nothing was wrong with it. Opening Settings no
+  longer contacts GitHub at all, and if the limit is ever reached the message
+  now says so and tells you what time to try again.
+
+## [1.10.0] - 2026-09-10
+
+### Added
+- **A pet's microchip number can now be recorded, and used to find them.**
+  It is optional — nothing changes for pets that do not have one. Type the
+  number however it is printed or read off the scanner: spaces and dashes are
+  ignored, so searching "985 141 000 123456" finds a chip saved as
+  985141000123456. Searching by chip works everywhere you already search for a
+  pet — the Patients page, and the pet picker on Log a Visit, New Inpatient
+  and Boarding. The same chip cannot be saved on two different pets; if it is
+  already on file, the app tells you which animal has it. The number shows on
+  the pet's record and on the Patient File, Visit, Inpatient and Boarding PDF
+  exports.
+
+## [1.9.1] - 2026-09-02
+
+### Fixed
+- **The app could stop starting altogether after Python was upgraded on the
+  computer**, with no error to explain it — the window would just keep saying
+  it was restarting, every couple of seconds, indefinitely, and nightly
+  backups stopped with it. The launcher now checks its Python environment
+  before starting and rebuilds it automatically if it has been broken, which
+  takes about a minute and happens once.
+
+## [1.9.0] - 2026-09-02
+
+### Added
+- **The app now checks its own health once a day** — that backups are
+  actually running and landing where they should, that there is disk space
+  left, and that the database is reachable. If something is wrong, a warning
+  appears at the top of the Dashboard for anyone who can change Settings. If
+  it is still wrong three days running, a pop-up appears at sign-in until it
+  is dealt with. Nothing is sent anywhere; this is entirely local.
+- **Optional daily status ping, for a clinic you are not sitting in.** Under
+  Settings → Remote Monitoring, paste the URL a monitoring service gives you
+  (healthchecks.io or similar) and the app pings it once a day with a short
+  status. If the machine is switched off, asleep, or the app is not running,
+  the ping does not arrive and the service emails you. That is the point: it
+  notices the failure the app itself cannot report. Off unless you set a URL,
+  and the ping carries no patient, staff or financial data.
+- **A monthly proof that a backup can actually be restored.** Once a month the
+  app restores its own most recent backup into a temporary database and checks
+  what came back — the tables, the records, and that the money column survived
+  with the right type. A backup file that looks perfectly fine on disk can
+  restore to nothing, and this is the only way to find that out before you
+  need it.
+- **Start at boot on Windows.** Under Settings → Startup & Shutdown, the app
+  can now start when the PC powers on rather than waiting for someone to sign
+  in — so an unattended machine still takes its nightly backup.
+
+### Changed
+- **The Settings page has been reorganised.** It is now four cards — Clinic
+  Settings, Backups & Restore, Updates, and Startup & Shutdown — with related
+  fields side by side instead of one per row, so the page is far shorter and
+  things are easier to find. Each card's Save button now says what it covers.
+- **Phones and tablets are properly supported.** Buttons and form fields are
+  now sized for a fingertip on any touch device rather than only below a fixed
+  screen width — an iPad in portrait previously got the desktop layout, with
+  fields small enough that iOS zoomed in on every tap and did not zoom back
+  out.
+- **Consistent spacing** between cards on the Dashboard, Insights, Settings
+  and every other page that shows them.
+
+### Fixed
+- **Nightly backups are no longer skipped when the computer was asleep or
+  switched off at the scheduled time.** Previously that backup was silently
+  abandoned and nothing ran until the next night — so a machine shut down each
+  evening could go a long time between backups without any sign. Missed
+  backups now run at the next opportunity.
+- **A backup folder that disappears is now reported instead of quietly
+  recreated.** If the folder your backups are written to goes away — an
+  unplugged external drive, a synced folder that unlinked, a folder someone
+  moved — the app used to create a new empty one in its place and carry on
+  reporting success, while the copy you were relying on had stopped being
+  updated. It now refuses to write and tells you on the Dashboard, and keeps
+  telling you for as long as the folder is missing. It also now notices when
+  the most recent backup file is missing from disk.
+- **The Settings page and several list pages no longer run off the side of the
+  screen** on smaller displays.
+
+## [1.8.10] - 2026-08-26
+
+### Fixed
+- **Complete Sale in Point of Sale now works.** The button did nothing at
+  all — no sale was recorded and no error was shown, so it looked like the
+  screen had frozen. Every sale was affected. If you have been unable to
+  ring anything up, this is why.
+
+## [1.8.9] - 2026-08-26
+
+### Fixed
+- **Refunds no longer runs off the side of the screen on a tablet**, and
+  **Visits no longer does on a phone.**
+- **The "+" buttons on the appointment grid are now big enough to tap**,
+  along with the dismiss button on pop-up messages. Both were about 20
+  pixels tall, which is fine with a mouse and awkward with a thumb.
+
+## [1.8.8] - 2026-08-26
+
+### Fixed
+- **A backup retention setting of 0 would have deleted every backup.** The
+  Settings page already refuses that value, so this protects installs
+  carrying it from an earlier version. Retention now always keeps at
+  least one.
+
+## [1.8.7] - 2026-08-26
+
+### Fixed
+- **Updating from an older version could fail with a database error.** An
+  install running a release from before the duplicate-sale protection was
+  added would abort partway through applying the update and roll back,
+  with no explanation. Updating now works from any earlier version.
+
+## [1.8.6] - 2026-08-25
+
+### Fixed
+- **A minus sign in the monthly operating costs no longer inflates your
+  profit figures.** A negative cost was being subtracted the wrong way in
+  the yearly report, making the clinic look more profitable than it was.
+  Negative costs are now refused.
+- **A boarding stay can no longer be saved as ending before it started.**
+- **A distributor's lead time can no longer be set to a negative number**,
+  which made the ordering sheet ask for stock to arrive before it was
+  ordered.
+
+## [1.8.5] - 2026-08-25
+
+### Fixed
+- **Recording a consignment settlement for a distributor with no
+  consignment history** showed an error page instead of a message. Nothing
+  was ever saved; it now says there is nothing to settle.
+
+## [1.8.4] - 2026-08-25
+
+### Fixed
+- **Negative costs and weights are now refused where they were being
+  accepted.** A minus sign typed into an inventory item's Cost Price — in
+  the catalog form or the bulk editor — was saved as-is, which made the
+  item look infinitely profitable in every margin and profit figure. A
+  negative weight on a new patient visit or an inpatient admission was
+  likewise saved and charted. All four now show a clear message instead.
+
+## [1.8.3] - 2026-08-25
+
+### Fixed
+- **A refund now requires you to say how it was paid out.** The Refund
+  Method dropdown starts empty, and leaving it that way used to save the
+  refund anyway — with no record of whether the money left as cash, card
+  or transfer, which is exactly what the Cash Register relies on. It now
+  asks you to pick one before saving.
+
+## [1.8.2] - 2026-08-25
+
+### Changed
+- **Every date-filtered page now tells you when a date was rejected.**
+  Visits, POS History and Refunds used to quietly ignore an unusable date
+  and show you everything, which looked the same as the filter working.
+  They now say "That date wasn't valid — showing all dates instead.",
+  matching what Cash Register already did.
+
+## [1.8.1] - 2026-08-25
+
+### Fixed
+- **A malformed date in a page's web address is now handled properly.**
+  Hand-editing the `?date=` part of the address to something that started
+  with a real date but had extra characters after it was accepted as if
+  it were valid; it now tells you the date wasn't valid and falls back,
+  the same as any other bad date.
+
+## [1.8.0] - 2026-08-25
+
+### Added
+- **Keyboard focus is now visible everywhere.** Tabbing through the app
+  outlines whichever button, link, field or table row you've landed on,
+  so it's possible to work through a screen without the mouse.
+- **The weekend can be set per clinic.** The Insights scheduling chart
+  still treats Friday and Saturday as the weekend by default — nothing
+  changes unless you change it — but a clinic running this app on a
+  different work week is no longer stuck with Jordan's.
+
+### Fixed
+- Entering an impossibly large number now shows a clear message instead
+  of an error page.
+- The Browse-for-folder window in Settings lists folders as separated,
+  highlight-on-hover rows instead of one unbroken block of text.
+
+## [1.7.0] - 2026-08-24
+
+### Added
+- **Boarding stays can now take a discount.** It sits in the Record
+  Payment window next to Clean Up, is capped by your role's discount
+  limit like every other discount, and shows on the boarding PDF. The
+  remaining balance updates as soon as it's applied, so a payment can't
+  accidentally be taken at the pre-discount amount.
+
+### Fixed
+- The **New User** and **Add Role** windows were too narrow for their own
+  contents — fields were cramped and the permission checkboxes ran down a
+  single long column. Both are wider now, and still fit on a phone.
+
+## [1.6.5] - 2026-08-24
+
+### Added
+- **A final backup is now taken when the computer shuts down or restarts**,
+  or when you close the app's window — a last safety net in case the
+  database is stopped abruptly straight afterwards.
+- **Recent Backups now shows what started each backup** (Manual, Nightly,
+  Update or Shutdown). Backups taken before this update show "—", since
+  that wasn't being recorded.
+
+## [1.6.4] - 2026-08-24
+
+### Fixed
+- The light/dark toggle in the sidebar is now the same finger-sized target
+  as everything else on a phone.
+
+## [1.6.3] - 2026-08-24
+
+### Fixed
+- **On phones and tablets, wide lists dragged the whole page sideways**
+  (Price List, Monthly P&L, Visits, Sales History, Patients, Inpatient).
+  Those tables now scroll on their own inside their card, so the page and
+  the menu bar stay put. On a full-size screen nothing changes — the
+  column headings still stay put as you scroll.
+- **Tablets in portrait had the same sideways-scrolling problem** even on
+  the layout as a whole. Fixed.
+- **Typing in a form on an iPhone or iPad zoomed the page in** and left it
+  zoomed. Form fields are now sized so that stops happening.
+- **Buttons and menu items were too small to tap comfortably** on a phone —
+  the sidebar links, the menu button, and ordinary buttons are all now a
+  full finger-sized target. Unchanged on desktop.
+
+## [1.6.2] - 2026-08-24
+
+### Changed
+- **The amber/warning colour is back to its original gold** on borders,
+  icons and legend markers. Only the *text* that sits on an amber
+  background (status chips, warning banners) uses a darker shade, because
+  that is the part that has to stay readable — and those backgrounds are
+  now paler too, so the chips look lighter overall.
+
+## [1.6.1] - 2026-08-24
+
+### Changed
+- Green, amber and red accents are slightly deeper so status chips and
+  buttons using them are properly readable. Same hues, just darker; the
+  main crimson, the sidebar and the overall look are unchanged.
+
+## [1.6.0] - 2026-08-24
+
+### Added
+- **Dark mode.** A sun/moon button next to the clinic name in the sidebar
+  switches between light and dark, and remembers your choice on that
+  computer. Date pickers, dropdowns and scrollbars follow the theme too.
+  Light mode is unchanged.
+
+## [1.5.0] - 2026-08-24
+
+### Added
+- **Column headings now stay put while you scroll long lists** — Owners,
+  Patients, Visits, Follow-Ups, Wellness, Grooming, Boarding, Inpatient,
+  Price List, Inventory Catalog, Audit Sessions, Sales History, Refunds,
+  Yearly P&L and the Dashboard's missed-items table. Previously only the
+  Consignment screens did this.
+
+### Fixed
+- On a phone, those sticky headings would have sat hidden behind the top
+  bar. They now sit just below it.
+
+## [1.4.4] - 2026-08-24
+
+### Fixed
+- Hardened how the database password is handed to the backup tools on
+  Docker-based installs, so it is passed privately rather than in a way
+  other users of the same computer could read.
+
+## [1.4.3] - 2026-08-24
+
+### Fixed
+- **Backups could appear to hang forever.** The backup was actually
+  waiting for a database password to be typed into the black Terminal
+  window behind the app — easy to miss entirely, and the password it
+  wanted was the database's, not your login. Backups and restores now
+  use the password the app already has, and if a password is ever wrong
+  they stop straight away with a clear message instead of waiting.
+  This affected the nightly automatic backup and the backup taken
+  before an update too, not just the Back Up Now button.
+- **Back Up Now no longer pretends to start when no backup folder is
+  set.** The button stays disabled until you've chosen and saved a
+  folder, and tells you so, instead of running a progress bar and then
+  reporting a failure. That case also no longer clutters Recent Backups
+  with failed entries.
+
+## [1.4.2] - 2026-08-24
+
+### Fixed
+- The Browse-for-a-folder window's buttons were scattered across two
+  uneven rows. The folder-name box and all the buttons now sit neatly on
+  one line, lined up with the folder list above them — and on a phone or
+  narrow window they stack, with Cancel and Select centred underneath.
+- Pop-up windows could be wider than the screen on a phone, pushing their
+  buttons out of reach. They now always fit.
+
+## [1.4.1] - 2026-08-24
+
+### Fixed
+- Buttons that warn before something destructive (Restore Now, and others
+  like it) turned a slightly-off colour when hovered — one that didn't
+  belong to VetClinicSystem JO's own palette. They now darken correctly. The same
+  fix cleans up a handful of other places where a stray colour had been
+  hardcoded instead of following the app's palette, including the highlight when you hover a row in a table.
+
+## [1.4.0] - 2026-08-24
+
+### Added
+- **A VetClinicSystem JO icon on the Desktop.** Double-click it to start
+  the app — and if the app is already running, it just brings it up in
+  your browser instead of starting a second copy. It keeps working after
+  updates, shutdowns and restarts, so it's there as a reliable way in if
+  "start automatically when this computer starts" ever doesn't fire. It's
+  created for you during setup; if it ever gets deleted, running setup
+  again puts it back.
+- **Collapsible sidebar sections.** Inventory, Consignment, Sales &
+  Billing and Admin can now be folded away by clicking their heading, so
+  a long sidebar can be trimmed to just the parts you use. Each person's
+  choice is remembered on their own computer.
+
+## [1.3.1] - 2026-08-24
+
+### Fixed
+- "Start automatically when this computer starts" could point at the
+  wrong copy of the app on installs with automatic updates enabled — it
+  would keep launching whatever version was installed at the time you
+  turned the toggle on, ignoring later updates until the app was started
+  by hand at least once. It now always finds and uses the correct,
+  currently-active version on every restart.
+
+## [1.3.0] - 2026-08-24
+
+### Added
+- **Clean Up** — a small, capped amount you can apply to a visit,
+  inpatient, or boarding bill (or a POS sale) to round off or write down
+  the total, instead of forcing every bill to land on an exact figure.
+  Shows on the bill, the printed receipt/PDF, and is accounted for
+  correctly if the sale is later refunded.
+- **Back Up Now** shows a live progress bar and no longer freezes the
+  page while the backup runs.
+
+### Fixed
+- Several forms could still be submitted with a required field left
+  blank (owner/patient name, price list/inventory item name, appointment
+  details) without a clear error — now rejected with a specific message
+  instead of a confusing failure later on.
+- A visit's Body Condition Score, and quantities/amounts on Point of
+  Sale, refunds, and inpatient billing, are now checked against sane
+  bounds before saving, instead of accepting anything typed in.
+- Marking a visit "Admitted to Inpatient" now reliably creates the
+  matching inpatient case (and the reverse — you can't move a visit off
+  that status while its inpatient case is still open).
+- A handful of pages could occasionally crash with a server error
+  instead of showing a normal message — creating/editing price list or
+  inventory items with a distributor or linked item that no longer
+  exists, deleting a role or disabling a user whose upcoming appointments
+  would be left stranded, and a few others. These now either fail
+  cleanly with an explanation or, where it makes sense, warn you and let
+  you continue.
+- Deactivated inventory items no longer disappear from an audit session
+  that already referenced them.
+- A discount can no longer be applied to a visit before its bill has
+  been saved.
+- Deleting an inpatient billing line, or applying a discount, can no
+  longer push a bill below what's already been paid on it.
+- A refund is now required to reference exactly one visit or one
+  inpatient case — never both, never neither.
+- New Draft audit sessions can be discarded, and can no longer be
+  confirmed with nothing actually counted.
+- Attached files, payments, and refunds are now guaranteed at the
+  database level to reference exactly one thing, closing a class of
+  bug where a bad or incomplete request could leave one referencing
+  nothing (or everything at once).
+- If the app is closed or crashes mid-restore, Settings now shows a
+  clear warning instead of silently leaving the database in an unknown
+  state.
+- Backup/restore/update no longer silently overlap with each other if
+  triggered close together; a stale "running" backup left over from a
+  crash is now automatically cleared on the next startup instead of
+  blocking new ones forever.
+- A single bad row created by very old data no longer prevents *every*
+  routine database update from applying on startup — only that one
+  update is skipped (and flagged on the Dashboard for an admin to look
+  at), the rest still apply normally.
+- Editing or deleting a custom role that's the only one marked "can be
+  assigned as a vet" now warns you if it leaves any staff member's
+  upcoming appointments stranded, same as removing a person from vet
+  duty individually already did.
+
+## [1.2.3] - 2026-08-24
+
+### Fixed
+- **A mistake in a form (an invalid phone number, a bad date) used to
+  wipe out everything else you'd typed and bounce you back to a blank
+  page.** Forms now show exactly what you entered, with the problem
+  field flagged, so you only need to fix the one thing — across Log
+  Visit, Owners, Distributors, Boarding, Appointments, Inpatient Cases,
+  billing/discount/payment, Price List, Inventory Catalog, Audit
+  History, and Reports.
+- Phone numbers are now checked as you type, before you submit, instead
+  of only after a failed save.
+- Fixed a bug where logging a new visit for a brand-new owner could
+  leave a duplicate patient behind if the visit's own date/weight/BCS
+  failed validation after the owner and pet had already been saved.
+
+## [1.2.2] - 2026-08-23
+
+### Fixed
+- **The Dashboard's missed-items panel didn't sort by deadline** — items
+  showed in whatever order the underlying queries happened to return them,
+  rather than newest-missed-first. Follow-ups, wellness reminders, and
+  Lost-to-Follow-Up cases now all sort consistently, newest deadline first.
+
+## [1.2.1] - 2026-08-23
+
+### Fixed
+- **Auto-generated inventory barcodes were 12 digits, not real EAN-13's
+  13** — one digit short in the random body, so every generated barcode
+  failed strict EAN-13 validation. Now generates the correct length;
+  already-generated barcodes are unaffected and keep printing normally.
+
+## [1.2.0] - 2026-08-23
+
+### Added
+- **Toasts and styled confirm dialogs**, replacing native browser
+  `alert()`/`confirm()` throughout the app, plus a background-job
+  progress UI for Insights, Retention, and Consignment Overview.
+- **Custom role creation and editing** — Users & Roles now has a full
+  Roles & Permissions tab: create a role, choose exactly which
+  permissions and discount cap it gets, and edit or delete it later.
+  The built-in Admin role stays locked. Also added a per-user discount
+  override at account creation (inherit from role, or set a custom
+  limit for that person).
+- **In-app database restore** — Settings → Restore From Backup can now
+  restore any backup this app created, with the same progress UI as
+  Backup Now. A backup file can only be restored if it's inside the
+  configured backup folder and actually appears in this app's own
+  backup history — never an arbitrary path.
+- **Backup-folder browser** — Settings' Backup Folder field now has a
+  Browse… button to pick (or create) a folder on this computer,
+  instead of typing a path by hand.
+- **Start automatically on login** — a Settings toggle to have
+  VetClinicSystem JO launch automatically when this computer starts
+  (macOS and Windows).
+- **Manually enter a barcode** — Inventory Catalog items can now use a
+  real barcode scanned or typed in from the product's own packaging,
+  as an alternative to a VetClinicSystem-generated one. Bulk Barcode
+  Print continues to cover only the barcodes this app created.
+- **`reconcile_attachments.py`** — a new maintenance script to safely
+  relink attachment files that a database restore left without a
+  matching record. Run `python3 reconcile_attachments.py` (dry run) or
+  `--apply` from the app folder after a restore.
+
+### Changed
+- Barcode labels (single and bulk print) now detect the right barcode
+  format automatically instead of assuming every code is EAN-13 —
+  needed for manually entered codes, which aren't always EAN-13.
+- Removed the three separate Admin/Vet/Reception discount-limit fields
+  from Settings; each role's discount cap is now set on the role
+  itself, in Users & Roles.
+
+## [1.1.0] - 2026-08-23
+
+### Fixed
+- **~90 of ~130 routes had no per-permission check at all** — only login was required, not the specific permission (Manage Owners, Manage Visits, Process POS Sales, Manage Boarding, etc.) that the Roles & Permissions page presents as togglable. Every one of those routes now carries the matching permission check, verified against no regression for the Admin/Vet/Reception roles' existing default access.
+- **POS checkout could oversell stock under genuine concurrent load** — the row lock that serializes concurrent checkouts was sound, but the stock-since-last-audit calculation compared whole-second-precision timestamps with a strict `>`; a sale landing in the same wall-clock second as the audit it was being checked against got silently excluded from the running total, letting stock go negative while Inventory Status still reported a plausible (wrong) number. Every timestamp feeding that comparison now carries microsecond precision.
+- **Re-entering an existing owner's name and phone while adding a pet created a duplicate owner record** instead of linking to the existing one, both from the "new patient" visit form and from double-submitting the New Owner form. Owner phone numbers are now enforced unique at the database level; a submission that collides with an existing owner links to them instead of erroring or duplicating.
+- **Double-clicking "Complete Sale" on an unchanged cart created two separate, fully valid sales** — double-charging the customer and double-deducting stock, with no confirmation prompt either side. Checkout now carries a one-time token per POS page load; a repeat submission is recognized and sent to the original sale instead of creating another one.
+- **A database outage could occasionally show a raw, unbranded error page** instead of the app's own error page, in the narrow window right as the connection dropped — traced to the per-request cleanup step trying to commit/roll back an already-dead connection outside the app's normal error handling. Now guarded, and each request also fails faster during an outage instead of hanging for the full connection-pool timeout.
+
+## [1.0.3] - 2026-08-23
+
+### Fixed
+- An account lockout could be kept renewed indefinitely by firing a fresh
+  burst of wrong-password guesses right as the previous lockout expired.
+  Lockouts now escalate (15/30/60/120 min, capped at 4 hours) across
+  repeated episodes and reset on a successful login.
+- Changing or resetting a password now signs out that user's other active
+  sessions immediately, instead of leaving them valid for up to 12 hours.
+- Logging out while forced to change your password now actually logs you
+  out, instead of bouncing back to the Change Password page.
+- Backup dump files are now restricted to owner-only permissions — they
+  contain full patient/owner information.
+- A very large `?page=` value, a null byte in a URL or form field, and a
+  malformed date filter on Visits/POS History/Refunds no longer produce a
+  raw error page.
+
+### Added
+- A baseline Content-Security-Policy header.
+
+## [1.0.2] - 2026-08-22
+
+### Fixed
+- POS checkout no longer accepts cash tendered below the sale total.
+- Service refunds are capped at what was actually paid on the linked visit
+  or inpatient case, minus refunds already recorded against it.
+- Visit and inpatient payments are capped at the remaining balance.
+- Consignment settlements can no longer overpay past the amount owed.
+- Cash-register payouts are capped at the drawer's expected cash for the day.
+- Closed a race between applying a discount and adding a non-discountable
+  item to a visit or inpatient bill; inpatient billing also gained the
+  same protection visit billing already had for this.
+- A bill could show "Fully Paid" with up to half a Dinar genuinely still
+  owed — a rounding-tolerance threshold left over from an earlier
+  currency model. Bills now only show "Fully Paid" when nothing is left.
+- Attachment deletion now requires the same permission it does everywhere
+  else in the app (previously any logged-in user could delete any
+  patient's attachment).
+
+## [1.0.1] - 2026-08-22
+
+### Fixed
+- `SECRET_KEY` is now rejected if it's still the `.env.example` placeholder
+  value, not just if it's unset — hand-copying that file instead of running
+  `setup.py` used to boot fine with a well-known, publicly-visible secret
+  signing every session cookie and CSRF token.
+
+### Changed
+- Removed 8 confirmed-dead functions/constants/imports (unused role/permission
+  helpers, a superseded billing/POS helper, an unwired audit-status label,
+  a stray import) and cleared 6 no-op entries from the schema migration list
+  — full details in `MIGRATION_AND_DEADCODE_AUDIT.md`. No behavior change.
+
+## [1.0.0] - 2026-08-22
+
+### Added
+- In-app update mechanism: an admin can check for, install, and roll back
+  tagged releases from the Settings page (see `updater.py` and the
+  Updates section of Settings) without touching the command line. Updates
+  are downloaded from GitHub Releases, backed up against first, installed
+  into their own isolated environment, health-checked on a throwaway
+  port, and only then switched to — a failed update never takes the
+  clinic offline. This is the first version tracked through that
+  mechanism, so it establishes the starting point rather than describing
+  new clinic-facing behavior.

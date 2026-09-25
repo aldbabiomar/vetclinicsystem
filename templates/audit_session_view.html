@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Audit') }} — {{ sess.audit_date|localdate }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Audit — %(audit_date)s', audit_date=sess.audit_date|localdate) }}</h1>
+    <p class="page-sub">{{ _('Performed by %(sess)s ·', sess=sess.performed_by_name or "—") }} <span class="badge {{ 'ok' if sess.status=='Confirmed' else 'warn' }}">{{ _('Confirmed') if sess.status=='Confirmed' else _('Saved') }}</span></p>
+  </div>
+  {% if not readonly %}
+  <div style="display:flex; gap:10px;">
+    <button class="btn secondary" type="submit" form="auditForm" formaction="{{ url_for('inventory.audit_session_save', session_id=sess.id) }}">{{ _('Save') }}</button>
+    <button class="btn" type="button" data-vzh="audit-session-view-1">{{ _('Confirm') }}</button>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <p class="small muted" style="margin:0;">
+    <strong>{{ _('Stock Counted') }}</strong> {{ _('— what you physically counted on the shelf today.') }}
+    <strong>{{ _('Received Since Prior Audit') }}</strong> {{ _('— new stock that arrived since the last confirmed audit (0 if none).') }}
+    <strong>{{ _('Reorder Threshold') }}</strong> {{ _('— stock level at or below which this item is flagged LOW STOCK; leave blank to keep the last value set for this item.') }}
+    <strong>{{ _('Critical Item?') }}</strong> {{ _('— Y/N; leave blank to keep the last value set.') }}
+    <strong>{{ _('Target Coverage (Days)') }}</strong> {{ _('— how many days of stock you want on hand when reordering; leave blank to keep the last value set (defaults to 30 if never set).') }}
+    <strong>{{ _('Nearest Expiry Date') }}</strong> {{ _('— the soonest expiry date among current stock of this item.') }}
+  </p>
+</div>
+
+<form method="post" id="auditForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead class="sticky-header"><tr>
+    <th scope="col">{{ _('Item') }}</th><th scope="col" class="num-col">{{ _('Stock Counted') }}</th><th scope="col" class="num-col">{{ _('Received') }}</th>
+    <th scope="col" class="num-col">{{ _('Reorder Threshold') }}</th><th scope="col">{{ _('Critical?') }}</th><th scope="col" class="num-col">{{ _('Target Coverage (Days)') }}</th>
+    <th scope="col">{{ _('Nearest Expiry') }}</th><th scope="col">{{ _('Notes') }}</th>
+  </tr></thead>
+  <tbody>
+    {% for it in items %}
+    {% set line = existing_lines.get(it.id) %}
+    {% set eff = latest_confirmed.get(it.id) %}
+    <tr>
+      <td><strong>{{ it.name }}</strong>{% if it.ownership_type == 'Consignment' %} <span class="badge" style="margin-left:4px;">{{ _('consignment') }}</span>{% endif %}{% if not it.active %} <span class="badge muted" style="margin-left:4px;">{{ _('deactivated') }}</span>{% endif %}<div class="small muted">{{ it.unit or '' }}</div></td>
+      <td class="num-col"><input {{ 'disabled' if readonly }} type="number" step="any" name="stock_{{ it.id }}" value="{{ fv(form, 'stock_' ~ it.id, line.stock_counted if line and line.stock_counted is not none else '') }}" style="width:80px; text-align:right;"></td>
+      <td class="num-col"><input {{ 'disabled' if readonly }} type="number" step="any" name="received_{{ it.id }}" value="{{ fv(form, 'received_' ~ it.id, line.received_since_prior if line else 0) }}" style="width:70px; text-align:right;"></td>
+      <td class="num-col"><input {{ 'disabled' if readonly }} type="number" step="any" name="threshold_{{ it.id }}" value="{{ fv(form, 'threshold_' ~ it.id, line.reorder_threshold if line and line.reorder_threshold is not none else '') }}" placeholder="{{ eff.effective_reorder_threshold if eff else '' }}" style="width:70px; text-align:right;"></td>
+      <td>
+        <select {{ 'disabled' if readonly }} name="critical_{{ it.id }}" style="width:80px;">
+          {% set crit = fv(form, 'critical_' ~ it.id, ('Y' if line and line.critical_item==1 else ('N' if line and line.critical_item==0 else ''))) %}
+          <option value="">{% if eff and eff.effective_critical_item %}(Y){% elif eff %}(N){% else %}—{% endif %}</option>
+          <option value="Y" {{ 'selected' if crit=='Y' }}>Y</option>
+          <option value="N" {{ 'selected' if crit=='N' }}>N</option>
+        </select>
+      </td>
+      <td class="num-col"><input {{ 'disabled' if readonly }} type="number" step="any" name="target_{{ it.id }}" value="{{ fv(form, 'target_' ~ it.id, line.target_coverage_days if line and line.target_coverage_days is not none else '') }}" placeholder="{{ eff.effective_target_coverage_days if eff else 30 }}" style="width:70px; text-align:right;"></td>
+      <td><input {{ 'disabled' if readonly }} type="date" name="expiry_{{ it.id }}" value="{{ fv(form, 'expiry_' ~ it.id, line.nearest_expiry_date if line else '') }}"></td>
+      <td><input {{ 'disabled' if readonly }} name="notes_{{ it.id }}" value="{{ fv(form, 'notes_' ~ it.id, line.notes if line else '') }}" style="width:100px;"></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+</form>
+
+{% if not readonly %}
+<div id="confirmModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h2 style="margin-top:0;">{{ _('Confirm This Audit?') }}</h2>
+    <p class="small">{{ _('Continuing will confirm the audit and it can\'t be edited after. If you intend to save it for later, click Cancel and use Save instead.') }}</p>
+    <div id="confirmSummary" class="small" style="margin:10px 0; padding:10px; border-radius:8px; background:var(--muted-tint);"></div>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+      <button class="btn secondary" type="button" data-vzh="audit-session-view-2">{{ _('Cancel') }}</button>
+      <form method="post" action="{{ url_for('inventory.audit_session_confirm', session_id=sess.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">{{ _('Yes, Confirm Permanently') }}</button></form>
+    </div>
+  </div>
+</div>
+<script nonce="{{ csp_nonce }}">
+function confirmAudit() {
+  document.getElementById('auditForm').setAttribute('action', "{{ url_for('inventory.audit_session_save', session_id=sess.id) }}");
+  const totalItems = {{ items|length }};
+  let counted = 0, negative = 0, suspiciousZero = 0;
+  document.querySelectorAll('input[name^="stock_"]').forEach(function(input) {
+    const raw = input.value.trim();
+    if (raw === '') return;
+    counted += 1;
+    const n = parseFloat(raw);
+    if (!isNaN(n) && n < 0) negative += 1;
+    else if (n === 0) suspiciousZero += 1;
+  });
+  const missing = totalItems - counted;
+  let lines = [];
+  lines.push({{ _('{counted} of {total} items have a Stock Counted value entered.')|tojson }}.replace('{counted}', counted).replace('{total}', totalItems));
+  if (missing > 0) lines.push({{ _('{missing} item(s) have no Stock Counted value and will be skipped (kept unchanged).')|tojson }}.replace('{missing}', missing));
+  if (negative > 0) lines.push('⚠ ' + {{ _('{negative} item(s) have a negative Stock Counted value — please check before confirming.')|tojson }}.replace('{negative}', negative));
+  if (suspiciousZero > 0) lines.push({{ _('{zero} item(s) are counted as 0 in stock — please double-check these.')|tojson }}.replace('{zero}', suspiciousZero));
+  document.getElementById('confirmSummary').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+</script>
+{% endif %}
+<script nonce="{{ csp_nonce }}">
+VZ.bind('audit-session-view-1', 'click', function (event) { confirmAudit(); });
+VZ.bind('audit-session-view-2', 'click', function (event) { document.getElementById('confirmModal').style.display='none'; });
+</script>
+{% endblock %}

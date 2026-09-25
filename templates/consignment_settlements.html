@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Settle') }} — {{ distributor.name }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Settle with %(distributor)s', distributor=distributor.name) }}</h1>
+    <p class="page-sub">{{ distributor.contact_person or '' }}{% if distributor.phone %} · {{ distributor.phone }}{% endif %}</p>
+  </div>
+  <a class="btn secondary" href="{{ url_for('consignment.consignment_overview') }}">{{ _('← Back to Overview') }}</a>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <h2 style="margin-top:0;">{{ _('Current Balance') }}</h2>
+  <table style="width:100%; max-width:520px;">
+    <tr><td>{{ _('Carried forward from last settlement') }}</td><td class="num-col">{{ balance.residual|money }} {{ currency_label() }}</td></tr>
+    <tr><td>{{ _('New activity this period') }}</td><td class="num-col">{{ balance.new_activity|money }} {{ currency_label() }}</td></tr>
+    <tr style="font-weight:600; border-top:1px solid var(--line);"><td>{{ _('Amount Owed Now') }}</td><td class="num-col">{{ balance.amount_owed|money }} {{ currency_label() }}</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:10px;">{{ _('Period: %(start)s — %(end)s', start=balance.period_start[:10] if balance.period_start else _('start'), end=balance.period_end[:10]) }}
+    · {{ _('%(units)s unit(s) sold since last settlement.', units=balance.units_sold_since|round(2)) }}</p>
+
+  {% if has_permission('manage_consignment_settlements') %}
+  <form method="post" action="{{ url_for('consignment.consignment_settlement_new', distributor_id=distributor.id) }}" class="form-grid" style="margin-top:16px;" data-confirm="Record this settlement? The amount owed will be recalculated at the moment you submit.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="consignmentsettlements-1-amount_paid">{{ _('Amount Paid (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="consignmentsettlements-1-amount_paid" type="number" step="0.001" name="amount_paid" value="{{ fv(form, 'amount_paid', balance.amount_owed) }}" required></div>
+    <div class="field"><label for="consignmentsettlements-2-payment_method">{{ _('Payment Method') }}</label>
+      <select id="consignmentsettlements-2-payment_method" name="payment_method">
+        <option value="" {{ 'selected' if fv(form, 'payment_method')=='' }}>—</option>
+        <option value="Cash" {{ 'selected' if fv(form, 'payment_method')=='Cash' }}>{{ _('Cash') }}</option><option value="Card" {{ 'selected' if fv(form, 'payment_method')=='Card' }}>{{ _('Card') }}</option><option value="Transfer" {{ 'selected' if fv(form, 'payment_method')=='Transfer' }}>{{ _('Transfer') }}</option>
+      </select>
+    </div>
+    <div class="field full"><label for="consignmentsettlements-3-notes">{{ _('Notes') }}</label><input id="consignmentsettlements-3-notes" name="notes" value="{{ fv(form, 'notes') }}"></div>
+    <div class="field full">
+      <button class="btn" type="submit">{{ _('Record Settlement') }}</button>
+    </div>
+  </form>
+  <p class="small muted">{{ _('A partial payment carries the remainder forward as the starting balance for the next settlement.') }}</p>
+  {% endif %}
+</div>
+
+<h2>{{ _('Settlement History') }}</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Period') }}</th><th scope="col" class="num-col">{{ _('Owed (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col" class="num-col">{{ _('Paid (%(currency_label)s)', currency_label=currency_label()) }}</th>
+    <th scope="col" class="num-col">{{ _('Residual (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Method') }}</th><th scope="col">{{ _('Recorded By') }}</th><th scope="col"></th>
+  </tr></thead>
+  <tbody>
+    {% for s in history %}
+    <tr>
+      <td>{{ s.created_at[:10] }}</td>
+      <td>{{ (s.period_start[:10] if s.period_start else 'start') }} — {{ s.period_end[:10] }}</td>
+      <td class="num-col">{{ s.amount_owed|money }}</td>
+      <td class="num-col">{{ s.amount_paid|money }}</td>
+      <td class="num-col">{{ (s.amount_owed - s.amount_paid)|money }}</td>
+      <td>{{ s.payment_method or '—' }}</td>
+      <td>{{ s.settled_by_name or '—' }}</td>
+      <td><a class="btn small secondary" href="{{ url_for('consignment.consignment_settlement_export', settlement_id=s.id) }}">{{ _('PDF') }}</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-note">{{ _('No settlements recorded yet.') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

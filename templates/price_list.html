@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Price List') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Price List') }}</h1><p class="page-sub">{% if search %}{{ _('%(total_count)s result(s) for "%(search)s".', total_count=total_count, search=search) }}{% else %}{{ _('%(total_count)s items.', total_count=total_count) }}{% endif %} {{ _('Admin-only page — visible to Vet/Reception only as a read-only picker while billing.') }}</p></div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn" id="saveChangesBtn" type="button" disabled data-bulk-url="{{ url_for('inventory.price_list_bulk_edit') }}">{{ _('Save Changes') }}</button>
+    <button class="btn secondary" id="newItemBtn" style="display:{{ 'none' if show_new_form else 'inline-flex' }};" data-vzh="price-list-1">{{ _('+ New Item') }}</button>
+  </div>
+</div>
+
+<div class="filter-chips">
+  <a class="chip {{ 'active' if not active_cat }}" href="{{ url_for('inventory.price_list') }}">{{ _('All') }}</a>
+  {% for c in categories %}<a class="chip {{ 'active' if active_cat==c }}" href="{{ url_for('inventory.price_list', category=c) }}">{{ c|tr }}</a>{% endfor %}
+</div>
+
+{% if flagged_price %}
+<p class="small muted" style="margin:-4px 0 12px;"><span style="display:inline-block; width:10px; height:10px; background:var(--warn-tint); border-left:3px solid var(--warn); vertical-align:middle;"></span>
+  {{ _('Highlighted rows: Retail item doesn\'t match an active Retail item in Inventory Catalog — check the linked item.') }}</p>
+{% endif %}
+
+<form class="search-bar" method="get">
+  {% if active_cat %}<input type="hidden" name="category" value="{{ active_cat }}">{% endif %}
+  <input type="text" name="q" value="{{ search }}" placeholder="{{ _('Search by Product Name…') }}">
+  <button class="btn secondary" type="submit">{{ _('Search') }}</button>
+  {% if search %}<a class="btn secondary" href="{{ url_for('inventory.price_list', category=active_cat) }}">{{ _('Clear') }}</a>{% endif %}
+</form>
+
+<div class="card" id="newForm" style="display:{{ 'block' if show_new_form else 'none' }}; margin-bottom:16px;">
+  <form method="post" action="{{ url_for('inventory.price_list_new') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% set new_form = form if show_new_form else None %}
+    <div class="form-grid">
+      <div class="field"><label for="newItemName">{{ _('Name') }}</label><input required name="name" id="newItemName" value="{{ fv(new_form, 'name') }}"></div>
+      <div class="field"><label for="pricelist-1-category">{{ _('Category') }}</label>
+        <select id="pricelist-1-category" name="category" required data-vzh="price-list-2">{% for c in categories %}<option value="{{ c }}" {{ 'selected' if fv(new_form, 'category')==c }}> {{ c|tr }} </option>{% endfor %}</select>
+      </div>
+      <div class="field"><label for="newItemCost">{{ _('Cost Price (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="0.001" name="cost_price" id="newItemCost" value="{{ fv(new_form, 'cost_price') }}"></div>
+      <div class="field"><label for="pricelist-2-sale_price">{{ _('Sale Price (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="pricelist-2-sale_price" type="number" step="0.001" name="sale_price" value="{{ fv(new_form, 'sale_price') }}"></div>
+      <div class="field link-field"><label for="pricelist-3-linked_item_id">{{ _('Linked Inventory Item (Retail Only — for POS)') }}</label>
+        <select id="pricelist-3-linked_item_id" name="linked_item_id" data-vzh="price-list-3"><option value="">—</option>{% for i in inv_items %}<option value="{{ i.id }}" data-name="{{ i.name }}" data-cost="{{ i.cost_price if i.cost_price is not none else '' }}" {{ 'selected' if fv(new_form, 'linked_item_id')==i.id }}>{{ i.name }}</option>{% endfor %}</select>
+      </div>
+      <div class="field full"><label for="pricelist-4-notes">{{ _('Notes') }}</label><input id="pricelist-4-notes" name="notes" value="{{ fv(new_form, 'notes') }}"></div>
+      <div class="field full">
+        <label class="checkbox-row small" style="text-transform:none; font-weight:500;"><input type="checkbox" name="can_discount" id="canDiscountNew" {{ 'checked' if fv(new_form, 'can_discount', 'on')=='on' }}> {{ _('Can Be Discounted?') }}</label>
+        <p class="small muted" style="margin:2px 0 0;">{{ _('Checked = a discount can be applied to a bill that includes this item. Unchecked = it blocks any discount on that bill.') }}</p>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Add Item') }}</button>
+      <button class="btn secondary" type="button" data-vzh="price-list-4">{{ _('Cancel') }}</button>
+    </div>
+  </form>
+</div>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Name') }}</th><th scope="col">{{ _('Category') }}</th><th scope="col" class="num-col">{{ _('Cost (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col" class="num-col">{{ _('Sale (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Notes') }}</th><th scope="col" title="{{ _('Checked = a discount can be applied to a bill including this item.') }}">{{ _('Can Be Discounted?') }}</th><th scope="col"></th></tr></thead>
+  <tbody>
+    {% for i in items %}
+    {% set row_form = form if (edit_error_id and edit_error_id == i.id) else None %}
+    <form id="edit-{{ i.id }}" method="post" action="{{ url_for('inventory.price_list_edit', item_id=i.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+    <tr data-edit-form="edit-{{ i.id }}" class="{{ 'row-flag-mismatch' if i.id in flagged_price }}" {% if i.id in flagged_price %}title="{{ _('Retail data inconsistency: this item\'s Linked Inventory Item doesn\'t match an active Retail item in Inventory Catalog.') }}"{% endif %}>
+      <td class="muted">{{ i.id }}</td>
+      <td><input form="edit-{{ i.id }}" name="name" value="{{ fv(row_form, 'name', i.name) }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
+      <td>
+        <select form="edit-{{ i.id }}" name="category" style="border:none; background:transparent;">
+          {% for c in categories %}<option value="{{ c }}" {{ 'selected' if fv(row_form, 'category', i.category)==c }}> {{ c|tr }} </option>{% endfor %}
+        </select>
+      </td>
+      <td class="num-col"><input form="edit-{{ i.id }}" type="number" step="0.001" name="cost_price" value="{{ fv(row_form, 'cost_price', i.cost_price if i.cost_price is not none else '') }}" style="border:none; background:transparent; padding:2px; width:80px; text-align:right;"></td>
+      <td class="num-col"><input form="edit-{{ i.id }}" type="number" step="0.001" name="sale_price" value="{{ fv(row_form, 'sale_price', i.sale_price if i.sale_price is not none else '') }}" style="border:none; background:transparent; padding:2px; width:80px; text-align:right;"></td>
+      <td><input form="edit-{{ i.id }}" name="notes" value="{{ fv(row_form, 'notes', i.notes or '') }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
+      <td style="text-align:center;"><input form="edit-{{ i.id }}" type="checkbox" name="can_discount" {{ 'checked' if fv(row_form, 'can_discount', 'on' if i.can_discount else '')=='on' }}></td>
+      <td style="white-space:nowrap;">
+        <form method="post" action="{{ url_for('inventory.price_list_delete', item_id=i.id) }}" style="display:inline;" data-confirm="Remove {{ i.name }}?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn small danger" type="submit">{{ _('Remove') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="empty-note">{{ _('No priced items yet.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+<script nonce="{{ csp_nonce }}">
+function toggleLink(sel) {
+  document.querySelector('.link-field').style.display = sel.value === 'Retail' ? 'flex' : 'none';
+  const cb = document.getElementById('canDiscountNew');
+  if (cb) cb.checked = !(sel.value === 'Retail' || sel.value === 'Medicine');
+}
+function fillFromLinkedItem(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const nameField = document.getElementById('newItemName');
+  const costField = document.getElementById('newItemCost');
+  if (nameField) nameField.value = opt.dataset.name || '';
+  if (costField) costField.value = opt.dataset.cost || '';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.querySelector('#newForm select[name=category]');
+  if (sel) toggleLink(sel);
+});
+</script>
+<script src="{{ url_for('static', filename='unsaved-changes.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+VZ.bind('price-list-1', 'click', function (event) { document.getElementById('newForm').style.display='block'; this.style.display='none'; });
+VZ.bind('price-list-2', 'change', function (event) { toggleLink(this); });
+VZ.bind('price-list-3', 'change', function (event) { fillFromLinkedItem(this); });
+VZ.bind('price-list-4', 'click', function (event) { document.getElementById('newForm').style.display='none'; document.getElementById('newItemBtn').style.display='inline-flex'; });
+</script>
+{% endblock %}

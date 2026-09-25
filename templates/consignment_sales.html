@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Consignment Sales by Distributor') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _('Sales by Distributor') }}</h1>
+    <p class="page-sub">{{ _('What sold, what\'s owed the distributor, and your markup — priced at what each sale actually charged and cost at the time, not today\'s Price List.') }}</p>
+  </div>
+</div>
+
+<form class="search-bar" method="get">
+  <select name="distributor_id">
+    <option value="">{{ _('All Distributors') }}</option>
+    {% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if distributor_id==d.id }}>{{ d.name }}</option>{% endfor %}
+  </select>
+  <input type="date" name="date_from" value="{{ date_from }}" placeholder="{{ _('From') }}">
+  <input type="date" name="date_to" value="{{ date_to }}" placeholder="{{ _('To') }}">
+  <button class="btn secondary" type="submit">{{ _('Filter') }}</button>
+  {% if distributor_id or date_from or date_to %}<a class="btn secondary" href="{{ url_for('consignment.consignment_sales_page') }}">{{ _('Clear') }}</a>{% endif %}
+</form>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead class="sticky-header"><tr>
+    <th scope="col">{{ _('Month') }}</th><th scope="col">{{ _('Distributor') }}</th><th scope="col">{{ _('Item') }}</th><th scope="col" class="num-col">{{ _('Units Sold') }}</th>
+    <th scope="col" class="num-col">{{ _('Revenue (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col" class="num-col">{{ _('Owed to Distributor (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col" class="num-col">{{ _('Your Markup (%(currency_label)s)', currency_label=currency_label()) }}</th>
+  </tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.month }}</td>
+      <td>{{ r.distributor_name }}</td>
+      <td>{{ r.item_name }}</td>
+      <td class="num-col">{{ r.units_sold|round(2) }}</td>
+      <td class="num-col">{{ r.revenue|money }}</td>
+      <td class="num-col">{{ r.owed_to_distributor|money }}</td>
+      <td class="num-col">{{ r.your_markup|money }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty-note">{{ _('No Consignment sales in this range.') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}

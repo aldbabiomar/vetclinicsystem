@@ -1,0 +1,552 @@
+"""
+Authentication, roles, permissions, audit trail, and discount-cap logic for
+VetClinicSystem.
+"""
+import uuid
+from datetime import datetime, timedelta
+from functools import wraps
+
+from flask import session, redirect, url_for, request, abort
+from flask_babel import gettext as _
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# ---------------------------------------------------------------------------
+# Permissions — the app's fixed vocabulary of what *can* be gated. This list
+# itself is not admin-editable; which roles have which of these is what's
+# editable, via the `role_permissions` table.
+#
+# This list is re-synced into the `permissions` table by
+# seed_default_roles_and_permissions(), which runs from setup.apply_schema()
+# -- i.e. on a setup.py run and on every in-app update (updater.py's
+# _run_schema_sync), NOT on every app launch. This comment used to say "on
+# every launch", which is what makes adding a key here look free: on an
+# existing install the new key reaches the `permissions` table only at that
+# point, and the role-creation loop below skips roles that already exist, so
+# nothing would hold the new permission at all. See the backfill in
+# seed_default_roles_and_permissions().
+#
+# (key, label, category) — grouped the same way the sidebar groups pages, so
+# a role's checklist reads like a shorter version of the nav itself.
+#
+# Every key in this list is live and enforced (re-checked 2026-09-10). This
+# comment used to say the consignment and cash-register keys were placeholders
+# "for features this app doesn't have yet"; both shipped long ago — 14
+# consignment routes and 3 cash-register routes carry those decorators today.
+# ---------------------------------------------------------------------------
+PERMISSIONS = [
+    ("manage_owners", "Manage Owners", "Patients & Visits"),
+    ("manage_patients", "Manage Patients", "Patients & Visits"),
+    ("manage_visits", "Manage Visits", "Patients & Visits"),
+    ("manage_followups", "Manage Follow-Ups", "Patients & Visits"),
+    ("manage_wellness", "Manage Wellness Plans", "Patients & Visits"),
+    ("manage_grooming", "Manage Grooming", "Patients & Visits"),
+    ("manage_boarding", "Manage Boarding", "Patients & Visits"),
+    ("manage_appointments", "Manage Appointments", "Patients & Visits"),
+    ("manage_rewards", "Manage Rewards Members", "Patients & Visits"),
+    ("manage_inpatient", "Manage Inpatient Cases", "Inpatient"),
+    ("view_inventory_status", "View Inventory Status", "Inventory"),
+    ("manage_ordering_sheet", "Manage Ordering Sheet", "Inventory"),
+    ("manage_audit_history", "Manage Audit History", "Inventory"),
+    ("manage_inventory_catalog", "Manage Inventory Catalog", "Inventory"),
+    ("manage_distributors", "Manage Distributors", "Inventory"),
+    ("process_pos_sales", "Process POS Sales", "Sales & Billing"),
+    ("view_sales_history", "View Sales History", "Sales & Billing"),
+    ("manage_price_list", "Manage Price List", "Sales & Billing"),
+    ("manage_refunds", "Manage Refunds", "Sales & Billing"),
+    ("manage_cash_register", "Manage Cash Register", "Sales & Billing"),
+    ("view_financial_reports", "View Financial Reports", "Sales & Billing"),
+    ("view_insights_retention", "View Insights & Retention", "Sales & Billing"),
+    ("manage_users_roles", "Manage Users & Roles", "Admin"),
+    ("manage_settings", "Manage Settings", "Admin"),
+    ("manage_maintenance", "Manage Backups, Updates & Startup", "Admin"),
+    ("view_logins_changes", "View Logins & Change Log", "Admin"),
+    ("view_consignment", "View Consignment", "Consignment"),
+    ("manage_consignment_items", "Manage Consignment Items", "Consignment"),
+    ("manage_consignment_stock", "Log Receiving, Returns & Shrinkage", "Consignment"),
+    ("manage_consignment_settlements", "Manage Settlements", "Consignment"),
+]
+PERMISSION_KEYS = [k for k, _, _ in PERMISSIONS]
+PERMISSION_KEY_SET = set(PERMISSION_KEYS)
+PERMISSION_CATEGORIES = ["Patients & Visits", "Inpatient", "Inventory", "Sales & Billing", "Admin", "Consignment"]
+
+# The permissions that are (and always have been) Admin-only in this app —
+# everything else was open to any logged-in user. Vet and Reception seed
+# with every permission EXCEPT these, i.e. exactly their current effective
+# access, just now expressed as editable checkboxes.
+ADMIN_ONLY_TODAY = {
+    "manage_price_list", "manage_refunds", "manage_cash_register", "view_financial_reports",
+    "view_insights_retention", "manage_users_roles", "manage_settings",
+    "manage_maintenance",
+    "view_logins_changes",
+    # Issuing and revoking a rewards card decides what a customer pays on
+    # every future bill, so it is admin-only from day one rather than
+    # defaulting open like the rest of this category.
+    "manage_rewards",
+    "manage_consignment_settlements",
+}
+VET_RECEPTION_DEFAULT_PERMISSIONS = PERMISSION_KEY_SET - ADMIN_ONLY_TODAY
+
+# Discount caps a brand-new install seeds Admin/Vet/Reception with. After
+# that, each role's actual cap lives in roles.discount_cap and is editable
+# from the role's own edit form on the Users & Roles page.
+DISCOUNT_CAPS = {"Admin": 25, "Vet": 15, "Reception": 10}
+
+
+# The 200 or so passwords that actually get tried first in a spray. Kept
+# deliberately short and embedded -- a real breach corpus is a dependency and a
+# download this app has no way to keep current, and the top of the list is
+# where essentially all of the risk sits. Lower-cased; comparison is too.
+COMMON_PASSWORDS = {
+    "password", "password1", "password12", "password123", "password1234",
+    "passw0rd", "p@ssword", "p@ssw0rd", "12345678", "123456789", "1234567890",
+    "qwertyui", "qwerty123", "qwertyuiop", "iloveyou", "sunshine", "princess",
+    "football", "baseball", "welcome1", "welcome123", "admin123", "administrator",
+    "letmein1", "letmein123", "trustno1", "starwars", "whatever", "changeme",
+    "abc12345", "monkey123", "dragon123", "superman", "batman123", "michael1",
+    "clinic123", "vetclinic", "vetclinic1", "vetclinic123", "veterinary",
+}
+
+MIN_PASSWORD_LENGTH = 8
+
+
+def password_error(password, username=None):
+    """Returns a reason to reject `password`, or None if it is acceptable.
+
+    Shared by change_password(), admin_user_new() and
+    admin_user_reset_password() so the rules cannot drift apart between the
+    three places a password gets set. Length was previously the only rule, so
+    "password" and the person's own username were both accepted on a system
+    holding clinical records.
+
+    Deliberately NOT a complexity-class rule (one upper, one digit, one
+    symbol) and NOT an expiry: both push front-desk staff towards writing the
+    password on a note by the keyboard, which is a worse outcome on a machine
+    that is already inside the clinic. Length, not-your-username, and
+    not-one-of-the-obvious-ones is the proportionate set.
+    """
+    if len(password or "") < MIN_PASSWORD_LENGTH:
+        return f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
+    lowered = password.lower()
+    if lowered in COMMON_PASSWORDS:
+        return "That password is one of the most commonly guessed ones — please choose another."
+    if username and len(username) >= 3 and username.lower() in lowered:
+        return "Password can't contain the username."
+    return None
+
+
+def hash_password(raw):
+    return generate_password_hash(raw)
+
+
+def verify_password(hash_, raw):
+    return check_password_hash(hash_, raw)
+
+
+# A real hash of an unguessable value, computed once at import time —
+# login() checks the submitted password against this whenever the
+# username doesn't exist (or the account is disabled), instead of
+# short-circuiting straight to "no match". check_password_hash() is
+# deliberately slow (scrypt/pbkdf2); skipping it for a nonexistent
+# username makes that request return measurably faster than one for a
+# real, active username, which is a timing side-channel an attacker can
+# use to enumerate valid usernames one request at a time. Comparing
+# against this either way keeps the two cases' timing the same.
+_DUMMY_PASSWORD_HASH = generate_password_hash(uuid.uuid4().hex)
+
+
+def new_user_id():
+    return "U" + uuid.uuid4().hex[:8].upper()
+
+
+def new_role_id():
+    return "ROLE" + uuid.uuid4().hex[:8].upper()
+
+
+def no_vet_role_configured(db):
+    """
+    True if zero roles are marked "can be assigned as a vet" — meaning
+    Appointments, New Visit, Grooming, and Inpatient's vet pickers would
+    all render with no options. Callers use this to surface a loud warning
+    right when an admin's role edit/delete would cause it.
+    """
+    row = db.execute("SELECT COUNT(*) AS n FROM roles WHERE is_vet_role=true").fetchone()
+    return row["n"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Session helpers
+# ---------------------------------------------------------------------------
+def current_user(db):
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    return db.execute("SELECT * FROM users WHERE id=? AND active=true", (uid,)).fetchone()
+
+
+def permission_required(*perm_keys):
+    """Gate a route behind one or more permission keys (any one matching is
+    enough — pass a single key for the normal case). Reads from the
+    session's cached permission set, which require_login()'s
+    refresh_session_permissions() keeps in sync every request."""
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if not session.get("user_id"):
+                return redirect(url_for("login", next=request.path))
+            granted = session.get("permissions") or []
+            if not any(p in granted for p in perm_keys):
+                abort(403)
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
+def has_permission(perm_key):
+    """True if the currently logged-in user's role grants this permission.
+    Registered as a Jinja global so templates can do
+    {% if has_permission('manage_owners') %}."""
+    return perm_key in (session.get("permissions") or [])
+
+
+# ---------------------------------------------------------------------------
+# Roles & permissions — seeding and session refresh
+# ---------------------------------------------------------------------------
+def bump_permissions_version(db):
+    """Call this after any change to a role's name/description/permissions/
+    discount cap, a role being created or deleted, or a user's role_id/
+    custom_discount_cap — it's the signal every other logged-in session
+    checks (once per request, cheaply) to know its cached permission set is
+    stale and needs reloading."""
+    db.execute(
+        "INSERT INTO settings (key, value) VALUES ('permissions_version', '1') "
+        "ON CONFLICT (key) DO UPDATE SET value = (COALESCE(settings.value, '0')::int + 1)::text"
+    )
+
+
+def seed_default_roles_and_permissions(db):
+    """Idempotent — safe to call on every launch. Keeps the `permissions`
+    table (the app's fixed vocabulary) in sync with PERMISSIONS above, and
+    creates Admin/Vet/Reception the first time only — never overwrites an
+    admin's later edits to Vet or Reception, since those are ordinary
+    custom roles from that point on."""
+    for i, (key, label, category) in enumerate(PERMISSIONS):
+        db.execute(
+            "INSERT INTO permissions (id, label, category, sort_order) VALUES (?,?,?,?) "
+            "ON CONFLICT (id) DO UPDATE SET label=EXCLUDED.label, category=EXCLUDED.category, "
+            "sort_order=EXCLUDED.sort_order",
+            (key, label, category, i),
+        )
+
+    # The Admin role is is_system, and admin_role_edit() refuses to edit a
+    # system role at all -- so a permission key added to PERMISSIONS *after* an
+    # install already exists would be granted to nobody, with no way to grant
+    # it from the UI. The loop below only creates roles that don't exist yet,
+    # so it cannot fix that either. Re-asserting the system role's full grant
+    # on every launch closes it, for this key and for every future one.
+    # Must run after the permissions upsert above: role_permissions.permission_id
+    # references permissions(id).
+    db.execute(
+        "INSERT INTO role_permissions (role_id, permission_id) "
+        "SELECT r.id, p.id FROM roles r CROSS JOIN permissions p "
+        "WHERE r.is_system = true ON CONFLICT DO NOTHING"
+    )
+
+    defaults = [
+        ("Admin", "Full access to every area of the app, always. There must be at least one active Admin.",
+         True, DISCOUNT_CAPS["Admin"], set(PERMISSION_KEYS), False),
+        ("Vet", "Clinical staff — patient care, visits, and inpatient cases.",
+         False, DISCOUNT_CAPS["Vet"], VET_RECEPTION_DEFAULT_PERMISSIONS, True),
+        ("Reception", "Front desk — scheduling, checkout, and client-facing tasks.",
+         False, DISCOUNT_CAPS["Reception"], VET_RECEPTION_DEFAULT_PERMISSIONS, False),
+    ]
+    changed = False
+    for name, desc, is_system, cap, perms, is_vet_role in defaults:
+        existing = db.execute("SELECT id FROM roles WHERE name=?", (name,)).fetchone()
+        if existing:
+            continue
+        role_id = new_role_id()
+        db.execute(
+            "INSERT INTO roles (id,name,description,is_system,discount_cap,is_vet_role,created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (role_id, name, desc, is_system, cap, is_vet_role, datetime.now().isoformat(timespec="seconds")),
+        )
+        for perm in perms:
+            db.execute(
+                "INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?) ON CONFLICT DO NOTHING",
+                (role_id, perm),
+            )
+        changed = True
+    if changed:
+        bump_permissions_version(db)
+    db.commit()
+
+
+def refresh_session_permissions(db, user_row):
+    """Called once per request for a logged-in user (from require_login()).
+    Keeps session['permissions'], session['discount_cap'], and
+    session['role'] in sync with the database — so if an admin changes this
+    user's role, edits that role's permission checklist or discount cap, or
+    sets/clears this user's personal discount override, it takes effect on
+    the user's very next request rather than requiring them to log out and
+    back in. Skips the extra permission-set query on every request when
+    nothing has actually changed since it was last cached."""
+    role_row = db.execute(
+        "SELECT id, name, discount_cap, is_system FROM roles WHERE id=?",
+        (user_row["role_id"],),
+    ).fetchone()
+    if not role_row:
+        session.clear()
+        return
+
+    version_row = db.execute("SELECT value FROM settings WHERE key='permissions_version'").fetchone()
+    current_version = version_row["value"] if version_row else "0"
+
+    if (
+        session.get("role_id") == role_row["id"]
+        and session.get("_perm_version") == current_version
+        and session.get("_cached_custom_cap") == user_row["custom_discount_cap"]
+    ):
+        return  # nothing relevant has changed since this was cached
+
+    perm_rows = db.execute(
+        "SELECT permission_id FROM role_permissions WHERE role_id=?", (role_row["id"],)
+    ).fetchall()
+    session["role_id"] = role_row["id"]
+    session["role"] = role_row["name"]
+    session["is_system_role"] = bool(role_row["is_system"])
+    session["permissions"] = [p["permission_id"] for p in perm_rows]
+    session["_cached_custom_cap"] = user_row["custom_discount_cap"]
+    session["discount_cap"] = (
+        user_row["custom_discount_cap"] if user_row["custom_discount_cap"] is not None else role_row["discount_cap"]
+    )
+    session["_perm_version"] = current_version
+
+
+def discount_cap_for():
+    """The current logged-in user's effective discount cap: their personal
+    override if one is set, else their role's cap. Cached in
+    session['discount_cap'] by refresh_session_permissions() so this never
+    needs its own query."""
+    return session.get("discount_cap", 0)
+
+
+# ---------------------------------------------------------------------------
+# Login attempt logging
+# ---------------------------------------------------------------------------
+def log_login(db, user_id, username, success):
+    ua = request.headers.get("User-Agent", "")
+    # request.remote_addr only -- never the X-Forwarded-For header directly.
+    # The default deployment is plain HTTP on the clinic LAN with no proxy in
+    # front, so reading that header meant any client could choose the address
+    # written into login_log.ip and shown on Admin > Logins and Changes: the
+    # audit trail recorded whatever an attacker typed. When there IS a proxy,
+    # BEHIND_TLS_PROXY=1 installs ProxyFix (see app.py), which rewrites
+    # remote_addr from the header for us -- so the proxied case keeps working
+    # and the unproxied case stops being forgeable. Do not reinstate the
+    # header read here.
+    ip = request.remote_addr
+    db.execute(
+        "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (?,?,?,?,?,?)",
+        (user_id, username, 1 if success else 0, datetime.now().isoformat(timespec="seconds"), ip, ua),
+    )
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Login rate limiting — locks a username out temporarily after repeated
+# failed attempts, so a brute-force password guesser can't hammer an
+# account indefinitely.
+#
+# Escalating (not sliding): the old version computed unlock_at as
+# MAX(recent failure timestamp) + LOCKOUT_BASE_MINUTES, which sounds like a
+# fixed-length lockout but wasn't one in practice — since a locked account
+# never reaches verify_password()/log_login() (see login() in app.py), an
+# attacker can't extend an *active* lock by guessing more, but they CAN
+# trivially re-arm a new one the instant the old one expires: fire a fresh
+# burst of exactly LOCKOUT_THRESHOLD wrong guesses right at unlock_at (which
+# the login page tells them exactly), and the account is locked for another
+# full window. That's a permanent-DoS knob costing only ~5 requests every
+# 15 minutes, indefinitely, against any known username (admin's is in the
+# README). Fixed by escalating: each fresh lockout episode within
+# LOCKOUT_LOOKBACK_HOURS doubles the previous one's duration (capped), so
+# repeatedly re-arming gets exponentially more expensive to maintain rather
+# than staying flat-rate forever. A successful login clears the slate —
+# only failures *after* the most recent success (within the lookback) count
+# toward escalation, so a legitimate user who eventually gets back in isn't
+# penalized for guesses that happened before that.
+# ---------------------------------------------------------------------------
+LOCKOUT_THRESHOLD = 5
+LOCKOUT_BASE_MINUTES = 15
+LOCKOUT_MAX_MINUTES = 240  # 4 hours — escalation cap
+LOCKOUT_LOOKBACK_HOURS = 24
+
+
+def login_lock_status(db, username):
+    """Returns (locked: bool, minutes_remaining: int|None, unlock_at: datetime|None).
+
+    Escalating, and it escalates on volume rather than on pausing.
+
+    Failures since the last successful login (bounded to LOCKOUT_LOOKBACK_HOURS,
+    so a stale failure from days ago does not count forever) are grouped into
+    bursts: a new burst starts whenever the gap since the previous failure
+    exceeds LOCKOUT_BASE_MINUTES. Every COMPLETED block of LOCKOUT_THRESHOLD
+    failures is one escalation step -- counted both across bursts and within a
+    single burst. Step N locks for min(15 * 2**(N-1), 240) minutes:
+    15 / 30 / 60 / 120, capped at 4 hours from the fourth on.
+
+    Two properties, and this app has had one implementation of each:
+
+      * Bursts, so a handful of stray wrong guesses that never reached the
+        threshold are not treated as a lockout episode, and cannot drag the
+        anchor backwards and SHORTEN a real lock.
+      * Blocks within a burst, so an attacker who simply never pauses still
+        escalates. Counting only whole bursts meant a continuous attack stayed
+        at the flat base penalty forever: fifteen straight wrong guesses bought
+        thirteen minutes, where fifteen guesses in three spaced-out batches
+        bought an hour. Pausing was rewarded.
+
+    Anchored on the failure that crossed the CURRENT threshold, not on the most
+    recent failure -- continuing to guess after a lock is already armed cannot
+    push its expiry further out within the same block. A real successful login,
+    or the lookback window passing, resets the count to zero.
+    """
+    if not username:
+        return False, None, None
+    lookback_cutoff = (datetime.now() - timedelta(hours=LOCKOUT_LOOKBACK_HOURS)).isoformat(timespec="seconds")
+    last_success = db.execute(
+        "SELECT MAX(timestamp) AS t FROM login_log WHERE username=? AND success=1 AND timestamp >= ?",
+        (username, lookback_cutoff),
+    ).fetchone()["t"]
+    since = last_success or lookback_cutoff
+    rows = db.execute(
+        "SELECT timestamp FROM login_log WHERE username=? AND success=0 AND timestamp > ? ORDER BY timestamp",
+        (username, since),
+    ).fetchall()
+    if not rows:
+        return False, None, None
+    timestamps = [datetime.fromisoformat(r["timestamp"]) for r in rows]
+
+    bursts = [[timestamps[0]]]
+    for t in timestamps[1:]:
+        if (t - bursts[-1][-1]) > timedelta(minutes=LOCKOUT_BASE_MINUTES):
+            bursts.append([t])
+        else:
+            bursts[-1].append(t)
+
+    # One step per completed block of LOCKOUT_THRESHOLD, summed over bursts.
+    steps = sum(len(b) // LOCKOUT_THRESHOLD for b in bursts)
+    if steps == 0:
+        return False, None, None
+
+    # The most recent failure that completed a block, scanning forward so the
+    # latest qualifying burst wins.
+    trigger_at = None
+    for b in bursts:
+        blocks = len(b) // LOCKOUT_THRESHOLD
+        if blocks:
+            trigger_at = b[blocks * LOCKOUT_THRESHOLD - 1]
+
+    duration_minutes = min(LOCKOUT_BASE_MINUTES * (2 ** (steps - 1)), LOCKOUT_MAX_MINUTES)
+    unlock_at = trigger_at + timedelta(minutes=duration_minutes)
+    remaining = unlock_at - datetime.now()
+    if remaining.total_seconds() <= 0:
+        return False, None, None
+    return True, max(1, int(remaining.total_seconds() // 60) + 1), unlock_at
+
+
+def describe_device(user_agent):
+    """Very small, dependency-free user-agent summary: 'Windows · Chrome' etc.
+
+    The two fallbacks are translated here rather than in the template, because
+    the template only ever sees the joined string — `|tr` on "Unknown OS ·
+    Unknown browser" matches no msgid, and splitting it in Jinja would mean
+    parsing a display string back apart. Browser and OS names are proper nouns
+    and are deliberately left alone.
+    """
+    ua = (user_agent or "").lower()
+    if "windows" in ua:
+        os_name = "Windows"
+    elif "mac os" in ua or "macintosh" in ua:
+        os_name = "Mac"
+    elif "iphone" in ua:
+        os_name = "iPhone"
+    elif "ipad" in ua:
+        os_name = "iPad"
+    elif "android" in ua:
+        os_name = "Android"
+    elif "linux" in ua:
+        os_name = "Linux"
+    else:
+        os_name = _("Unknown OS")
+
+    if "edg/" in ua:
+        browser = "Edge"
+    elif "chrome/" in ua and "chromium" not in ua:
+        browser = "Chrome"
+    elif "crios" in ua:
+        browser = "Chrome (iOS)"
+    elif "fxios" in ua:
+        browser = "Firefox (iOS)"
+    elif "firefox/" in ua:
+        browser = "Firefox"
+    elif "safari/" in ua and "chrome/" not in ua:
+        browser = "Safari"
+    else:
+        browser = _("Unknown browser")
+    return f"{os_name} · {browser}"
+
+
+# ---------------------------------------------------------------------------
+# Change / audit logging
+# ---------------------------------------------------------------------------
+def _as_text(v):
+    """audit_log.old_value/new_value are TEXT, but log_change()'s callers
+    routinely pass Decimal/float/bool/date values straight through —
+    Postgres removed implicit casts to text in 8.3, so whether that works
+    depends on how psycopg types the bound parameter. Coerced explicitly
+    here so it never depends on that. See ERROR_500_AUDIT.md's
+    'Could not verify without a live database' section."""
+    return None if v is None else str(v)
+
+
+def log_change(db, table_name, record_id, action, changes=None):
+    """
+    action: 'create' / 'update' / 'delete'
+    changes: dict of {field: (old_value, new_value)} — only used for 'update'.
+    For 'create'/'delete' pass changes=None; one row is written for the whole record.
+
+    Deliberately does NOT commit. This write must land in the same
+    transaction as the mutation it's describing, so the caller commits
+    both together (or, on an exception, the app-context teardown rolls
+    both back together). A route that calls this must therefore always
+    reach its own db.commit() afterward.
+    """
+    uid = session.get("user_id")
+    uname = session.get("username", "system")
+    ts = datetime.now().isoformat(timespec="seconds")
+
+    if action == "update" and changes:
+        for field, (old, new) in changes.items():
+            if str(old) == str(new):
+                continue
+            db.execute(
+                "INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id,field,old_value,new_value) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (uid, uname, ts, "update", table_name, record_id, field, _as_text(old), _as_text(new)),
+            )
+    else:
+        db.execute(
+            "INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id,field,old_value,new_value) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (uid, uname, ts, action, table_name, record_id, None, None, None),
+        )
+
+
+def diff_dict(old_row, new_values):
+    """Build a {field: (old, new)} dict from a database row and a plain dict of new values."""
+    changes = {}
+    for k, new_v in new_values.items():
+        old_v = old_row[k] if old_row and k in old_row.keys() else None
+        if str(old_v) != str(new_v):
+            changes[k] = (old_v, new_v)
+    return changes

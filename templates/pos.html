@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Point of Sale') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('Point of Sale') }}</h1><p class="page-sub">{{ _('Scan or search a Retail item to add it to the sale.') }}</p></div></div>
+
+<div class="pos-grid">
+  <div class="card">
+    <div class="field" style="margin-bottom:14px;">
+      <label for="posSearch">{{ _('Scan Barcode or Search Item Name') }}</label>
+      <input type="text" id="posSearch" autocomplete="off" placeholder="{{ _('Scan Barcode or Type Item Name…') }}" autofocus>
+    </div>
+    <div id="posResults"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">{{ _('Current Sale') }}</div>
+    <div id="cartLines"><div class="empty-note" id="emptyCart">{{ _('Cart is empty.') }}</div></div>
+    <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+      <div class="detail-item"><div class="k">{{ _('Subtotal') }}</div><div class="v" id="cartSubtotal">0 {{ currency_label() }}</div></div>
+      {# Identifying the customer is OPTIONAL and opt-in: nothing prompts
+         for it, an ordinary walk-in needs no extra click, and most sales
+         will carry no customer at all. It is filled in when a rewards card
+         is presented. #}
+      <div class="field pos-field-row">
+        <label for="posCustomerInput">{{ _('Customer (optional)') }}</label>
+        <input type="text" id="posCustomerInput" autocomplete="off" placeholder="{{ _('Name, phone or card number') }}">
+        <div id="posCustomerResults"></div>
+        <div id="posCustomerChosen" class="small pos-customer-chosen" hidden></div>
+      </div>
+      <div class="field pos-field-row" id="posDiscountField">
+        <label for="discountInput">{{ _('Discount %% (Max %(discount_cap)s%%)', discount_cap=discount_cap) }}</label>
+        <input type="number" id="discountInput" min="0" max="{{ discount_cap }}" value="{{ fv(form, 'discount_percent', '0') }}" data-vzh="pos-1">
+      </div>
+      <p class="small muted pos-field-row" id="posMemberNote" hidden></p>
+      <div class="field" style="margin:10px 0;">
+        <label for="cleanupInput">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label>
+        <input type="number" id="cleanupInput" step="0.001" min="0" value="{{ fv(form, 'cleanup_amount', '0') }}" data-vzh="pos-1">
+      </div>
+      <div class="detail-item"><div class="k">{{ _('Total') }}</div><div class="v" style="font-size:20px; font-weight:700;" id="cartTotal">0 {{ currency_label() }}</div></div>
+      <div class="field" style="margin:10px 0;">
+        <label for="paymentMethod">{{ _('Payment Method') }}</label>
+        <select id="paymentMethod" data-vzh="pos-2">
+          <option value="Cash" {{ 'selected' if fv(form, 'payment_method', 'Cash')=='Cash' }}>{{ _('Cash') }}</option>
+          <option value="Card" {{ 'selected' if fv(form, 'payment_method', 'Cash')=='Card' }}>{{ _('Card') }}</option>
+          <option value="Transfer" {{ 'selected' if fv(form, 'payment_method', 'Cash')=='Transfer' }}>{{ _('Transfer') }}</option>
+        </select>
+      </div>
+      <div id="cashFields" style="display:{{ 'none' if form and fv(form, 'payment_method', 'Cash')!='Cash' else '' }};">
+        <div class="field" style="margin:10px 0;">
+          <label for="cashReceivedInput">{{ _('Cash Received (%(currency_label)s)', currency_label=currency_label()) }}</label>
+          <input type="number" id="cashReceivedInput" step="0.001" min="0" value="{{ fv(form, 'cash_received') }}" data-vzh="pos-1">
+        </div>
+        <div class="detail-item"><div class="k">{{ _('Change Due') }}</div><div class="v" style="font-size:18px; font-weight:700;" id="changeDue">—</div></div>
+        <div class="meta small" id="changeNote" style="margin-top:2px;"></div>
+      </div>
+      <form method="post" action="{{ url_for('sales.pos_checkout') }}" id="checkoutForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="idempotency_key" value="{{ idempotency_key }}">
+        <input type="hidden" name="owner_id" id="ownerIdHidden">
+        <input type="hidden" name="discount_percent" id="discountHidden">
+        <input type="hidden" name="cleanup_amount" id="cleanupHidden">
+        <input type="hidden" name="payment_method" id="paymentHidden">
+        <input type="hidden" name="cash_received" id="cashReceivedHidden">
+        <div id="cartFieldsHidden"></div>
+        <button class="btn" type="submit" id="completeSaleBtn" style="width:100%; justify-content:center;" data-vzh="pos-3">{{ _('Complete Sale') }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+let cart = []; // {id, name, price, qty, stock}
+
+const searchInput = document.getElementById('posSearch');
+const resultsDiv = document.getElementById('posResults');
+let debounceTimer;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const q = searchInput.value.trim();
+  if (!q) { resultsDiv.innerHTML = ''; return; }
+  debounceTimer = setTimeout(() => {
+    fetch(`{{ url_for('inventory.api_inventory_lookup') }}?barcode=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.id) { addToCart(data); searchInput.value = ''; resultsDiv.innerHTML=''; return; }
+        fetch(`{{ url_for('inventory.api_inventory_lookup') }}?q=${encodeURIComponent(q)}`)
+          .then(r => r.json())
+          .then(list => {
+            if (!list.length) { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('No matches.')|tojson }} + '</div>'; return; }
+            window.__posSearchResults = list;
+            resultsDiv.innerHTML = list.map((i, idx) =>
+              `<div class="list-line" style="cursor:pointer;" data-idx="${idx}" data-vz-act="pos-4">
+                 <div class="who">${escapeHtml(i.name)}</div><div class="meta">${i.price != null ? i.price + ' {{ currency_label() }}' : {{ _('no price set')|tojson }}} · stock: ${i.stock ?? '—'}</div>
+               </div>`
+            ).join('');
+          })
+          .catch(() => { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('Could not search inventory; check server connection.')|tojson }} + '</div>'; });
+      })
+      .catch(() => { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('Could not search inventory; check server connection.')|tojson }} + '</div>'; });
+  }, 200);
+});
+
+function addToCart(item) {
+  if (item.price == null) { window.VZToast.show({{ _('{name} has no sale price set in the Price List.')|tojson }}.replace('{name}', item.name), 'error'); return; }
+  const existing = cart.find(c => c.id === item.id);
+  if (existing) {
+    if (item.stock != null && existing.qty + 1 > item.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', item.stock), 'warn'); return; }
+    existing.qty += 1;
+  } else {
+    // discountable comes from the lookup API (both its branches) and is what
+    // lets the preview below discount a member's eligible lines only. Absent
+    // means not eligible — the conservative side.
+    cart.push({id: item.id, name: item.name, price: item.price, qty: 1, stock: item.stock,
+               discountable: !!item.discountable});
+  }
+  renderCart();
+}
+function changeQty(id, delta) {
+  const line = cart.find(c => c.id === id);
+  const next = line.qty + delta;
+  if (delta > 0 && line.stock != null && next > line.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', line.stock), 'warn'); return; }
+  line.qty = Math.max(1, next);
+  renderCart();
+}
+function setQty(id, value) {
+  const line = cart.find(c => c.id === id);
+  let qty = parseInt(value, 10);
+  if (!Number.isFinite(qty) || qty < 1) qty = 1;
+  if (line.stock != null && qty > line.stock) { window.VZToast.show({{ _('Only {stock} in stock.')|tojson }}.replace('{stock}', line.stock), 'warn'); qty = line.stock; }
+  line.qty = qty;
+  renderCart();
+}
+function removeLine(id) {
+  cart = cart.filter(c => c.id !== id);
+  renderCart();
+}
+function renderCart() {
+  const linesDiv = document.getElementById('cartLines');
+  if (!cart.length) { linesDiv.innerHTML = '<div class="empty-note">' + {{ _('Cart is empty.')|tojson }} + '</div>'; }
+  else {
+    linesDiv.innerHTML = cart.map(c => `
+      <div class="pos-cart-line">
+        <div>${escapeHtml(c.name)}<div class="meta small">${c.price} {{ currency_label() }} each</div></div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn small secondary" type="button" data-vz-act="pos-5" data-line-id="${c.id}">-</button>
+          <input type="number" min="1" ${c.stock != null ? `max="${c.stock}"` : ''} value="${c.qty}" style="width:56px; text-align:center;" data-vz-change="pos-6" data-line-id="${c.id}">
+          <button class="btn small secondary" type="button" data-vz-act="pos-7" data-line-id="${c.id}">+</button>
+          <button class="btn small danger" type="button" data-vz-act="pos-8" data-line-id="${c.id}">×</button>
+        </div>
+      </div>`).join('');
+  }
+  const subtotal = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  // A member's card discounts the ELIGIBLE lines only and charges the rest
+  // in full; a staff discount covers the whole cart because pos_checkout()
+  // refuses the sale otherwise. Mirrors logic.discounted_raw_total().
+  const discount = window.__posMember ? window.__posMemberRate
+                                      : (parseFloat(document.getElementById('discountInput').value) || 0);
+  const discountableSubtotal = cart.reduce(
+    (s,c) => s + ((window.__posMember ? c.discountable : true) ? c.price * c.qty : 0), 0);
+  const preCleanupTotal = discountableSubtotal * (1 - discount/100) + (subtotal - discountableSubtotal);
+  const cleanup = parseFloat(document.getElementById('cleanupInput').value) || 0;
+  // Preview only — pos_checkout() recomputes and validates the
+  // authoritative total (and the Clean Up cap) server-side regardless of
+  // what this hidden field carries, same trust boundary as discount today.
+  const total = Math.max(preCleanupTotal - cleanup, 0);
+  document.getElementById('cartSubtotal').textContent = subtotal.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
+  document.getElementById('cartTotal').textContent = total.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
+  renderChange(total);
+}
+function toggleCashFields() {
+  const isCash = document.getElementById('paymentMethod').value === 'Cash';
+  document.getElementById('cashFields').style.display = isCash ? '' : 'none';
+  if (!isCash) document.getElementById('cashReceivedInput').value = '';
+  renderCart();
+}
+function renderChange(total) {
+  const changeDueEl = document.getElementById('changeDue');
+  const noteEl = document.getElementById('changeNote');
+  const cashReceived = parseFloat(document.getElementById('cashReceivedInput').value);
+  if (!Number.isFinite(cashReceived) || cashReceived <= 0) {
+    changeDueEl.textContent = '—';
+    noteEl.textContent = '';
+    return;
+  }
+  const change = Math.max(cashReceived - total, 0);
+  changeDueEl.textContent = change.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
+  noteEl.textContent = cashReceived < total
+    ? {{ _('Cash received is {amount} %(currency_label)s short of the total.', currency_label=currency_label())|tojson }}.replace('{amount}', (total - cashReceived).toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}))
+    : '';
+}
+function prepareSubmit() {
+  if (!cart.length) { window.VZToast.show({{ _('Cart is empty.')|tojson }}, 'error'); return false; }
+  // A member's sale posts no staff discount at all: pos_checkout() refuses a
+  // non-zero one on a member's cart, and applies the card's rate itself.
+  document.getElementById('discountHidden').value =
+    window.__posMember ? '0' : document.getElementById('discountInput').value;
+  document.getElementById('cleanupHidden').value = document.getElementById('cleanupInput').value;
+  document.getElementById('paymentHidden').value = document.getElementById('paymentMethod').value;
+  document.getElementById('cashReceivedHidden').value =
+    document.getElementById('paymentMethod').value === 'Cash' ? document.getElementById('cashReceivedInput').value : '';
+  const container = document.getElementById('cartFieldsHidden');
+  container.innerHTML = '';
+  cart.forEach(c => {
+    container.innerHTML += `<input type="hidden" name="item_id" value="${c.id}"><input type="hidden" name="quantity" value="${c.qty}">`;
+  });
+  // Belt-and-suspenders alongside the server-side idempotency check
+  // (pos_checkout()) — stops a double-click from ever firing a second
+  // request in the first place, on top of the server refusing to create
+  // a second sale even if it does.
+  const btn = document.getElementById('completeSaleBtn');
+  if (btn.disabled) return false;
+  // The disabling MUST NOT happen here. A submit button that is disabled
+  // during its own click handler cannot submit its form: the browser checks
+  // the submitter's disabled state when it processes the submit, by which
+  // point this handler has already set it. Doing it here made Complete Sale
+  // silently do nothing at all -- no request, no navigation, no error --
+  // from IQ v1.5.0 / JO v1.1.0 until this fix. It is disabled from the
+  // form's own submit handler below instead, which runs once the
+  // submission is already under way.
+  return true;
+}
+
+  document.getElementById('checkoutForm').addEventListener('submit', function () {
+    // Runs after the submit is committed, so the first click goes through
+    // and any second click is refused by the btn.disabled guard above.
+    document.getElementById('completeSaleBtn').disabled = true;
+  });
+{% if form %}
+// Redisplaying a rejected checkout — the cart itself isn't restored (see
+// pos_checkout()'s redisplay()), but sync the cash-fields visibility and
+// totals to the discount/payment-method values fv() just prefilled above.
+toggleCashFields();
+{% endif %}
+</script>
+<script nonce="{{ csp_nonce }}">
+const customerInput = document.getElementById('posCustomerInput');
+const customerResults = document.getElementById('posCustomerResults');
+const customerChosen = document.getElementById('posCustomerChosen');
+window.__posMember = false;
+window.__posMemberRate = {{ member_rate|tojson }};
+let customerTimer;
+
+function chooseCustomer(o) {
+  document.getElementById('ownerIdHidden').value = o ? o.id : '';
+  window.__posMember = !!(o && o.is_member && window.__posMemberRate > 0);
+  customerResults.innerHTML = '';
+  customerInput.value = '';
+  if (o) {
+    customerChosen.innerHTML = escapeHtml(o.name) + (o.phone ? ' · ' + escapeHtml(o.phone) : '')
+      + ' <button type="button" class="btn small secondary" data-vz-act="pos-10">'
+      + {{ _('Clear')|tojson }} + '</button>';
+    customerChosen.hidden = false;
+  } else {
+    customerChosen.hidden = true;
+  }
+  // `hidden` rather than an inline display style: it cannot be defeated by a
+  // class and stays off the inline-style ratchet.
+  document.getElementById('posDiscountField').hidden = window.__posMember;
+  const note = document.getElementById('posMemberNote');
+  note.textContent = window.__posMember
+    ? {{ _('Rewards card: {rate} off eligible items. A staff discount cannot be added on top.')|tojson }}
+        .replace('{rate}', window.__posMemberRate + '%')
+    : '';
+  note.hidden = !window.__posMember;
+  renderCart();
+}
+
+customerInput.addEventListener('input', () => {
+  clearTimeout(customerTimer);
+  const q = customerInput.value.trim();
+  if (q.length < 2) { customerResults.innerHTML = ''; return; }
+  customerTimer = setTimeout(() => {
+    fetch(`{{ url_for('clinical.api_owners_search') }}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(list => {
+        if (!list.length) { customerResults.innerHTML = '<div class="empty-note">' + {{ _('No matches.')|tojson }} + '</div>'; return; }
+        window.__posCustomerResults = list;
+        customerResults.innerHTML = list.map((o, idx) =>
+          `<div class="list-line" style="cursor:pointer;" data-idx="${idx}" data-vz-act="pos-9">
+             <div class="who">${escapeHtml(o.name)}${o.is_member ? ' <span class="badge primary">' + {{ _('Member')|tojson }} + '</span>' : ''}</div>
+             <div class="meta">${escapeHtml(o.phone || '')}</div>
+           </div>`
+        ).join('');
+      })
+      .catch(() => { customerResults.innerHTML = '<div class="empty-note">' + {{ _('Could not search customers; check server connection.')|tojson }} + '</div>'; });
+  }, 200);
+});
+
+VZ.bind('pos-1', 'input', function (event) { renderCart(); });
+VZ.bind('pos-2', 'change', function (event) { toggleCashFields(); });
+VZ.bind('pos-3', 'click', function (event) { return prepareSubmit(); });
+VZ.action('pos-4', function (event) { addToCart(window.__posSearchResults[this.dataset.idx]); });
+VZ.action('pos-5', function (event) { changeQty(this.dataset.lineId,-1); });
+VZ.action('pos-6', function (event) { setQty(this.dataset.lineId, this.value); });
+VZ.action('pos-7', function (event) { changeQty(this.dataset.lineId,1); });
+VZ.action('pos-8', function (event) { removeLine(this.dataset.lineId); });
+VZ.action('pos-9', function (event) { chooseCustomer(window.__posCustomerResults[this.dataset.idx]); });
+VZ.action('pos-10', function (event) { chooseCustomer(null); });
+</script>
+{% endblock %}

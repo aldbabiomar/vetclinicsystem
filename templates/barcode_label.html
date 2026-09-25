@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Barcode') }} — {{ item.name }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head no-print">
+  <div><h1>{{ _('Barcode Label') }}</h1><p class="page-sub">{{ item.name }}</p></div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn secondary" id="printBtn" data-vzh="barcode-label-1" disabled>{{ _('Print') }}</button>
+    <a class="btn secondary" href="{{ url_for('inventory.inventory_catalog') }}">{{ _('Back') }}</a>
+  </div>
+</div>
+<div class="barcode-label-box">
+  <div style="font-weight:700; font-size:13px; margin-bottom:6px;">{{ item.name }}</div>
+  <svg id="barcodeSvg"></svg>
+  <div style="font-size:11px; color:var(--ink-soft);">{{ clinic_name }}</div>
+  <p class="small muted no-print" id="barcodeError" style="display:none; color:var(--danger);">
+    {{ _('Could not render the barcode. Try refreshing the page.') }}
+  </p>
+</div>
+<script nonce="{{ csp_nonce }}">
+function renderBarcodeLabel() {
+  const code = "{{ item.barcode }}";
+  try {
+    vzRenderBarcode('#barcodeSvg', code);
+    document.getElementById('printBtn').disabled = false;
+  } catch (e) {
+    document.getElementById('barcodeError').style.display = 'block';
+  }
+}
+</script>
+<script src="{{ url_for('static', filename='barcode-render.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/JsBarcode.all.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+VZ.bind('barcode-label-1', 'click', function (event) { window.print(); });
+// Called directly, NOT from the vendor script's load event: a classic
+// external script has already loaded and fired by the time this inline
+// block runs, so a listener attached here never hears it and the barcode
+// never rendered. If the vendor file failed to load, JsBarcode is
+// undefined and renderBarcodeLabel()'s own catch shows the error panel.
+renderBarcodeLabel();
+</script>
+{% endblock %}

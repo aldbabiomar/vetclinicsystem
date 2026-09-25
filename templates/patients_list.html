@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Patients') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Patients') }}</h1><p class="page-sub">{% if search %}{{ _('%(total_count)s result(s) for "%(search)s".', total_count=total_count, search=search) }}{% else %}{{ _('%(total_count)s on file.', total_count=total_count) }}{% endif %} {{ _('New patients are created from Log a Visit.') }}</p></div>
+  <a class="btn" href="{{ url_for('clinical.visit_new_start') }}">{{ _('+ Log a Visit') }}</a>
+</div>
+
+<form class="search-bar" method="get">
+  <input type="text" name="q" placeholder="{{ _('Search ID, Animal, Microchip, Owner, or Phone…') }}" value="{{ search }}">
+  <button class="btn secondary" type="submit">{{ _('Search') }}</button>
+  {% if search %}<a class="btn secondary" href="{{ url_for('clinical.patients_list') }}">{{ _('Clear') }}</a>{% endif %}
+</form>
+
+<div class="filter-chips">
+  {% for key, label in [('id', _('Patient ID')), ('animal_name', _('Animal Name')), ('species', _('Species')), ('owner', _('Owner'))] %}
+  <a class="chip {{ 'active' if sort==key }}" href="{{ url_for('clinical.patients_list', q=search, sort=key, dir='asc' if sort!=key or direction=='desc' else 'desc') }}">
+    {{ _('Sort:') }} {{ label }} {% if sort==key %}{{ '↓' if direction=='desc' else '↑' }}{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Animal') }}</th><th scope="col">{{ _('Species') }}</th><th scope="col">{{ _('Sex') }}</th><th scope="col">{{ _('Owner') }}</th><th scope="col">{{ _('Phone') }}</th></tr></thead>
+  <tbody>
+    {% for p in patients %}
+    <tr data-vz-href="{{ url_for('clinical.patient_detail', patient_id=p.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td class="muted">{{ p.id }}</td><td><strong>{{ p.animal_name }}</strong></td><td>{{ p.species|tr }}</td>
+      <td>{{ p.sex or "—" }}</td><td>{{ p.owner_name }}</td><td>{{ p.owner_phone or "—" }}</td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="empty-note">{{ _('No patients match.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.animal_name }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ patient.animal_name }} <span class="muted" style="font-weight:400;font-size:16px;">— <a href="{{ url_for('clinical.owner_detail', owner_id=patient.owner_id) }}">{{ patient.owner_name }}</a></span></h1>
+    <p class="page-sub">{{ patient.id }} · {{ patient.species|tr }}{% if patient.sex %} · {{ patient.sex|tr }}{% endif %}{% if patient.repro_status %} · {{ patient.repro_status|tr }}{% endif %}</p>
+  </div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a class="btn secondary" href="{{ url_for('clinical.patient_edit', patient_id=patient.id) }}">{{ _('Edit Patient Details') }}</a>
+    <a class="btn secondary" href="{{ url_for('clinical.patient_history', patient_id=patient.id) }}">{{ _('Full History') }}</a>
+    <a class="btn secondary" href="{{ url_for('clinical.patient_export_file', patient_id=patient.id) }}">{{ _('Export Patient File (PDF)') }}</a>
+    <a class="btn secondary" href="{{ url_for('clinical.patient_export_billing', patient_id=patient.id) }}">{{ _('Export Billing (PDF)') }}</a>
+    <a class="btn" href="{{ url_for('clinical.visit_new_existing') }}">{{ _('+ Log Visit') }}</a>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Owner Phone') }}</div><div class="v">{{ patient.owner_phone or "—" }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Housing') }}</div><div class="v">{{ patient.housing or "—" }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Age / DOB Note') }}</div><div class="v">{{ patient.age_note or "—" }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Microchip') }}</div><div class="v">{{ patient.microchip or "—" }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Notes') }}</div><div class="v">{{ patient.notes or "—" }}</div></div>
+  </div>
+</div>
+
+{% if cases %}
+<div class="section-title">{{ _('Inpatient Stays (%(cases)s)', cases=cases|length) }}</div>
+<div class="table-wrap" style="margin-bottom:24px;">
+<table>
+  <thead><tr><th scope="col">{{ _('Admitted') }}</th><th scope="col">{{ _('Discharged') }}</th><th scope="col">{{ _('Complaint') }}</th><th scope="col">{{ _('Status') }}</th></tr></thead>
+  <tbody>
+    {% for c in cases %}
+    <tr data-vz-href="{{ url_for('clinical.inpatient_detail', case_id=c.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td>{{ c.admission_date|localdate }}</td><td>{{ c.dismissal_date|localdate or "—" }}</td><td>{{ c.complaint or "—" }}</td>
+      <td><span class="badge {{ 'ok' if c.dismissed else 'warn' }}">{{ _('Discharged') if c.dismissed else _('Admitted') }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if boarding_sessions %}
+<div class="section-title">{{ _('Boarding Sessions (%(boarding_sessions)s)', boarding_sessions=boarding_sessions|length) }}</div>
+<div class="table-wrap" style="margin-bottom:24px;">
+<table>
+  <thead><tr><th scope="col">{{ _('Entry') }}</th><th scope="col">{{ _('Dismissal') }}</th><th scope="col">{{ _('Room') }}</th><th scope="col" class="num-col">{{ _('Total (%(currency_label)s)', currency_label=currency_label()) }}</th></tr></thead>
+  <tbody>
+    {% for b in boarding_sessions %}
+    <tr data-vz-href="{{ url_for('clinical.boarding_page') }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td>{{ b.entry_date|localdate }}</td>
+      <td>{{ b.dismissal_date or ("Picked up" if b.dismissed else "—") }}</td>
+      <td>{{ b.room or "—" }}</td>
+      <td class="num-col">{{ b.total|money if b.total is not none else "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if grooming_sessions %}
+<div class="section-title">{{ _('Grooming Sessions (%(grooming_sessions)s)', grooming_sessions=grooming_sessions|length) }}</div>
+<div class="table-wrap" style="margin-bottom:24px;">
+<table>
+  <thead><tr><th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Services') }}</th><th scope="col">{{ _('Status') }}</th><th scope="col">{{ _('Notes') }}</th></tr></thead>
+  <tbody>
+    {% for g in grooming_sessions %}
+    <tr data-vz-href="{{ url_for('clinical.visit_detail', visit_id=g.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td>{{ g.date|localdate or "—" }}</td><td>{{ g.grooming_services or "—" }}</td>
+      <td><span class="badge {{ 'ok' if g.grooming_status=='Finished' else 'warn' }}">{{ g.grooming_status or "—" }}</span></td>
+      <td>{{ g.grooming_notes or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<div class="section-title">{{ _('Visit History (%(visits)s)', visits=visits|length) }}</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Type') }}</th><th scope="col">{{ _('Doctor') }}</th><th scope="col">{{ _('Complaint') }}</th><th scope="col">{{ _('Status') }}</th><th scope="col">{{ _('Follow-Up') }}</th><th scope="col" class="num-col">{{ _('Bill (%(currency_label)s)', currency_label=currency_label()) }}</th></tr></thead>
+  <tbody>
+    {% for v in visits %}
+    <tr data-vz-href="{{ url_for('clinical.visit_detail', visit_id=v.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td>{{ v.date|localdate or "—" }}</td><td>{{ v.visit_type|tr }}</td><td>{{ v.doctor or "—" }}</td><td>{{ v.complaint or "—" }}</td>
+      <td><span class="badge {{ 'ok' if v.case_status=='Resolved' else ('danger' if v.case_status=='Deceased/Euthanized' else 'warn') }}">{{ v.case_status|tr }}</span></td>
+      <td>{% if v.followup_needed=='Y' %}<span class="badge {{ 'warn' if v.followup_status=='Pending' else 'ok' }}">{{ v.followup_status|tr }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="num-col">{{ v.billing.total|money }}</td>
+    </tr>
+    {% else %}<tr><td colspan="7" class="empty-note">{{ _('No visits logged yet.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

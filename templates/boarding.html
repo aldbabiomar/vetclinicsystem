@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Boarding') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Boarding') }}</h1><p class="page-sub">{% if show_all %}{{ _('%(total_count)s boarding session(s).', total_count=total_count) }}{% else %}{{ _('%(total_count)s boarding session(s) currently boarding.', total_count=total_count) }}{% endif %}</p></div>
+  <button class="btn" style="display:{{ 'none' if open_new_form else 'inline-flex' }};" data-vzh="boarding-1">{{ _('+ Add Boarding') }}</button>
+</div>
+
+<div class="filter-chips">
+  <a class="chip {{ 'active' if not show_all }}" href="{{ url_for('clinical.boarding_page') }}">{{ _('Currently Boarding') }}</a>
+  <a class="chip {{ 'active' if show_all }}" href="{{ url_for('clinical.boarding_page', all=1) }}">{{ _('All (Incl. Picked Up)') }}</a>
+</div>
+
+{% set new_form = form if open_new_form else None %}
+<div class="card" id="newForm" style="display:{{ 'block' if open_new_form else 'none' }}; margin-bottom:16px;">
+  <div class="field" style="margin-bottom:12px;">
+    <label for="patientSearch">{{ _('Search Patient (Name, Patient ID, Owner Name, or Owner Phone)') }}</label>
+    <input type="text" id="patientSearch" autocomplete="off" placeholder="{{ _('Start Typing…') }}">
+  </div>
+  <div id="searchResults" style="margin-bottom:10px;"></div>
+
+  <form method="post" action="{{ url_for('clinical.boarding_new') }}" id="addBoardingForm" style="display:{{ 'block' if open_new_form else 'none' }};">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="small muted" style="margin-bottom:14px;">{{ _('Patient:') }} <strong id="selectedPatientLabel">{{ new_form_patient_label or '' }}</strong></p>
+    <input type="hidden" name="patient_id" id="patientIdField" value="{{ fv(new_form, 'patient_id') }}">
+    <div class="form-grid">
+      <div class="field"><label for="entryDateField">{{ _('Entry Date') }}</label><input required type="date" name="entry_date" value="{{ fv(new_form, 'entry_date', today) }}" data-vzh="boarding-2" id="entryDateField"></div>
+      <div class="field"><label for="dismissalDateField">{{ _('Expected Dismissal Date') }}</label><input type="date" name="dismissal_date" value="{{ fv(new_form, 'dismissal_date') }}" data-vzh="boarding-2" id="dismissalDateField"></div>
+      <div class="field"><label for="boarding-1-room">{{ _('Allocated Room') }}</label><input id="boarding-1-room" name="room" value="{{ fv(new_form, 'room') }}"></div>
+      <div class="field"><label for="boarding-2-admitted_items">{{ _('Admitted Items (Leash, Bed, Etc.)') }}</label><input id="boarding-2-admitted_items" name="admitted_items" value="{{ fv(new_form, 'admitted_items') }}"></div>
+      <div class="field"><label for="pricePerDayField">{{ _('Price per Day (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="0.001" min="0" name="price_per_day" id="pricePerDayField" value="{{ fv(new_form, 'price_per_day') }}" data-vzh="boarding-2"></div>
+      <div class="field"><label for="totalField">{{ _('Total (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="0.001" min="0" name="total" id="totalField" value="{{ fv(new_form, 'total') }}" placeholder="{{ _('Auto-suggested from price × nights') }}"></div>
+      <div class="field full" id="boardingDateWarning" style="display:none; color:var(--danger);"></div>
+      <div class="field full">
+        <label class="checkbox-row small" style="text-transform:none; font-weight:500;">
+          <input type="checkbox" name="special_needs" id="specialNeedsCheck" {{ 'checked' if fv(new_form, 'special_needs')=='on' }} data-vzh="boarding-3">
+          {{ _('Special Needs?') }}
+        </label>
+        <p class="small muted" style="margin:2px 0 8px;">{{ _('Check this to report any chronic diseases or custom requirements for the stay (medication schedule, dietary restrictions, mobility issues, etc.).') }}</p>
+        <div id="specialNeedsNotesField" style="display:{{ 'block' if fv(new_form, 'special_needs')=='on' else 'none' }};">
+          <textarea name="special_needs_notes" placeholder="{{ _('Describe the special need…') }}">{{ fv(new_form, 'special_needs_notes') }}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Add Boarding') }}</button>
+      <button class="btn secondary" type="button" data-vzh="boarding-4">{{ _('Cancel') }}</button>
+    </div>
+  </form>
+</div>
+
+<div id="incidentModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="section-title" style="margin-top:0;">{{ _('Something\'s Wrong') }}</div>
+    <p class="small muted" id="incidentPatientLabel" style="margin-bottom:12px;"></p>
+    <form method="post" id="incidentForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field full" style="margin-bottom:12px;"><label for="boarding-3-issue">{{ _('What\'s wrong?') }}</label><textarea id="boarding-3-issue" name="issue" required></textarea></div>
+      <label class="checkbox-row small" style="text-transform:none; font-weight:500; margin-bottom:8px;">
+        <input type="checkbox" name="contacted" id="incidentContactedCheck" data-vzh="boarding-5">
+        {{ _('Contacted the owner?') }}
+      </label>
+      <div id="incidentContactFields" style="display:none;">
+        <div class="field" style="margin-bottom:10px;"><label for="boarding-4-contact_method">{{ _('How?') }}</label>
+          <select id="boarding-4-contact_method" name="contact_method"><option value="Phone Call">{{ _('Phone Call') }}</option><option value="Text Message">{{ _('Text Message') }}</option></select>
+        </div>
+        <div class="field full" style="margin-bottom:12px;"><label for="boarding-5-response">{{ _('Owner\'s Response') }}</label><textarea id="boarding-5-response" name="response"></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn small" type="submit">{{ _('Log Incident') }}</button>
+        <button class="btn small secondary" type="button" data-vzh="boarding-6">{{ _('Cancel') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="paymentModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="section-title" style="margin-top:0;">{{ _('Record Payment') }}</div>
+    <p class="small muted" id="paymentPatientLabel" style="margin-bottom:12px;"></p>
+    <form method="post" id="paymentForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field" style="margin-bottom:10px;"><label for="boarding-6-amount">{{ _('Amount (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="boarding-6-amount" type="number" step="0.001" min="1" name="amount" required value="{{ fv(form, 'amount') if payment_error_id else '' }}"></div>
+      <div class="field" id="paymentDiscountField" style="margin-bottom:10px;"><label for="paymentDiscountInput">{{ _('Discount (max %(discount_cap)s%%)', discount_cap=discount_cap) }}</label><input type="number" step="0.01" min="0" max="{{ discount_cap }}" name="discount_percent" id="paymentDiscountInput" value="{{ fv(form, 'discount_percent') if payment_error_id else '0' }}"></div>
+      <p class="small muted" id="paymentMemberNote" hidden>{{ _('This stay carries a rewards-card discount, which this form cannot change.') }}</p>
+      <div class="field" style="margin-bottom:10px;"><label for="boarding-7-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="boarding-7-cleanup_amount" type="number" step="0.001" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error_id else '0' }}"></div>
+      <div class="field" style="margin-bottom:10px;"><label for="boarding-8-method">{{ _('Method') }}</label>
+        <select id="boarding-8-method" name="method">
+          {% set m = fv(form, 'method', 'Cash') if payment_error_id else 'Cash' %}
+          <option value="Cash" {{ 'selected' if m=='Cash' }}>{{ _('Cash') }}</option>
+          <option value="Card" {{ 'selected' if m=='Card' }}>{{ _('Card') }}</option>
+          <option value="Transfer" {{ 'selected' if m=='Transfer' }}>{{ _('Transfer') }}</option>
+        </select>
+      </div>
+      <div class="field full" style="margin-bottom:12px;"><label for="boarding-9-notes">{{ _('Notes') }}</label><input id="boarding-9-notes" name="notes" value="{{ fv(form, 'notes') if payment_error_id else '' }}"></div>
+      <div class="form-actions">
+        <button class="btn small" type="submit">{{ _('Record Payment') }}</button>
+        <button class="btn small secondary" type="button" data-vzh="boarding-7">{{ _('Cancel') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr>
+    <th scope="col">{{ _('Patient') }}</th><th scope="col">{{ _('Owner') }}</th><th scope="col">{{ _('Room') }}</th><th scope="col">{{ _('Entry') }}</th><th scope="col">{{ _('Dismissal') }}</th>
+    <th scope="col" class="num-col">{{ _('Total (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Payment') }}</th><th scope="col">{{ _('Special Needs') }}</th><th scope="col">{{ _('Incidents') }}</th><th scope="col"></th>
+  </tr></thead>
+  <tbody>
+    {% for s in sessions %}
+    <tr>
+      <td>{{ s.animal_name }} <span class="small muted">({{ s.species|tr }})</span></td>
+      <td class="small">{{ s.owner_name }}{% if s.owner_phone %}<br><span class="muted">{{ s.owner_phone }}</span>{% endif %}</td>
+      <td>{{ s.room or "—" }}</td>
+      <td class="small">{{ s.entry_date|localdate }}</td>
+      <td class="small">{{ s.dismissal_date or ("Picked up" if s.dismissed else "—") }}</td>
+      <td class="num-col">{{ s.billing.total|money }}</td>
+      <td><span class="badge {{ 'ok' if s.billing.status=='Fully Paid' else ('danger' if s.billing.status=='Unpaid' else 'muted') }}">{{ s.billing.status }}</span></td>
+      <td>{% if s.special_needs %}<span class="badge warn" title="{{ s.special_needs_notes or '' }}">{{ _('Yes') }}</span>{% else %}<span class="muted small">{{ _('None') }}</span>{% endif %}</td>
+      <td>{% if s.incident_count %}<span class="badge danger">{{ s.incident_count }}</span>{% else %}<span class="muted small">0</span>{% endif %}</td>
+      <td class="actions-cell">
+        <div class="action-btns">
+          <button class="btn small danger" type="button" data-id="{{ s.id }}" data-name="{{ s.animal_name }}" data-vzh="boarding-8">{{ _('Something\'s Wrong!') }}</button>
+          <div class="action-btns-row">
+            <button class="btn small secondary" type="button" data-id="{{ s.id }}" data-name="{{ s.animal_name }}" data-discount="{{ s.discount_percent or 0 }}" data-member="{{ 1 if s.billing.discount_source == 'member' else 0 }}" data-vzh="boarding-9">{{ _('Payment') }}</button>
+            <button class="btn small secondary" type="button" data-vzh="boarding-10" data-vz-arg="{{ s.id }}">{{ _('Edit') }}</button>
+          </div>
+          <a class="btn small secondary" href="{{ url_for('clinical.boarding_export_pdf', boarding_id=s.id) }}">{{ _('Export (PDF)') }}</a>
+          {% if not s.dismissed %}
+          <form method="post" action="{{ url_for('clinical.boarding_dismiss', boarding_id=s.id) }}" style="display:inline;" data-confirm="Mark {{ s.animal_name }} as picked up?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn small secondary" type="submit">{{ _('Mark Picked Up') }}</button>
+          </form>
+          {% endif %}
+          {% if s.owner_phone %}
+          <a class="btn small ok" target="_blank" rel="noopener"
+             href="https://wa.me/{{ s.owner_phone|replace('+','') }}?text={{ ('Hi ' ~ s.owner_name ~ ', this is a reminder that ' ~ s.animal_name ~ ' is due for their pickup from boarding on ' ~ (s.dismissal_date or 'the agreed date') ~ '. - ' ~ clinic_name)|urlencode }}">{{ _('Send WhatsApp Message') }}</a>
+          {% else %}
+          <a class="btn small secondary" href="{{ url_for('clinical.owner_edit', owner_id=s.owner_id) }}">{{ _('Add phone to send WhatsApp') }}</a>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% set row_form = form if edit_boarding_id == s.id else None %}
+    <tr id="editRow-{{ s.id }}" style="display:{{ 'table-row' if edit_boarding_id == s.id else 'none' }};">
+      <td colspan="10">
+        <form method="post" action="{{ url_for('clinical.boarding_edit', boarding_id=s.id) }}" class="form-grid" style="padding:10px 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="expected_updated_at" value="{{ s.updated_at or '' }}">
+          <div class="field"><label for="stay-entry_date-{{ s.id }}">{{ _('Entry Date') }}</label><input id="stay-entry_date-{{ s.id }}" type="date" name="entry_date" value="{{ fv(row_form, 'entry_date', s.entry_date) }}"></div>
+          <div class="field"><label for="stay-dismissal_date-{{ s.id }}">{{ _('Dismissal Date') }}</label><input id="stay-dismissal_date-{{ s.id }}" type="date" name="dismissal_date" value="{{ fv(row_form, 'dismissal_date', s.dismissal_date or '') }}"></div>
+          <div class="field"><label for="stay-room-{{ s.id }}">{{ _('Room') }}</label><input id="stay-room-{{ s.id }}" name="room" value="{{ fv(row_form, 'room', s.room or '') }}"></div>
+          <div class="field"><label for="stay-admitted_items-{{ s.id }}">{{ _('Admitted Items') }}</label><input id="stay-admitted_items-{{ s.id }}" name="admitted_items" value="{{ fv(row_form, 'admitted_items', s.admitted_items or '') }}"></div>
+          <div class="field"><label for="stay-price_per_day-{{ s.id }}">{{ _('Price per Day (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="stay-price_per_day-{{ s.id }}" type="number" step="0.001" name="price_per_day" value="{{ fv(row_form, 'price_per_day', s.price_per_day if s.price_per_day is not none else '') }}"></div>
+          <div class="field"><label for="stay-total-{{ s.id }}">{{ _('Total (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="stay-total-{{ s.id }}" type="number" step="0.001" name="total" placeholder="{{ _('Auto-suggested from price × nights') }}"
+            value="{{ fv(row_form, 'total', s.total if (s.total is not none and not s.total_is_auto) else '') }}"></div>
+          <div class="field full">
+            <label class="checkbox-row small" style="text-transform:none; font-weight:500;">
+              <input type="checkbox" name="special_needs" id="specialNeedsCheck-{{ s.id }}" {{ 'checked' if fv(row_form, 'special_needs', 'on' if s.special_needs else '')=='on' }} data-vzh="boarding-11" data-vz-arg="{{ s.id }}"> {{ _('Special Needs?') }}
+            </label>
+            <textarea name="special_needs_notes" id="specialNeedsNotesField-{{ s.id }}" placeholder="{{ _('Describe the special need…') }}" style="display: {{ 'block' if (fv(row_form, 'special_needs', 'on' if s.special_needs else '')=='on') else 'none' }};">{{ fv(row_form, 'special_needs_notes', s.special_needs_notes or '') }}</textarea>
+            {% if s.special_needs_notes and not s.special_needs %}
+            <p class="small muted">{{ _('Notes on file but Special Needs is unchecked — they won\'t be saved unless you check the box.') }}</p>
+            {% endif %}
+          </div>
+          <div class="form-actions"><button class="btn small" type="submit">{{ _('Save Changes') }}</button></div>
+        </form>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="10" class="empty-note">{{ _('No boarding sessions on record.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+
+<script nonce="{{ csp_nonce }}">
+const searchInput = document.getElementById('patientSearch');
+const resultsDiv = document.getElementById('searchResults');
+let debounceTimer;
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const q = searchInput.value.trim();
+  if (q.length === 0) { resultsDiv.innerHTML = ''; return; }
+  if (q.length < 2) { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('Type at least 2 characters.')|tojson }} + '</div>'; return; }
+  debounceTimer = setTimeout(() => {
+    fetch(`{{ url_for('clinical.api_patients_search') }}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.length) { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('No matches.')|tojson }} + '</div>'; return; }
+        window.__boardingSearchResults = data;
+        resultsDiv.innerHTML = data.map((p, idx) =>
+          `<div class="list-line" style="cursor:pointer;" data-idx="${idx}" data-vz-act="boarding-12">
+             <div><div class="who">${escapeHtml(p.animal_name)} <span class="meta">(${escapeHtml(p.species || '')})</span></div>
+             <div class="meta">Owner: ${escapeHtml(p.owner_name)} · ${escapeHtml(p.owner_phone || {{ _('no phone')|tojson }})} · ${escapeHtml(p.id)}${p.microchip ? ' · Chip: ' + escapeHtml(p.microchip) : ''}</div></div>
+           </div>`
+        ).join('');
+      })
+      .catch(() => { resultsDiv.innerHTML = '<div class="empty-note">' + {{ _('Could not search patients; check server connection.')|tojson }} + '</div>'; });
+  }, 200);
+});
+function selectPatient(p) {
+  document.getElementById('patientIdField').value = p.id;
+  document.getElementById('selectedPatientLabel').textContent = `${p.animal_name} — ${p.owner_name} (${p.id})`;
+  document.getElementById('addBoardingForm').style.display = 'block';
+  resultsDiv.innerHTML = '';
+  searchInput.value = '';
+}
+function suggestTotal() {
+  const price = parseFloat(document.getElementById('pricePerDayField').value);
+  const entry = document.getElementById('entryDateField').value;
+  const dismissal = document.getElementById('dismissalDateField').value;
+  const warningEl = document.getElementById('boardingDateWarning');
+  if (dismissal && entry && new Date(dismissal) < new Date(entry)) {
+    warningEl.style.display = 'block';
+    warningEl.textContent = {{ _('Expected Dismissal Date is before Entry Date — billing will still count as 1 night. Please double-check these dates.')|tojson }};
+  } else if (dismissal && entry && dismissal === entry) {
+    warningEl.style.display = 'block';
+    warningEl.textContent = {{ _('Same-day boarding is billed as 1 night.')|tojson }};
+  } else {
+    warningEl.style.display = 'none';
+    warningEl.textContent = '';
+  }
+  if (!price || !entry) return;
+  const start = new Date(entry);
+  const end = dismissal ? new Date(dismissal) : new Date();
+  const nights = Math.max(1, Math.round((end - start) / 86400000));
+  document.getElementById('totalField').value = (price * nights).toFixed(3);
+}
+function openIncident(btn) {
+  const { id, name } = btn.dataset;
+  document.getElementById('incidentForm').action = `{{ url_for('clinical.boarding_incident', boarding_id=999999999) }}`.replace('999999999', encodeURIComponent(id));
+  document.getElementById('incidentPatientLabel').textContent = name;
+  document.getElementById('incidentModal').style.display = 'flex';
+}
+function openPayment(btn) {
+  const { id, name, discount } = btn.dataset;
+  document.getElementById('paymentForm').action = `{{ url_for('clinical.boarding_payment', boarding_id=999999999) }}`.replace('999999999', encodeURIComponent(id));
+  document.getElementById('paymentPatientLabel').textContent = name;
+  // Show the discount already on this stay. The field posts with every
+  // payment, so leaving it at 0 here would quietly wipe an existing discount
+  // the next time someone recorded one.
+  const d = document.getElementById('paymentDiscountInput');
+  if (d) d.value = discount || '0';
+  // A member's stay carries its card's rate and this form cannot change it.
+  // The input is DISABLED as well as hidden, so it is not submitted at all --
+  // boarding_payment() reads an absent field as "keep the card's rate", which
+  // is what lets a member's stay still be paid. Refusing on absence instead
+  // would have blocked payment outright. `hidden` rather than an inline
+  // display style: it cannot be defeated by a class and stays off the
+  // inline-style ratchet.
+  const isMember = btn.dataset.member === '1';
+  if (d) d.disabled = isMember;
+  const dField = document.getElementById('paymentDiscountField');
+  if (dField) dField.hidden = isMember;
+  const dNote = document.getElementById('paymentMemberNote');
+  if (dNote) dNote.hidden = !isMember;
+  document.getElementById('paymentModal').style.display = 'flex';
+}
+function toggleEdit(id) {
+  const row = document.getElementById('editRow-' + id);
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+{% if payment_error_id %}
+openPayment(document.querySelector('button[data-id="{{ payment_error_id }}"][data-vzh="boarding-9"]'));
+{% endif %}
+</script>
+<script nonce="{{ csp_nonce }}">
+VZ.bind('boarding-1', 'click', function (event) { document.getElementById('newForm').style.display='block'; this.style.display='none'; });
+VZ.bind('boarding-2', 'change', function (event) { suggestTotal(); });
+VZ.bind('boarding-3', 'change', function (event) { document.getElementById('specialNeedsNotesField').style.display = this.checked ? 'block' : 'none'; });
+VZ.bind('boarding-4', 'click', function (event) { document.getElementById('newForm').style.display='none'; document.querySelector('.page-head button').style.display='inline-flex'; });
+VZ.bind('boarding-5', 'change', function (event) { document.getElementById('incidentContactFields').style.display = this.checked ? 'block' : 'none'; });
+VZ.bind('boarding-6', 'click', function (event) { document.getElementById('incidentModal').style.display='none'; });
+VZ.bind('boarding-7', 'click', function (event) { document.getElementById('paymentModal').style.display='none'; });
+VZ.bind('boarding-8', 'click', function (event) { openIncident(this); });
+VZ.bind('boarding-9', 'click', function (event) { openPayment(this); });
+VZ.bind('boarding-10', 'click', function (event) { toggleEdit(Number(this.dataset.vzArg)); });
+VZ.bind('boarding-11', 'change', function (event) { document.getElementById('specialNeedsNotesField-' + Number(this.dataset.vzArg)).style.display = this.checked ? 'block' : 'none'; });
+VZ.action('boarding-12', function (event) { selectPatient(window.__boardingSearchResults[this.dataset.idx]); });
+</script>
+{% endblock %}

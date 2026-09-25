@@ -1,64 +1,60 @@
 #!/bin/bash
-# Isolated test environment for VetClinicSystem_IQ or VetClinicSystem_JO —
-# a throwaway Postgres container + Python venv, never touching either app's
-# real dev database. Use this to replicate a bug live or verify a fix before
-# it ships, matching the discipline established across both apps' QA work.
+# Isolated test environment for VetClinicSystem — a throwaway Postgres
+# container + Python venv + a running app, never touching any real install's
+# database. Use this to replicate a bug live or verify a fix before it ships.
 #
 # Usage:
-#   scripts/isolated_test_env.sh up   iq|jo    # create + start, print connection info
-#   scripts/isolated_test_env.sh down iq|jo    # tear down (container, venv, data dir)
-#   scripts/isolated_test_env.sh status iq|jo  # check what's running
+#   scripts/isolated_test_env.sh up     iq|jo   # create + start, print connection info
+#   scripts/isolated_test_env.sh down   iq|jo   # tear down (container, venv, data dir)
+#   scripts/isolated_test_env.sh status iq|jo   # check what's running
+#
+# The second argument is the MONEY SETTING the throwaway clinic runs under —
+# iq (whole dinars, 250-note cash rounding) or jo (3-decimal dinars). It is the
+# same code either way; the two environments differ only in the money_setting
+# row seeded into their databases, and they use different ports so both can
+# run at once. Every change should be verified under BOTH.
 #
 # After `up`, the app is reachable at the printed URL, logged in as
-# admin/Admin12345!. A single Retail item (INV301 / PL301, 5.000 sale price)
-# is seeded for POS/checkout testing. Stop the app process yourself when
-# you're done testing (its PID is printed by `up`), then run `down` to
-# remove the container/venv/data — `down` does not kill the app process.
+# admin/Admin12345!. A single Retail item (INV301 / PL301) is seeded for
+# POS/checkout testing. Stop the app process yourself when you're done testing
+# (its PID is printed by `up`), then run `down` to remove the
+# container/venv/data — `down` does not kill the app process.
 #
 # The PID `up` prints is cross-checked against whatever is actually listening
 # on the app port before it is reported, and `down` refuses while EITHER that
-# PID is alive or the port is still held. Both are here because, until
-# 2026-09-09, the recorded PID was not the app's at all (off by two, in both
-# apps), which left `down`'s only guard unable to fire — it would remove the
-# container out from under a running app. COMPARISON.md §44.
+# PID is alive or the port is still held. Both are here because, in the
+# predecessor apps, the recorded PID was once not the app's at all (off by
+# two), which left `down`'s only guard unable to fire — it would remove the
+# container out from under a running app. docs/archive/COMPARISON.md §44.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-APP="${2:-}"
+MONEY="${2:-}"
 ACTION="${1:-}"
 
-if [[ "$APP" != "iq" && "$APP" != "jo" ]]; then
+if [[ "$MONEY" != "iq" && "$MONEY" != "jo" ]]; then
   echo "Usage: $0 {up|down|status} {iq|jo}" >&2
   exit 1
 fi
+APP="$MONEY"   # kept as the name the functions below print
 
-case "$APP" in
-  iq)
-    REPO_DIR="$PARENT_DIR/webapps/vetclinicsystem_iq-main"
-    DB_NAME="vetclinicsystemiq"
-    ENV_PREFIX="VETCLINICSYSTEMIQ"
-    APP_PORT=5091
-    DB_PORT=55491
-    ;;
-  jo)
-    REPO_DIR="$PARENT_DIR/webapps/vetclinicsystem_jo-main"
-    DB_NAME="vetclinicsystemjo"
-    ENV_PREFIX="VETCLINICSYSTEMJO"
-    APP_PORT=5092
-    DB_PORT=55492
-    ;;
+DB_NAME="vetclinicsystem"
+ENV_PREFIX="VETCLINICSYSTEM"
+case "$MONEY" in
+  iq) APP_PORT=5091; DB_PORT=55491 ;;
+  jo) APP_PORT=5092; DB_PORT=55492 ;;
 esac
 
-CONTAINER="vz_${APP}_test"
-VENV_DIR="/tmp/vz_${APP}_test_venv"
-DATA_DIR="/tmp/vz_${APP}_test_data"
-PID_FILE="/tmp/vz_${APP}_test.pid"
+CONTAINER="vcs_test_${MONEY}"
+VENV_DIR="/tmp/vcs_test_venv_${MONEY}"
+DATA_DIR="/tmp/vcs_test_data_${MONEY}"
+PID_FILE="/tmp/vcs_test_${MONEY}.pid"
 
 if [[ ! -d "$REPO_DIR" ]]; then
-  echo "Repo not found at $REPO_DIR — clone it there first." >&2
+  echo "Repo not found at $REPO_DIR." >&2
   exit 1
 fi
 
@@ -138,11 +134,11 @@ up() {
   echo "== Applying schema + seeding test data =="
   mkdir -p "$DATA_DIR/logs"
   DATABASE_URL="postgresql://postgres:test@localhost:${DB_PORT}/${DB_NAME}" \
-    "$VENV_DIR/bin/python3" - "$REPO_DIR" "$APP" <<'PYEOF'
+    "$VENV_DIR/bin/python3" - "$REPO_DIR" "$MONEY" <<'PYEOF'
 import sys, os
 sys.path.insert(0, sys.argv[1])
 os.chdir(sys.argv[1])
-app_name = sys.argv[2]
+money_setting = sys.argv[2].upper()
 import db as dbmod, auth, setup
 from datetime import datetime
 
@@ -151,16 +147,7 @@ with open("schema_postgres.sql") as f:
     dbmod.run_script(con, f.read())
 con.commit()
 
-# Each app's setup.py wires apply_schema()/apply_incremental_migrations()
-# together differently (JO's apply_schema() calls migrations internally;
-# IQ's are two separate top-level calls) — mirror setup.py's own main()
-# for this app rather than assuming one convention for both.
-if app_name == "jo":
-    setup.apply_incremental_migrations(con)
-else:
-    for stmt in setup.INCREMENTAL_SCHEMA_STATEMENTS:
-        con.execute(stmt)
-    con.commit()
+setup.apply_incremental_migrations(con)
 
 auth.seed_default_roles_and_permissions(con)
 con.commit()
@@ -204,7 +191,7 @@ PYEOF
   # survives it -- measured off by two in both apps on 2026-09-09. Killing the
   # recorded PID left the app serving, and `down`'s "still running" guard,
   # which tests that same PID, could never fire: it would remove the
-  # container, venv and data dir out from under a live app. COMPARISON.md §44.
+  # container, venv and data dir out from under a live app. docs/archive/COMPARISON.md §44.
   #
   # Backgrounding the SUBSHELL and `exec`ing inside it fixes that: exec
   # replaces the subshell with nohup, which execs env, which execs python3 --
@@ -248,7 +235,7 @@ PYEOF
       exit 1
     elif [[ "$LISTENER" != "$APP_PID" ]]; then
       echo "  !! Recorded pid $APP_PID is NOT the process on port ${APP_PORT}" >&2
-      echo "     (that is $LISTENER). This is the COMPARISON.md §44 bug; do not" >&2
+      echo "     (that is $LISTENER). This is the docs/archive/COMPARISON.md §44 bug; do not" >&2
       echo "     trust the pid below, and kill $LISTENER instead." >&2
       exit 1
     fi
@@ -272,7 +259,7 @@ down() {
   echo "== Tearing down $APP test environment =="
 
   # Two independent guards, because the PID one alone was unable to fail.
-  # Until 2026-09-09 the recorded PID was not the app's (COMPARISON.md §44),
+  # Until 2026-09-09 the recorded PID was not the app's (docs/archive/COMPARISON.md §44),
   # so this check passed the moment a wrapper process died and the teardown
   # went ahead while the app was still serving and still writing to the
   # database about to be deleted. The port check is the one that holds even

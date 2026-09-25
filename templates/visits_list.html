@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Visits') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Visits') }}</h1><p class="page-sub">{% if day_filter %}{{ _('%(total_count)s visits on %(day)s.', total_count=total_count, day=day_filter) }}{% else %}{{ _('%(total_count)s visits.', total_count=total_count) }}{% endif %}</p></div>
+  <a class="btn" href="{{ url_for('clinical.visit_new_start') }}">{{ _('+ Log a Visit') }}</a>
+</div>
+
+<div class="filter-chips">
+  <a class="chip {{ 'active' if sort=='date' }}" href="{{ url_for('clinical.visits_list', sort='date', date=day_filter) }}">{{ _('Date (Default)') }}</a>
+  <a class="chip {{ 'active' if sort=='type' }}" href="{{ url_for('clinical.visits_list', sort='type', date=day_filter) }}">{{ _('Visit Type') }}</a>
+  <a class="chip {{ 'active' if sort=='status' }}" href="{{ url_for('clinical.visits_list', sort='status', date=day_filter) }}">{{ _('Status') }}</a>
+  <a class="chip {{ 'active' if sort=='payment' }}" href="{{ url_for('clinical.visits_list', sort='payment', date=day_filter) }}">{{ _('Payment') }}</a>
+</div>
+
+<form class="search-bar" method="get">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="text" name="q" value="{{ search }}" placeholder="{{ _('Search by Animal or Owner name…') }}">
+  <input type="date" name="date" value="{{ day_filter }}">
+  <button class="btn secondary" type="submit">{{ _('Search') }}</button>
+  {% if day_filter or search %}<a class="btn secondary" href="{{ url_for('clinical.visits_list', sort=sort) }}">{{ _('Clear Filters') }}</a>{% endif %}
+</form>
+
+<div class="table-wrap sticky-scroll">
+<table>
+  <thead><tr><th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Animal') }}</th><th scope="col">{{ _('Owner') }}</th><th scope="col">{{ _('Type') }}</th><th scope="col">{{ _('Doctor') }}</th><th scope="col">{{ _('Status') }}</th><th scope="col">{{ _('Payment') }}</th><th scope="col" class="num-col">{{ _('Bill (%(currency_label)s)', currency_label=currency_label()) }}</th></tr></thead>
+  <tbody>
+    {% for v in visits %}
+    <tr data-vz-href="{{ url_for('clinical.visit_detail', visit_id=v.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+      <td>{{ v.date|localdate or "—" }}</td><td class="muted">{{ v.id }}</td><td><strong>{{ v.animal_name }}</strong></td><td>{{ v.owner_name }}</td>
+      <td>{{ v.visit_type|tr }}{% if v.grooming_needed=='Y' %} <span class="badge primary">{{ _('Grooming') }}</span>{% endif %}</td>
+      <td>{{ v.doctor or "—" }}</td>
+      <td><span class="badge {{ 'ok' if v.case_status=='Resolved' else ('danger' if v.case_status=='Deceased/Euthanized' else 'warn') }}">{{ v.case_status|tr }}</span></td>
+      <td><span class="badge {{ 'ok' if v.billing.status=='Fully Paid' else ('danger' if v.billing.status=='Unpaid' else 'muted') }}">{{ v.billing.status|tr }}</span></td>
+      <td class="num-col">{{ v.billing.total|money }}</td>
+    </tr>
+    {% else %}<tr><td colspan="9" class="empty-note">{{ _('No visits match.') }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}
