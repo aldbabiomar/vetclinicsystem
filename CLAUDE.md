@@ -45,6 +45,8 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Repo | Public (the in-app updater downloads releases without credentials) |
 | First release | `1.0.0` |
 | Time zone | A **Time Zone** setting; "Automatic" follows the money setting's zone. Every clock read goes through `clock.py` — never `datetime.now()` / `date.today()` (a test scans for them) |
+| Code layout | **Full restructure** into the `vcs/` package the plan's §3.1 describes (decided 2026-09-25); until it lands, the flat layout in §2 below is current |
+| Wellness reminders | Most urgent first on the Dashboard and the Wellness page; "due" ends when "missed" begins (14 days); a newer entry for the same pet and type replaces the old one |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
 
 **Next, after the merge:** `docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` (licensing, a vendor-only

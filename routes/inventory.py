@@ -791,8 +791,9 @@ def _audit_session_context(db, session_id):
     for r in confirmed_rows:
         latest_confirmed[r["item_id"]] = r
     readonly = sess["status"] == "Confirmed"
+    received_suggested = {} if readonly else logic.consignment_received_since_audit(db, latest_confirmed)
     return dict(sess=sess, items=items, existing_lines=existing_lines,
-                latest_confirmed=latest_confirmed, readonly=readonly)
+                latest_confirmed=latest_confirmed, readonly=readonly, received_suggested=received_suggested)
 
 
 @bp.route("/audit-history/session/<int:session_id>")

@@ -610,6 +610,14 @@ def date_filter_arg(name="date", message=None):
 MAX_QUANTITY = Decimal("9999999.999")  # widest value any NUMERIC(10,3) column can hold
 
 
+def display_date(d):
+    """A date for a message or a page: the clinic-zone day, in Arabic-Indic
+    digits when the clinic's language is Arabic. The |localdate filter is
+    this function."""
+    formatted = logic.fmt_date(d) if not isinstance(d, str) else d
+    return display_number(formatted) if formatted else formatted
+
+
 def csp_nonce():
     """The per-request nonce that lets the Content-Security-Policy drop
     'unsafe-inline' from script-src.

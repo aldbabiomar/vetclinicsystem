@@ -476,6 +476,31 @@ def list_audit_sessions(db, limit=None, offset=0):
     return rows, total
 
 
+def consignment_received_since_audit(db, latest_confirmed):
+    """{item_id: quantity} received through Consignment Receiving since each
+    item's latest confirmed audit -- the audit sheet's default for "received
+    since prior" (audit B18).
+
+    Usage is computed as prior count + received since prior - count, and
+    "received since prior" is typed by hand. Stock that came in through
+    Consignment Receiving was already in inventory_transactions but never
+    offered there, so unless staff typed it a second time the item's usage
+    came out understated or negative, and so did the Ordering Sheet's
+    suggestion. `latest_confirmed` is {item_id: that item's latest confirmed
+    audit row}; the cutoff is the one inventory_status() uses."""
+    cutoffs = {item_id: r["confirmed_at"] or day_bounds(as_date(r["audit_date"]))[0]
+               for item_id, r in latest_confirmed.items()}
+    if not cutoffs:
+        return {}
+    out = defaultdict(Decimal)
+    for t in db.execute("SELECT item_id, change_qty, timestamp FROM inventory_transactions "
+                        "WHERE reason = 'consignment_receipt' AND timestamp > ?", (min(cutoffs.values()),)).fetchall():
+        cutoff = cutoffs.get(t["item_id"])
+        if cutoff is not None and t["timestamp"] > clock.aware(cutoff):
+            out[t["item_id"]] += t["change_qty"]
+    return {k: v for k, v in out.items() if v}
+
+
 def confirmed_audit_rows_by_item(db, item_id=None):
     """
     Flattened, chronological, per-item rows from CONFIRMED sessions only — the
@@ -1151,12 +1176,40 @@ def _annotate_wellness(r, today):
     _annotate_followup() above for why this is factored out."""
     next_dose = as_date(r["wellness_next_dose_date"])
     remind_from = next_dose - timedelta(days=WELLNESS_LEAD_DAYS) if next_dose else None
-    due = bool(remind_from and today >= remind_from and r["wellness_contacted"] != "Y")
     missed = bool(next_dose and (today - next_dose).days >= MISSED_WINDOW_DAYS and r["wellness_contacted"] != "Y")
+    # "Due" ends where "missed" begins (audit B19). It used to last forever,
+    # so every uncontacted reminder since the clinic opened stayed in the
+    # Dashboard's "due" list and the sidebar badge; a missed one belongs on
+    # the Missed Items list, for an admin to review.
+    due = bool(remind_from and today >= remind_from and r["wellness_contacted"] != "Y" and not missed)
     r["remind_from_date"] = fmt_date(remind_from)
     r["due"] = due
     r["missed"] = missed
     return r
+
+
+# The wellness entries that are reminders: a next dose recorded, and not
+# replaced by a NEWER entry for the same pet and the same type (audit B19) --
+# the pet came back and the next dose was set again, so the old date is no
+# longer owed. Before, the old entry went on being "due", then "missed".
+_WELLNESS_CURRENT = """
+    v.wellness_needed = 'Y' AND v.wellness_next_dose_date IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM visits v2
+        WHERE v2.patient_id = v.patient_id AND v2.wellness_needed = 'Y'
+          AND v2.wellness_next_dose_date IS NOT NULL
+          AND v2.wellness_type IS NOT DISTINCT FROM v.wellness_type
+          AND (COALESCE(v2.date, '0001-01-01'::date), v2.id) > (COALESCE(v.date, '0001-01-01'::date), v.id))
+"""
+
+
+def _wellness_urgency(r, today):
+    """Most urgent first (owner decision D-16): open reminders by the earliest
+    next dose, then the closed ones -- contacted, or past the missed window --
+    newest first, so years-old history does not sit above this week's."""
+    dose = as_date(r["wellness_next_dose_date"]) or date.max
+    closed = r["wellness_contacted"] == "Y" or (today - dose).days >= MISSED_WINDOW_DAYS
+    return (1, -dose.toordinal(), -r["visit_id"]) if closed else (0, dose.toordinal(), r["visit_id"])
 
 
 def wellness_reminders(db, only_due=False):
@@ -1165,8 +1218,7 @@ def wellness_reminders(db, only_due=False):
            v.wellness_contact_method, v.doctor, v.created_by,
            p.animal_name, o.id as owner_id, o.name as owner_name, o.phone
     FROM visits v JOIN patients p ON p.id = v.patient_id JOIN owners o ON o.id = p.owner_id
-    WHERE v.wellness_needed = 'Y' AND v.wellness_next_dose_date IS NOT NULL
-    """
+    WHERE """ + _WELLNESS_CURRENT
     rows = [dict(r) for r in db.execute(q).fetchall()]
     today = clock.today()
     out = []
@@ -1179,7 +1231,7 @@ def wellness_reminders(db, only_due=False):
         if only_due and not r["due"]:
             continue
         out.append(r)
-    out.sort(key=lambda r: (r["wellness_next_dose_date"] or date.max))
+    out.sort(key=lambda r: _wellness_urgency(r, today))
     return out
 
 
@@ -1196,21 +1248,26 @@ def wellness_reminders_page(db, limit=20, offset=0):
     row for its count, not one page, so it keeps calling
     wellness_reminders() directly, unpaginated, exactly as before.
     """
-    total = db.execute(
-        "SELECT COUNT(*) c FROM visits v "
-        "WHERE v.wellness_needed = 'Y' AND v.wellness_next_dose_date IS NOT NULL"
-    ).fetchone()["c"]
-    q = """
+    total = db.execute("SELECT COUNT(*) c FROM visits v WHERE " + _WELLNESS_CURRENT).fetchone()["c"]
+    today = clock.today()
+    # The same order as _wellness_urgency(), in SQL so it pages correctly:
+    # open reminders (not contacted, not past the missed window) by the
+    # earliest next dose, then the closed ones newest first.
+    missed_before = today - timedelta(days=MISSED_WINDOW_DAYS)
+    closed = "(COALESCE(v.wellness_contacted, 'N') = 'Y' OR v.wellness_next_dose_date <= ?)"
+    q = f"""
     SELECT v.id as visit_id, v.wellness_type, v.wellness_next_dose_date, v.wellness_contacted,
            v.wellness_contact_method, v.doctor, v.created_by,
            p.animal_name, o.id as owner_id, o.name as owner_name, o.phone
     FROM visits v JOIN patients p ON p.id = v.patient_id JOIN owners o ON o.id = p.owner_id
-    WHERE v.wellness_needed = 'Y' AND v.wellness_next_dose_date IS NOT NULL
-    ORDER BY COALESCE(v.wellness_next_dose_date, '0001-01-01') DESC, v.id DESC
+    WHERE {_WELLNESS_CURRENT}
+    ORDER BY CASE WHEN {closed} THEN 1 ELSE 0 END,
+             CASE WHEN {closed} THEN NULL ELSE v.wellness_next_dose_date END ASC,
+             CASE WHEN {closed} THEN NULL ELSE v.id END ASC,
+             v.wellness_next_dose_date DESC, v.id DESC
     LIMIT ? OFFSET ?
     """
-    rows = [dict(r) for r in db.execute(q, [limit, offset]).fetchall()]
-    today = clock.today()
+    rows = [dict(r) for r in db.execute(q, [missed_before] * 3 + [limit, offset]).fetchall()]
     rows = [_annotate_wellness(r, today) for r in rows]
     return rows, total
 

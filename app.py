@@ -89,6 +89,7 @@ from core import (
     parse_quantity,
     required_field,
     strict_month,
+    display_date,
 )
 # Read by heartbeat.py for the payload's uptime figure. Set here rather than in
 # heartbeat itself because that module is imported lazily inside a scheduler
@@ -575,10 +576,7 @@ def tr_filter(v):
 def localdate_filter(d):
     """Read-only date display. Named `localdate` rather than `date` so it
     cannot shadow Jinja/Python `date` in a template that also uses it."""
-    formatted = logic.fmt_date(d) if not isinstance(d, str) else d
-    if formatted and str(get_locale()) == "ar":
-        formatted = to_arabic_indic_digits(formatted)
-    return formatted
+    return display_date(d)
 
 
 @app.template_filter("code")

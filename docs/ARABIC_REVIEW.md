@@ -176,3 +176,23 @@ refunds. Built from the reviewed "اختر الطريقة التي صُرف به
 | # | English | Arabic (as shipped) |
 |---|---|---|
 | 1 | Pick how this was paid: %(methods)s. | اختر طريقة الدفع: %(methods)s. |
+
+## 12. Refund date refusals (2)
+
+Audit B16 (2026-09-25): a refund is dated between the day the money came in
+and today. Built from الاسترداد (refund) as in the reviewed refund messages.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | A refund can't be dated after today. | لا يمكن أن يكون تاريخ الاسترداد بعد اليوم. |
+| 2 | A refund can't be dated before %(date)s, when what it pays back was recorded. | لا يمكن أن يكون تاريخ الاسترداد قبل %(date)s، وهو تاريخ تسجيل ما يُعاد دفعه. |
+
+## 13. Audit sheet hint (1)
+
+Audit B18 (2026-09-25): the "received since prior" column is pre-filled
+from Consignment Receiving, and says so. Built from the reviewed
+"استلام الأمانة" (Consignment Receiving).
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Includes %(qty)s from Consignment Receiving | يشمل %(qty)s من استلام الأمانة |

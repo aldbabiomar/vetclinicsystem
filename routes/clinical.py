@@ -1388,11 +1388,11 @@ def visit_payment_add(visit_id):
     if error:
         flash(error, "error")
         return redisplay()
-    try:
-        payment_date = clean_date(f.get("date"), field="date") or clock.today().isoformat()
-    except BadDate as e:
-        flash(str(e), "error")
-        return redisplay()
+    # Today, as boarding_payment() does: a payment is recorded when it is
+    # taken. This used to accept an undocumented `date` field that no form
+    # sends, so a crafted one could book a payment before the visit or into
+    # another month (audit B16).
+    payment_date = clock.today().isoformat()
     try:
         method = clean_payment_method(f.get("method"))
     except BadPaymentMethod:
@@ -2440,11 +2440,11 @@ def inpatient_payment_add(case_id):
     if error:
         flash(error, "error")
         return redisplay()
-    try:
-        payment_date = clean_date(f.get("date"), field="date") or clock.today().isoformat()
-    except BadDate as e:
-        flash(str(e), "error")
-        return redisplay()
+    # Today, as boarding_payment() does: a payment is recorded when it is
+    # taken. This used to accept an undocumented `date` field that no form
+    # sends, so a crafted one could book a payment before the visit or into
+    # another month (audit B16).
+    payment_date = clock.today().isoformat()
     try:
         method = clean_payment_method(f.get("method"))
     except BadPaymentMethod:
@@ -2490,7 +2490,7 @@ def inpatient_attachment_upload(case_id):
 # ---------------------------------------------------------------------------
 # Appointments
 # ---------------------------------------------------------------------------
-def _appointments_page_context():
+def _appointments_page_context(day=None):
     """Builds the template context for appointments.html. Split out of
     appointments_page() so appointment_new() can re-render the same weekly
     grid (with the Add modal reopened and `form` layered on top) on a
@@ -2505,7 +2505,10 @@ def _appointments_page_context():
     # logic.as_date(): "?day=2026-W39-4" parsed clean with that and 500'd the
     # book too (audit B1). Checking the parse RESULT as well as catching
     # ValueError keeps a None from slipping through either way.
-    week_anchor = request.args.get("week") or today_iso
+    # `day`: the day a failed booking was for, passed by appointment_new() —
+    # a POST carries no ?day=/?week=, so the grid used to jump back to today
+    # with the booking modal open over the wrong week (audit B17).
+    week_anchor = request.args.get("week") or day or today_iso
     try:
         if strict_date(week_anchor) is None:
             raise ValueError(week_anchor)
@@ -2513,7 +2516,7 @@ def _appointments_page_context():
         flash(_("That week link wasn't valid, showing the current week instead."), "error")
         week_anchor = today_iso
     days = logic.week_dates(week_anchor)
-    selected_day = request.args.get("day") or today_iso
+    selected_day = request.args.get("day") or day or today_iso
     try:
         if strict_date(selected_day) is None:
             raise ValueError(selected_day)
@@ -2543,7 +2546,11 @@ def appointment_new():
     f = request.form
 
     def redisplay():
-        ctx = _appointments_page_context()
+        try:
+            booked = clean_date(f.get("appt_date"), field="appt_date")
+        except BadDate:
+            booked = None
+        ctx = _appointments_page_context(booked)
         ctx["form"] = f
         ctx["open_add_modal"] = True
         return render_template("appointments.html", **ctx)

@@ -25,10 +25,15 @@ from flask import (
 )
 
 from core import display_number, display_quantity
-from core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
+from core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
 import clock
 
 bp = Blueprint("sales", __name__)
+
+# pg_advisory_xact_lock(namespace, day) for one day's cash drawer. The
+# two-integer form lives in a different lock space from schema.py's
+# one-bigint lock, so the two can never collide.
+DRAWER_LOCK_NAMESPACE = 0x5643
 
 
 @bp.before_request
@@ -132,6 +137,13 @@ def cash_register_payout_new():
     if not reason:
         flash(_("Enter a reason for this payout."), "error")
         return redisplay(day)
+    # One payout at a time per day (audit B15). The cap is the day's drawer,
+    # which no single row holds, so there was nothing to lock: two payouts
+    # each passed against the same total and together took out more than was
+    # there. A transaction-scoped advisory lock keyed on the day, released
+    # at commit; the total below is read after it, so it counts the payout
+    # that went first.
+    db.execute("SELECT pg_advisory_xact_lock(?, ?)", (DRAWER_LOCK_NAMESPACE, strict_date(day).toordinal()))
     # Recomputed fresh at submit time — cash_register_totals() already
     # subtracts every payout already logged for this day, so this is
     # exactly how much is left in the drawer before this new one.
@@ -360,6 +372,23 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
                       cost_by_item.get(iid), distributor_by_item.get(iid),
                       discountable_by_item.get(iid, False)))
     return subtotal, lines, notices, None
+
+
+def _refund_date_error(refund_date, origin):
+    """A refund pays back money already received, so it is dated between the
+    day that money came in and today (audit B16). It accepted any valid date:
+    one before the sale booked negative revenue into a month the sale never
+    touched, and one in the future put money leaving the drawer on a day that
+    had not happened. `origin` is the day the sale or the service record
+    was made, as a date (read as `::date` in SQL, which the connection's
+    clinic time zone makes the clinic's day); None when there is none."""
+    day = strict_date(refund_date)
+    if day > clock.today():
+        return _("A refund can't be dated after today.")
+    if origin and day < origin:
+        return _("A refund can't be dated before %(date)s, when what it pays back was recorded.",
+                 date=display_date(origin))
+    return None
 
 
 def _cash_payment_for(f, payment_method, total):
@@ -698,12 +727,24 @@ def refund_retail_save():
     # pos_checkout()'s stock-row locking: without this, two concurrent
     # refunds against the same sale could each read "2 remaining" and both
     # submit, over-refunding a sale that only had 2 to give back.
+    #
+    # The sale row first (audit B15): the aggregate cap below is sale-level,
+    # and two refunds of DIFFERENT lines of one sale locked different rows,
+    # both read the same "already refunded" total and together paid out more
+    # than the sale collected. Parent before children, the order every other
+    # path takes.
+    db.execute("SELECT id FROM sales WHERE id=? FOR UPDATE", (sale_id,))
     for sid in sorted(set(sale_item_ids)):
         db.execute("SELECT id FROM sale_items WHERE id=? AND sale_id=? FOR UPDATE", (sid, sale_id))
 
     sale, refundable = logic.refundable_sale_items(db, sale_id)
     if not sale:
         flash(_("Sale not found."), "error")
+        return redisplay()
+    sold_on = db.execute("SELECT sold_at::date AS d FROM sales WHERE id=?", (sale_id,)).fetchone()["d"]
+    error = _refund_date_error(refund_date, sold_on)
+    if error:
+        flash(error, "error")
         return redisplay()
     remaining_by_id = {l["sale_item_id"]: l for l in refundable}
 
@@ -851,8 +892,9 @@ def refund_service_save():
     # each read the same "amount paid so far minus prior refunds" before
     # either commits, and both pass a cap check that together they exceed.
     if visit_raw:
-        if visit_id is None or not db.execute("SELECT 1 FROM visits WHERE id=? FOR UPDATE",
-                                              (visit_id,)).fetchone():
+        origin = db.execute("SELECT date FROM visits WHERE id=? FOR UPDATE",
+                            (visit_id,)).fetchone() if visit_id is not None else None
+        if origin is None:
             flash(_("Visit %(visit_id)s not found.", visit_id=visit_raw), "error")
             return redisplay()
         paid = logic.visit_billing_summary(db, visit_id)["paid"]
@@ -866,9 +908,9 @@ def refund_service_save():
 
     case_id = None
     if case_id_raw:
-        if not case_id_raw.isdigit() or not db.execute(
-            "SELECT 1 FROM inpatient_cases WHERE id=? FOR UPDATE", (int(case_id_raw),)
-        ).fetchone():
+        origin = db.execute("SELECT admission_date AS date FROM inpatient_cases WHERE id=? FOR UPDATE",
+                            (int(case_id_raw),)).fetchone() if case_id_raw.isdigit() else None
+        if origin is None:
             flash(_("Inpatient case %(case_id_raw)s not found.", case_id_raw=case_id_raw), "error")
             return redisplay()
         case_id = int(case_id_raw)
@@ -883,9 +925,9 @@ def refund_service_save():
 
     boarding_id = None
     if boarding_id_raw:
-        if not boarding_id_raw.isdigit() or not db.execute(
-            "SELECT 1 FROM boarding_sessions WHERE id=? FOR UPDATE", (int(boarding_id_raw),)
-        ).fetchone():
+        origin = db.execute("SELECT entry_date AS date FROM boarding_sessions WHERE id=? FOR UPDATE",
+                            (int(boarding_id_raw),)).fetchone() if boarding_id_raw.isdigit() else None
+        if origin is None:
             flash(_("Boarding stay %(boarding_id_raw)s not found.", boarding_id_raw=boarding_id_raw), "error")
             return redisplay()
         boarding_id = int(boarding_id_raw)
@@ -902,6 +944,10 @@ def refund_service_save():
     # something is refundable (money.refund_payout). The predecessor IQ app
     # rounded service refunds to the NEAREST note, which recorded a refund of
     # 0 for anything under half a note and could round above what was paid.
+    error = _refund_date_error(refund_date, origin["date"])
+    if error:
+        flash(error, "error")
+        return redisplay()
     payout, why = money.refund_payout(amount, cap)
     if why:
         flash(_("This record has no refundable value left to pay out — the smallest amount that can be "

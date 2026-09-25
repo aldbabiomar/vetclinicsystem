@@ -593,6 +593,8 @@ where most bugs in the audit live.
 | D-12 | Palettes | **15**: Vetzone and ChamPet (from IQ), JO's crimson/navy, plus **12 new distinct calm palettes**, each light + dark, every text/background pair WCAG AA |
 | D-13 | Documents | All in this repo; IQ/JO-era documents archived under `docs/archive/`; the predecessor clones kept read-only in `webapps/` (untracked) until the merge is done, then removed |
 | D-14 | Execution order | Start from **JO's tree** (already exact-decimal throughout), port IQ's features and money rules into it, and transform it step by step with the suite green at every commit — rather than writing a fresh skeleton. Same end state as §3, less risk |
+| D-15 | Code layout | **Full restructure** into the `vcs/` package of §3.1 (owner, 2026-09-25, asked with the option of keeping the flat layout). The country profile of §3.2 is realised as the money setting (D-9), so `vcs/country/` becomes the money setting's home and there is no `setup.py --country`: §12 items 3 and 5 are read that way |
+| D-16 | Wellness reminders | Most urgent first on the Dashboard and the Wellness page (owner, 2026-09-25). "Due" ends when "missed" begins; a newer wellness entry for the same pet and type replaces the old one (audit B19, P15) |
 
 > **Superseded in part, after the merge** — `DEVELOPER_AND_LICENSING_PLAN.md` (owner decisions, 2026-09-25) makes the repository **private** with a GitHub token per clinic (L-1, over D-1), and moves the choice of **palette** (L-2, over D-12's placement) and of the **money setting** (L-3, over D-9's placement; the lock rule is unchanged) to a vendor-only Developer area. It runs **after** this merge and reuses the storage keys this merge creates, so build D-9 and D-12 in Settings as written here.
 
@@ -889,3 +891,19 @@ result under each money setting.
     after a database error is in the clinic's language, under its name.
 
   **Suite:** IQ **1328 passed, 4 skipped**; JO **1328 passed, 4 skipped**.
+- **2026-09-25 — Audit B15–B19, and owner decisions D-15 and D-16.**
+  - **B15.** The cash payout takes a per-day advisory lock, and the retail
+    refund locks the sale row. Both races are played deterministically by
+    `test_locked_caps.py`.
+  - **B16.** Refunds are dated between the day of what they pay back and
+    today; payments record today.
+  - **B17.** A refused booking re-opens on its own day.
+  - **B18.** The audit sheet pre-fills Consignment Receiving.
+  - **B19.** Wellness "due" ends where "missed" begins, a newer entry
+    replaces the old one, and both screens show the most urgent first
+    (D-16).
+  - **Decisions.** The owner chose the full `vcs/` package restructure
+    (D-15), next in line after the remaining audit items.
+  - **Arabic.** Four new strings, flagged in `ARABIC_REVIEW.md` §12–13.
+
+  **Suite:** IQ **1353 passed, 4 skipped**; JO **1353 passed, 4 skipped**.

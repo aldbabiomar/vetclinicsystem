@@ -7102,3 +7102,15 @@ msgstr "احفظ نسختي فوق تغييراته"
 #: core.py
 msgid "Pick how this was paid: %(methods)s."
 msgstr "اختر طريقة الدفع: %(methods)s."
+
+#: routes/sales.py
+msgid "A refund can't be dated after today."
+msgstr "لا يمكن أن يكون تاريخ الاسترداد بعد اليوم."
+
+#: routes/sales.py
+msgid "A refund can't be dated before %(date)s, when what it pays back was recorded."
+msgstr "لا يمكن أن يكون تاريخ الاسترداد قبل %(date)s، وهو تاريخ تسجيل ما يُعاد دفعه."
+
+#: templates/audit_session_view.html
+msgid "Includes %(qty)s from Consignment Receiving"
+msgstr "يشمل %(qty)s من استلام الأمانة"
