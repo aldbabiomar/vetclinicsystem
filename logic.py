@@ -20,25 +20,27 @@ MISSED_WINDOW_DAYS = 14   # 2 weeks — used for follow-ups, wellness, and Lost 
 WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
 
 
-def parse_date(v):
+def as_date(v):
+    """A STORED value as a date: a DATE column's date as is, a timestamptz's
+    moment as the clinic-zone day it fell on, or the ISO text of either (a
+    date computed in code, a stamp kept in a JSON job result).
+
+    Never for a date that arrives in a request -- that is core.strict_date(),
+    which accepts exactly YYYY-MM-DD. This one is lenient on purpose (it
+    reads a whole ISO timestamp), and it was the request parser until audit
+    B1: since Python 3.11 date.fromisoformat() also accepts 2026-W39-4 and
+    20260925, which the routes then passed raw to Postgres (a 500 on four
+    pages, silently empty results on three). Renamed from parse_date so the
+    two cannot be confused.
+
+    It still validates the whole value, never a prefix: "2026-08-25garbage"
+    raises (it once parsed clean from a blind str(v)[:10])."""
     if v is None or v == "":
         return None
     if isinstance(v, datetime):
         return clock.aware(v).date()
     if isinstance(v, date):
         return v
-    # Accepts a bare YYYY-MM-DD, or the date half of a full ISO timestamp --
-    # a few TEXT columns (backup_log.started_at, visits.case_status_changed_at)
-    # store an isoformat() stamp rather than a real DATE, and callers pass
-    # those straight in.
-    #
-    # This used to be a blind str(v)[:10]: it truncated *before* validating,
-    # so anything with a valid 10-character prefix parsed clean.
-    # "2026-08-25garbage" came back as a real date, which meant a route
-    # guarding a ?date= filter with try/except ValueError saw no error and
-    # passed the untruncated string on to the query, where a DATE column
-    # raised a raw Postgres cast error (a 500) instead of degrading to
-    # "showing all dates". Validate the whole string, never a prefix.
     s = str(v).strip()
     try:
         return date.fromisoformat(s)
@@ -168,7 +170,7 @@ def is_active_member(owner):
         return False
     if not expires:
         return True
-    expires = parse_date(expires)
+    expires = as_date(expires)
     if not expires:
         return True
     return expires >= clock.today()
@@ -229,7 +231,7 @@ def member_expires_in_days(owner):
     try:
         if not owner["is_member"]:
             return None
-        expires = parse_date(owner["member_expires_on"])
+        expires = as_date(owner["member_expires_on"])
     except (KeyError, IndexError, TypeError):
         return None
     if not expires:
@@ -423,7 +425,7 @@ def backup_alert_message(last_backup_row):
             return _alert(N_("The last backup started but never finished — check "
                              "the Settings page."))
         return None
-    started = parse_date(last_backup_row["started_at"])
+    started = as_date(last_backup_row["started_at"])
     if started and (clock.today() - started).days >= 2:
         return _alert(N_("The database hasn't been backed up in 2+ days — check "
                          "the Settings page."))
@@ -520,7 +522,7 @@ def confirmed_audit_rows_by_item(db, item_id=None):
                 r["prior_stock"] = prior["stock_counted"]
                 usage = prior["stock_counted"] + r["received_since_prior"] - r["stock_counted"]
                 r["usage_since_prior"] = usage
-                days = (parse_date(r["audit_date"]) - parse_date(prior["audit_date"])).days
+                days = (as_date(r["audit_date"]) - as_date(prior["audit_date"])).days
                 r["days_since_prior"] = days
                 r["daily_usage_rate"] = round(usage / days, 4) if days > 0 else None
             else:
@@ -582,7 +584,7 @@ def inventory_status(db):
         rows = by_item.get(it["id"], [])
         if rows:
             latest = rows[-1]
-            cutoffs[it["id"]] = latest["confirmed_at"] or day_bounds(parse_date(latest["audit_date"]))[0]
+            cutoffs[it["id"]] = latest["confirmed_at"] or day_bounds(as_date(latest["audit_date"]))[0]
     txn_since = _txn_qty_since_batch(db, cutoffs)
 
     status = []
@@ -591,8 +593,8 @@ def inventory_status(db):
         latest = rows[-1] if rows else None
 
         base_stock = latest["stock_counted"] if latest else None
-        latest_audit_date = parse_date(latest["audit_date"]) if latest else None
-        nearest_expiry = parse_date(latest["nearest_expiry_date"]) if latest else None
+        latest_audit_date = as_date(latest["audit_date"]) if latest else None
+        nearest_expiry = as_date(latest["nearest_expiry_date"]) if latest else None
         daily_usage_rate = latest["daily_usage_rate"] if latest else None
         reorder_threshold = latest["effective_reorder_threshold"] if latest else None
         critical_item = bool(latest["effective_critical_item"]) if latest else False
@@ -992,8 +994,8 @@ def refresh_inpatient_total(db, case_id):
 # ---------------------------------------------------------------------------
 def boarding_nights(entry_date, dismissal_date):
     """Nights stayed so far (or planned), at least 1."""
-    start = parse_date(entry_date)
-    end = parse_date(dismissal_date) if dismissal_date else clock.today()
+    start = as_date(entry_date)
+    end = as_date(dismissal_date) if dismissal_date else clock.today()
     if not start:
         return 1
     return max(1, (end - start).days)
@@ -1079,11 +1081,11 @@ def _annotate_followup(r, today):
     copies that could quietly drift apart."""
     reminder_call_date = None
     if r["followup_method"] == "Physical Visit" and r["followup_date"]:
-        reminder_call_date = fmt_date(parse_date(r["followup_date"]) - timedelta(days=1))
+        reminder_call_date = fmt_date(as_date(r["followup_date"]) - timedelta(days=1))
     r["reminder_call_date"] = reminder_call_date
     r["missed"] = False
     if r["followup_status"] == "Pending" and r["followup_date"]:
-        fdate = parse_date(r["followup_date"])
+        fdate = as_date(r["followup_date"])
         if fdate and (today - fdate).days >= MISSED_WINDOW_DAYS:
             r["missed"] = True
     return r
@@ -1147,7 +1149,7 @@ def followups_page(db, only_pending=False, limit=20, offset=0):
 def _annotate_wellness(r, today):
     """Shared by wellness_reminders() and wellness_reminders_page() — see
     _annotate_followup() above for why this is factored out."""
-    next_dose = parse_date(r["wellness_next_dose_date"])
+    next_dose = as_date(r["wellness_next_dose_date"])
     remind_from = next_dose - timedelta(days=WELLNESS_LEAD_DAYS) if next_dose else None
     due = bool(remind_from and today >= remind_from and r["wellness_contacted"] != "Y")
     missed = bool(next_dose and (today - next_dose).days >= MISSED_WINDOW_DAYS and r["wellness_contacted"] != "Y")
@@ -1280,7 +1282,7 @@ def missed_items(db):
         "JOIN patients p ON p.id=v.patient_id WHERE v.case_status='Lost to Follow Up'"
     ).fetchall()
     for r in rows:
-        changed = parse_date(r["case_status_changed_at"]) if r["case_status_changed_at"] else None
+        changed = as_date(r["case_status_changed_at"]) if r["case_status_changed_at"] else None
         if changed and (today - changed).days >= MISSED_WINDOW_DAYS:
             out.append({"kind": "Lost to Follow Up", "visit_id": r["id"], "animal_name": r["animal_name"],
                         "deadline": fmt_date(changed), "responsible": r["doctor"] or r["created_by"]})
@@ -1311,8 +1313,8 @@ def dashboard_snapshot(db):
     admitted_now = db.execute("SELECT COUNT(*) c FROM inpatient_cases WHERE dismissed=false").fetchone()["c"]
 
     fu = followups(db, only_pending=True)
-    due_today = [f for f in fu if parse_date(f["followup_date"]) == today]
-    reminders_tomorrow = [f for f in fu if parse_date(f["followup_date"]) == tomorrow and f["followup_method"] == "Physical Visit"]
+    due_today = [f for f in fu if as_date(f["followup_date"]) == today]
+    reminders_tomorrow = [f for f in fu if as_date(f["followup_date"]) == tomorrow and f["followup_method"] == "Physical Visit"]
 
     wr = wellness_reminders(db, only_due=True)
     grooming = grooming_queue(db)
@@ -2229,7 +2231,7 @@ def generate_slots(db):
 
 
 def week_dates(anchor_iso):
-    anchor = parse_date(anchor_iso) or clock.today()
+    anchor = as_date(anchor_iso) or clock.today()
     monday = anchor - timedelta(days=anchor.weekday())
     return [monday + timedelta(days=i) for i in range(7)]
 

@@ -105,25 +105,33 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 ## 3. What is enforced automatically
 
-`tests/test_seam_rules.py`, in **both** apps. **Eight** rules, each one derived
-from a defect above rather than invented:
+`tests/test_seam_rules.py`. **Nine** rules, each one derived from a defect
+above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 
 | Rule | Asserts | From |
 |---|---|---|
 | 1 | every function writing to `billing` / `visit_billing_lines` / `inpatient_billing`, or setting `discount_percent`, takes `FOR UPDATE` on its parent row | S1 |
-| 2 | every route reading `?date=`/`?day=`/`?week=`/`?date_from=`/`?date_to=` validates it before use | F4, S2, S3 |
+| 2 | every route reading `?date=`/`?day=`/`?week=`/`?date_from=`/`?date_to=` validates it before use — with a strict parser; the lenient `as_date` does not count | F4, S2, S3, audit B1 |
 | 3 | no `float()` is applied to a value derived from `request.form`/`request.args` | F2/F5 |
 | 4 | date arguments use `request.args.get(k) or default`, never `get(k, default)` | F4 |
 | 5 | every `INSERT` into `visit_billing_lines` / `inpatient_billing` / `sale_items` names `discountable` | rewards card |
 | 6 | every call to `compute_bill_totals()` passes `discountable_subtotal` (AST walk) | rewards card |
 | 7 | every function writing a request-supplied `discount_percent` also reads `discount_source` | rewards card |
 | 8 | discount-percentage arithmetic appears only at the allow-listed sites | rewards card |
+| 9 | the request layer (`app.py`, `routes/`) never calls `as_date`, `parse_date` or `fromisoformat` — request dates go through `core.strict_date` | audit B1 |
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already
 shaped differently from each other.** All four were verified by reintroducing
 their bug — `scripts/simulation/prove_rewards_guards.py {iq|jo}` does this on
 demand, and reported 9/9 in both apps.
+
+**Rule 2 counted the wrong parser.** It accepted `parse_date(` as
+validation, and `parse_date` was `date.fromisoformat`, which since Python 3.11
+reads `2026-W39-4` and `20260925`. Four pages returned a 500 and three came
+back silently empty, all while the rule was green (audit B1). The strict
+parser is now the only one it counts, and rule 9 keeps the lenient one out of
+the request layer altogether.
 
 **Rule 8 is worth reading as a lesson about scanning guards.** Its first draft
 scanned line by line and its own floor assertion reported finding only 2 of
@@ -134,8 +142,8 @@ subject. It now scans per function, with comments stripped.
 
 **Rule 4 is subtle enough to restate:** `request.args.get("day", today)` applies
 the default only when the parameter is **absent**. A present-but-empty `?day=`
-keeps the empty string — and `parse_date("")` *returns None rather than
-raising*, so the route's own `except ValueError` never fired either. Two
+keeps the empty string — and the lenient parser (then `parse_date`, now
+`logic.as_date`) *returns None for "" rather than raising*, so the route's own `except ValueError` never fired either. Two
 independent near-misses in one line, which is how F4 shipped.
 
 ### Three things about these tests worth keeping

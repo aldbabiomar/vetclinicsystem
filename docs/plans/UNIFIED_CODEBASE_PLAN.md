@@ -839,3 +839,33 @@ result under each money setting.
   strings are flagged in `docs/ARABIC_REVIEW.md` §7.
   **Suite:** IQ **1172 passed, 4 skipped**; JO **1172 passed, 4 skipped**; no
   database 498 passed.
+- **2026-09-25 — Audit B1, B4, B5, B8, and M11.**
+  - **B1 (dates).** `core.strict_date()` is the one parser for a date in a
+    request (exactly `YYYY-MM-DD`). The lenient parser is renamed
+    `logic.as_date()` and reads stored values only. Seam rule 2 no longer
+    counts it as validation, and a new rule 9 keeps it out of the request
+    layer. Two write paths that took a date unchecked were fixed too: the
+    audit sheet's expiry and the opex month.
+  - **B4 (edit conflicts).** A conflict is refused again on the next Save. A
+    panel lists what the other person saved (time, who, field, old → new,
+    from the audit log), and "save mine over theirs" works only against the
+    version the panel showed. The fix also closed three more ways to the same
+    lost update:
+    - a record's first edit was unguarded (`updated_at` was NULL);
+    - four status buttons wrote columns the edit forms write without
+      bumping `updated_at`, and a scan now holds every UPDATE of the three
+      tables to that rule;
+    - tokens were stored to the second.
+  - **B5.** POS fails closed on a deactivated item.
+  - **B8.** Already fixed in the JO-based tree; now pinned by a test.
+  - **M11.** Found on the way: the sidebar highlighted only the pages left in
+    `app.py`, because it compared blueprint endpoints by bare name.
+    `nav_active()` takes full names and raises on an unknown one.
+
+  New tests: `test_dates_strict.py`, `test_edit_conflicts.py`,
+  `test_pos_deactivated.py`, `test_nav_active.py`, plus one in
+  `test_exports.py`. Each guard was mutation-checked, and each blind mutation
+  found on the way was redone. 13 new Arabic strings are flagged in
+  `ARABIC_REVIEW.md` §8–10.
+  **Suite:** IQ **1281 passed, 4 skipped**; JO **1281 passed, 4 skipped** (the
+  B8 test was added after that run; it passes on its own).

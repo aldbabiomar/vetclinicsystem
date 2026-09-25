@@ -75,7 +75,7 @@ GUARDS = {
     "clean_date": r"\bclean_date\s*\(",
     "discount cap": r"\bdiscount_percent_error\s*\(",
     "cleanup cap": r"\bcleanup_amount_error\s*\(",
-    "stale-write": r"\bstale_edit_error\s*\(",
+    "stale-write": r"\bedit_is_stale\s*\(",
     "note warning": r"\bflash_cash_denomination_warning\s*\(",
     "FOR UPDATE": r"FOR UPDATE",
     "payable floor": r"\bpayable_total\s*\(",

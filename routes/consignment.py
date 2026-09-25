@@ -705,8 +705,8 @@ def consignment_sales_page():
     # date silently narrowed the report to nothing with no warning, which reads
     # as "this distributor sold nothing in that period" rather than "that
     # filter was not understood". See SEAM_RULES.md.
-    date_from = date_filter_arg("date_from", "That date wasn't valid — showing all dates instead.")
-    date_to = date_filter_arg("date_to", "That date wasn't valid — showing all dates instead.")
+    date_from = date_filter_arg("date_from")
+    date_to = date_filter_arg("date_to")
     all_rows = logic.consignment_sales_by_distributor(db, distributor_id, date_from, date_to)
     page = get_page()
     total = len(all_rows)

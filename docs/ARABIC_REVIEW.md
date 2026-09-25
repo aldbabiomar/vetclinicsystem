@@ -125,3 +125,44 @@ settings beyond its own permissions. Built from the reviewed terms صلاحية
 |---|---|---|
 | 1 | You can't give or reach access you don't hold yourself — ask an Admin. | لا يمكنك منح صلاحيات لا تملكها بنفسك أو الوصول إليها — اطلب ذلك من المدير. |
 | 2 | Nothing was saved: your role can't change the backup and log-retention settings. | لم يُحفظ أي شيء: لا يملك دورك صلاحية تغيير إعدادات النسخ الاحتياطي ومدة الاحتفاظ بالسجلات. |
+
+## 8. Date refusals (3)
+
+Audit B1 (2026-09-25). #1 was shown in English before. #2 and #3 are new:
+an audit sheet's expiry date is now checked instead of reaching the
+database raw. They are built from the reviewed "التاريخ غير صالح — يتم عرض
+تاريخ اليوم بدلًا منه" and the audit sheet's own "لم تُحفظ المسودة" / "لم
+يتم تأكيد شيء", with تاريخ الانتهاء as in "أقرب تاريخ انتهاء".
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | That date wasn't valid — showing all dates instead. | التاريخ غير صالح — يتم عرض كل التواريخ بدلًا منه. |
+| 2 | An expiry date isn't a valid date. The draft was not saved — please correct it. | أحد تواريخ الانتهاء غير صالح. لم تُحفظ المسودة — يرجى تصحيحه. |
+| 3 | An expiry date isn't a valid date. Nothing was confirmed — please correct it. | أحد تواريخ الانتهاء غير صالح. لم يتم تأكيد شيء — يرجى تصحيحه. |
+
+## 9. POS refusal for a deactivated item (1)
+
+Audit B5 (2026-09-25). Built from دليل الأصناف (Inventory Catalog), إلغاء
+التفعيل (Deactivate) and السلة (the cart).
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | %(name)s is no longer sold — it was deactivated in the catalogue. Remove it from the cart. | %(name)s لم يعد يُباع — تم إلغاء تفعيله في دليل الأصناف. أزِله من السلة. |
+
+## 10. Edit conflicts (6)
+
+Audit B4 (2026-09-25). #1–3 replace an English-only message. The record
+names are the reviewed ones from "… غير موجودة" (الزيارة، فترة الإقامة الفندقية،
+حالة الإقامة المرضية), and "أعد تحميل الصفحة" is the catalogue's wording for
+"reload the page". "Their" is rendered as the masculine singular (تغييراته،
+نسخته), which is the catalogue's usual default for an unnamed person. A
+native speaker should confirm that it reads naturally.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Someone else saved this visit while you had it open, so your changes were not saved. Their changes are listed below. | حفظ شخص آخر هذه الزيارة أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه. |
+| 2 | Someone else saved this boarding stay while you had it open, so your changes were not saved. Their changes are listed below. | حفظ شخص آخر فترة الإقامة الفندقية هذه أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه. |
+| 3 | Someone else saved this inpatient case while you had it open, so your changes were not saved. Their changes are listed below. | حفظ شخص آخر حالة الإقامة المرضية هذه أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه. |
+| 4 | Saved by someone else since you opened this form: | ما حفظه شخص آخر منذ أن فتحت هذا النموذج: |
+| 5 | Your version is still in the form. Reload the page to start again from theirs, or save yours over it: | نسختك ما زالت في النموذج. أعد تحميل الصفحة لتبدأ من نسخته، أو احفظ نسختك فوقها: |
+| 6 | Save my version over their changes | احفظ نسختي فوق تغييراته |

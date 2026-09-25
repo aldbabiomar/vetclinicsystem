@@ -181,3 +181,53 @@ def test_boarding_export_produces_a_pdf(client, db, billed_visit):
         db.execute("DELETE FROM payments WHERE boarding_id=?", (bid,))
         db.execute("DELETE FROM boarding_sessions WHERE id=?", (bid,))
         db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Audit B8 — a bill line prints what was charged for it, not the unit price
+# ---------------------------------------------------------------------------
+
+def test_an_itemised_line_prints_its_quantity_and_line_total(client, db, monkeypatch):
+    """GUARD. IQ's visit and billing PDFs appended [name, unit price] per
+    line: a bill for 2 × 12 printed a line of 12 under a subtotal of 24 — on
+    the documents handed to clients. The merged code prints the line total
+    with "× quantity"; this pins it by capturing the tables the PDF is built
+    from (no PDF text extraction needed)."""
+    import pdf_export
+    from decimal import Decimal as D
+    from test_money_routes import _bill, _uid
+
+    o_id, p_id, v_id, pl_id = _uid("O"), _uid("P"), _uid("V"), _uid("PL")
+    name = f"PDF Line Service {pl_id}"
+    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"PDF Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p_id, o_id, f"PDF Pet {p_id}"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+               (v_id, p_id, clock.today().isoformat(), "Ongoing"))
+    db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
+               "VALUES (?,?,?,?,?,?,?)", (pl_id, name, "Service", D("4.000"), D("12.000"), True, True))
+    db.commit()
+    tables = []
+    real = pdf_export.Table
+
+    def capture(rows, *args, **kwargs):
+        tables.append(rows)
+        return real(rows, *args, **kwargs)
+
+    try:
+        resp = _bill(client, v_id, billing_type="Automatic", price_id=[pl_id], **{f"qty_{pl_id}": "2"})
+        assert resp.status_code == 302, "the itemised bill was refused — the test would prove nothing"
+        monkeypatch.setattr(pdf_export, "Table", capture)
+        for url in (f"/visits/{v_id}/export", f"/patients/{p_id}/export/billing"):
+            tables.clear()
+            _assert_is_a_real_pdf(client.get(url), url)
+            lines = [r for t in tables for r in t if isinstance(r[0], str) and r[0].startswith(name)]
+            assert lines == [[f"{name} × 2", pdf_export._m(D("24.000"))]], (url, lines)
+    finally:
+        for sql, args in (("DELETE FROM visit_billing_lines WHERE visit_id=?", (v_id,)),
+                          ("DELETE FROM billing WHERE visit_id=?", (v_id,)),
+                          ("DELETE FROM visits WHERE id=?", (v_id,)),
+                          ("DELETE FROM price_list WHERE id=?", (pl_id,)),
+                          ("DELETE FROM patients WHERE id=?", (p_id,)),
+                          ("DELETE FROM owners WHERE id=?", (o_id,))):
+            db.execute(sql, args)
+        db.commit()

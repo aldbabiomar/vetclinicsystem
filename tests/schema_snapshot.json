@@ -669,9 +669,9 @@
     "type": "boolean"
    },
    "updated_at": {
-    "default": null,
+    "default": "now()",
     "identity": null,
-    "null": true,
+    "null": false,
     "type": "timestamp with time zone"
    }
   },
@@ -1513,9 +1513,9 @@
     "type": "numeric(15,3)"
    },
    "updated_at": {
-    "default": null,
+    "default": "now()",
     "identity": null,
-    "null": true,
+    "null": false,
     "type": "timestamp with time zone"
    },
    "visit_id": {
@@ -3100,9 +3100,9 @@
     "type": "text"
    },
    "updated_at": {
-    "default": null,
+    "default": "now()",
     "identity": null,
-    "null": true,
+    "null": false,
     "type": "timestamp with time zone"
    },
    "updates_log": {

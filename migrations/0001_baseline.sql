@@ -512,9 +512,12 @@ CREATE TABLE visits (
 
     payment_status TEXT,               -- derived/display cache; real status computed from payments
     created_by INTEGER,
-    -- Set on every visit_edit() save — lets the edit form detect (and
-    -- refuse to silently overwrite) a concurrent edit by someone else.
-    updated_at TIMESTAMPTZ,
+    -- The edit-conflict token (routes/clinical.py edit_is_stale): set when
+    -- the row is created and on every write to a column visit_edit()
+    -- also writes, so an edit form opened before that write is refused
+    -- instead of silently undoing it. Never NULL: a NULL once meant "nothing
+    -- to compare", which left every record's first edit unguarded (audit B4).
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY (patient_id) REFERENCES patients(id),
     -- See F-19.
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
@@ -640,9 +643,12 @@ CREATE TABLE boarding_sessions (
     discount_source TEXT NOT NULL DEFAULT 'staff' CHECK (discount_source IN ('staff','member')),
     dismissed BOOLEAN NOT NULL DEFAULT FALSE,   -- has the animal actually left yet
     created_by INTEGER,
-    -- Set on every boarding_edit() save — lets the edit form detect (and
-    -- refuse to silently overwrite) a concurrent edit by someone else.
-    updated_at TIMESTAMPTZ,
+    -- The edit-conflict token (routes/clinical.py edit_is_stale): set when
+    -- the row is created and on every write to a column boarding_edit()
+    -- also writes, so an edit form opened before that write is refused
+    -- instead of silently undoing it. Never NULL: a NULL once meant "nothing
+    -- to compare", which left every record's first edit unguarded (audit B4).
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY (patient_id) REFERENCES patients(id),
     -- See F-19.
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
@@ -706,9 +712,12 @@ CREATE TABLE inpatient_cases (
     -- "Clean Up" write-off — see the matching comment on billing.cleanup_amount.
     cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0,
     cleanup_applied_by INTEGER,
-    -- Set on every inpatient_edit() save — lets the edit form detect (and
-    -- refuse to silently overwrite) a concurrent edit by someone else.
-    updated_at TIMESTAMPTZ,
+    -- The edit-conflict token (routes/clinical.py edit_is_stale): set when
+    -- the row is created and on every write to a column inpatient_edit()
+    -- also writes, so an edit form opened before that write is refused
+    -- instead of silently undoing it. Never NULL: a NULL once meant "nothing
+    -- to compare", which left every record's first edit unguarded (audit B4).
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY (patient_id) REFERENCES patients(id),
     FOREIGN KEY (visit_id) REFERENCES visits(id),
     FOREIGN KEY (attending_vet_id) REFERENCES users(id),

@@ -1,0 +1,21 @@
+{# The edit-conflict panel (routes/clinical.py edit_conflict), drawn INSIDE an
+   edit <form>: its hidden token and checkbox travel with the next Save. #}
+{% if edit_conflict %}
+<div class="flash warning notice-warn edit-conflict" role="alert">
+  <p><strong>{{ _('Saved by someone else since you opened this form:') }}</strong></p>
+  {% if edit_conflict.changes %}
+  <table>
+    <thead><tr><th scope="col">{{ _('Time') }}</th><th scope="col">{{ _('Who') }}</th><th scope="col">{{ _('Field') }}</th><th scope="col">{{ _('Old → New') }}</th></tr></thead>
+    <tbody>
+    {% for c in edit_conflict.changes %}
+      <tr><td>{{ c.timestamp|localtime("%H:%M:%S") }}</td><td>{{ c.username }}</td><td>{{ c.label }}</td>
+          <td>{{ c.old_value if c.old_value not in (none, '') else '—' }} → {{ c.new_value if c.new_value not in (none, '') else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <p>{{ _('Your version is still in the form. Reload the page to start again from theirs, or save yours over it:') }}</p>
+  <input type="hidden" name="overwrite_updated_at" value="{{ edit_conflict.token }}">
+  <label class="checkbox-row"><input type="checkbox" name="overwrite_confirm" value="1"> {{ _('Save my version over their changes') }}</label>
+</div>
+{% endif %}

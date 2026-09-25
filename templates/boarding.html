@@ -147,7 +147,8 @@
       <td colspan="10">
         <form method="post" action="{{ url_for('clinical.boarding_edit', boarding_id=s.id) }}" class="form-grid" style="padding:10px 0;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="expected_updated_at" value="{{ edit_token(s.updated_at) }}">
+      <input type="hidden" name="expected_updated_at" value="{{ fv(row_form, 'expected_updated_at', edit_token(s.updated_at)) }}">
+          {% if edit_boarding_id == s.id %}{% include "_edit_conflict.html" %}{% endif %}
           <div class="field"><label for="stay-entry_date-{{ s.id }}">{{ _('Entry Date') }}</label><input id="stay-entry_date-{{ s.id }}" type="date" name="entry_date" value="{{ fv(row_form, 'entry_date', s.entry_date) }}"></div>
           <div class="field"><label for="stay-dismissal_date-{{ s.id }}">{{ _('Dismissal Date') }}</label><input id="stay-dismissal_date-{{ s.id }}" type="date" name="dismissal_date" value="{{ fv(row_form, 'dismissal_date', s.dismissal_date or '') }}"></div>
           <div class="field"><label for="stay-room-{{ s.id }}">{{ _('Room') }}</label><input id="stay-room-{{ s.id }}" name="room" value="{{ fv(row_form, 'room', s.room or '') }}"></div>

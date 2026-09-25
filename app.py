@@ -88,6 +88,7 @@ from core import (
     parse_money,
     parse_quantity,
     required_field,
+    strict_month,
 )
 # Read by heartbeat.py for the payload's uptime figure. Set here rather than in
 # heartbeat itself because that module is imported lazily inside a scheduler
@@ -677,6 +678,23 @@ app.jinja_env.globals["edit_token"] = clock.token
 # text placeholder, and the largest id is never a real one that matters.
 app.jinja_env.globals["ID_SLOT"] = 2147483647
 app.jinja_env.globals["fv"] = form_value
+
+
+def nav_active(*endpoints):
+    """'active' when the current page is one of these endpoints, for the
+    sidebar. Full endpoint names -- a blueprint route is
+    'clinical.visits_list' -- checked against the ones the app registers, so
+    a name without its prefix raises at the first render instead of quietly
+    never matching. That is how every sidebar link to a blueprint page lost
+    its highlight when the routes moved into blueprints: base.html compared
+    request.endpoint with 'visits_list', which it never is."""
+    unknown = [e for e in endpoints if e not in app.view_functions]
+    if unknown:
+        raise ValueError(f"nav_active(): not an endpoint: {unknown}")
+    return "active" if request.endpoint in endpoints else ""
+
+
+app.jinja_env.globals["nav_active"] = nav_active
 # logic.format_percent() strips the meaningless decimal tail; display_number()
 # converts to Arabic-Indic digits when the locale is ar. Composed here rather
 # than in logic.py, which deliberately has no Flask imports — and composed at
@@ -1374,7 +1392,11 @@ def reports_opex_save():
     if not month:
         flash(_("Pick a month first."), "error")
         return redisplay()
-    if not re.fullmatch(r"\d{4}-\d{2}", month):
+    # strict_month(), not a \d{4}-\d{2} pattern: that accepted 2026-13,
+    # stored under a month no report ever shows (audit B1).
+    try:
+        strict_month(month)
+    except ValueError:
         flash(_("That's not a valid month."), "error")
         return redisplay()
     try:

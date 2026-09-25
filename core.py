@@ -189,19 +189,52 @@ def clean(v):
     return v or None
 
 
-def clean_date(v, field="date"):
-    """Same as clean(), but also validates the value is a real
-    YYYY-MM-DD date if present. Use this on WRITE paths (form -> DB)
-    where a bad value should be rejected outright — never on read-side
-    filters, where clean() (no format check) is the right choice."""
-    v = clean(v)
+def strict_date(v):
+    """The one parser for a date that arrives in a request (audit B1):
+    exactly YYYY-MM-DD naming a real day, as a `date`; None when absent or
+    blank; ValueError for anything else.
+
+    Not date.fromisoformat(): since Python 3.11 it accepts the whole ISO 8601
+    family -- 2026-W39-4 (an ISO week), 20260925, 2026-09-25T10:00 -- and
+    routes that validated with it passed the raw text on to Postgres, which
+    rejects the week form (a 500) and matches the others against nothing (an
+    empty page read as "no data"). Not strptime() alone either: it accepts
+    2026-9-5. The value must be the date's own ISO spelling.
+
+    Stored values (a DATE or timestamptz column, already a date/datetime)
+    are read with logic.as_date(), never this."""
+    v = clean(v) if isinstance(v, str) or v is None else v
     if v is None:
         return None
+    if not isinstance(v, str):
+        raise ValueError(f"not a YYYY-MM-DD date: {v!r}")
+    d = datetime.strptime(v, "%Y-%m-%d").date()
+    if d.isoformat() != v:
+        raise ValueError(f"not a YYYY-MM-DD date: {v!r}")
+    return d
+
+
+def strict_month(v):
+    """A month from a request: exactly YYYY-MM naming a real month (01-12),
+    returned as that text; None when absent or blank; ValueError otherwise."""
+    v = clean(v) if isinstance(v, str) or v is None else v
+    if v is None:
+        return None
+    if not isinstance(v, str) or len(v) != 7:
+        raise ValueError(f"not a YYYY-MM month: {v!r}")
+    strict_date(v + "-01")
+    return v
+
+
+def clean_date(v, field="date"):
+    """Same as clean(), but also validates the value is a real
+    YYYY-MM-DD date if present (strict_date). Use this on WRITE paths (form
+    -> DB) where a bad value should be rejected outright."""
     try:
-        datetime.strptime(v, "%Y-%m-%d")
+        d = strict_date(v)
     except ValueError:
         raise BadDate(f"{field.replace('_', ' ').title()} must be a valid date (YYYY-MM-DD).")
-    return v
+    return d.isoformat() if d else None
 
 
 def has_negative(*values):
@@ -521,17 +554,14 @@ def clean_date_filter(v):
     a real YYYY-MM-DD date; a malformed one is silently dropped (treated
     the same as no filter at all) rather than either crashing or being
     passed through as a broken filter."""
-    v = clean(v)
-    if v is None:
-        return None
     try:
-        datetime.strptime(v, "%Y-%m-%d")
+        d = strict_date(v)
     except ValueError:
         return None
-    return v
+    return d.isoformat() if d else None
 
 
-def date_filter_arg(name="date", message="That date wasn't valid — showing all dates instead."):
+def date_filter_arg(name="date", message=None):
     """clean_date_filter() with a heads-up for the user.
 
     Dropping a malformed filter silently is the right default for a shared
@@ -545,7 +575,7 @@ def date_filter_arg(name="date", message="That date wasn't valid — showing all
     raw = request.args.get(name)
     value = clean_date_filter(raw)
     if value is None and clean(raw) is not None:
-        flash(message, "error")
+        flash(message or _("That date wasn't valid — showing all dates instead."), "error")
     return value
 
 

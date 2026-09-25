@@ -501,11 +501,15 @@ def _as_text(v):
     return None if v is None else str(v)
 
 
-def log_change(db, table_name, record_id, action, changes=None):
+def log_change(db, table_name, record_id, action, changes=None, at=None):
     """
     action: 'create' / 'update' / 'delete'
     changes: dict of {field: (old_value, new_value)} — only used for 'update'.
     For 'create'/'delete' pass changes=None; one row is written for the whole record.
+    at: the instant to record, when the caller wrote the same one to the
+    row's updated_at -- the edit-conflict panel lists "changes after the
+    version you loaded" by comparing the two, so they must be equal, not a
+    few microseconds apart (routes/clinical.py edit_conflict). Defaults to now.
 
     Deliberately does NOT commit. This write must land in the same
     transaction as the mutation it's describing, so the caller commits
@@ -515,7 +519,7 @@ def log_change(db, table_name, record_id, action, changes=None):
     """
     uid = session.get("user_id")
     uname = session.get("username", "system")
-    ts = clock.now().isoformat(timespec="seconds")
+    ts = at if at is not None else clock.now()
     # audit_log.record_id is TEXT: it names rows in many tables, numbered or not.
     record_id = None if record_id is None else str(record_id)
 

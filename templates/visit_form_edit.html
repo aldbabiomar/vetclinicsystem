@@ -5,7 +5,10 @@
 <div class="card">
 <form method="post" data-track-unsaved>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="expected_updated_at" value="{{ edit_token(visit.updated_at) }}">
+      {# The token the form was LOADED with, kept through a redisplay: a
+         conflict must be refused again on the next Save (audit B4). #}
+      <input type="hidden" name="expected_updated_at" value="{{ fv(form, 'expected_updated_at', edit_token(visit.updated_at)) }}">
+  {% include "_edit_conflict.html" %}
   {% include "_visit_fields.html" %}
 
   <div class="section-title">{{ _('Clinical Notes') }}</div>

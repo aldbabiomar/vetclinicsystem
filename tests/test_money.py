@@ -350,13 +350,13 @@ def test_regression_no_smallest_note_rounding_leaked_in_from_iq():
     assert not hasattr(logic, "SMALLEST_NOTE")
 
 
-def test_regression_parse_date_validates_the_whole_value_not_a_prefix():
+def test_regression_as_date_validates_the_whole_value_not_a_prefix():
     """v1.8.1. parse_date truncated to 10 characters *before* validating, so
     "2026-08-25garbage" parsed clean and the untruncated string reached a
     DATE column. IQ had a reproducible 500 from this; JO shared the flawed
     helper."""
     with pytest.raises(ValueError):
-        logic.parse_date("2026-08-25garbage")
-    assert logic.parse_date("2026-08-25").isoformat() == "2026-08-25"
+        logic.as_date("2026-08-25garbage")
+    assert logic.as_date("2026-08-25").isoformat() == "2026-08-25"
     # ...while the ISO timestamps that TEXT columns really store still parse.
-    assert logic.parse_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"
+    assert logic.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"

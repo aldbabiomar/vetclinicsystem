@@ -345,17 +345,16 @@ def test_a_stale_edit_is_refused_rather_than_overwriting(client, db, a_visit):
         "the second save must not overwrite the first")
 
 
-def test_the_stale_edit_guard_only_engages_once_a_row_has_been_edited(client, db, a_visit):
-    """Deliberate, and worth pinning: updated_at is NULL until the first
-    edit, and stale_edit_error() treats NULL as "nothing to compare against"
-    so the first save always proceeds. Without this test the guard looks
-    broken on a fresh row when it is in fact behaving as designed."""
-    assert _current_updated_at(db, a_visit["visit_id"]) == "", "a new visit has no edit stamp"
+def test_a_new_visit_carries_an_edit_stamp_from_the_start(client, db, a_visit):
+    """This test used to pin the opposite: updated_at was NULL until the
+    first edit and the guard read NULL as "nothing to compare", so the first
+    edit of every visit was unguarded (found fixing audit B4). A visit is now
+    stamped when it is created; tests/test_edit_conflicts.py covers the rest."""
+    assert _current_updated_at(db, a_visit["visit_id"]), "a new visit has no edit stamp"
     resp = _edit_visit(client, a_visit["visit_id"], db, complaint="First ever edit")
     assert resp.status_code == 302
     row = db.execute("SELECT * FROM visits WHERE id=?", (a_visit["visit_id"],)).fetchone()
     assert row["complaint"] == "First ever edit"
-    assert row["updated_at"], "the first edit must stamp updated_at, or the guard never engages"
 
 
 # ---------------------------------------------------------------------------

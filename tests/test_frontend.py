@@ -43,7 +43,9 @@ STRUCTURAL_COLOURS = {"#fff", "#ffffff", "#000", "#000000", "#fff0", "#0000"}
 STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_error_dog.html", "_pagination.html",
                         # A macro file, imported by the three bill screens.
-                        "_member_discount.html"}
+                        "_member_discount.html",
+                        # Included inside the three edit forms (audit B4).
+                        "_edit_conflict.html"}
 
 
 @pytest.fixture(scope="module")

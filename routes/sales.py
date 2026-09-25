@@ -99,12 +99,8 @@ def _cash_register_page_context(day):
 @bp.route("/cash-register")
 @auth.permission_required("manage_cash_register")
 def cash_register_page():
-    day = request.args.get("date", "").strip() or clock.today().isoformat()
-    try:
-        logic.parse_date(day)
-    except ValueError:
-        flash(_("That date wasn't valid — showing today instead."), "error")
-        day = clock.today().isoformat()
+    day = date_filter_arg("date", _("That date wasn't valid — showing today instead.")) \
+        or clock.today().isoformat()
     return render_template("cash_register.html", **_cash_register_page_context(day))
 
 
@@ -318,6 +314,18 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
             notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=logic.code("INV", iid)))
             continue
         status = logic.inventory_status_by_id(db, iid)
+        # Fail closed (audit B5). inventory_status() covers ACTIVE items only,
+        # so no status means the item was deactivated in the catalogue --
+        # while its Price List row, a separate record, can still be active and
+        # priced it above. `if status and ...` used to skip both checks below
+        # for it: 999 units of a deactivated item sold, stock driven to -999.
+        # The row is locked (_lock_and_snapshot_cart_items), so a deactivation
+        # cannot land between this check and the sale.
+        if status is None:
+            row = db.execute("SELECT name FROM inventory_list WHERE id=?", (iid,)).fetchone()
+            return 0, [], notices, _(
+                "%(name)s is no longer sold — it was deactivated in the catalogue. Remove it from the cart.",
+                name=row["name"] if row else logic.code("INV", iid))
         # current_stock is None until this item has been through at least one
         # confirmed inventory audit — treated as zero available stock here
         # (fail closed) rather than skipping the check, since skipping it let
@@ -333,12 +341,12 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
         # layer, so a count that predates that fix fails closed with the
         # same message as a never-audited item instead of taking the till
         # down. "No usable count" is what both branches mean.
-        if status and (status["current_stock"] is None
-                       or status["current_stock"] != status["current_stock"]):
+        if (status["current_stock"] is None
+                or status["current_stock"] != status["current_stock"]):
             return 0, [], notices, _(
                 "%(name)s hasn't been through an inventory audit yet — run an audit before selling it.",
                 name=status["name"])
-        if status and qty > status["current_stock"]:
+        if qty > status["current_stock"]:
             return 0, [], notices, _(
                 "Only %(stock)s %(unit)s of %(name)s in stock — sale blocked.",
                 stock=display_quantity(status['current_stock']), unit=status["unit"] or "",

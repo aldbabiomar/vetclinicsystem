@@ -303,8 +303,8 @@ def test_regression_exactly_half_a_note_rounds_up_not_to_free():
     assert _totals(125, 0, 0)[0] == 250
 
 
-def test_regression_parse_date_validates_the_whole_value_not_a_prefix():
+def test_regression_as_date_validates_the_whole_value_not_a_prefix():
     with pytest.raises(ValueError):
-        logic.parse_date("2026-08-25garbage")
-    assert logic.parse_date("2026-08-25").isoformat() == "2026-08-25"
-    assert logic.parse_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"
+        logic.as_date("2026-08-25garbage")
+    assert logic.as_date("2026-08-25").isoformat() == "2026-08-25"
+    assert logic.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"

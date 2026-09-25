@@ -20,12 +20,12 @@ import os
 import pdf_export
 import re
 
-from flask_babel import gettext as _
+from flask_babel import gettext as _, lazy_gettext as _l
 from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, parse_id, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 import clock
 
 bp = Blueprint("clinical", __name__)
@@ -55,22 +55,66 @@ def _user_field(db, raw):
     return uid if db.execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone() else None
 
 
-def stale_edit_error(old_updated_at, submitted_updated_at, what):
-    """Optimistic-locking guard for "edit whole record" routes — previously
-    last-write-wins with no warning: two staff editing the same record at
-    once meant the second save silently erased the first's changes.
-    Compares the updated_at the edit form was loaded with against the
-    record's current value; a mismatch means someone else saved in
-    between. Returns an error string, or None if it's safe to save.
-    old_updated_at is None for a row this mechanism has never touched
-    (created before this existed, or its very first edit), in which case
-    there's nothing to compare against and saving proceeds."""
-    # Compared as instants (clock.token): the form carries a canonical
-    # string, the database returns a timestamptz.
-    if old_updated_at and not clock.same_instant(submitted_updated_at, old_updated_at):
-        return (f"This {what} was changed by someone else while you had it open — "
-                f"reload the page to see the latest version before saving your changes.")
-    return None
+def edit_is_stale(current_updated_at, form):
+    """Optimistic locking for the "edit whole record" forms (visit, boarding
+    stay, inpatient case): True when someone else saved the record after this
+    form was loaded, so saving it would silently undo their change.
+
+    The form carries the updated_at it was loaded with (expected_updated_at).
+    After a conflict it is redrawn with that SAME token -- not the fresh one
+    -- so clicking Save again is refused again (audit B4: redrawing it with
+    the fresh record's token let the second click store the stale values).
+    To save over the other person's change, the person ticks
+    overwrite_confirm on the conflict panel, which carries the token of the
+    version it SHOWED them (overwrite_updated_at): if a third save lands in
+    between, that no longer matches and the save is refused again.
+
+    Every row has an updated_at from the moment it is created, and every
+    write to a column these forms also write bumps it
+    (tests/test_edit_conflicts.py holds the sibling routes to that), so there
+    is no "never edited, nothing to compare" case to wave through."""
+    if clock.same_instant(form.get("expected_updated_at"), current_updated_at):
+        return False
+    return not (form.get("overwrite_confirm") == "1"
+                and clock.same_instant(form.get("overwrite_updated_at"), current_updated_at))
+
+
+# The conflict panel names fields by the labels the forms show them with (the
+# same msgids, so they are translated); a column without one is shown as is.
+_EDIT_FIELD_LABELS = {
+    "date": _l("Date"), "doctor": _l("Doctor"), "weight_kg": _l("Weight (KG)"), "bcs": _l("BCS (1–9)"),
+    "visit_type": _l("Visit Type"), "case_status": _l("Case Status"),
+    "complaint": _l("Presenting Complaint"), "history": _l("History"),
+    "exam": _l("Physical Exam & Diagnostics"), "treatment": _l("Treatment Plan"),
+    "updates_log": _l("Updates Log"), "followup_needed": _l("Follow-Up Needed?"),
+    "followup_status": _l("Follow-Up Status"), "followup_method": _l("Follow-Up Method"),
+    "followup_date": _l("Follow-Up Date"), "wellness_needed": _l("Wellness Visit?"),
+    "wellness_type": _l("Wellness Type"), "wellness_next_dose_date": _l("Next Dose Date"),
+    "grooming_needed": _l("Grooming?"), "grooming_status": _l("Grooming Status"),
+    "grooming_services": _l("Grooming Services"), "grooming_notes": _l("Grooming Notes"),
+    "entry_date": _l("Entry Date"), "dismissal_date": _l("Dismissal Date"), "room": _l("Room"),
+    "admitted_items": _l("Admitted Items"), "total": _l("Total"), "dismissed": _l("Dismissed"),
+    "special_needs": _l("Special Needs?"), "exam_findings": _l("Physical Exam Findings & Diagnostics"),
+    "attending_vet_id": _l("Attending Veterinarian"), "supervising_vet_id": _l("Supervising Veterinarian"),
+}
+
+
+def edit_conflict(db, table, record_id, current_updated_at, form):
+    """What the conflict panel shows: every change saved to this record
+    since the form was loaded -- who, when, which field, old and new -- read
+    from the audit log, whose rows carry the same instant as the updated_at
+    they were saved with (log_change(at=...)), so "after the token" is
+    exact. Plus the token of the version shown, for the overwrite option."""
+    try:
+        since = clock.parse(form.get("expected_updated_at"))
+    except (TypeError, ValueError):
+        since = None
+    rows = [] if since is None else db.execute(
+        "SELECT username, timestamp, field, old_value, new_value FROM audit_log "
+        "WHERE table_name=? AND record_id=? AND action='update' AND timestamp > ? ORDER BY timestamp, id",
+        (table, str(record_id), since)).fetchall()
+    return {"token": clock.token(current_updated_at),
+            "changes": [dict(r, label=_EDIT_FIELD_LABELS.get(r["field"], r["field"])) for r in rows]}
 
 
 class BadMicrochip(ValueError):
@@ -878,22 +922,26 @@ def visit_detail(visit_id):
 @auth.permission_required("manage_visits")
 def visit_edit(visit_id):
     db = get_db()
-    visit = db.execute("SELECT * FROM visits WHERE id=?", (visit_id,)).fetchone()
+    # Locked on a save, so the stale check below and the UPDATE it guards
+    # cannot interleave with another save of the same visit.
+    visit = db.execute("SELECT * FROM visits WHERE id=?" + (" FOR UPDATE" if request.method == "POST" else ""),
+                       (visit_id,)).fetchone()
     if not visit:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.visits_list"))
     if request.method == "POST":
         f = request.form
 
-        def redisplay():
+        def redisplay(conflict=None):
             return render_template("visit_form_edit.html", visit=visit, case_statuses=CASE_STATUSES,
                                     followup_reasons=FOLLOWUP_REASONS, wellness_types=WELLNESS_TYPES,
-                                    grooming_services=GROOMING_SERVICES, vets=vet_users(db), form=f)
+                                    grooming_services=GROOMING_SERVICES, vets=vet_users(db), form=f,
+                                    edit_conflict=conflict)
 
-        conflict = stale_edit_error(visit["updated_at"], f.get("expected_updated_at"), "visit")
-        if conflict:
-            flash(conflict, "error")
-            return redisplay()
+        if edit_is_stale(visit["updated_at"], f):
+            flash(_("Someone else saved this visit while you had it open, so your changes were not saved. "
+                    "Their changes are listed below."), "error")
+            return redisplay(edit_conflict(db, "visits", visit_id, visit["updated_at"], f))
         wellness_needed = f.get("wellness_needed", "N")
         grooming_needed = f.get("grooming_needed", "N")
         grooming_services = ",".join(f.getlist("grooming_services")) if grooming_needed == "Y" else None
@@ -961,6 +1009,7 @@ def visit_edit(visit_id):
             return redisplay()
 
         changes = auth.diff_dict(visit, new_vals)
+        now = clock.now()
         db.execute(
             """UPDATE visits SET visit_type=?, date=?, doctor=?, weight_kg=?, bcs=?, complaint=?, history=?, exam=?, treatment=?,
                case_status=?, case_status_changed_at=?, updates_log=?, followup_needed=?, followup_method=?,
@@ -968,9 +1017,9 @@ def visit_edit(visit_id):
                wellness_next_dose_date=?, wellness_contacted=?, wellness_contact_method=?, grooming_needed=?,
                grooming_services=?, grooming_notes=?, grooming_admitted_items=?, grooming_status=?,
                grooming_contacted=?, payment_status=?, updated_at=? WHERE id=?""",
-            (*new_vals.values(), clock.now().isoformat(timespec="seconds"), visit_id),
+            (*new_vals.values(), now, visit_id),
         )
-        auth.log_change(db, "visits", visit_id, "update", changes)
+        auth.log_change(db, "visits", visit_id, "update", changes, at=now)
         if now_admitted and not existing_case:
             _create_inpatient_case(db, visit["patient_id"], visit_id, f.get("complaint"),
                                     edited_date or visit["date"], edited_weight_kg, edited_bcs)
@@ -1463,8 +1512,11 @@ def followup_status_update(visit_id):
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(request.referrer or url_for("clinical.followups_list"))
-    db.execute("UPDATE visits SET followup_status=? WHERE id=?", (status, visit_id))
-    auth.log_change(db, "visits", visit_id, "update", {"followup_status": (old["followup_status"], status)})
+    # Bumps updated_at: an open edit form of this visit writes this column
+    # too, and must see that it changed (audit B4).
+    now = clock.now()
+    db.execute("UPDATE visits SET followup_status=?, updated_at=? WHERE id=?", (status, now, visit_id))
+    auth.log_change(db, "visits", visit_id, "update", {"followup_status": (old["followup_status"], status)}, at=now)
     db.commit()
     flash(_("Follow-up status updated."), "success")
     return redirect(request.referrer or url_for("clinical.followups_list"))
@@ -1492,9 +1544,15 @@ def wellness_update(visit_id):
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.wellness_list"))
-    db.execute("UPDATE visits SET wellness_contacted=?, wellness_contact_method=? WHERE id=?",
-              (f.get("wellness_contacted", "N"), f.get("wellness_contact_method") or None, visit_id))
-    auth.log_change(db, "visits", visit_id, "update", {"wellness_contacted": (old["wellness_contacted"], f.get("wellness_contacted", "N"))})
+    # Bumps updated_at: an open edit form of this visit writes this column
+    # too, and must see that it changed (audit B4).
+    now = clock.now()
+    contacted, method = f.get("wellness_contacted", "N"), f.get("wellness_contact_method") or None
+    db.execute("UPDATE visits SET wellness_contacted=?, wellness_contact_method=?, updated_at=? WHERE id=?",
+               (contacted, method, now, visit_id))
+    auth.log_change(db, "visits", visit_id, "update",
+                    {"wellness_contacted": (old["wellness_contacted"], contacted),
+                     "wellness_contact_method": (old["wellness_contact_method"], method)}, at=now)
     db.commit()
     flash(_("Wellness reminder updated."), "success")
     return redirect(url_for("clinical.wellness_list"))
@@ -1523,9 +1581,15 @@ def grooming_update(visit_id):
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.grooming_list"))
-    db.execute("UPDATE visits SET grooming_status=?, grooming_contacted=? WHERE id=?",
-              (f.get("grooming_status"), f.get("grooming_contacted", "N"), visit_id))
-    auth.log_change(db, "visits", visit_id, "update", {"grooming_status": (old["grooming_status"], f.get("grooming_status"))})
+    # Bumps updated_at: an open edit form of this visit writes this column
+    # too, and must see that it changed (audit B4).
+    now = clock.now()
+    status, contacted = f.get("grooming_status"), f.get("grooming_contacted", "N")
+    db.execute("UPDATE visits SET grooming_status=?, grooming_contacted=?, updated_at=? WHERE id=?",
+               (status, contacted, now, visit_id))
+    auth.log_change(db, "visits", visit_id, "update",
+                    {"grooming_status": (old["grooming_status"], status),
+                     "grooming_contacted": (old["grooming_contacted"], contacted)}, at=now)
     db.commit()
     flash(_("Grooming entry updated."), "success")
     return redirect(url_for("clinical.grooming_list"))
@@ -1657,24 +1721,25 @@ def boarding_new():
 def boarding_edit(boarding_id):
     db = get_db()
     f = request.form
-    old = db.execute("SELECT * FROM boarding_sessions WHERE id=?", (boarding_id,)).fetchone()
+    old = db.execute("SELECT * FROM boarding_sessions WHERE id=? FOR UPDATE", (boarding_id,)).fetchone()
     if not old:
         flash(_("Boarding session not found."), "error")
         return redirect(url_for("clinical.boarding_page"))
 
-    def redisplay():
+    def redisplay(conflict=None):
         # A dismissed session is filtered out of the default "currently
         # boarding" listing — force show_all so the edit row we're
         # restoring is actually present on the redisplayed page.
         ctx = _boarding_page_context(show_all=bool(old["dismissed"]))
         ctx["form"] = f
         ctx["edit_boarding_id"] = boarding_id
+        ctx["edit_conflict"] = conflict
         return render_template("boarding.html", **ctx)
 
-    conflict = stale_edit_error(old["updated_at"], f.get("expected_updated_at"), "boarding session")
-    if conflict:
-        flash(conflict, "error")
-        return redisplay()
+    if edit_is_stale(old["updated_at"], f):
+        flash(_("Someone else saved this boarding stay while you had it open, so your changes were not saved. "
+                "Their changes are listed below."), "error")
+        return redisplay(edit_conflict(db, "boarding_sessions", boarding_id, old["updated_at"], f))
     try:
         price_per_day = parse_money(f.get("price_per_day"))
         total = parse_money(f.get("total"))
@@ -1714,13 +1779,14 @@ def boarding_edit(boarding_id):
         "room": f.get("room"), "price_per_day": price_per_day, "total": total, "total_is_auto": total_is_auto,
     }
     changes = auth.diff_dict(old, new_vals)
+    now = clock.now()
     db.execute(
         "UPDATE boarding_sessions SET entry_date=?, dismissal_date=?, admitted_items=?, special_needs=?, "
         "special_needs_notes=?, room=?, price_per_day=?, total=?, total_is_auto=?, updated_at=? WHERE id=?",
-        (*new_vals.values(), clock.now().isoformat(timespec="seconds"), boarding_id),
+        (*new_vals.values(), now, boarding_id),
     )
     logic.refresh_boarding_total(db, boarding_id)
-    auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes)
+    auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes, at=now)
     db.commit()
     flash(_("Boarding session updated."), "success")
     if old["dismissed"]:
@@ -1749,16 +1815,15 @@ def boarding_dismiss(boarding_id):
         # `total` needs to hold the real final figure, not whatever
         # (usually 1 night) it was left at when the session was created.
         final_total = logic.boarding_suggested_total(row["price_per_day"], row["entry_date"], dismissal_date)
-    db.execute("UPDATE boarding_sessions SET dismissed=true, dismissal_date=?, total=? WHERE id=?",
-               (dismissal_date, final_total, boarding_id))
+    # Bumps updated_at: an open edit form of this stay writes dismissal_date
+    # and total too, and must see that they changed (audit B4).
+    now = clock.now()
+    db.execute("UPDATE boarding_sessions SET dismissed=true, dismissal_date=?, total=?, updated_at=? WHERE id=?",
+               (dismissal_date, final_total, now, boarding_id))
     logic.refresh_boarding_total(db, boarding_id)
-    # Boarding revenue is attributed to entry_date's month, and that
-    # month's P&L was already cached back when this session was created —
-    # using whatever `total` was at that moment (usually a 1-night
-    # placeholder, per the comment above). Locking in the real final total
-    # here without this would leave that month's cached revenue
-    # permanently understated.
-    auth.log_change(db, "boarding_sessions", str(boarding_id), "update", {"dismissed": (False, True)})
+    auth.log_change(db, "boarding_sessions", str(boarding_id), "update",
+                    {"dismissed": (False, True), "dismissal_date": (row["dismissal_date"], dismissal_date),
+                     "total": (row["total"], final_total)}, at=now)
     db.commit()
     flash(_("Marked as picked up."), "success")
     return redirect(url_for("clinical.boarding_page"))
@@ -1981,9 +2046,10 @@ def inpatient_new():
         case_id = _create_inpatient_case(db, patient_id, None, f.get("complaint"), new_admission_date,
                                           new_weight_kg, new_bcs)
         db.execute(
-            "UPDATE inpatient_cases SET exam_findings=?, admitted_items=?, attending_vet_id=?, supervising_vet_id=? WHERE id=?",
+            "UPDATE inpatient_cases SET exam_findings=?, admitted_items=?, attending_vet_id=?, supervising_vet_id=?, "
+            "updated_at=? WHERE id=?",
             (f.get("exam_findings"), f.get("admitted_items"), _user_field(db, f.get("attending_vet_id")),
-             _user_field(db, f.get("supervising_vet_id")), case_id),
+             _user_field(db, f.get("supervising_vet_id")), clock.now(), case_id),
         )
         db.commit()
         flash(_("Patient admitted."), "success")
@@ -2030,18 +2096,21 @@ def inpatient_edit(case_id):
     db = get_db()
     f = request.form
 
-    def redisplay():
+    def redisplay(conflict=None):
         ctx = _inpatient_detail_context(db, case_id)
         if ctx is None:
             flash(_("Inpatient case not found."), "error")
             return redirect(url_for("clinical.inpatient_list"))
-        return render_template("inpatient_detail.html", **ctx, form=f)
+        return render_template("inpatient_detail.html", **ctx, form=f, edit_conflict=conflict)
 
-    old = db.execute("SELECT * FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
-    conflict = stale_edit_error(old["updated_at"] if old else None, f.get("expected_updated_at"), "inpatient case")
-    if conflict:
-        flash(conflict, "error")
-        return redisplay()
+    old = db.execute("SELECT * FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone()
+    if not old:
+        flash(_("Inpatient case not found."), "error")
+        return redirect(url_for("clinical.inpatient_list"))
+    if edit_is_stale(old["updated_at"], f):
+        flash(_("Someone else saved this inpatient case while you had it open, so your changes were not saved. "
+                "Their changes are listed below."), "error")
+        return redisplay(edit_conflict(db, "inpatient_cases", case_id, old["updated_at"], f))
     dismissed = f.get("dismissed") == "on"
     try:
         edited_dismissal_date = clean_date(f.get("dismissal_date"), field="dismissal_date") if dismissed else None
@@ -2072,12 +2141,13 @@ def inpatient_edit(case_id):
         "supervising_vet_id": _user_field(db, f.get("supervising_vet_id")),
     }
     changes = auth.diff_dict(old, new_vals)
+    now = clock.now()
     db.execute(
         "UPDATE inpatient_cases SET complaint=?, exam_findings=?, weight_kg=?, bcs=?, admitted_items=?, dismissed=?, dismissal_date=?, "
         "attending_vet_id=?, supervising_vet_id=?, updated_at=? WHERE id=?",
-        (*new_vals.values(), clock.now().isoformat(timespec="seconds"), case_id),
+        (*new_vals.values(), now, case_id),
     )
-    auth.log_change(db, "inpatient_cases", str(case_id), "update", changes)
+    auth.log_change(db, "inpatient_cases", str(case_id), "update", changes, at=now)
     db.commit()
     flash(_("Case updated."), "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
@@ -2401,16 +2471,15 @@ def _appointments_page_context():
     db = get_db()
     today_iso = clock.today().isoformat()
     # `or today_iso`, not a get() default: the default only applies when the
-    # parameter is ABSENT. "?day=" (present but empty) left selected_day as
-    # "", and parse_date("") RETURNS None rather than raising -- so the guard
-    # never fired and "" reached Postgres as a date parameter, which is an
-    # unhandled InvalidDatetimeFormat, i.e. a 500 on a page reachable by
-    # clearing the date filter. Checking the parse RESULT as well as catching
-    # ValueError is what stops this recurring if parse_date grows another
-    # None-returning case. See SIMULATION_AUDIT_2026-09-11.md F4.
+    # parameter is ABSENT. "?day=" (present but empty) once reached Postgres
+    # as "" -- a 500 on a page reachable by clearing the date filter
+    # (SIMULATION_AUDIT_2026-09-11.md F4). strict_date(), not the lenient
+    # logic.as_date(): "?day=2026-W39-4" parsed clean with that and 500'd the
+    # book too (audit B1). Checking the parse RESULT as well as catching
+    # ValueError keeps a None from slipping through either way.
     week_anchor = request.args.get("week") or today_iso
     try:
-        if logic.parse_date(week_anchor) is None:
+        if strict_date(week_anchor) is None:
             raise ValueError(week_anchor)
     except ValueError:
         flash(_("That week link wasn't valid, showing the current week instead."), "error")
@@ -2418,7 +2487,7 @@ def _appointments_page_context():
     days = logic.week_dates(week_anchor)
     selected_day = request.args.get("day") or today_iso
     try:
-        if logic.parse_date(selected_day) is None:
+        if strict_date(selected_day) is None:
             raise ValueError(selected_day)
     except ValueError:
         flash(_("That date wasn't valid, showing today instead."), "error")

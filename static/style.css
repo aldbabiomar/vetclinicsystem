@@ -986,6 +986,10 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
   margin-bottom: var(--space-5);
 }
 
+/* The edit-conflict panel (templates/_edit_conflict.html): spans the whole
+   row when the edit form is itself a grid (the boarding row editor). */
+.form-grid > .edit-conflict { grid-column: 1 / -1; }
+
 /* A panel a script reveals — the barcode scanner box, the restore preview. */
 .reveal-panel {
   display: none; margin-top: var(--space-6); padding: var(--space-6);

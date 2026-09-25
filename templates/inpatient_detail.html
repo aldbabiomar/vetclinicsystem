@@ -22,7 +22,8 @@
   <div class="card">
     <form method="post" action="{{ url_for('clinical.inpatient_edit', case_id=case.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="expected_updated_at" value="{{ edit_token(case.updated_at) }}">
+      <input type="hidden" name="expected_updated_at" value="{{ fv(form, 'expected_updated_at', edit_token(case.updated_at)) }}">
+      {% include "_edit_conflict.html" %}
       <div class="form-grid">
         <div class="field"><span class="field-label">{{ _('Species / Sex / Age') }}</span><div class="v" style="padding-top:8px;">{{ case.species|tr }}{% if case.sex %} · {{ case.sex|tr }}{% endif %}{% if case.age_note %} · {{ case.age_note }}{% endif %}</div></div>
         <div class="field"><span class="field-label">{{ _('Owner') }}</span><div class="v" style="padding-top:8px;">{{ case.owner_name }} · {{ case.owner_phone or "no phone" }}</div></div>

@@ -456,7 +456,7 @@ def admin_logs():
     # with no explanation -- indistinguishable from "nobody did anything that
     # day", on the one screen whose whole job is showing what happened. See
     # SEAM_RULES.md.
-    day = date_filter_arg("date", "That date wasn't valid — showing today instead.") \
+    day = date_filter_arg("date", _("That date wasn't valid — showing today instead.")) \
         or clock.today().isoformat()
     changes = logic.changes_on_date(db, day)
     logins = logic.logins_on_date(db, day)

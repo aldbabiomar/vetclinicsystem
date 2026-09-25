@@ -121,8 +121,11 @@ def test_every_bill_mutation_takes_the_parent_row_lock():
 # ---------------------------------------------------------------------------
 
 READS_DATE_ARG = re.compile(r"request\.args\.get\(\s*[\"'](date|day|week|date_from|date_to)[\"']")
+# Not logic.as_date(): it reads stored values and is lenient on purpose; it
+# accepted "2026-W39-4" and passed it to Postgres (audit B1). Counting it as
+# validation here is how that hole stayed green.
 VALIDATES_DATE = re.compile(
-    r"parse_date\s*\(|clean_date\s*\(|clean_date_filter\s*\(|date_filter_arg\s*\(")
+    r"\bstrict_date\s*\(|clean_date\s*\(|clean_date_filter\s*\(|date_filter_arg\s*\(")
 
 
 def test_every_read_side_date_filter_is_validated():
@@ -139,6 +142,30 @@ def test_every_read_side_date_filter_is_validated():
         "it. An invalid value either reaches Postgres as a date (a 500) or "
         "silently matches nothing (an empty page the user reads as 'no data'):\n  "
         + "\n  ".join(unvalidated))
+
+
+LENIENT_DATE = re.compile(r"\b(as_date|parse_date|fromisoformat)\s*\(")
+STRICT_DATE = re.compile(r"\b(strict_date|strict_month|clean_date|clean_date_filter|date_filter_arg)\s*\(")
+
+
+def test_the_request_layer_never_parses_a_date_leniently():
+    """Audit B1. The request layer (app.py, routes/) reads dates only through
+    core's strict parsers. logic.as_date() and fromisoformat() accept
+    2026-W39-4 and 20260925, and every time one of them validated request
+    input, the raw text went on to Postgres."""
+    offenders, strict_uses, modules = [], 0, 0
+    for path in _route_modules():
+        src = path.read_text(encoding="utf-8")
+        modules += 1
+        strict_uses += len(STRICT_DATE.findall(src))
+        for n, line in enumerate(src.splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if LENIENT_DATE.search(code):
+                offenders.append(f"{path.name}:{n}: {line.strip()}")
+    # A floor: the scan must have read the route modules and seen the strict
+    # parsers in use, or finding nothing lenient proves nothing.
+    assert modules >= 7 and strict_uses >= 30, (modules, strict_uses)
+    assert not offenders, "a lenient date parse in the request layer:\n  " + "\n  ".join(offenders)
 
 
 # ---------------------------------------------------------------------------

@@ -53,16 +53,16 @@ Prior audits were read first so closed findings are not re-reported
 
 | ID | Severity | Apps | Finding | Status |
 |---|---|---|---|---|
-| **B1** | High | both | Date filters accept ISO-week / basic dates that Postgres rejects → **HTTP 500** on 4 IQ pages and 2 JO pages; silent empty results on 3 more | Verified live |
+| **B1** | High | both | Date filters accept ISO-week / basic dates that Postgres rejects → **HTTP 500** on 4 IQ pages and 2 JO pages; silent empty results on 3 more | **Fixed** — `core.strict_date`; `parse_date` renamed `logic.as_date`; `test_dates_strict.py`, seam rule 9 |
 | **B2** | High | both | A Clean Up or boarding discount taken with a payment never refreshes the month's P&L summary | **Fixed** — phase 3 (P&L computed on read, `reports.py`); `tests/test_reports_live.py` |
 | **B3** | High | JO | JO's P&L and Insights ignore boarding discounts (incl. the rewards card) and Clean Ups; `billed_total` is written and never read | **Fixed** — phase 3 (stored totals apportioned, one query for P&L and Insights); `tests/test_reports_live.py` |
 | **S1** | High | both | A `manage_settings`-only role can set `backup_retention=1`, `log_retention_days=90`, `backup_dir`, `backup_time` — fields the UI hides behind `manage_maintenance` | **Fixed** — `SETTING_FIELD_PERMISSION` in `routes/settings.py`, pinned by `test_privileges.py` |
 | **S2** | High | both | `manage_users_roles` is full Admin in one click: a holder promotes themselves to the system Admin role (or resets the Admin's password) | **Fixed** — `_beyond_actor` in `routes/admin.py` on all seven routes, pinned by `test_privileges.py` |
-| **B4** | Medium | both | The concurrent-edit guard can be defeated by clicking Save twice (JO visit/boarding/inpatient, IQ inpatient) | Verified live (JO), by code (IQ) |
-| **B5** | Medium | both | POS sells a deactivated inventory item with **no stock check** | Verified live |
+| **B4** | Medium | both | The concurrent-edit guard can be defeated by clicking Save twice (JO visit/boarding/inpatient, IQ inpatient) | **Fixed** — `edit_is_stale` + conflict panel; three more holes found and closed; `test_edit_conflicts.py` |
+| **B5** | Medium | both | POS sells a deactivated inventory item with **no stock check** | **Fixed** — fails closed in `_priced_cart_lines`; `test_pos_deactivated.py` |
 | **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | **Fixed** — phase 1 (`money.parse`), pinned by `test_money_routes.py::test_b6_*` |
 | **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | **Fixed** — phase 1 (`money.audit_status`), pinned by `test_money_routes.py::test_b7_*` |
-| **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | Confirmed by code |
+| **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | **Fixed** — JO's rendering, inherited by the merged tree; now pinned by `test_exports.py` |
 | **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Partly fixed** — phase 3: the P&L's restock reversal uses the sale line's cost. The consignment restock credit is still open |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
@@ -87,7 +87,7 @@ Prior audits were read first so closed findings are not re-reported
 
 # 1. Bugs — backend and database
 
-## B1 — Date filters accept formats Postgres rejects → 500s and silent empty pages — **Verified live**
+## B1 — Date filters accept formats Postgres rejects → 500s and silent empty pages — **Fixed**
 
 **Severity: High · both apps (IQ worse)**
 
@@ -132,6 +132,25 @@ through JO's `date_filter_arg()`, ported to IQ. Keep the lenient
 `parse_date()` for reading stored TEXT timestamps only, and rename it so the
 two cannot be confused. Extend `test_seam_rules.py` rule 2 with the ISO-week
 input; the current tests pass `2026-08-25garbage`, which both parsers reject.
+
+**Fixed (merge).** `core.strict_date()` is the one parser for a date in a
+request: exactly `YYYY-MM-DD`, and the value must equal the date's own ISO
+spelling. `clean_date`, `clean_date_filter` and `date_filter_arg` go through
+it, and so do the cash register and appointments, which had used the lenient
+parser. That parser is renamed `logic.as_date()` and reads stored values
+only. Seam rule 2 had been counting it as validation; it now counts only the
+strict parsers. A new rule 9 keeps `as_date`, `parse_date` and
+`fromisoformat` out of `app.py` and `routes/` altogether.
+
+Two more inputs had no date check at all and were fixed at the same time:
+
+- The inventory audit sheet's expiry went raw into a DATE column (garbage in
+  gave a 500 and lost the whole sheet).
+- The operating-costs month accepted `2026-13` (`core.strict_month`).
+
+`tests/test_dates_strict.py` probes the nine date-filtered pages with three
+non-plain spellings each, and has controls. Mutation-checked seven ways,
+including making `strict_date` lenient again, which failed 30+ tests.
 
 ## B2 — The P&L summary goes stale when a payment carries a Clean Up or a discount — **Verified live**
 
@@ -195,7 +214,7 @@ stored `inpatient_cases.total` as IQ does rather than re-deriving. Make
 Insights read the same stored totals as the P&L, and add a test that the two
 reports agree for the same month.
 
-## B4 — The concurrent-edit guard can be defeated by clicking Save twice — **Verified live (JO)**
+## B4 — The concurrent-edit guard can be defeated by clicking Save twice — **Fixed**
 
 **Severity: Medium · JO visit/boarding/inpatient; IQ inpatient**
 
@@ -218,7 +237,40 @@ second Save is refused again) and show the other person's current values
 alongside, or the changed fields. Make all three routes in both apps behave
 the same way.
 
-## B5 — POS sells a deactivated item with no stock check — **Verified live**
+**Fixed (merge).** One helper for all three forms, `edit_is_stale()` in
+`routes/clinical.py`:
+
+- **Refused again.** A redrawn form keeps the token it was loaded with, so a
+  second Save is refused again.
+- **What changed.** A panel (`templates/_edit_conflict.html`) lists what was
+  saved since that token: time, who, field, and old → new, from the audit
+  log. `auth.log_change(at=…)` writes the same instant as `updated_at`, so
+  "since" is exact.
+- **Explicit override.** "Save my version over their changes" works only
+  against the version the panel showed. A third save in between makes it
+  refuse again.
+- **Row lock.** The row is locked (`FOR UPDATE`) between the check and the
+  save.
+
+Fixing it turned up three more ways the same lost update happened. All are
+closed:
+
+1. **The first edit was unguarded.** `updated_at` was NULL until a record's
+   first edit, and NULL meant "nothing to compare", so every record's first
+   edit had no guard. It is now `NOT NULL DEFAULT now()`.
+2. **Sibling writes.** The follow-up, wellness and grooming status buttons
+   and boarding's Dismiss wrote columns the edit forms also write, without
+   bumping `updated_at`. A form opened before one of them put the old value
+   back on save. A scan in `tests/test_edit_conflicts.py` now holds every
+   UPDATE of the three tables to that rule.
+3. **One-second tokens.** `updated_at` was stored to the second, so two saves
+   within the same second had the same token. It is now stored to the
+   microsecond.
+
+`tests/test_edit_conflicts.py` has 29 tests, each run on all three forms.
+Mutation-checked six ways, and each mutation fails only its own tests.
+
+## B5 — POS sells a deactivated item with no stock check — **Fixed**
 
 **Severity: Medium · both apps**
 
@@ -237,6 +289,13 @@ deactivation, or a crafted POST (the lookup API does filter `active`).
 
 **Fix.** Treat a missing status as "not sellable" (fail closed), and refuse
 lines whose `inventory_list.active` is false inside the locked section.
+
+**Fixed (merge).** In `_priced_cart_lines()`, no status now means refused,
+with a message naming the item. The check runs after
+`_lock_and_snapshot_cart_items()` has locked the row, so a deactivation
+cannot land in between. `tests/test_pos_deactivated.py`: 999 units, and one
+unit, of a deactivated item are both refused; the control is the same sale
+while the item is active. Failing open again fails both guards.
 
 ## B6 — JOD amounts with more than 3 decimals — **Verified live**
 
@@ -270,7 +329,7 @@ the same one fixed for `balance <= 0.5` in `compute_bill_totals()`.
 
 **Fix.** In JO, `difference == 0` (or `< Decimal("0.001")`). Leave IQ as is.
 
-## B8 — IQ's visit and patient-billing PDFs print unit prices without quantity — **Confirmed by code**
+## B8 — IQ's visit and patient-billing PDFs print unit prices without quantity — **Fixed**
 
 **Severity: Medium · IQ only (JO fixed it)**
 
@@ -281,6 +340,14 @@ subtotal of 10,000. JO prints `line_total` with a "× qty" label. These are
 the documents handed to clients.
 
 **Fix.** Port JO's line rendering (money formatting stays IQ's).
+
+**Fixed (merge).** The merged tree is JO's, so both documents already print
+the line total with "× quantity", and money formatting follows the money
+setting. Nothing pinned it, so
+`test_exports.py::test_an_itemised_line_prints_its_quantity_and_line_total`
+now captures the tables each PDF is built from and checks the line for
+2 × 12: "× 2" and 24. Reintroducing IQ's rendering fails it, in each
+document separately.
 
 ## B9 — Restock reversals use current cost and current distributor — **Confirmed by code**
 
@@ -906,4 +973,5 @@ not collide with the sections above.
 | **M8** | both | **A distributor could be owed money that could never be settled.** An item already on the shelf can be flagged Consignment with no delivery logged; its sales then count as owed (from `consignment_since`), but `consignment_balance()` took the first period's start only from receipts, shrinkage and returns — so it stayed `None`, and the settlement route refused every attempt as "There's nothing to settle for this distributor yet" beside the amount owed. The suite's own "cannot pay more than is owed" test had been hitting exactly this refusal: it logged a delivery and sold nothing, so it never reached the check it was named for. | phase 1, `consignment_since` counts as activity; the test now sells through the POS and asserts the refusal's reason, with a control |
 | **M9** | both | **Quantities printed four different ways, two of them wrong.** The POS receipt and inpatient billing printed the raw column (`Item × 1.000`), the refunds list printed `|int` — a 2.5-unit refund showed as 2 — and consignment pages printed `|round(2)` (`5.0`). | phase 2b, one formatter (`logic.format_quantity`, the `|qty` filter) on every count and weight |
 | **M10** | both | **A visit's saved bill showed as an empty list.** The visit page draws its billed-items list at load, and drawing a saved line called `escapeHtml()` — defined at the END of `base.html`, after the page's own script ran. The script threw and the list stayed empty, so staff saw a billed visit as unbilled. Invisible to the JS-error sweep, which only opens visits without a bill. | phase 2d, `escapeHtml` moved into `<head>`; `test_browser.py::test_a_saved_bill_line_counts_up_as_a_number` |
+| **M11** | both | **The sidebar highlighted almost no page.** `base.html` compared `request.endpoint` with bare names (`'visits_list'`), but a blueprint route's endpoint carries its prefix (`'clinical.visits_list'`), so since the routes moved into blueprints only the few pages left in `app.py` were ever highlighted. | `nav_active()` takes full endpoint names and raises on an unknown one, so a missing prefix fails every page render in the tests; `tests/test_nav_active.py` |
 

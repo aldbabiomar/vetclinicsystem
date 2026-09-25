@@ -23,7 +23,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
+from core import BadDate, BadNumber, PER_PAGE, strict_date, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
 import clock
 
 def _picked_id(raw):
@@ -857,12 +857,19 @@ def _save_audit_lines(db, session_id):
             raise BadNumber(iid)
         if has_negative(stock_v, received_v, threshold_v, target_v):
             raise BadNumber(iid)
+        # Straight into a DATE column: anything but a real YYYY-MM-DD was a
+        # Postgres cast error, i.e. a 500 that lost every count typed on the
+        # sheet (audit B1).
+        try:
+            expiry_v = strict_date(expiry)
+        except ValueError:
+            raise BadDate(iid)
         vals = (
             stock_v, received_v if received_v is not None else 0,
             threshold_v,
             (1 if critical == "Y" else (0 if critical == "N" else None)),
             target_v,
-            expiry or None, notes or None,
+            expiry_v, notes or None,
         )
         # UPSERT rather than a SELECT-then-branch INSERT/UPDATE — closes
         # the race where two concurrent saves for the same item could
@@ -891,14 +898,17 @@ def audit_session_save(session_id):
 
     try:
         _save_audit_lines(db, session_id)
-    except BadNumber:
+    except (BadNumber, BadDate) as e:
         # Whichever earlier items in the loop already had a db.execute()
         # called for them (before the item that failed) were never
         # committed — roll them back rather than leaving them sitting in
         # an open transaction, so a save that overall failed can't
         # partially apply.
         db.rollback()
-        flash(_("Audit counts must be valid numbers. The draft was not saved — please correct the highlighted value(s)."), "error")
+        if isinstance(e, BadDate):
+            flash(_("An expiry date isn't a valid date. The draft was not saved — please correct it."), "error")
+        else:
+            flash(_("Audit counts must be valid numbers. The draft was not saved — please correct the highlighted value(s)."), "error")
         ctx = _audit_session_context(db, session_id)
         if ctx is None:
             return redirect(url_for("inventory.audit_history_list"))
@@ -919,9 +929,12 @@ def audit_session_confirm(session_id):
         return redirect(url_for("inventory.audit_history_list"))
     try:
         _save_audit_lines(db, session_id)
-    except BadNumber:
+    except (BadNumber, BadDate) as e:
         db.rollback()
-        flash(_("Audit counts must be valid numbers. Nothing was confirmed — please correct the highlighted value(s)."), "error")
+        if isinstance(e, BadDate):
+            flash(_("An expiry date isn't a valid date. Nothing was confirmed — please correct it."), "error")
+        else:
+            flash(_("Audit counts must be valid numbers. Nothing was confirmed — please correct the highlighted value(s)."), "error")
         ctx = _audit_session_context(db, session_id)
         if ctx is None:
             return redirect(url_for("inventory.audit_history_list"))

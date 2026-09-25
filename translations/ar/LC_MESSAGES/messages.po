@@ -7058,3 +7058,43 @@ msgstr "لا يمكنك منح صلاحيات لا تملكها بنفسك أو 
 #: routes/settings.py
 msgid "Nothing was saved: your role can't change the backup and log-retention settings."
 msgstr "لم يُحفظ أي شيء: لا يملك دورك صلاحية تغيير إعدادات النسخ الاحتياطي ومدة الاحتفاظ بالسجلات."
+
+#: core.py
+msgid "That date wasn't valid — showing all dates instead."
+msgstr "التاريخ غير صالح — يتم عرض كل التواريخ بدلًا منه."
+
+#: routes/inventory.py
+msgid "An expiry date isn't a valid date. The draft was not saved — please correct it."
+msgstr "أحد تواريخ الانتهاء غير صالح. لم تُحفظ المسودة — يرجى تصحيحه."
+
+#: routes/inventory.py
+msgid "An expiry date isn't a valid date. Nothing was confirmed — please correct it."
+msgstr "أحد تواريخ الانتهاء غير صالح. لم يتم تأكيد شيء — يرجى تصحيحه."
+
+#: routes/sales.py
+msgid "%(name)s is no longer sold — it was deactivated in the catalogue. Remove it from the cart."
+msgstr "%(name)s لم يعد يُباع — تم إلغاء تفعيله في دليل الأصناف. أزِله من السلة."
+
+#: routes/clinical.py
+msgid "Someone else saved this visit while you had it open, so your changes were not saved. Their changes are listed below."
+msgstr "حفظ شخص آخر هذه الزيارة أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه."
+
+#: routes/clinical.py
+msgid "Someone else saved this boarding stay while you had it open, so your changes were not saved. Their changes are listed below."
+msgstr "حفظ شخص آخر فترة الإقامة الفندقية هذه أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه."
+
+#: routes/clinical.py
+msgid "Someone else saved this inpatient case while you had it open, so your changes were not saved. Their changes are listed below."
+msgstr "حفظ شخص آخر حالة الإقامة المرضية هذه أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته مدرجة أدناه."
+
+#: templates/_edit_conflict.html
+msgid "Saved by someone else since you opened this form:"
+msgstr "ما حفظه شخص آخر منذ أن فتحت هذا النموذج:"
+
+#: templates/_edit_conflict.html
+msgid "Your version is still in the form. Reload the page to start again from theirs, or save yours over it:"
+msgstr "نسختك ما زالت في النموذج. أعد تحميل الصفحة لتبدأ من نسخته، أو احفظ نسختك فوقها:"
+
+#: templates/_edit_conflict.html
+msgid "Save my version over their changes"
+msgstr "احفظ نسختي فوق تغييراته"
