@@ -54,7 +54,9 @@ def stale_edit_error(old_updated_at, submitted_updated_at, what):
     old_updated_at is None for a row this mechanism has never touched
     (created before this existed, or its very first edit), in which case
     there's nothing to compare against and saving proceeds."""
-    if old_updated_at and submitted_updated_at != old_updated_at:
+    # Compared as instants (clock.token): the form carries a canonical
+    # string, the database returns a timestamptz.
+    if old_updated_at and not clock.same_instant(submitted_updated_at, old_updated_at):
         return (f"This {what} was changed by someone else while you had it open — "
                 f"reload the page to see the latest version before saving your changes.")
     return None
@@ -2234,7 +2236,7 @@ def inpatient_billing_delete(case_id, line_id):
     db.execute("DELETE FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id))
     logic.refresh_inpatient_total(db, case_id)
     if row["timestamp"]:
-        logic.recompute_month_summary(db, row["timestamp"][:7])
+        logic.recompute_month_summary(db, logic.month_key(row["timestamp"]))
     auth.log_change(db, "inpatient_billing", str(line_id), "delete")
     db.commit()
     flash(_("Line removed."), "success")

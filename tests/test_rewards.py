@@ -385,7 +385,7 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
         db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
                    "VALUES (?,?,?,?,?,?,?,?)", (iid, f"Item {iid}", "Retail", "unit", False, Decimal("1.000"), "Owned", True))
     cur = db.execute(
-        "INSERT INTO sales (sale_date, subtotal, discount_percent, discount_source, total, payment_method) "
+        "INSERT INTO sales (sold_at, subtotal, discount_percent, discount_source, total, payment_method) "
         "VALUES (?,?,?,?,?,?) RETURNING id",
         (clock.today().isoformat(), Decimal("21.000"), RATE, "member", Decimal("19.950"), "Cash"))
     sale_id = cur.fetchone()["id"]

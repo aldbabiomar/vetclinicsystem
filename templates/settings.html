@@ -169,7 +169,7 @@
   <tbody>
     {% for b in recent_backups %}
     <tr>
-      <td>{{ b.started_at }}</td>
+      <td>{{ b.started_at|localtime }}</td>
       <td class="muted">{{ ((b.triggered_by or "—") | title)|tr }}</td>
       <td>{% if b.status == 'success' %}<span class="badge">{{ _('Success') }}</span>{% elif b.status == 'failed' %}<span class="badge danger">{{ _('Failed — %(error)s', error=b.error) }}</span>{% else %}<span class="badge warn">{{ _('Running') }}</span>{% endif %}</td>
       <td>{{ (b.filesize_bytes / 1024 / 1024) | round(1) if b.filesize_bytes else "—" }}{% if b.filesize_bytes %} MB{% endif %}</td>
@@ -215,7 +215,7 @@
   <tbody>
     {% for r in recent_restores %}
     <tr>
-      <td>{{ r.started_at }}</td>
+      <td>{{ r.started_at|localtime }}</td>
       <td class="muted">{{ ((r.triggered_by or "—") | title)|tr }}</td>
       <td>{% if r.status == 'success' %}<span class="badge">{{ _('Success') }}</span>{% else %}<span class="badge danger">{{ _('Failed — %(error)s', error=r.error) }}</span>{% endif %}</td>
       <td class="muted">{{ r.source_file or "—" }}</td>

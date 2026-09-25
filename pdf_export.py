@@ -30,7 +30,7 @@ def _minute(ts):
     it: '2026-09-25 09:29'. Settlement bounds are stored to the microsecond so
     that a sale in the same second as a settlement falls on exactly one side
     of it; the statement does not need to show that."""
-    return ts[:16].replace("T", " ") if ts else ts
+    return logic.fmt_datetime(ts) if ts else ts
 
 
 def _cur():
@@ -109,7 +109,7 @@ def _attachments_note(ss, files):
         return []
     flow = [Paragraph("Attachments on file (not included in this PDF)", ss["H2"])]
     for f in files:
-        flow.append(Paragraph(f"\u2022 {X(f['original_name'])} — uploaded {X(f['uploaded_at'][:10])}", ss["Body"]))
+        flow.append(Paragraph(f"\u2022 {X(f['original_name'])} — uploaded {X(logic.fmt_date(f['uploaded_at']))}", ss["Body"]))
     flow.append(Paragraph(
         "These files are stored in the system but are not embedded in this export. "
         "Open the record on-screen to view them, and print them separately if needed.",
@@ -275,7 +275,7 @@ def export_sale_receipt(db, sale_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph("Sale receipt", ss["H1"]),
-        Paragraph(f"Sale #{X(sale_id)} \u00b7 {X(sale['sale_date'])} \u00b7 Sold by {X(sale['cashier_name'] or '\u2014')}", ss["Small"]),
+        Paragraph(f"Sale #{X(sale_id)} \u00b7 {X(logic.fmt_datetime(sale['sold_at']))} \u00b7 Sold by {X(sale['cashier_name'] or '\u2014')}", ss["Small"]),
         Spacer(1, 12),
     ]
 
@@ -465,7 +465,7 @@ def export_inpatient_pdf(db, case_id):
     story.append(Paragraph("Daily Updates", ss["H2"]))
     if updates:
         for u in updates:
-            story.append(Paragraph(f"<b>{X(u['timestamp'])}</b> ({X(u['full_name'] or '\u2014')}): {X(u['note'])}", ss["Body"]))
+            story.append(Paragraph(f"<b>{X(logic.fmt_datetime(u['timestamp']))}</b> ({X(u['full_name'] or '\u2014')}): {X(u['note'])}", ss["Body"]))
     else:
         story.append(Paragraph("No daily updates logged.", ss["Small"]))
 
@@ -545,7 +545,7 @@ def export_boarding_pdf(db, boarding_id):
     if incidents:
         for i in incidents:
             contact_bit = f" \u2014 Contacted owner via {X(i['contact_method'])}" if i["contacted"] == "Y" else " \u2014 Owner not contacted"
-            story.append(Paragraph(f"<b>{X(i['timestamp'])}</b> ({X(i['full_name'] or '\u2014')}): {X(i['issue'])}{contact_bit}", ss["Body"]))
+            story.append(Paragraph(f"<b>{X(logic.fmt_datetime(i['timestamp']))}</b> ({X(i['full_name'] or '\u2014')}): {X(i['issue'])}{contact_bit}", ss["Body"]))
             if i["response"]:
                 story.append(Paragraph(f"Response: {X(i['response'])}", ss["Body"]))
     else:
@@ -601,7 +601,7 @@ def export_consignment_settlement_pdf(db, settlement_id):
         Paragraph(f"Settlement #{X(settlement_id)} · {X(s['distributor_name'])}"
                   f"{' · ' + X(contact_bits) if contact_bits else ''}", ss["Small"]),
         Paragraph(f"Period: {X(_minute(s['period_start']) or 'start')} — {X(_minute(s['period_end']))}", ss["Small"]),
-        Paragraph(f"Recorded by {X(s['settled_by_name'] or '—')} on {X(s['created_at'])}", ss["Small"]),
+        Paragraph(f"Recorded by {X(s['settled_by_name'] or '—')} on {X(logic.fmt_datetime(s['created_at']))}", ss["Small"]),
         Spacer(1, 14),
     ]
 

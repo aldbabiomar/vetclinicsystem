@@ -55,7 +55,7 @@
     {% for f in self_check.findings %}<li>{{ f|finding }}</li>{% endfor %}
   </ul>
   <div class="small" style="margin-top:6px;">
-    {{ _('Last checked %(ran_at)s', ran_at=self_check.ran_at.replace('T', ' ')) }} —
+    {{ _('Last checked %(ran_at)s', ran_at=self_check.ran_at|localtime) }} —
     <a href="{{ url_for('settings.settings_page') }}" style="color:inherit; text-decoration:underline;">{{ _('Open Settings →') }}</a>
   </div>
 </div>

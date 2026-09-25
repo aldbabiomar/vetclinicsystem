@@ -22,6 +22,8 @@ WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
 def parse_date(v):
     if v is None or v == "":
         return None
+    if isinstance(v, datetime):
+        return clock.aware(v).date()
     if isinstance(v, date):
         return v
     # Accepts a bare YYYY-MM-DD, or the date half of a full ISO timestamp --
@@ -44,19 +46,67 @@ def parse_date(v):
 
 
 def fmt_date(d):
-    return d.isoformat() if d else None
+    """A date for display: a date as is, a stored moment (timestamptz) as the
+    clinic-zone day it fell on."""
+    if not d:
+        return None
+    if isinstance(d, datetime):
+        return clock.aware(d).date().isoformat()
+    return d.isoformat()
+
+
+def fmt_datetime(v, fmt="%Y-%m-%d %H:%M"):
+    """A stored moment for display, in the clinic's zone: a timestamptz read
+    back, or an ISO string held in a setting or a job result. Digits only —
+    the |localtime filter adds Arabic-Indic ones."""
+    if not v:
+        return ""
+    return clock.parse(v).strftime(fmt)
 
 
 def month_key(d):
-    """Returns the 'YYYY-MM' prefix of a date value, accepting either an
-    ISO date string or a datetime.date/datetime object -- DATE columns
-    (via psycopg) come back as the latter, values built in Python are
-    usually the former. Returns None for a falsy input."""
+    """Returns the 'YYYY-MM' of a date value: an ISO date string, a date, or
+    a datetime (a timestamptz read back) — the last taken in the clinic's
+    zone, so a sale at 01:00 on the 1st is not filed under last month
+    because the connection happened to be in UTC. None for a falsy input."""
     if not d:
         return None
+    if isinstance(d, datetime):
+        return clock.aware(d).strftime("%Y-%m")
     if hasattr(d, "isoformat"):
         return d.isoformat()[:7]
     return str(d)[:7]
+
+
+def _first_of_next_month(first):
+    return (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def month_dates(month):
+    """'YYYY-MM' -> (first day, first day of the next month), for a DATE
+    column: `col >= ? AND col < ?`. Never `col::text LIKE 'YYYY-MM%'` — that
+    cannot use an index and, on a timestamp, does not work at all."""
+    first = date.fromisoformat(f"{month}-01")
+    return first, _first_of_next_month(first)
+
+
+def month_bounds(month):
+    """'YYYY-MM' -> the first instant of that month and of the next, in the
+    clinic's zone, for a timestamptz column: `col >= ? AND col < ?`."""
+    first, nxt = month_dates(month)
+    z = clock.zone()
+    return (datetime.combine(first, datetime.min.time(), tzinfo=z),
+            datetime.combine(nxt, datetime.min.time(), tzinfo=z))
+
+
+def day_bounds(day):
+    """A date (or ISO date string) -> the first instant of that day and of
+    the next, in the clinic's zone, for a timestamptz column."""
+    if isinstance(day, str):
+        day = date.fromisoformat(day)
+    z = clock.zone()
+    start = datetime.combine(day, datetime.min.time(), tzinfo=z)
+    return start, datetime.combine(day + timedelta(days=1), datetime.min.time(), tzinfo=z)
 
 
 def get_setting(db, key, default=None):
@@ -401,7 +451,7 @@ def confirmed_audit_rows_by_item(db, item_id=None):
     # correctly; audit_date alone (date-only) can't tell two same-day
     # audits apart. See inventory_status()'s use of confirmed_at as the
     # transaction cutoff for why this distinction matters.
-    q += " ORDER BY l.item_id, COALESCE(s.confirmed_at, s.audit_date::text), l.id"
+    q += " ORDER BY l.item_id, COALESCE(s.confirmed_at, s.audit_date::timestamptz), l.id"
     rows = [dict(r) for r in db.execute(q, params).fetchall()]
 
     by_item = defaultdict(list)
@@ -490,7 +540,7 @@ def inventory_status(db):
         rows = by_item.get(it["id"], [])
         if rows:
             latest = rows[-1]
-            cutoffs[it["id"]] = latest["confirmed_at"] or str(latest["audit_date"])
+            cutoffs[it["id"]] = latest["confirmed_at"] or day_bounds(parse_date(latest["audit_date"]))[0]
     txn_since = _txn_qty_since_batch(db, cutoffs)
 
     status = []
@@ -1272,7 +1322,10 @@ def _revenue_and_cogs_by_month(db, month=None):
     revenue_by_month = defaultdict(Decimal)
     cost_by_item = {r["id"]: r["cost_price"] or 0 for r in db.execute("SELECT id, cost_price FROM inventory_list").fetchall()}
     cogs_by_month = defaultdict(Decimal)
-    month_like = (month + "%") if month else None
+    # A month is a range: [first, next) as dates for DATE columns, and as
+    # clinic-zone instants for timestamptz ones.
+    d_from, d_to = month_dates(month) if month else (None, None)
+    t_from, t_to = month_bounds(month) if month else (None, None)
 
     # Automatic visit billing: cost basis comes from the snapshot taken at
     # Save time (visit_billing_lines) — this is what stops editing today's
@@ -1280,8 +1333,8 @@ def _revenue_and_cogs_by_month(db, month=None):
     # the stored billing.total (kept in sync by
     # logic.refresh_visit_billing_total()) instead of re-deriving it, so
     # reports always agree with what the bill actually shows.
-    billing_where = " WHERE date_billed::text LIKE ?" if month else ""
-    billing_params = [month_like] if month else []
+    billing_where = " WHERE date_billed >= ? AND date_billed < ?" if month else ""
+    billing_params = [d_from, d_to] if month else []
     for r in db.execute(
         "SELECT visit_id, billing_type, date_billed, total FROM billing" + billing_where,
         billing_params,
@@ -1296,10 +1349,10 @@ def _revenue_and_cogs_by_month(db, month=None):
                 cogs_by_month[mth] += (l["unit_cost"] or 0) * l["quantity"]
         revenue_by_month[mth] += r["total"] or 0
 
-    sales_where = " WHERE sale_date LIKE ?" if month else ""
-    sales_params = [month_like] if month else []
-    for r in db.execute("SELECT sale_date, total FROM sales" + sales_where, sales_params).fetchall():
-        mth = r["sale_date"][:7]
+    sales_where = " WHERE sold_at >= ? AND sold_at < ?" if month else ""
+    sales_params = [t_from, t_to] if month else []
+    for r in db.execute("SELECT sold_at, total FROM sales" + sales_where, sales_params).fetchall():
+        mth = month_key(r["sold_at"])
         revenue_by_month[mth] += r["total"] or 0
 
     # Inpatient billing (procedures checked off during a stay). Each line has
@@ -1311,14 +1364,14 @@ def _revenue_and_cogs_by_month(db, month=None):
     # cost_price set at billing time) falls back to the live Price List join.
     case_discounts = {r["id"]: r["discount_percent"] or 0 for r in db.execute(
         "SELECT id, discount_percent FROM inpatient_cases").fetchall()}
-    ib_where = " WHERE ib.timestamp LIKE ?" if month else ""
-    ib_params = [month_like] if month else []
+    ib_where = " WHERE ib.timestamp >= ? AND ib.timestamp < ?" if month else ""
+    ib_params = [t_from, t_to] if month else []
     for r in db.execute(
         "SELECT ib.case_id, ib.price_id, ib.quantity, ib.timestamp, ib.unit_price, ib.unit_cost, ib.discountable, "
         "p.sale_price, p.cost_price FROM inpatient_billing ib "
         "JOIN price_list p ON p.id = ib.price_id" + ib_where, ib_params
     ).fetchall():
-        mth = r["timestamp"][:7]
+        mth = month_key(r["timestamp"])
         unit_price = r["unit_price"] if r["unit_price"] is not None else (r["sale_price"] or 0)
         unit_cost = r["unit_cost"] if r["unit_cost"] is not None else (r["cost_price"] or 0)
         # Against the LINE's own eligibility, not the case's discount alone.
@@ -1332,8 +1385,8 @@ def _revenue_and_cogs_by_month(db, month=None):
 
     # Boarding revenue is attributed to the month the stay started (entry_date).
     # No COGS — boarding is a service, same treatment as a Service price_list item.
-    boarding_where = " AND entry_date::text LIKE ?" if month else ""
-    boarding_params = [month_like] if month else []
+    boarding_where = " AND entry_date >= ? AND entry_date < ?" if month else ""
+    boarding_params = [d_from, d_to] if month else []
     for r in db.execute(
         "SELECT entry_date, total FROM boarding_sessions WHERE total IS NOT NULL" + boarding_where, boarding_params
     ).fetchall():
@@ -1342,22 +1395,22 @@ def _revenue_and_cogs_by_month(db, month=None):
     # Retail COGS: cost basis comes from the snapshot taken at sale time
     # (sale_items.unit_cost) — falls back to the live Inventory Catalog
     # join only for a sale that predates this column.
-    si_where = " WHERE s.sale_date LIKE ?" if month else ""
-    si_params = [month_like] if month else []
+    si_where = " WHERE s.sold_at >= ? AND s.sold_at < ?" if month else ""
+    si_params = [t_from, t_to] if month else []
     for r in db.execute(
-        "SELECT si.item_id, si.quantity, si.unit_cost, s.sale_date FROM sale_items si "
+        "SELECT si.item_id, si.quantity, si.unit_cost, s.sold_at FROM sale_items si "
         "JOIN sales s ON s.id=si.sale_id" + si_where, si_params
     ).fetchall():
         unit_cost = r["unit_cost"] if r["unit_cost"] is not None else cost_by_item.get(r["item_id"], 0)
-        cogs_by_month[r["sale_date"][:7]] += r["quantity"] * unit_cost
+        cogs_by_month[month_key(r["sold_at"])] += r["quantity"] * unit_cost
 
     # Refunds reduce revenue in the month the refund itself was processed
     # (not the original sale/visit's month) — standard accounting practice,
     # and it means closed prior months never silently change. A restocked
     # retail refund also reverses the COGS that was booked on the original
     # sale, since the item's cost basis is back in inventory, not spent.
-    refunds_where = " WHERE refund_date::text LIKE ?" if month else ""
-    refunds_params = [month_like] if month else []
+    refunds_where = " WHERE refund_date >= ? AND refund_date < ?" if month else ""
+    refunds_params = [d_from, d_to] if month else []
     for r in db.execute(
         "SELECT id, refund_type, refund_date, amount, restocked FROM refunds" + refunds_where, refunds_params
     ).fetchall():
@@ -1430,7 +1483,7 @@ def months_touched_by_inpatient_case(db, case_id):
     lines in — used to recompute every month a case's discount change could
     have affected, since a long stay can span more than one month."""
     rows = db.execute(
-        "SELECT DISTINCT substr(timestamp, 1, 7) as m FROM inpatient_billing WHERE case_id=?", (case_id,)
+        "SELECT DISTINCT to_char(timestamp, 'YYYY-MM') as m FROM inpatient_billing WHERE case_id=?", (case_id,)
     ).fetchall()
     return [r["m"] for r in rows if r["m"]]
 
@@ -1680,11 +1733,15 @@ def patient_history(db, patient_id):
 # Audit / login log pages
 # ---------------------------------------------------------------------------
 def changes_on_date(db, day_str):
-    return db.execute("SELECT * FROM audit_log WHERE substr(timestamp,1,10)=? ORDER BY timestamp DESC", (day_str,)).fetchall()
+    start, end = day_bounds(day_str)
+    return db.execute("SELECT * FROM audit_log WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC",
+                      (start, end)).fetchall()
 
 
 def logins_on_date(db, day_str):
-    rows = db.execute("SELECT * FROM login_log WHERE substr(timestamp,1,10)=? ORDER BY timestamp DESC", (day_str,)).fetchall()
+    start, end = day_bounds(day_str)
+    rows = db.execute("SELECT * FROM login_log WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC",
+                      (start, end)).fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -2002,11 +2059,10 @@ def consignment_balance(db, distributor_id):
         period_start = earliest["m"] if earliest else None
         last_settlement_date = None
 
-    # To the microsecond, like sale_date, and every sum below is bounded by
-    # it: with a seconds-precision bound, a sale in the same second as a
-    # settlement ('…T10:00:00.3' > '…T10:00:00') was counted in that
-    # settlement AND again in the next (CODE_AUDIT B13).
-    period_end = clock.now().isoformat(timespec="microseconds")
+    # Every sum below is bounded by this instant: with an unbounded (or a
+    # seconds-truncated) period, a sale in the same second as a settlement
+    # was counted in that settlement AND again in the next (CODE_AUDIT B13).
+    period_end = clock.now()
 
     # si.distributor_id is a snapshot taken at checkout time (see
     # pos_checkout()) — this is what makes attribution historically stable:
@@ -2018,10 +2074,12 @@ def consignment_balance(db, distributor_id):
     # F-07.
     sold_where = (
         "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=? "
-        "AND s.sale_date > GREATEST(?, COALESCE(i.consignment_since, '')) "
-        "AND s.sale_date <= ?"
+        # GREATEST ignores a NULL argument; both NULL (no period yet, item
+        # never flagged) means no lower bound, not "nothing" -- hence -infinity.
+        "AND s.sold_at > COALESCE(GREATEST(?::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
+        "AND s.sold_at <= ?"
     )
-    sold_params = [distributor_id, period_start or "", period_end]
+    sold_params = [distributor_id, period_start, period_end]
     sold_row = db.execute(
         "SELECT COALESCE(SUM(si.quantity * COALESCE(si.unit_cost, 0)), 0) AS cost, "
         "COALESCE(SUM(si.quantity), 0) AS units "
@@ -2039,9 +2097,9 @@ def consignment_balance(db, distributor_id):
     cost_by_item = {r["id"]: r["cost_price"] or 0 for r in db.execute("SELECT id, cost_price FROM inventory_list").fetchall()}
     restock_where = (
         "WHERE i.ownership_type='Consignment' AND i.distributor_id=? AND r.restocked=true "
-        "AND r.refund_date > GREATEST(?::date, COALESCE(i.consignment_since::date, '-infinity'::date))"
+        "AND r.refund_date > COALESCE(GREATEST(?::timestamptz::date, i.consignment_since::date), '-infinity'::date)"
     )
-    restock_params = [distributor_id, period_start[:10] if period_start else "-infinity"]
+    restock_params = [distributor_id, period_start]
     restocked_rows = db.execute(
         "SELECT ri.item_id, ri.quantity FROM refund_items ri JOIN refunds r ON r.id=ri.refund_id "
         "JOIN inventory_list i ON i.id = ri.item_id " + restock_where,
@@ -2112,8 +2170,8 @@ def consignment_distributors_overview(db):
         month_units = db.execute(
             "SELECT COALESCE(SUM(si.quantity), 0) AS u FROM sale_items si "
             "JOIN sales s ON s.id=si.sale_id JOIN inventory_list i ON i.id=si.item_id "
-            "WHERE i.distributor_id=? AND i.ownership_type='Consignment' AND s.sale_date LIKE ?",
-            (d["id"], this_month + "%"),
+            "WHERE i.distributor_id=? AND i.ownership_type='Consignment' AND s.sold_at >= ? AND s.sold_at < ?",
+            (d["id"], *month_bounds(this_month)),
         ).fetchone()["u"] or 0
         balance = consignment_balance(db, d["id"])
         out.append({
@@ -2139,14 +2197,14 @@ def consignment_sales_by_distributor(db, distributor_id=None, date_from=None, da
         where.append("d.id = ?")
         params.append(distributor_id)
     if date_from:
-        where.append("s.sale_date >= ?")
-        params.append(date_from)
+        where.append("s.sold_at >= ?")
+        params.append(day_bounds(date_from)[0])
     if date_to:
-        where.append("s.sale_date < ?")
-        params.append(date_to)
+        where.append("s.sold_at < ?")
+        params.append(day_bounds(date_to)[0])
     rows = db.execute(
         "SELECT d.id AS distributor_id, d.name AS distributor_name, "
-        "substring(s.sale_date, 1, 7) AS month, i.id AS item_id, i.name AS item_name, "
+        "to_char(s.sold_at, 'YYYY-MM') AS month, i.id AS item_id, i.name AS item_name, "
         "SUM(si.quantity) AS units_sold, SUM(si.line_total) AS revenue, "
         "SUM(si.quantity * COALESCE(si.unit_cost, 0)) AS owed_to_distributor, "
         "SUM(si.line_total) - SUM(si.quantity * COALESCE(si.unit_cost, 0)) AS your_markup "
@@ -2217,10 +2275,10 @@ def cash_register_ledger(db, day):
     Returns a list of dicts: event_date, employee, subtotal,
     discount_percent, total, payment_method, event_type, ref_id."""
     rows = db.execute(
-        "SELECT s.sale_date AS event_date, u.full_name AS employee, s.subtotal AS subtotal, "
+        "SELECT to_char(s.sold_at, 'YYYY-MM-DD HH24:MI') AS event_date, u.full_name AS employee, s.subtotal AS subtotal, "
         "s.discount_percent AS discount_percent, s.total AS total, s.payment_method AS payment_method, "
         "'POS Sale' AS event_type, s.id AS ref_id "
-        "FROM sales s LEFT JOIN users u ON u.id = s.cashier_id WHERE s.sale_date LIKE ? "
+        "FROM sales s LEFT JOIN users u ON u.id = s.cashier_id WHERE s.sold_at >= ? AND s.sold_at < ? "
         "UNION ALL "
         "SELECT p.date::text, u.full_name, p.amount, 0.0, p.amount, p.method, "
         "CASE WHEN p.visit_id IS NOT NULL THEN 'Visit Payment' "
@@ -2235,7 +2293,7 @@ def cash_register_ledger(db, day):
         "r.id "
         "FROM refunds r LEFT JOIN users u ON u.id = r.processed_by WHERE r.refund_date = ? "
         "ORDER BY event_date DESC",
-        (day + "%", day, day),
+        (*day_bounds(day), day, day),
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -2499,14 +2557,14 @@ def revenue_by_category(db, months_back=12):
           WHERE b.billing_type='Manual' AND b.date_billed IS NOT NULL AND b.date_billed >= ?
         ),
         retail_lines AS (
-          SELECT substr(s.sale_date,1,7) AS month, 'Retail' AS category,
+          SELECT to_char(s.sold_at, 'YYYY-MM') AS month, 'Retail' AS category,
                  si.line_total
                    * (1 - CASE WHEN si.discountable THEN COALESCE(s.discount_percent,0) ELSE 0 END/100.0) AS amount
           FROM sale_items si JOIN sales s ON s.id = si.sale_id
-          WHERE s.sale_date >= ?
+          WHERE s.sold_at >= ?
         ),
         inpatient_lines AS (
-          SELECT substr(ib.timestamp,1,7) AS month, pl.category AS category,
+          SELECT to_char(ib.timestamp, 'YYYY-MM') AS month, pl.category AS category,
                  COALESCE(ib.unit_price, pl.sale_price) * ib.quantity
                    * (1 - CASE WHEN ib.discountable THEN COALESCE(ic.discount_percent,0) ELSE 0 END/100.0) AS amount
           FROM inpatient_billing ib
@@ -2639,7 +2697,7 @@ def client_value(db, limit=20, months_back=12):
           UNION ALL
           -- Retail, but only where a customer was identified at the till.
           SELECT s.owner_id, s.total, 1
-          FROM sales s WHERE s.owner_id IS NOT NULL AND s.sale_date >= ?
+          FROM sales s WHERE s.owner_id IS NOT NULL AND s.sold_at >= ?
           UNION ALL
           -- Money back out. Not counted as a payment, so payment_count stays
           -- a count of visits paid for rather than going negative.

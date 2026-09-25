@@ -564,6 +564,16 @@ def localdate_filter(d):
     return formatted
 
 
+@app.template_filter("localtime")
+def localtime_filter(v, fmt="%Y-%m-%d %H:%M"):
+    """A stored moment, shown in the clinic's zone (the Time Zone setting),
+    Arabic-Indic digits under Arabic. `|localtime("%H:%M:%S")` for a time."""
+    formatted = logic.fmt_datetime(v, fmt)
+    if formatted and str(get_locale()) == "ar":
+        formatted = to_arabic_indic_digits(formatted)
+    return formatted
+
+
 @app.template_filter("weekdate")
 def weekdate_filter(d):
     """Short "Mon 14 Sep" style date, in the current locale.
@@ -654,6 +664,8 @@ app.jinja_env.globals["bind_port"] = BIND_PORT
 # A count or measurement as an <input> value or placeholder: "12", not
 # "12.000" — and Western digits, unlike |qty (an input is parsed back).
 app.jinja_env.globals["qty_value"] = logic.format_quantity
+# The hidden expected_updated_at an edit form carries (clock.token).
+app.jinja_env.globals["edit_token"] = clock.token
 app.jinja_env.globals["fv"] = form_value
 # logic.format_percent() strips the meaningless decimal tail; display_number()
 # converts to Arabic-Indic digits when the locale is ar. Composed here rather
@@ -739,7 +751,8 @@ def require_login():
     # of PERMANENT_SESSION_LIFETIME. An empty stored value (pre-migration
     # row, or an old session from before this check existed) is treated as
     # "nothing to compare against yet" rather than an automatic mismatch.
-    if user["password_changed_at"] and session.get("password_changed_at") != user["password_changed_at"]:
+    if user["password_changed_at"] and not clock.same_instant(session.get("password_changed_at"),
+                                                               user["password_changed_at"]):
         session.clear()
         flash(_("Your password was changed — please log in again."), "error")
         return redirect(url_for("login"))
@@ -1061,7 +1074,7 @@ def login():
         session.clear()
         session["user_id"] = row["id"]
         session["username"] = row["full_name"]
-        session["password_changed_at"] = row["password_changed_at"]
+        session["password_changed_at"] = clock.token(row["password_changed_at"])
         # Gives the session an actual server-enforced expiry (see
         # PERMANENT_SESSION_LIFETIME above) instead of relying solely on
         # the browser dropping the cookie on close — which doesn't happen
@@ -1105,7 +1118,7 @@ def change_password():
             # Keeps this session logged in through its own change — only
             # OTHER sessions for this user (e.g. a stolen cookie elsewhere)
             # get invalidated by require_login()'s mismatch check.
-            session["password_changed_at"] = changed_at
+            session["password_changed_at"] = clock.token(changed_at)
             flash(_("Password updated."), "success")
             return redirect(url_for("dashboard"))
     return render_template("change_password.html", forced=forced)

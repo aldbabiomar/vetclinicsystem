@@ -5,7 +5,7 @@
 <div class="card">
 <form method="post" data-track-unsaved>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="expected_updated_at" value="{{ visit.updated_at or '' }}">
+      <input type="hidden" name="expected_updated_at" value="{{ edit_token(visit.updated_at) }}">
   {% include "_visit_fields.html" %}
 
   <div class="section-title">{{ _('Clinical Notes') }}</div>

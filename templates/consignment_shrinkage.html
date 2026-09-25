@@ -57,7 +57,7 @@
   <tbody>
     {% for l in lines %}
     <tr>
-      <td>{{ l.logged_at[:10] }}</td>
+      <td>{{ l.logged_at|localdate }}</td>
       <td>{{ l.item_name }}</td>
       <td>{{ l.distributor_name }}</td>
       <td class="num-col">{{ l.quantity|qty }}</td>

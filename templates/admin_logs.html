@@ -16,7 +16,7 @@
   <tbody>
     {% for c in changes %}
     <tr>
-      <td class="muted">{{ c.timestamp[11:19] }}</td>
+      <td class="muted">{{ c.timestamp|localtime("%H:%M:%S") }}</td>
       <td>{{ c.username or "—" }}</td>
       <td><span class="badge {{ 'ok' if c.action=='create' else ('danger' if c.action=='delete' else 'warn') }}">{{ c.action|tr }}</span></td>
       <td>{{ c.table_name }}</td>
@@ -38,7 +38,7 @@
   <tbody>
     {% for l in logins %}
     <tr>
-      <td class="muted">{{ l.timestamp[11:19] }}</td>
+      <td class="muted">{{ l.timestamp|localtime("%H:%M:%S") }}</td>
       <td>{{ l.username }}</td>
       <td><span class="badge {{ 'ok' if l.success else 'danger' }}">{{ _('Success') if l.success else _('Failed') }}</span></td>
       <td class="muted">{{ l.ip }}</td>

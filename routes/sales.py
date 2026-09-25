@@ -49,7 +49,7 @@ def api_sale_refundable_items(sale_id):
         return jsonify({"error": "No sale with that ID."}), 404
     return jsonify({
         "sale_id": sale["id"],
-        "sale_date": sale["sale_date"],
+        "sold_at": logic.fmt_datetime(sale["sold_at"]),
         "sale_total": sale["total"],
         "cleanup_amount": sale["cleanup_amount"] or 0,
         "lines": [
@@ -388,7 +388,7 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
     rows are written.
     """
     cur = db.execute(
-        "INSERT INTO sales (sale_date, cashier_id, subtotal, discount_percent, discount_applied_by, total, "
+        "INSERT INTO sales (sold_at, cashier_id, subtotal, discount_percent, discount_applied_by, total, "
         "payment_method, cash_received, change_given, idempotency_key, cleanup_amount, cleanup_applied_by, "
         "owner_id, discount_source) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -586,12 +586,12 @@ def pos_history():
     db = get_db()
     page = get_page()
     date_filter = date_filter_arg()
-    where = " WHERE s.sale_date LIKE ?" if date_filter else ""
-    params = [date_filter + "%"] if date_filter else []
+    where = " WHERE s.sold_at >= ? AND s.sold_at < ?" if date_filter else ""
+    params = list(logic.day_bounds(date_filter)) if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM sales s{where}", params).fetchone()["c"]
     sales = db.execute(
         f"SELECT s.*, u.full_name as cashier_name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id{where} "
-        "ORDER BY s.sale_date DESC LIMIT ? OFFSET ?", params + [PER_PAGE, page_offset(page)]
+        "ORDER BY s.sold_at DESC LIMIT ? OFFSET ?", params + [PER_PAGE, page_offset(page)]
     ).fetchall()
     return render_template("pos_history.html", sales=sales, date_filter=date_filter,
                             page=page, total_pages=page_count(total), total_count=total)

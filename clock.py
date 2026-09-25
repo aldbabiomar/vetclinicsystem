@@ -16,7 +16,7 @@ Active per request (app.py loads it with the money setting) and copied into
 background job threads with the rest of the context, like money.py.
 """
 import contextvars
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, available_timezones
 
 SETTING_KEY = "time_zone"
@@ -111,6 +111,26 @@ def parse(text):
     if isinstance(text, datetime):
         return aware(text)
     return aware(datetime.fromisoformat(str(text)))
+
+
+def token(value):
+    """One canonical string for a stored moment — for an edit-conflict token
+    carried by a form, or a copy kept in the session. A timestamptz read back
+    and the string it was written as can differ in form (".000000" dropped,
+    another offset) while naming the same instant; comparing them as text
+    would call every save a conflict. UTC, to the microsecond. Something that
+    is not a timestamp at all (a tampered field) stays as it is, so it never
+    matches."""
+    if value is None or value == "":
+        return ""
+    try:
+        return parse(value).astimezone(timezone.utc).isoformat(timespec="microseconds")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def same_instant(a, b):
+    return token(a) == token(b)
 
 
 def apply_to(con, name=None):

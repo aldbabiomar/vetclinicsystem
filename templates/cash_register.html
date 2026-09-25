@@ -81,7 +81,7 @@
 
 {% if latest_audit %}
 <p class="small muted" style="margin-top:12px;">
-  {{ _('Last audited %(at)s by %(who)s — counted %(counted)s %(cur)s cash against a system total of %(system)s %(cur)s (%(difference)s %(cur)s difference)', at=latest_audit.created_at[:16], who=latest_audit.performed_by_name or '—', counted=latest_audit.counted_cash|money, system=latest_audit.system_cash|money, difference=latest_audit.difference|money, cur=currency_label()) }}{% if latest_audit.notes %}: "{{ latest_audit.notes }}"{% endif %}.
+  {{ _('Last audited %(at)s by %(who)s — counted %(counted)s %(cur)s cash against a system total of %(system)s %(cur)s (%(difference)s %(cur)s difference)', at=latest_audit.created_at|localtime, who=latest_audit.performed_by_name or '—', counted=latest_audit.counted_cash|money, system=latest_audit.system_cash|money, difference=latest_audit.difference|money, cur=currency_label()) }}{% if latest_audit.notes %}: "{{ latest_audit.notes }}"{% endif %}.
 </p>
 {% endif %}
 

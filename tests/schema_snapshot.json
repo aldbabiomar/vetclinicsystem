@@ -17,7 +17,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "created_by": {
     "default": null,
@@ -117,7 +117,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "uploaded_by": {
     "default": null,
@@ -195,7 +195,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "user_id": {
     "default": null,
@@ -310,13 +310,13 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "created_at": {
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "id": {
     "default": null,
@@ -370,7 +370,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "id": {
     "default": null,
@@ -382,7 +382,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "status": {
     "default": null,
@@ -533,7 +533,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "user_id": {
     "default": null,
@@ -672,7 +672,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    }
   },
   "constraints": {
@@ -711,7 +711,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "difference": {
     "default": null,
@@ -789,7 +789,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "id": {
     "default": null,
@@ -832,7 +832,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "delivery_reference": {
     "default": null,
@@ -909,7 +909,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "distributor_id": {
     "default": null,
@@ -998,7 +998,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "distributor_id": {
     "default": null,
@@ -1028,13 +1028,13 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "period_start": {
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "settled_by": {
     "default": null,
@@ -1092,7 +1092,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "logged_by": {
     "default": null,
@@ -1159,7 +1159,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "created_by": {
     "default": null,
@@ -1222,7 +1222,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "created_by": {
     "default": null,
@@ -1395,7 +1395,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "unit_cost": {
     "default": null,
@@ -1538,7 +1538,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "visit_id": {
     "default": null,
@@ -1611,7 +1611,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    }
   },
   "constraints": {
@@ -1648,7 +1648,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "user_id": {
     "default": null,
@@ -1697,7 +1697,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "cost_price": {
     "default": null,
@@ -1799,7 +1799,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "user_id": {
     "default": null,
@@ -1843,7 +1843,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "user_agent": {
     "default": null,
@@ -1896,7 +1896,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    }
   },
   "constraints": {
@@ -2363,7 +2363,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "id": {
     "default": null,
@@ -2459,7 +2459,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "id": {
     "default": null,
@@ -2477,7 +2477,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "status": {
     "default": null,
@@ -2531,7 +2531,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "description": {
     "default": null,
@@ -2727,11 +2727,11 @@
     "null": true,
     "type": "text"
    },
-   "sale_date": {
+   "sold_at": {
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "subtotal": {
     "default": null,
@@ -2761,8 +2761,8 @@
    "sales_total_check": "CHECK (((total >= (0)::numeric) AND (total <> 'NaN'::numeric)))"
   },
   "indexes": {
-   "idx_sales_date": "CREATE INDEX idx_sales_date ON public.sales USING btree (sale_date)",
    "idx_sales_idempotency_key": "CREATE UNIQUE INDEX idx_sales_idempotency_key ON public.sales USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL)",
+   "idx_sales_sold_at": "CREATE INDEX idx_sales_sold_at ON public.sales USING btree (sold_at)",
    "sales_pkey": "CREATE UNIQUE INDEX sales_pkey ON public.sales USING btree (id)"
   }
  },
@@ -2812,13 +2812,13 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "reported_at": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "status": {
     "default": null,
@@ -2870,7 +2870,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "custom_discount_cap": {
     "default": null,
@@ -2897,10 +2897,10 @@
     "type": "boolean"
    },
    "password_changed_at": {
-    "default": "''::text",
+    "default": null,
     "identity": null,
-    "null": false,
-    "type": "text"
+    "null": true,
+    "type": "timestamp with time zone"
    },
    "password_hash": {
     "default": null,
@@ -2945,7 +2945,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "discountable": {
     "default": null,
@@ -3027,7 +3027,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "complaint": {
     "default": null,
@@ -3159,7 +3159,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "timestamp with time zone"
    },
    "updates_log": {
     "default": null,

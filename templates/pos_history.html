@@ -19,7 +19,7 @@
   <tbody>
     {% for s in sales %}
     <tr>
-      <td>{{ s.sale_date[:16] }}</td><td>{{ s.cashier_name or "—" }}</td>
+      <td>{{ s.sold_at|localtime }}</td><td>{{ s.cashier_name or "—" }}</td>
       <td class="num-col">{{ s.subtotal|money }}</td>
       <td class="num-col">{{ s.discount_percent }}%{% if s.discount_source == 'member' %} <span class="badge primary">{{ _('Member') }}</span>{% endif %}</td>
       <td class="num-col">{{ s.total|money }}</td>

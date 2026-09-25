@@ -37,7 +37,7 @@
       {% for file in files %}
       <div class="list-line">
         <a href="{{ url_for('clinical.serve_attachment', relpath=file.relative_path) }}" target="_blank">{{ file.original_name }}</a>
-        <span class="meta">{{ file.uploaded_at[:10] }}
+        <span class="meta">{{ file.uploaded_at|localdate }}
           <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="Delete {{ file.original_name }}?">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn small danger" type="submit" style="margin-left:8px;">{{ _('Delete') }}</button>

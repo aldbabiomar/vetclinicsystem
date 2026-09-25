@@ -752,4 +752,25 @@ result under each money setting.
   requirements (Windows Python has no zone database). Columns are still text:
   phase 2c-ii changes their type.
   **Suite:** IQ **1111 passed, 4 skipped**; JO **1111 passed, 4 skipped**.
+- **2026-09-25 — Phase 2c-ii: event times are `timestamptz`.** 39 text
+  columns holding ISO strings are `TIMESTAMPTZ` (`sales.sale_date` renamed
+  `sold_at`, as §4.1 said; `users.password_changed_at` is NULL for "never",
+  not `''`). What that took, beyond the type: every `LIKE 'YYYY-MM%'` and
+  `substr(timestamp, …)` filter became an indexed range from
+  `logic.day_bounds()` / `month_bounds()` / `month_dates()` in the clinic's
+  zone (the rest of D9); `to_char` for month labels; a
+  `COALESCE(timestamp, text)` and a `GREATEST(…, '')` that no longer type-check
+  rewritten, the latter keeping its "no lower bound" meaning with
+  `-infinity`; the Cash Register ledger's UNION made text on both sides; the
+  edit-conflict token and the session's password-change token compared as
+  instants (`clock.token` / `same_instant`) — as strings, a timestamp read back
+  differs in form from the one written, and every save would have been a
+  conflict and every user signed out; the heartbeat's JSON given a string; and
+  ~20 template slices (`[:16]`, `[11:19]`, `.replace('T', ' ')`) replaced by
+  `|localtime` / `|localdate`, which show the clinic's zone. A new test seeds
+  one row of every kind whose time a page prints, renders each page and PDF,
+  and fails if a raw ISO timestamp reaches a reader — the route smoke test
+  renders them only on a near-empty database.
+  **Suite:** IQ **1115 passed, 4 skipped**; JO **1115 passed, 4 skipped**; no
+  database 481 passed.
 

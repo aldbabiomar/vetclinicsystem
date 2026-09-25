@@ -115,7 +115,7 @@ def _backup_section(db):
             "SELECT * FROM backup_log WHERE status='success' ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if row:
-            out["last_success_at"] = row["started_at"]
+            out["last_success_at"] = clock.token(row["started_at"])   # JSON: a string, not a datetime
             out["last_size_bytes"] = row["filesize_bytes"]
             try:
                 delta = clock.now() - clock.parse(row["started_at"])

@@ -708,6 +708,8 @@ as missing numbers.
 
 ## D6 — Three date validators and TEXT timestamps
 
+> **TEXT timestamps: fixed — phase 2c.** 39 event-time columns are `timestamptz`, `sales.sale_date` is `sold_at`, and "now"/"today" come from one clock in the clinic's zone (`clock.py`, the Time Zone setting). The three date validators remain — that is B1's fix.
+
 `parse_date()` (lenient), `clean_date()` (strict, raises), `clean_date_filter()`
 (strict, JO only) — and B1 is what the lenient one costs. Separately, most
 event times are `TEXT` ISO strings compared lexically and filtered with
@@ -735,7 +737,7 @@ of bug it documents.
 
 ## D9 — Missing indexes for the filters the app actually runs
 
-> **Fixed — phase 2b**, every index listed (plus refunds by visit / case / stay). The `substr(timestamp,1,10)=?` filters go with `timestamptz` in phase 2c.
+> **Fixed — phases 2b and 2c**: every index listed (plus refunds by visit / case / stay), and the `substr(timestamp,1,10)=?` / `LIKE 'YYYY-MM%'` filters are now indexed ranges over `timestamptz`.
 
 No index on `sales(sale_date)`, `payments(date)`, `refund_items(sale_item_id)`,
 `sale_items(item_id)`, `login_log(username, timestamp)` (read on every login
