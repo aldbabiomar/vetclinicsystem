@@ -20,7 +20,7 @@ import money
 
 from decimal import Decimal
 
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 
 pytestmark = [needs_db, pytest.mark.money("IQ")]
@@ -54,7 +54,7 @@ def sellable(db):
                (pl_id, f"Route Test Item {inv_id}", "Retail", 1000.0, 5000.0, True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
@@ -349,7 +349,7 @@ def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
     invisible — not refunded, not flagged, just gone from every view."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="1000")
     assert resp.status_code == 200
@@ -637,7 +637,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
     visit — otherwise it is a way to pay money out against nothing."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = client.post("/refunds/service", data={
         "visit_id": visit["visit_id"], "amount": "9000",
@@ -650,7 +650,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
 def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
         resp = client.post("/refunds/service", data={
@@ -668,7 +668,7 @@ def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
 def _paid_visit(client, db, visit, paid):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], Decimal(paid), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], Decimal(paid), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
 
 
@@ -752,7 +752,7 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
     reads."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
         for bad in ("", "Bitcoin", "cash"):
@@ -1046,7 +1046,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     route guards, on a different entry point."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "50"}, follow_redirects=False)

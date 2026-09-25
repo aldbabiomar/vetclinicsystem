@@ -40,7 +40,7 @@
       <div class="field"><label for="inventorycatalog-3-unit">{{ _('Unit') }}</label><input id="inventorycatalog-3-unit" name="unit" placeholder="{{ _('Bottle, Box, Piece…') }}" value="{{ fv(new_form, 'unit') }}"></div>
       <div class="field"><label for="inventorycatalog-4-cost_price">{{ _('Cost Price (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="inventorycatalog-4-cost_price" type="number" step="{{ money_step() }}" name="cost_price" value="{{ fv(new_form, 'cost_price') }}"></div>
       <div class="field"><label for="inventorycatalog-5-distributor_id">{{ _('Preferred Distributor') }}</label>
-        <select id="inventorycatalog-5-distributor_id" name="distributor_id"><option value="">—</option>{% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if fv(new_form, 'distributor_id')==d.id }}>{{ d.name }}</option>{% endfor %}</select>
+        <select id="inventorycatalog-5-distributor_id" name="distributor_id"><option value="">—</option>{% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if (fv(new_form, 'distributor_id'))|string == d.id|string }}>{{ d.name }}</option>{% endfor %}</select>
       </div>
       <div class="field checkbox-row u-mt-8"><input type="checkbox" name="track_expiry" id="te" {{ 'checked' if fv(new_form, 'track_expiry', 'on')=='on' }}><label class="u-label-inline" for="te">{{ _('Track Expiry Date') }}</label></div>
       <div class="field full"><label for="inventorycatalog-6-notes">{{ _('Notes') }}</label><input id="inventorycatalog-6-notes" name="notes" value="{{ fv(new_form, 'notes') }}"></div>
@@ -87,7 +87,7 @@
         <span class="dist-label" id="distLabel-{{ i.id }}" data-vzh="inventory-catalog-5" data-vz-arg="{{ i.id }}" title="{{ _('Click to change distributor') }}">{{ i.distributor_name or "—" }}</span>
         <select form="edit-{{ i.id }}" name="distributor_id" id="distSelect-{{ i.id }}" class="dist-select"
           data-vzh="inventory-catalog-6 inventory-catalog-7" data-vz-arg="{{ i.id }}">
-          <option value="">—</option>{% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if fv(row_form, 'distributor_id', i.distributor_id)==d.id }}>{{ d.name }}</option>{% endfor %}
+          <option value="">—</option>{% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if (fv(row_form, 'distributor_id', i.distributor_id))|string == d.id|string }}>{{ d.name }}</option>{% endfor %}
         </select>
       </td>
       <td class="u-nowrap">

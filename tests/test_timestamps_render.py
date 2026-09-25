@@ -17,7 +17,7 @@ from decimal import Decimal as D
 import pytest
 
 import clock
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 pytestmark = needs_db
 
@@ -53,29 +53,29 @@ def timed_rows(db):
         "cleanup_amount, updated_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
         (p, v, clock.today(), False, D(0), D(0), D(0), now)).fetchone()["id"]
     db.execute("INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?)",
-               (ids["case_id"], now, "Eating well", "U001"))
+               (ids["case_id"], now, "Eating well", ADMIN_ID))
     db.execute("INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id) VALUES (?,?,?,?)",
-               (ids["case_id"], now, 1, "U001"))
+               (ids["case_id"], now, 1, ADMIN_ID))
     ids["boarding_id"] = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, cleanup_amount, "
         "discount_percent, dismissed, total, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
         (p, clock.today(), False, False, D(0), D(0), False, D(10), now)).fetchone()["id"]
     db.execute("INSERT INTO boarding_incidents (boarding_id, timestamp, issue, user_id) VALUES (?,?,?,?)",
-               (ids["boarding_id"], now, "Scratched the door", "U001"))
+               (ids["boarding_id"], now, "Scratched the door", ADMIN_ID))
     db.execute("INSERT INTO distributors (id, name) VALUES (?,?)", (dist, f"Time Dist {tag}"))
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, distributor_id, "
                "ownership_type, consignment_since, active) VALUES (?,?,?,?,?,?,?,?,?,?)",
                (inv, f"Time Item {tag}", "Retail", "unit", False, D(1), dist, "Consignment", now, True))
     db.execute("INSERT INTO consignment_shrinkage (item_id, distributor_id, quantity, reason, liable_party, "
                "unit_cost, logged_by, logged_at) VALUES (?,?,?,?,?,?,?,?)",
-               (inv, dist, D(1), "Damaged", "Clinic", D(1), "U001", now))
+               (inv, dist, D(1), "Damaged", "Clinic", D(1), ADMIN_ID, now))
     ids["settlement_id"] = db.execute(
         "INSERT INTO consignment_settlements (distributor_id, period_start, period_end, amount_owed, amount_paid, "
         "payment_method, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
-        (dist, now, now, D(5), D(5), "Cash", "U001", now)).fetchone()["id"]
+        (dist, now, now, D(5), D(5), "Cash", ADMIN_ID, now)).fetchone()["id"]
     ids["sale_id"] = db.execute(
         "INSERT INTO sales (sold_at, cashier_id, subtotal, discount_percent, total, payment_method) "
-        "VALUES (?,?,?,?,?,?) RETURNING id", (now, "U001", D(5), D(0), D(5), "Card")).fetchone()["id"]
+        "VALUES (?,?,?,?,?,?) RETURNING id", (now, ADMIN_ID, D(5), D(0), D(5), "Card")).fetchone()["id"]
     ids["backup_id"] = db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, triggered_by) VALUES (?,?,?,?) RETURNING id",
         (now, now, "success", "manual")).fetchone()["id"]
@@ -88,7 +88,7 @@ def timed_rows(db):
     ids["audit_id"] = db.execute(
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, counted_cash, "
         "difference, status, performed_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
-        (clock.today(), D(0), D(0), D(0), D(0), D(0), "Perfect", "U001", now)).fetchone()["id"]
+        (clock.today(), D(0), D(0), D(0), D(0), D(0), "Perfect", ADMIN_ID, now)).fetchone()["id"]
     ids.update(owner=o, patient=p, visit=v, dist=dist, item=inv, now=now)
     db.commit()
     yield ids

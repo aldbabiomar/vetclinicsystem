@@ -51,6 +51,7 @@ import clock
 import os
 
 import pytest
+from conftest import ADMIN_ID
 
 playwright_api = pytest.importorskip(
     "playwright.sync_api",
@@ -669,7 +670,7 @@ def _seed_member_cart(db, sale_price):
                    (pl_id, name, "Retail", 0, Decimal(sale_price), True, inv_id, can_discount))
         cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                          "VALUES (?,?,?,?,?) RETURNING id",
-                         (clock.today().isoformat(), "U001", "Confirmed",
+                         (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                           clock.now().isoformat(timespec="seconds"),
                           clock.now().isoformat(timespec="microseconds")))
         sid = cur.fetchone()["id"]

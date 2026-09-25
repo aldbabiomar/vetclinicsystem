@@ -19,7 +19,7 @@
       <div class="field"><label for="consignmentreceiving-1-item_id">{{ _('Item') }}</label>
         <select id="consignmentreceiving-1-item_id" name="item_id" required>
           <option value="">—</option>
-          {% for i in items %}<option value="{{ i.id }}" {{ 'selected' if fv(form, 'item_id')==i.id }}>{{ i.name }} ({{ i.distributor_name }})</option>{% endfor %}
+          {% for i in items %}<option value="{{ i.id }}" {{ 'selected' if (fv(form, 'item_id'))|string == i.id|string }}>{{ i.name }} ({{ i.distributor_name }})</option>{% endfor %}
         </select>
       </div>
       <div class="field"><label for="consignmentreceiving-2-quantity">{{ _('Quantity') }}</label><input id="consignmentreceiving-2-quantity" type="number" step="any" name="quantity" required value="{{ fv(form, 'quantity') }}"></div>

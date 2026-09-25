@@ -42,7 +42,7 @@
           <select form="edit-{{ i.id }}" name="distributor_id" id="distSelect-{{ i.id }}"
                   {{ '' if i.ownership_type == 'Consignment' else 'disabled' }}>
             <option value="">—</option>
-            {% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if i.distributor_id==d.id }}>{{ d.name }}</option>{% endfor %}
+            {% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if (i.distributor_id)|string == d.id|string }}>{{ d.name }}</option>{% endfor %}
           </select>
         {% else %}
           {{ i.distributor_name or '—' }}

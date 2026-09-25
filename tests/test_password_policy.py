@@ -89,12 +89,12 @@ def throwaway_user(flask_app, db):
     import auth as auth_mod
 
     tag = uuid.uuid4().hex[:6]
-    uid, username, password = f"UP{tag.upper()}", f"pwuser{tag}", "StartingPass99"
+    username, password = f"pwuser{tag}", "StartingPass99"
     role = db.execute("SELECT id FROM roles WHERE is_system = true").fetchone()
-    db.execute("INSERT INTO users (id, username, password_hash, full_name, role_id, active, "
-               "must_change_password, created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (uid, username, auth_mod.hash_password(password), "PW User",
-                role["id"], True, False, "2026-01-01T00:00:00"))
+    uid = db.execute("INSERT INTO users (username, password_hash, full_name, role_id, active, "
+                     "must_change_password, created_at) VALUES (?,?,?,?,?,?,?) RETURNING id",
+                     (username, auth_mod.hash_password(password), "PW User",
+                      role["id"], True, False, "2026-01-01T00:00:00+03:00")).fetchone()["id"]
     db.commit()
     c = flask_app.test_client()
     c.post("/login", data={"username": username, "password": password}, follow_redirects=True)

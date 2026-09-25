@@ -23,7 +23,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -53,7 +53,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "resource_type": {
     "default": null,
@@ -78,7 +78,7 @@
   "indexes": {
    "appointments_pkey": "CREATE UNIQUE INDEX appointments_pkey ON public.appointments USING btree (id)",
    "idx_appt_date": "CREATE INDEX idx_appt_date ON public.appointments USING btree (appt_date)",
-   "uq_appointments_slot": "CREATE UNIQUE INDEX uq_appointments_slot ON public.appointments USING btree (appt_date, slot_label, resource_type, COALESCE(resource_id, ''::text))"
+   "uq_appointments_slot": "CREATE UNIQUE INDEX uq_appointments_slot ON public.appointments USING btree (appt_date, slot_label, resource_type, COALESCE(resource_id, 0))"
   }
  },
  "attachments": {
@@ -123,7 +123,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "visit_id": {
     "default": null,
@@ -201,7 +201,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "username": {
     "default": null,
@@ -328,7 +328,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "status": {
     "default": "'Draft'::text",
@@ -424,7 +424,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "date_billed": {
     "default": null,
@@ -436,7 +436,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_percent": {
     "default": "0",
@@ -539,7 +539,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -576,19 +576,19 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "created_by": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_applied_by": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_percent": {
     "default": "0",
@@ -735,7 +735,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "status": {
     "default": null,
@@ -801,7 +801,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "payout_date": {
     "default": null,
@@ -874,7 +874,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "received_date": {
     "default": null,
@@ -957,7 +957,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "unit_cost_at_return": {
     "default": null,
@@ -1040,7 +1040,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -1098,7 +1098,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "notes": {
     "default": null,
@@ -1165,7 +1165,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "id": {
     "default": null,
@@ -1228,7 +1228,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "distributor_id": {
     "default": null,
@@ -1377,7 +1377,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "price_id": {
     "default": null,
@@ -1442,7 +1442,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "bcs": {
     "default": null,
@@ -1460,7 +1460,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "complaint": {
     "default": null,
@@ -1472,13 +1472,13 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_applied_by": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_percent": {
     "default": "0",
@@ -1526,7 +1526,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "total": {
     "default": "0",
@@ -1605,7 +1605,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "timestamp": {
     "default": null,
@@ -1654,7 +1654,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -1805,7 +1805,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -1855,7 +1855,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "username": {
     "default": null,
@@ -1987,7 +1987,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "member_expires_on": {
     "default": null,
@@ -2151,7 +2151,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "visit_id": {
     "default": null,
@@ -2381,7 +2381,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "reason": {
     "default": null,
@@ -2513,7 +2513,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    }
   },
   "constraints": {
@@ -2547,9 +2547,9 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "is_system": {
     "default": "false",
@@ -2665,7 +2665,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "change_given": {
     "default": null,
@@ -2683,13 +2683,13 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_applied_by": {
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "discount_percent": {
     "default": "0",
@@ -2886,9 +2886,9 @@
    },
    "id": {
     "default": null,
-    "identity": null,
+    "identity": "BY DEFAULT",
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "must_change_password": {
     "default": "false",
@@ -2912,7 +2912,7 @@
     "default": null,
     "identity": null,
     "null": false,
-    "type": "text"
+    "type": "integer"
    },
    "username": {
     "default": null,
@@ -3039,7 +3039,7 @@
     "default": null,
     "identity": null,
     "null": true,
-    "type": "text"
+    "type": "integer"
    },
    "date": {
     "default": null,

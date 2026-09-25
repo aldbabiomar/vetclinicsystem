@@ -25,7 +25,7 @@ from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, parse_id, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 import clock
 
 bp = Blueprint("clinical", __name__)
@@ -42,6 +42,17 @@ def parse_bcs(raw):
     if val is not None and not (BCS_MIN <= val <= BCS_MAX):
         raise BadNumber(f"Body Condition Score must be between {BCS_MIN} and {BCS_MAX}.")
     return val
+
+
+def _user_field(db, raw):
+    """A user picked from a <select> (attending vet, …) -> the user's id, or
+    None when blank. A value that names no user is None too: the dropdown
+    only offers real users, and a tampered one must not reach the foreign
+    key as a 500."""
+    uid = parse_id(raw)
+    if uid is None:
+        return None
+    return uid if db.execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone() else None
 
 
 def stale_edit_error(old_updated_at, submitted_updated_at, what):
@@ -1983,8 +1994,8 @@ def inpatient_new():
                                           new_weight_kg, new_bcs)
         db.execute(
             "UPDATE inpatient_cases SET exam_findings=?, admitted_items=?, attending_vet_id=?, supervising_vet_id=? WHERE id=?",
-            (f.get("exam_findings"), f.get("admitted_items"), f.get("attending_vet_id") or None,
-             f.get("supervising_vet_id") or None, case_id),
+            (f.get("exam_findings"), f.get("admitted_items"), _user_field(db, f.get("attending_vet_id")),
+             _user_field(db, f.get("supervising_vet_id")), case_id),
         )
         db.commit()
         flash(_("Patient admitted."), "success")
@@ -2069,7 +2080,8 @@ def inpatient_edit(case_id):
         "weight_kg": edited_weight_kg, "bcs": edited_bcs,
         "admitted_items": f.get("admitted_items"), "dismissed": dismissed,
         "dismissal_date": edited_dismissal_date,
-        "attending_vet_id": f.get("attending_vet_id") or None, "supervising_vet_id": f.get("supervising_vet_id") or None,
+        "attending_vet_id": _user_field(db, f.get("attending_vet_id")),
+        "supervising_vet_id": _user_field(db, f.get("supervising_vet_id")),
     }
     changes = auth.diff_dict(old, new_vals)
     db.execute(
@@ -2466,7 +2478,7 @@ def appointment_new():
     if appointment_type not in APPOINTMENT_TYPES:
         flash("Appointment type must be one of: " + ", ".join(APPOINTMENT_TYPES) + ".", "error")
         return redisplay()
-    resource_id = f.get("resource_id") or None
+    resource_id = parse_id(f.get("resource_id"))
     if resource_type == "grooming":
         # Grooming has no per-resource distinction — every grooming booking
         # shares one column on the grid, keyed as (slot_label, "grooming",

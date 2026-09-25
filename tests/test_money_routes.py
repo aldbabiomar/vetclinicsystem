@@ -31,7 +31,7 @@ import pytest
 from decimal import Decimal
 
 import logic
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 
 pytestmark = needs_db
@@ -67,7 +67,7 @@ def sellable(db):
                (pl_id, f"Route Test Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
@@ -364,7 +364,7 @@ def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
     invisible — not refunded, not flagged, just gone from every view."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10.000")
     assert resp.status_code == 200
@@ -635,7 +635,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
     visit — otherwise it is a way to pay money out against nothing."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = client.post("/refunds/service", data={
         "visit_id": visit["visit_id"], "amount": "90.000",
@@ -648,7 +648,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
 def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
         resp = client.post("/refunds/service", data={
@@ -691,7 +691,7 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
     reads."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
         for bad in ("", "Bitcoin", "cash"):
@@ -988,7 +988,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     route guards, on a different entry point."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), "U001"))
+               (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "50"}, follow_redirects=False)

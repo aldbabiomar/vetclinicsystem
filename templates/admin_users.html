@@ -30,7 +30,7 @@
             <form method="post" action="{{ url_for('admin.admin_user_role', user_id=u.id) }}" class="inline-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <select name="role_id" data-vzh="admin-users-3" class="small">
-                {% for r in roles %}<option value="{{ r.id }}" {{ 'selected' if u.role_id==r.id }}>{{ r.name }}</option>{% endfor %}
+                {% for r in roles %}<option value="{{ r.id }}" {{ 'selected' if (u.role_id)|string == r.id|string }}>{{ r.name }}</option>{% endfor %}
               </select>
             </form>
           </td>
@@ -260,7 +260,7 @@
   // ---- Delete Role modal ----
   function deleteRole(roleId, roleName, staffCount, triggerEl) {
     document.getElementById('deleteRoleTitle').textContent = 'Delete ' + roleName + '?';
-    document.getElementById('deleteRoleForm').action = `{{ url_for('admin.admin_role_delete', role_id='__ID__') }}`.replace('__ID__', encodeURIComponent(roleId));
+    document.getElementById('deleteRoleForm').action = `{{ url_for('admin.admin_role_delete', role_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(roleId));
     const reassignBlock = document.getElementById('deleteRoleReassignBlock');
     const simpleText = document.getElementById('deleteRoleSimpleText');
     const confirmBtn = document.getElementById('deleteRoleConfirmBtn');

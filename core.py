@@ -140,6 +140,31 @@ def parse_percent(raw, required=False):
 MAX_INT = 2_147_483_647  # widest value any INTEGER column in this schema can hold
 
 
+_ID_RE = re.compile(r"^\s*(?:([A-Za-z]{1,4})\s*-?\s*)?0*(\d{1,10})\s*$")
+
+
+def parse_id(raw, prefix=None):
+    """A record ID from a form field or query string -> int, or None.
+
+    Accepts the number itself ("123", "00123") and, when `prefix` is given,
+    the display code staff read and type ("V-00123", "v123"; logic.code()).
+    Anything else is None — never an exception and never a value that
+    reaches an INTEGER column as text, where Postgres would refuse it with a
+    500. A code with the WRONG prefix (a patient code typed into a visit
+    field) is None too, so it cannot silently name a different record."""
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if 0 < raw <= MAX_INT else None
+    m = _ID_RE.match(str(raw))
+    if not m:
+        return None
+    if m.group(1) and (prefix is None or m.group(1).upper() != prefix.upper()):
+        return None
+    val = int(m.group(2))
+    return val if 0 < val <= MAX_INT else None
+
+
 def parse_int(raw, required=False):
     """Same shape as parse_money(), for INTEGER columns (e.g. lead_time_days).
     Blank collapses to None; non-numeric input raises BadNumber instead of

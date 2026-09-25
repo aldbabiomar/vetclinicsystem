@@ -24,7 +24,7 @@ from decimal import Decimal
 import pytest
 
 import logic
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 pytestmark = needs_db
 
@@ -47,7 +47,7 @@ def paid_stay(db):
         (p_id, clock.today().isoformat(), False, False, 0.0, 0.0, True, Decimal("20.000"), Decimal("5.000")))
     bid = cur.fetchone()["id"]
     db.execute("INSERT INTO payments (boarding_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (bid, Decimal("20.000"), "Cash", clock.today().isoformat(), "U001"))
+               (bid, Decimal("20.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     yield {"id": bid, "patient_id": p_id, "owner_id": o_id, "paid": Decimal("20.000")}
     db.execute("DELETE FROM refunds WHERE boarding_id=?", (bid,))
@@ -167,7 +167,7 @@ def test_the_database_itself_refuses_a_two_anchor_service_refund(db, paid_stay):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, boarding_id, "
             "processed_by, created_at) VALUES ('service',?,?,?,?,?,?)",
-            (clock.today().isoformat(), Decimal("1.000"), "V001", paid_stay["id"], "U001", "2026-01-01T00:00:00"))
+            (clock.today().isoformat(), Decimal("1.000"), "V001", paid_stay["id"], ADMIN_ID, "2026-01-01T00:00:00"))
     db.rollback()
 
 
@@ -177,7 +177,7 @@ def test_the_database_refuses_a_service_refund_with_no_anchor(db):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, processed_by, created_at) "
             "VALUES ('service',?,?,?,?)",
-            (clock.today().isoformat(), Decimal("1.000"), "U001", "2026-01-01T00:00:00"))
+            (clock.today().isoformat(), Decimal("1.000"), ADMIN_ID, "2026-01-01T00:00:00"))
     db.rollback()
 
 
@@ -226,7 +226,7 @@ def paid_visit(db):
                "VALUES (?,?,?,?,?)",
                (v_id, "Manual", Decimal("10.000"), Decimal("10.000"), clock.today().isoformat()))
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (v_id, Decimal("10.000"), "Cash", clock.today().isoformat(), "U001"))
+               (v_id, Decimal("10.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     yield {"id": v_id}
     db.execute("DELETE FROM refunds WHERE visit_id=?", (v_id,))

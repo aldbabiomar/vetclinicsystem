@@ -666,6 +666,10 @@ app.jinja_env.globals["bind_port"] = BIND_PORT
 app.jinja_env.globals["qty_value"] = logic.format_quantity
 # The hidden expected_updated_at an edit form carries (clock.token).
 app.jinja_env.globals["edit_token"] = clock.token
+# A URL a script completes with a record id at click time is built with this
+# number in the id's place, then .replace()d: an <int:…> route cannot take a
+# text placeholder, and the largest id is never a real one that matters.
+app.jinja_env.globals["ID_SLOT"] = 2147483647
 app.jinja_env.globals["fv"] = form_value
 # logic.format_percent() strips the meaningless decimal tail; display_number()
 # converts to Arabic-Indic digits when the locale is ar. Composed here rather

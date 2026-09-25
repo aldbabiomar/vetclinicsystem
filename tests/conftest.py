@@ -58,6 +58,24 @@ SKIP_REASON = (
 needs_db = pytest.mark.skipif(not TEST_DB_URL, reason=SKIP_REASON)
 
 
+def _admin_id():
+    """The seeded admin's id (scripts/isolated_test_env.sh creates it first,
+    so 1 on a fresh database — but looked up, not assumed). None without a
+    test database, where every test that would use it skips anyway."""
+    if not TEST_DB_URL:
+        return None
+    try:
+        import psycopg
+        with psycopg.connect(TEST_DB_URL) as con:
+            row = con.execute("SELECT id FROM users WHERE username='admin'").fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
+ADMIN_ID = _admin_id()
+
+
 @pytest.fixture(scope="session")
 def flask_app():
     """The real application object, wired to the throwaway database."""

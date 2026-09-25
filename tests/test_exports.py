@@ -19,7 +19,7 @@ from decimal import Decimal
 
 import pytest
 
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 
 pytestmark = needs_db
@@ -130,7 +130,7 @@ def completed_sale_for_receipt(client, db):
     from datetime import datetime
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]

@@ -20,7 +20,7 @@ import pytest
 
 import core
 import logic
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 SNAPSHOT = pathlib.Path(__file__).parent / "schema_snapshot.json"
 
@@ -151,7 +151,7 @@ def audited_three_times(db):
         stamp = datetime.combine(day, datetime.min.time()).isoformat(timespec="microseconds")
         sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                          "VALUES (?,?,?,?,?) RETURNING id",
-                         (day.isoformat(), "U001", "Confirmed", stamp, stamp)).fetchone()["id"]
+                         (day.isoformat(), ADMIN_ID, "Confirmed", stamp, stamp)).fetchone()["id"]
         sessions.append(sid)
         db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
                    "received_since_prior, target_coverage_days) VALUES (?,?,?,?,?)",
@@ -219,7 +219,7 @@ def sold_two(client, db):
                "VALUES (?,?,?,?,?,?,?)", (pl_id, f"Receipt {inv_id}", "Retail", D("5.000"), True, inv_id, True))
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed", clock.now().isoformat(),
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed", clock.now().isoformat(),
                       clock.now().isoformat(timespec="microseconds"))).fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (sid, inv_id, D(10), D(0)))

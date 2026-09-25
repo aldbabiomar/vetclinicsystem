@@ -105,20 +105,19 @@ def restricted(flask_app):
     import auth
     con = dbmod.connect()
     tag = uuid.uuid4().hex[:8]
-    role_id, user_id = f"RT{tag.upper()}", f"UT{tag.upper()}"
     username, password = f"limited{tag}", "LimitedPass12345!"
     held = "manage_owners"
     assert held in ALL_PERMISSIONS, "the permission this fixture holds must gate real routes"
 
-    con.execute("INSERT INTO roles (id, name, description, is_system, discount_cap, is_vet_role, created_at) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (role_id, f"Restricted {tag}", "permission test", False, 0, False,
-                 "2026-01-01T00:00:00"))
+    role_id = con.execute("INSERT INTO roles (name, description, is_system, discount_cap, is_vet_role, created_at) "
+                          "VALUES (?,?,?,?,?,?) RETURNING id",
+                          (f"Restricted {tag}", "permission test", False, 0, False,
+                           "2026-01-01T00:00:00+03:00")).fetchone()["id"]
     con.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, held))
-    con.execute("INSERT INTO users (id, username, password_hash, full_name, role_id, active, "
-                "must_change_password, created_at) VALUES (?,?,?,?,?,?,?,?)",
-                (user_id, username, auth.hash_password(password), "Restricted User",
-                 role_id, True, False, "2026-01-01T00:00:00"))
+    user_id = con.execute("INSERT INTO users (username, password_hash, full_name, role_id, active, "
+                          "must_change_password, created_at) VALUES (?,?,?,?,?,?,?) RETURNING id",
+                          (username, auth.hash_password(password), "Restricted User",
+                           role_id, True, False, "2026-01-01T00:00:00+03:00")).fetchone()["id"]
     con.commit()
 
     client = flask_app.test_client()
@@ -131,7 +130,8 @@ def restricted(flask_app):
         assert list(granted) == [held], (
             f"the session should carry exactly one permission, got {sorted(granted)}")
 
-    yield {"client": client, "held": held, "user_id": user_id, "role_id": role_id}
+    yield {"client": client, "held": held, "user_id": user_id, "role_id": role_id, "username": username,
+           "role_name": f"Restricted {tag}"}
 
     con.execute("DELETE FROM login_log WHERE user_id=?", (user_id,))
     con.execute("DELETE FROM users WHERE id=?", (user_id,))
@@ -290,7 +290,7 @@ def test_deactivating_an_account_stops_it_working_immediately(restricted):
         con.execute("UPDATE users SET active=true WHERE id=?", (restricted["user_id"],))
         con.commit()
         con.close()
-        client.post("/login", data={"username": f"limited{restricted['user_id'][2:].lower()}",
+        client.post("/login", data={"username": restricted["username"],
                                     "password": "LimitedPass12345!"}, follow_redirects=True)
 
 
@@ -314,7 +314,7 @@ def test_revoking_a_permission_takes_effect_without_re_login(client, restricted)
 
     # The admin removes the permission from the role, leaving it with none.
     resp = client.post(f"/admin/roles/{role_id}/edit", data={
-        "name": f"Restricted {role_id[2:].lower()}", "description": "permission test",
+        "name": restricted["role_name"], "description": "permission test",
         "discount_cap": "0"}, follow_redirects=False)
     assert resp.status_code != 500
 
@@ -325,5 +325,5 @@ def test_revoking_a_permission_takes_effect_without_re_login(client, restricted)
             "the per-request refresh did not pick it up")
     finally:
         client.post(f"/admin/roles/{role_id}/edit", data={
-            "name": f"Restricted {role_id[2:].lower()}", "description": "permission test",
+            "name": restricted["role_name"], "description": "permission test",
             "discount_cap": "0", "permissions": [held]}, follow_redirects=False)

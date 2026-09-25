@@ -11,7 +11,7 @@
 <form class="search-bar" method="get">
   <select name="distributor_id">
     <option value="">{{ _('All Distributors') }}</option>
-    {% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if distributor_id==d.id }}>{{ d.name }}</option>{% endfor %}
+    {% for d in distributors %}<option value="{{ d.id }}" {{ 'selected' if (distributor_id)|string == d.id|string }}>{{ d.name }}</option>{% endfor %}
   </select>
   <input type="date" name="date_from" value="{{ date_from }}" placeholder="{{ _('From') }}">
   <input type="date" name="date_to" value="{{ date_to }}" placeholder="{{ _('To') }}">

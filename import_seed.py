@@ -79,13 +79,11 @@ def main():
     data = json.load(open(SEED_PATH))
 
     # ---------------- Users (seed one admin account) ----------------
-    admin_id = auth.new_user_id()
     admin_role_id = cur.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()["id"]
     cur.execute(
-        "INSERT INTO users (id,username,password_hash,full_name,role_id,active,must_change_password,created_at) "
-        "VALUES (?,?,?,?,?,true,true,?)",
-        (admin_id, "admin", auth.hash_password("admin123"), "Clinic Admin", admin_role_id,
-         clock.now().isoformat(timespec="seconds")),
+        "INSERT INTO users (username,password_hash,full_name,role_id,active,must_change_password,created_at) "
+        "VALUES (?,?,?,?,true,true,?)",
+        ("admin", auth.hash_password("admin123"), "Clinic Admin", admin_role_id, clock.now()),
     )
     print("Seeded admin account -> username: admin / password: admin123 (must be changed on first login)")
 

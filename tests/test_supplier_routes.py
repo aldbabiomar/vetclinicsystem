@@ -17,7 +17,7 @@ import pytest
 from decimal import Decimal as D
 
 import logic
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 
 pytestmark = needs_db
@@ -147,7 +147,7 @@ def consignment_item(client, db, distributor):
     # is exactly what a mutation check caught them doing.
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     audit_id = cur.fetchone()["id"]
@@ -543,7 +543,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
                      "VALUES (?,?,?,?) RETURNING id",
                      # 'Draft', not 'Open' — audit_sessions_status_check
                      # allows only Draft and Confirmed.
-                     (clock.today().isoformat(), "U001", "Draft",
+                     (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "

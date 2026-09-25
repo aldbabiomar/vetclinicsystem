@@ -19,7 +19,7 @@ from flask import (
     Blueprint, abort, flash, redirect, render_template, request, session, url_for
 )
 
-from core import date_filter_arg, get_db
+from core import date_filter_arg, get_db, parse_id
 import clock
 
 bp = Blueprint("admin", __name__)
@@ -102,8 +102,8 @@ def admin_user_new():
     username = f.get("username", "").strip()
     password = f.get("password", "")
     full_name = f.get("full_name", "").strip()
-    role_id = f.get("role_id", "")
-    role = db.execute("SELECT id FROM roles WHERE id=?", (role_id,)).fetchone()
+    role_id = parse_id(f.get("role_id"))
+    role = db.execute("SELECT id FROM roles WHERE id=?", (role_id,)).fetchone() if role_id else None
     if not username or not full_name or not role:
         flash(_("Fill in a username, full name, and role."), "error")
         return redirect(url_for("admin.admin_users"))
@@ -126,20 +126,18 @@ def admin_user_new():
             flash(_("Custom discount override must be between 0 and 100."), "error")
             return redirect(url_for("admin.admin_users"))
 
-    uid = auth.new_user_id()
-    db.execute(
-        "INSERT INTO users (id,username,password_hash,full_name,role_id,custom_discount_cap,active,must_change_password,created_at) "
-        "VALUES (?,?,?,?,?,?,true,true,?)",
-        (uid, username, auth.hash_password(password), full_name, role_id, custom_cap,
-         clock.now().isoformat(timespec="seconds")),
-    )
+    uid = db.execute(
+        "INSERT INTO users (username,password_hash,full_name,role_id,custom_discount_cap,active,must_change_password,created_at) "
+        "VALUES (?,?,?,?,?,true,true,?) RETURNING id",
+        (username, auth.hash_password(password), full_name, role_id, custom_cap, clock.now()),
+    ).fetchone()["id"]
     auth.log_change(db, "users", uid, "create")
     db.commit()
     flash(_("User %(username)s created. They'll be asked to set a new password on first login.", username=username), "success")
     return redirect(url_for("admin.admin_users"))
 
 
-@bp.route("/admin/users/<user_id>/toggle-active", methods=["POST"])
+@bp.route("/admin/users/<int:user_id>/toggle-active", methods=["POST"])
 @auth.permission_required("manage_users_roles")
 def admin_user_toggle(user_id):
     db = get_db()
@@ -167,12 +165,13 @@ def admin_user_toggle(user_id):
     return redirect(url_for("admin.admin_users"))
 
 
-@bp.route("/admin/users/<user_id>/role", methods=["POST"])
+@bp.route("/admin/users/<int:user_id>/role", methods=["POST"])
 @auth.permission_required("manage_users_roles")
 def admin_user_role(user_id):
     db = get_db()
-    new_role_id = request.form.get("role_id", "")
-    new_role = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?", (new_role_id,)).fetchone()
+    new_role_id = parse_id(request.form.get("role_id"))
+    new_role = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?",
+                          (new_role_id,)).fetchone() if new_role_id else None
     if not new_role:
         flash(_("Not a valid role."), "error")
         return redirect(url_for("admin.admin_users"))
@@ -227,12 +226,11 @@ def admin_role_new():
 
     perms = [p for p in f.getlist("permissions") if p in auth.PERMISSION_KEY_SET]
     is_vet_role = bool(f.get("is_vet_role"))
-    role_id = auth.new_role_id()
-    db.execute(
-        "INSERT INTO roles (id,name,description,is_system,discount_cap,is_vet_role,created_at) "
-        "VALUES (?,?,?,false,?,?,?)",
-        (role_id, name, description, cap, is_vet_role, clock.now().isoformat(timespec="seconds")),
-    )
+    role_id = db.execute(
+        "INSERT INTO roles (name,description,is_system,discount_cap,is_vet_role,created_at) "
+        "VALUES (?,?,false,?,?,?) RETURNING id",
+        (name, description, cap, is_vet_role, clock.now()),
+    ).fetchone()["id"]
     for p in perms:
         db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, p))
     auth.bump_permissions_version(db)
@@ -246,7 +244,7 @@ def admin_role_new():
     return redirect(url_for("admin.admin_users"))
 
 
-@bp.route("/admin/roles/<role_id>/edit", methods=["POST"])
+@bp.route("/admin/roles/<int:role_id>/edit", methods=["POST"])
 @auth.permission_required("manage_users_roles")
 def admin_role_edit(role_id):
     db = get_db()
@@ -313,7 +311,7 @@ def admin_role_edit(role_id):
     return redirect(url_for("admin.admin_users"))
 
 
-@bp.route("/admin/roles/<role_id>/delete", methods=["POST"])
+@bp.route("/admin/roles/<int:role_id>/delete", methods=["POST"])
 @auth.permission_required("manage_users_roles")
 def admin_role_delete(role_id):
     db = get_db()
@@ -358,7 +356,7 @@ def admin_role_delete(role_id):
     return redirect(url_for("admin.admin_users"))
 
 
-@bp.route("/admin/users/<user_id>/reset-password", methods=["POST"])
+@bp.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
 @auth.permission_required("manage_users_roles")
 def admin_user_reset_password(user_id):
     db = get_db()

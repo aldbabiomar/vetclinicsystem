@@ -27,7 +27,7 @@ from decimal import Decimal
 import pytest
 
 import logic
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 pytestmark = needs_db
 
@@ -526,7 +526,7 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, created_by, "
         "discount_percent, discount_source) VALUES (?,?,?,?,?,?) RETURNING id",
-        (member["patient_id"], clock.today().isoformat(), False, "U001", RATE, "member"))
+        (member["patient_id"], clock.today().isoformat(), False, ADMIN_ID, RATE, "member"))
     case_id = cur.fetchone()["id"]
     last_month_day = logic.add_months(clock.today().replace(day=1), -1)
     this_month = clock.today().strftime("%Y-%m")
@@ -538,7 +538,7 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
             db.execute(
                 "INSERT INTO inpatient_billing (case_id, price_id, quantity, unit_price, "
                 "unit_cost, discountable, logged_by, timestamp) VALUES (?,?,?,?,?,?,?,?)",
-                (case_id, price_id, 1, items["price"], 0, discountable, "U001", when))
+                (case_id, price_id, 1, items["price"], 0, discountable, ADMIN_ID, when))
         db.commit()
         logic.refresh_inpatient_total(db, case_id)
         db.commit()

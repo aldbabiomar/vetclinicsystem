@@ -34,7 +34,7 @@ import pytest
 
 import logic
 
-from conftest import needs_db
+from conftest import ADMIN_ID, needs_db
 
 
 def _uid(prefix):
@@ -61,7 +61,7 @@ def sellable(db):
                 inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, "
                      "confirmed_at) VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
@@ -169,7 +169,7 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
     pass whether or not the guard exists."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Draft",
+                     (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()
@@ -200,7 +200,7 @@ def test_a_valid_audit_count_still_saves(client, db, sellable):
     """CONTROL — the draft is not simply locked; good values go in."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Draft",
+                     (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()
@@ -225,7 +225,7 @@ def test_the_database_itself_refuses_a_nan_count(db, sellable):
     Postgres NaN sorts above every value, so 'NaN' >= 0 is true."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Draft",
+                     (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()

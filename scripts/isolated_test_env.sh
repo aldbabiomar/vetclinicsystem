@@ -244,11 +244,12 @@ con.execute(
     "INSERT INTO settings (key, value) VALUES ('money_setting', ?) "
     "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (money_setting,))
 admin_role = con.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
+# The first user, so id 1 on a fresh database; tests look it up by username
+# (conftest.ADMIN_ID) rather than assuming the number.
 con.execute(
-    "INSERT INTO users (id, username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-    "VALUES (?,?,?,?,?,?,?,?)",
-    ("U001", "admin", auth.hash_password("Admin12345!"), "Test Admin", admin_role["id"],
-     True, False, datetime.now().isoformat(timespec="seconds")),
+    "INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, created_at) "
+    "VALUES (?,?,?,?,?,?,now())",
+    ("admin", auth.hash_password("Admin12345!"), "Test Admin", admin_role["id"], True, False),
 )
 # Priced in the throwaway clinic's own currency: 5,000 / 1,000 IQD under IQ
 # (a real note amount), 5.000 / 1.000 JOD under JO.

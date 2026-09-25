@@ -21,10 +21,10 @@
       <div class="field"><label for="inpatientnew-2-weight_kg">{{ _('Weight (KG)') }}</label><input id="inpatientnew-2-weight_kg" type="number" step="0.1" min="0" name="weight_kg" value="{{ fv(form, 'weight_kg') }}"></div>
       <div class="field"><label for="inpatientnew-3-bcs">{{ _('BCS (1–9)') }}</label><input id="inpatientnew-3-bcs" type="number" step="1" min="1" max="9" name="bcs" value="{{ fv(form, 'bcs') }}"></div>
       <div class="field"><label for="inpatientnew-4-attending_vet_id">{{ _('Attending Veterinarian') }}</label>
-        <select id="inpatientnew-4-attending_vet_id" name="attending_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if fv(form, 'attending_vet_id')==v.id }}>{{ v.full_name }}</option>{% endfor %}</select>
+        <select id="inpatientnew-4-attending_vet_id" name="attending_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if (fv(form, 'attending_vet_id'))|string == v.id|string }}>{{ v.full_name }}</option>{% endfor %}</select>
       </div>
       <div class="field"><label for="inpatientnew-5-supervising_vet_id">{{ _('Supervising Veterinarian') }}</label>
-        <select id="inpatientnew-5-supervising_vet_id" name="supervising_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if fv(form, 'supervising_vet_id')==v.id }}>{{ v.full_name }}</option>{% endfor %}</select>
+        <select id="inpatientnew-5-supervising_vet_id" name="supervising_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if (fv(form, 'supervising_vet_id'))|string == v.id|string }}>{{ v.full_name }}</option>{% endfor %}</select>
       </div>
       <div class="field full"><label for="inpatientnew-6-complaint">{{ _('Presenting Complaint') }}</label><input id="inpatientnew-6-complaint" name="complaint" value="{{ fv(form, 'complaint') }}"></div>
       <div class="field full"><label for="inpatientnew-7-exam_findings">{{ _('Physical Exam Findings & Diagnostics') }}</label><textarea id="inpatientnew-7-exam_findings" name="exam_findings">{{ fv(form, 'exam_findings') }}</textarea></div>

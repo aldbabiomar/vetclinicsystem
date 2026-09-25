@@ -155,14 +155,6 @@ def verify_password(hash_, raw):
 _DUMMY_PASSWORD_HASH = generate_password_hash(uuid.uuid4().hex)
 
 
-def new_user_id():
-    return "U" + uuid.uuid4().hex[:8].upper()
-
-
-def new_role_id():
-    return "ROLE" + uuid.uuid4().hex[:8].upper()
-
-
 def no_vet_role_configured(db):
     """
     True if zero roles are marked "can be assigned as a vet" — meaning
@@ -265,12 +257,11 @@ def seed_default_roles_and_permissions(db):
         existing = db.execute("SELECT id FROM roles WHERE name=?", (name,)).fetchone()
         if existing:
             continue
-        role_id = new_role_id()
-        db.execute(
-            "INSERT INTO roles (id,name,description,is_system,discount_cap,is_vet_role,created_at) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (role_id, name, desc, is_system, cap, is_vet_role, clock.now().isoformat(timespec="seconds")),
-        )
+        role_id = db.execute(
+            "INSERT INTO roles (name,description,is_system,discount_cap,is_vet_role,created_at) "
+            "VALUES (?,?,?,?,?,?) RETURNING id",
+            (name, desc, is_system, cap, is_vet_role, clock.now()),
+        ).fetchone()["id"]
         for perm in perms:
             db.execute(
                 "INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?) ON CONFLICT DO NOTHING",
@@ -525,6 +516,8 @@ def log_change(db, table_name, record_id, action, changes=None):
     uid = session.get("user_id")
     uname = session.get("username", "system")
     ts = clock.now().isoformat(timespec="seconds")
+    # audit_log.record_id is TEXT: it names rows in many tables, numbered or not.
+    record_id = None if record_id is None else str(record_id)
 
     if action == "update" and changes:
         for field, (old, new) in changes.items():

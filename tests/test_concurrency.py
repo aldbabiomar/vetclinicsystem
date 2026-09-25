@@ -28,7 +28,7 @@ from datetime import date, datetime
 
 import pytest
 
-from conftest import needs_db, TEST_DB_URL
+from conftest import ADMIN_ID, needs_db, TEST_DB_URL
 
 
 pytestmark = needs_db
@@ -78,7 +78,7 @@ def sellable(db):
                (pl_id, f"Race Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (clock.today().isoformat(), "U001", "Confirmed",
+                     (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     sid = cur.fetchone()["id"]

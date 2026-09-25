@@ -32,10 +32,10 @@
         <div class="field full"><label for="inpatientdetail-4-exam_findings">{{ _('Physical Exam Findings & Diagnostics') }}</label><textarea id="inpatientdetail-4-exam_findings" name="exam_findings">{{ fv(form, 'exam_findings', case.exam_findings or '') }}</textarea></div>
         <div class="field full"><label for="inpatientdetail-5-admitted_items">{{ _('Admitted Items') }}</label><input id="inpatientdetail-5-admitted_items" name="admitted_items" value="{{ fv(form, 'admitted_items', case.admitted_items or '') }}"></div>
         <div class="field"><label for="inpatientdetail-6-attending_vet_id">{{ _('Attending Veterinarian') }}</label>
-          <select id="inpatientdetail-6-attending_vet_id" name="attending_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if fv(form, 'attending_vet_id', case.attending_vet_id)==v.id }}>{{ v.full_name }}</option>{% endfor %}</select>
+          <select id="inpatientdetail-6-attending_vet_id" name="attending_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if (fv(form, 'attending_vet_id', case.attending_vet_id))|string == v.id|string }}>{{ v.full_name }}</option>{% endfor %}</select>
         </div>
         <div class="field"><label for="inpatientdetail-7-supervising_vet_id">{{ _('Supervising Veterinarian') }}</label>
-          <select id="inpatientdetail-7-supervising_vet_id" name="supervising_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if fv(form, 'supervising_vet_id', case.supervising_vet_id)==v.id }}>{{ v.full_name }}</option>{% endfor %}</select>
+          <select id="inpatientdetail-7-supervising_vet_id" name="supervising_vet_id"><option value="">—</option>{% for v in vets %}<option value="{{ v.id }}" {{ 'selected' if (fv(form, 'supervising_vet_id', case.supervising_vet_id))|string == v.id|string }}>{{ v.full_name }}</option>{% endfor %}</select>
         </div>
         <div class="field checkbox-row" style="margin-top:22px;">
           <input type="checkbox" name="dismissed" id="dismissedBox" {{ 'checked' if fv(form, 'dismissed', 'on' if case.dismissed else '')=='on' }} data-vzh="inpatient-detail-6">
