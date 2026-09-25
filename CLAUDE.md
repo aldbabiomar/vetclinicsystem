@@ -57,7 +57,8 @@ VetClinicSystem/                  ← repo root = this folder
 ├── app.py, core.py, logic.py, … the application (flat layout for now; the
 ├── routes/                         plan's §3.1 describes the target package)
 ├── templates/, static/, translations/
-├── schema_postgres.sql           ← the schema (becomes migrations/ in phase 2)
+├── schema.py, migrations/       ← the schema: numbered SQL files, each applied once
+│                                   (schema.py has the rules; tests/schema_snapshot.json pins the result)
 ├── tests/                        ← one suite; run it under BOTH money settings (§5)
 ├── scripts/
 │   ├── isolated_test_env.sh      ← throwaway Postgres + venv + app, per money setting (§4)

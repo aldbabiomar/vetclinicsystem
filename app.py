@@ -1114,17 +1114,17 @@ def dashboard():
             "SELECT COUNT(*) c FROM billing WHERE date_billed IS NULL AND total > 0"
         ).fetchone()["c"]
     backup_alert = None
-    migration_failures = None
+    schema_pending = None
     self_check = None
     self_check_modal = False
     if auth.has_permission("manage_settings"):
         import backup as backup_mod
         backup_alert = logic.backup_alert_message(backup_mod.last_backup(db))
-        # Set by setup.apply_incremental_migrations() when a schema statement
-        # fails on this launch — a per-statement failure no longer blocks
-        # every later one (see setup.py), but it's still worth an admin's
-        # attention. See ORPHANED_RECORDS_AUDIT.md F-22.
-        migration_failures = logic.get_setting(db, "migration_failures")
+        # Migration files this code ships that the database has not applied
+        # (schema.py) — only possible if a release was started without its
+        # schema step. Worth an admin's attention before anything breaks.
+        import schema as schema_mod
+        schema_pending = [name for _, name in schema_mod.pending(db)] or None
         # Layer 1 of operational monitoring. Reads the last *recorded* result
         # rather than running a fresh check: run_self_check() probes the disk
         # and write-tests the backup folder, neither of which has any business
@@ -1165,7 +1165,7 @@ def dashboard():
             backup_alert = None
     return render_template("dashboard.html", snap=snap, lan_address=lan_address(), missed=missed,
                             is_overseer=is_overseer, opex_due=opex_due, backup_alert=backup_alert,
-                            unbilled_count=unbilled_count, migration_failures=migration_failures,
+                            unbilled_count=unbilled_count, schema_pending=schema_pending,
                             self_check=self_check, self_check_modal=self_check_modal,
                             missed_page=missed_page, missed_total_pages=page_count(missed_total),
                             missed_total=missed_total)

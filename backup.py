@@ -397,29 +397,22 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
     _write_restore_marker("success", dump_path, started)
 
     step(2, "Reconciling schema")
-    # A backup taken before this running app version shipped a schema
-    # change (a new column/table, or a retroactive permission grant —
-    # see setup.INCREMENTAL_SCHEMA_STATEMENTS) restores the database back
-    # to that older shape. Nothing else re-syncs it afterward — the code
-    # currently running keeps serving requests against what it expects,
-    # not what actually got restored — so without this, features that
-    # depend on anything added since the backup start failing with
-    # "column does not exist" (or, for a permission grant, staff losing
-    # access to a page they should have) until the next in-app update
-    # happens to run setup.apply_schema() again. These statements are
-    # additive-only and idempotent by the same contract that lets them
-    # run on every normal app startup, so re-running them here is safe.
-    #
-    # JO's apply_schema() already runs apply_incremental_migrations()
-    # internally as its last step (unlike IQ, where the two are separate
-    # top-level calls) — call only apply_schema() here, since calling
-    # apply_incremental_migrations() again afterward would both be
-    # redundant and, worse, TypeError on JO's version of that function,
-    # which requires a connection argument IQ's zero-arg version doesn't
-    # take.
+    # A backup taken before this app version shipped a schema change
+    # restores the database to that older shape — its schema_migrations
+    # table says exactly which migrations it has. Apply the ones it lacks,
+    # or the running code meets "column does not exist" (and, for a
+    # permission added since, staff lose a page) until the next update.
+    # schema.apply() directly, not setup.apply_schema(): that one exits the
+    # process on failure, which here would kill the restore job's thread
+    # instead of reporting.
     try:
-        import setup
-        setup.apply_schema()
+        import db as dbmod
+        import schema
+        con = dbmod.connect()
+        try:
+            schema.apply(con, log=lambda *a: None)
+        finally:
+            con.close()
     except Exception as e:
         err = (f"Restore succeeded, but bringing the restored database up to this app version's "
                 f"schema failed: {e}. The data is restored, but some newer features may not work "

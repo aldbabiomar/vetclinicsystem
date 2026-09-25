@@ -261,18 +261,12 @@ import sys, os
 sys.path.insert(0, sys.argv[1])
 os.chdir(sys.argv[1])
 money_setting = sys.argv[2].upper()
-import db as dbmod, auth, setup
+import db as dbmod, auth, schema
 from datetime import datetime
 
 con = dbmod.connect()
-with open("schema_postgres.sql") as f:
-    dbmod.run_script(con, f.read())
-con.commit()
-
-setup.apply_incremental_migrations(con)
-
-auth.seed_default_roles_and_permissions(con)
-con.commit()
+# Exactly what setup.py and the updater run: every migration, then the seed.
+schema.apply(con)
 
 # The throwaway clinic's money setting: the second argument to this script.
 con.execute(

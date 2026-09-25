@@ -232,7 +232,7 @@ def owner_new():
             # The pre-check above is best-effort, not atomic — two
             # near-simultaneous submits for the same new phone number can
             # both pass it before either commits. idx_owners_phone_unique
-            # (schema_postgres.sql) is what actually prevents the
+            # (migrations/0001_baseline.sql) is what actually prevents the
             # duplicate; this catches the resulting IntegrityError for
             # whichever request loses that race.
             db.rollback()
@@ -645,7 +645,7 @@ def visit_new_patient():
         # creating a duplicate owner row instead of linking to the
         # existing one. If this phone is already on file, add the new
         # pet under that existing owner instead of making a second one
-        # (idx_owners_phone_unique in schema_postgres.sql would otherwise
+        # (idx_owners_phone_unique in migrations/0001_baseline.sql would otherwise
         # just reject the insert outright, and staff have already filled
         # in the whole visit form by this point — losing that work to a
         # hard error would be a worse experience than quietly reusing the
@@ -1524,7 +1524,7 @@ def grooming_update(visit_id):
     return redirect(url_for("clinical.grooming_list"))
 
 
-# Mirror the DB CHECK constraints (schema_postgres.sql) so a bypassed <select>
+# Mirror the DB CHECK constraints (migrations/0001_baseline.sql) so a bypassed <select>
 # produces a clean flash message instead of a raw constraint-violation 500.
 RESOURCE_TYPES = ["vet", "grooming"]
 APPOINTMENT_TYPES = ["Medical", "Grooming"]
@@ -2493,7 +2493,7 @@ def appointment_new():
     # The check above is a friendly fast-path, not the real guarantee — two
     # concurrent bookings for the same slot could both pass it before either
     # inserts. The database's uq_appointments_slot unique index (see
-    # schema_postgres.sql) is what actually prevents the double-booking;
+    # migrations/0001_baseline.sql) is what actually prevents the double-booking;
     # this catches the resulting IntegrityError for whichever request loses
     # that race and turns it into the same friendly message instead of a
     # raw 500.

@@ -22,7 +22,8 @@ import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).parent.parent
-SQL_FILES = sorted(ROOT.glob("*.sql"))
+# Every migration file (schema.py) — the schema has no other .sql source.
+SQL_FILES = sorted((ROOT / "migrations").glob("*.sql"))
 # routes/ too, since the blueprint split moved most SQL-bearing code there.
 PY_FILES = sorted(ROOT.glob("*.py")) + sorted((ROOT / "routes").glob("*.py"))
 

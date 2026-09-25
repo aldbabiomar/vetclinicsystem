@@ -1,158 +1,228 @@
 """
-Schema apply: does a fresh install build cleanly, and is re-applying it safe?
+The schema: numbered migrations, applied once each (schema.py).
 
-`setup.apply_schema()` is what both a fresh install and the in-app updater's
-`_run_schema_sync()` run against the clinic database, with `check=True` — so
-anything that raises there aborts the install or rolls back the update.
+What a migration run must guarantee, and what these check:
+  - a fresh database ends up exactly equal to tests/schema_snapshot.json;
+  - running again applies nothing and changes nothing — the updater and a
+    restore both run it against databases that are usually already current;
+  - a failing migration rolls back entirely, is not recorded, and stops the
+    run: nothing after it applies, and the process exits non-zero (the
+    updater treats that as a failed update and rolls back);
+  - a file the runner would skip or mis-split is an error, not a surprise.
 
-VetClinicSystem has never been deployed, so there is no release history to
-upgrade FROM yet. The predecessor apps' tests replayed upgrades from their own
-tagged releases; those tags do not exist in this repository. The versioned
-migration runner (docs/plans/UNIFIED_CODEBASE_PLAN.md §4.3) replaces this file.
-
-Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
+The database tests need a throwaway Postgres and skip cleanly without one.
 """
+import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
-import pathlib
 import uuid
 
 import pytest
 
+import schema
 from conftest import needs_db, TEST_DB_URL
 
-
-pytestmark = needs_db
-
 REPO = pathlib.Path(__file__).parent.parent
-
-
-FRESH_SCHEMA = (REPO / "schema_postgres.sql").read_text(encoding="utf-8")
+SNAPSHOT = REPO / "tests" / "schema_snapshot.json"
 
 
 @pytest.fixture
 def scratch_db():
-    """An empty database on the same server, dropped afterwards.
-
-    Created through a separate autocommit connection because CREATE
-    DATABASE cannot run inside a transaction.
-    """
+    """An empty database on the test server, dropped afterwards. CREATE
+    DATABASE cannot run in a transaction, hence the autocommit connection."""
     import psycopg
     admin_url = re.sub(r"/[^/]+$", "/postgres", TEST_DB_URL)
     name = f"migtest_{uuid.uuid4().hex[:10]}"
     with psycopg.connect(admin_url, autocommit=True) as con:
         con.execute(f'CREATE DATABASE "{name}"')
-    yield re.sub(r"/[^/]+$", f"/{name}", TEST_DB_URL), name
+    yield re.sub(r"/[^/]+$", f"/{name}", TEST_DB_URL)
     with psycopg.connect(admin_url, autocommit=True) as con:
         con.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
 
-def _apply_sql(url, sql_text):
-    import psycopg
-    with psycopg.connect(url, autocommit=True) as con:
-        con.execute(sql_text)
+def _connect(url):
+    from psycopg.rows import dict_row
+    import db as dbmod
+    return dbmod.Connection.connect(url, row_factory=dict_row, autocommit=False)
 
 
-def _upgrade(url):
-    """Exactly what updater._run_schema_sync() runs, in a subprocess so a
-    failure surfaces the same way it would during a real update."""
-    # sys.executable, not a bare "python3": the upgrade needs the app's
-    # dependencies, and the interpreter running the tests is the one that
-    # has them. Inherit the environment and override only the database.
+def _setup_apply_schema(url):
+    """Exactly what updater._run_schema_sync() runs, in a subprocess, so a
+    failure surfaces the way it would during a real update."""
     env = dict(os.environ, DATABASE_URL=url, SECRET_KEY="migration-test")
-    # JO's updater runs apply_schema() alone — apply_incremental_migrations()
-    # takes a connection here and is called from inside apply_schema(), unlike
-    # IQ where the updater invokes both. A real structural divergence, so this
-    # mirrors JO's own _run_schema_sync() rather than IQ's.
-    return subprocess.run(
-        [sys.executable, "-c", "import setup; setup.apply_schema()"],
-        cwd=REPO, capture_output=True, text=True, env=env,
-    )
-
-
-def _tables(url):
-    import psycopg
-    with psycopg.connect(url) as con:
-        rows = con.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='public' ORDER BY 1").fetchall()
-    return {r[0] for r in rows}
-
-
-def _columns(url):
-    import psycopg
-    with psycopg.connect(url) as con:
-        rows = con.execute(
-            "SELECT table_name, column_name FROM information_schema.columns "
-            "WHERE table_schema='public'").fetchall()
-    return {(r[0], r[1]) for r in rows}
+    return subprocess.run([sys.executable, "-c", "import setup; setup.apply_schema()"],
+                          cwd=REPO, capture_output=True, text=True, env=env)
 
 
 # ---------------------------------------------------------------------------
+# The real migrations
+# ---------------------------------------------------------------------------
 
-def test_the_migrations_are_idempotent(scratch_db):
-    """The updater runs these on every single update, so they meet an
-    already-migrated database far more often than a stale one."""
-    url, _ = scratch_db
-    _apply_sql(url, FRESH_SCHEMA)
-    first = _upgrade(url)
-    assert first.returncode == 0, first.stderr[-800:]
-    second = _upgrade(url)
-    assert second.returncode == 0, (
-        f"running the migrations twice failed the second time:\n{second.stderr[-1000:]}")
-    third = _upgrade(url)
-    assert third.returncode == 0, "third run failed — the migrations are not idempotent"
-
-
-def test_no_migration_failure_is_recorded_after_an_upgrade(scratch_db):
-    """apply_incremental_migrations() catches a failing statement, records it
-    in a settings key and carries on — so an upgrade can 'succeed' with
-    silent damage. Nothing should ever be in there."""
-    import psycopg
-    url, _ = scratch_db
-    _apply_sql(url, FRESH_SCHEMA)
-    assert _upgrade(url).returncode == 0
-    with psycopg.connect(url) as con:
-        row = con.execute("SELECT value FROM settings WHERE key='migration_failures'").fetchone()
-    assert row is None or not (row[0] or "").strip(), f"migrations recorded failures: {row}"
+@needs_db
+def test_a_fresh_database_is_built_to_the_snapshot(scratch_db):
+    """The one test that says what the schema IS. If it fails after you
+    added a migration, run `scripts/schema_snapshot.py`, read the diff, and
+    accept it with --write only if it is what you meant."""
+    run = _setup_apply_schema(scratch_db)
+    assert run.returncode == 0, run.stdout[-800:] + run.stderr[-800:]
+    con = _connect(scratch_db)
+    try:
+        built = schema.snapshot(con)
+        assert schema.pending(con) == []
+        applied = [r["version"] for r in con.execute(
+            "SELECT version FROM schema_migrations ORDER BY version").fetchall()]
+    finally:
+        con.close()
+    assert applied == [v for v, _, _ in schema.migration_files()]
+    expected = json.loads(SNAPSHOT.read_text())
+    diff = schema.snapshot_diff(expected, built)
+    assert not diff, ("the migrations build a schema different from tests/schema_snapshot.json:\n  "
+                      + "\n  ".join(diff[:20]))
 
 
-def test_no_index_in_the_schema_file_depends_on_a_migration_added_column():
-    """A static guard for the exact bug these tests were written after.
+@needs_db
+def test_running_again_applies_nothing_and_changes_nothing(scratch_db):
+    assert _setup_apply_schema(scratch_db).returncode == 0
+    con = _connect(scratch_db)
+    before = schema.snapshot(con)
+    con.close()
+    for _ in range(2):
+        again = _setup_apply_schema(scratch_db)
+        assert again.returncode == 0, again.stderr[-800:]
+        assert "Schema is up to date." in again.stdout
+    con = _connect(scratch_db)
+    try:
+        assert schema.snapshot(con) == before
+    finally:
+        con.close()
 
-    apply_schema() runs before apply_incremental_migrations(). Anything in
-    schema_postgres.sql that references a column only added by the migration
-    list works on a fresh install (the CREATE TABLE carries it) and raises on
-    every upgrade — aborting the whole schema apply. Such an index belongs in
-    the migration list, beside the ALTER TABLE that adds its column.
 
-    This runs without a database, so it fails fast and points straight at the
-    cause rather than at a mysterious upgrade failure.
-    """
-    schema = (REPO / "schema_postgres.sql").read_text(encoding="utf-8")
-    setup_py = (REPO / "setup.py").read_text(encoding="utf-8")
-    migrated = {(m.group(1), m.group(2)) for m in
-                re.finditer(r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)", setup_py)}
-    assert migrated, "expected the migration list to add columns"
-
-    offenders = []
-    for m in re.finditer(
-            r"CREATE (?:UNIQUE )?INDEX IF NOT EXISTS (\w+) ON (\w+)\s*\(([^)]*)\)", schema):
-        index_name, table, cols = m.group(1), m.group(2), m.group(3)
-        for col in (c.strip().split()[0] for c in cols.split(",") if c.strip()):
-            if (table, col) in migrated:
-                offenders.append(f"{index_name} on {table}({col})")
-    assert not offenders, (
-        "schema_postgres.sql indexes a column that only a migration adds, which "
-        "raises on every upgrade:\n  " + "\n  ".join(offenders))
+@needs_db
+def test_the_seed_gives_the_system_role_every_permission(scratch_db):
+    """Seeding runs after the migrations on every apply, so a permission
+    added in a later release reaches an existing install's Admin role."""
+    import auth
+    assert _setup_apply_schema(scratch_db).returncode == 0
+    con = _connect(scratch_db)
+    try:
+        held = {r["permission_id"] for r in con.execute(
+            "SELECT rp.permission_id FROM role_permissions rp "
+            "JOIN roles r ON r.id = rp.role_id WHERE r.name = 'Admin'").fetchall()}
+    finally:
+        con.close()
+    assert held == {key for key, *_ in auth.PERMISSIONS}
 
 
 # ---------------------------------------------------------------------------
-# The stock-count constraints must reach an UPGRADED database, not just a
-# fresh one. COMPARISON.md §53: a CHECK written only into CREATE TABLE works
-# on every fresh install and silently does not exist on any upgraded one --
-# the split that is hardest to notice, because the developer's own machine is
-# usually the fresh install.
+# The runner, against migrations written for the test
 # ---------------------------------------------------------------------------
+
+@pytest.fixture
+def fake_migrations(tmp_path, monkeypatch):
+    """Point schema.py at a directory of test migrations; the seed step is
+    stubbed because these databases have none of the app's tables."""
+    import auth
+    monkeypatch.setattr(schema, "MIGRATIONS_DIR", str(tmp_path))
+    monkeypatch.setattr(auth, "seed_default_roles_and_permissions", lambda con: None)
+
+    def write(name, sql):
+        (tmp_path / name).write_text(sql)
+    return write
+
+
+def _tables(con):
+    return {r["t"] for r in con.execute(
+        "SELECT tablename AS t FROM pg_tables WHERE schemaname='public'").fetchall()}
+
+
+@needs_db
+def test_a_failing_migration_rolls_back_whole_and_stops_the_run(scratch_db, fake_migrations):
+    fake_migrations("0001_first.sql", "CREATE TABLE first_t (id INT);")
+    fake_migrations("0002_broken.sql", "CREATE TABLE half_t (id INT);\nALTER TABLE no_such_table ADD COLUMN x INT;")
+    fake_migrations("0003_after.sql", "CREATE TABLE after_t (id INT);")
+    con = _connect(scratch_db)
+    try:
+        with pytest.raises(schema.MigrationFailed) as info:
+            schema.apply(con, log=lambda *a: None)
+        con.rollback()
+        assert info.value.version == "0002"
+        assert "first_t" in _tables(con)
+        assert "half_t" not in _tables(con), "the failing file's first statement was kept"
+        assert "after_t" not in _tables(con), "a migration after the failure still ran"
+        assert schema.applied_versions(con) == {"0001"}
+    finally:
+        con.close()
+
+
+@needs_db
+def test_control_after_the_cause_is_fixed_the_run_resumes(scratch_db, fake_migrations):
+    fake_migrations("0001_first.sql", "CREATE TABLE first_t (id INT);")
+    fake_migrations("0002_broken.sql", "ALTER TABLE no_such_table ADD COLUMN x INT;")
+    con = _connect(scratch_db)
+    try:
+        with pytest.raises(schema.MigrationFailed):
+            schema.apply(con, log=lambda *a: None)
+        con.rollback()
+        fake_migrations("0002_broken.sql", "CREATE TABLE fixed_t (id INT);")
+        assert schema.apply(con, log=lambda *a: None) == ["0002_broken.sql"]
+        assert {"first_t", "fixed_t"} <= _tables(con)
+        assert schema.pending(con) == []
+    finally:
+        con.close()
+
+
+def test_a_misnamed_migration_file_is_an_error_not_skipped(tmp_path, monkeypatch):
+    monkeypatch.setattr(schema, "MIGRATIONS_DIR", str(tmp_path))
+    (tmp_path / "0001_ok.sql").write_text("")
+    (tmp_path / "2_forgot_the_zeros.sql").write_text("")
+    with pytest.raises(ValueError, match="2_forgot_the_zeros"):
+        schema.migration_files()
+
+
+def test_two_migrations_with_one_number_are_an_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(schema, "MIGRATIONS_DIR", str(tmp_path))
+    (tmp_path / "0001_a.sql").write_text("")
+    (tmp_path / "0001_b.sql").write_text("")
+    with pytest.raises(ValueError, match="share a number"):
+        schema.migration_files()
+
+
+# ---------------------------------------------------------------------------
+# The files themselves (no database)
+# ---------------------------------------------------------------------------
+
+def _statements(sql_text):
+    """Split the way db.run_script() does."""
+    lines = []
+    for line in sql_text.splitlines():
+        i = line.find("--")
+        lines.append(line[:i] if i != -1 else line)
+    return [s.strip() for s in "\n".join(lines).split(";") if s.strip()]
+
+
+def test_control_the_splitter_check_catches_a_semicolon_in_a_string():
+    stmts = _statements("INSERT INTO t VALUES ('a;b');")
+    assert any(s.count("'") % 2 for s in stmts)
+
+
+def test_every_migration_survives_run_scripts_splitting():
+    """db.run_script() strips '--' comments and splits on ';' without
+    knowing about quotes. A ';' or '--' inside a string literal, or a DO /
+    function body, would be cut in half — and the half-statement error
+    would read like a bug in the SQL, not in the splitter."""
+    for version, name, path in schema.migration_files():
+        text = pathlib.Path(path).read_text(encoding="utf-8")
+        assert "$$" not in text, f"{name}: dollar-quoted bodies cannot be split safely"
+        for stmt in _statements(text):
+            assert stmt.count("'") % 2 == 0, f"{name}: unbalanced quote in: {stmt[:120]}"
+
+
+def test_the_baseline_does_not_use_if_not_exists():
+    """A migration runs once. IF NOT EXISTS would let the baseline 'succeed'
+    against a database that already has a different table of the same name."""
+    text = (REPO / "migrations" / "0001_baseline.sql").read_text(encoding="utf-8")
+    code = "\n".join(l.split("--")[0] for l in text.splitlines())
+    assert "IF NOT EXISTS" not in code.upper()

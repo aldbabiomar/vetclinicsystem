@@ -29,7 +29,6 @@ pytestmark = needs_db
 
 SETTING_KEYS = (
     "backup_dir",
-    "migration_failures",
     "last_verified_restore",
     "selfcheck_backup_max_age_days",
     "selfcheck_enabled",
@@ -73,7 +72,6 @@ def env(db, flask_app, tmp_path):
     backup_dir = tmp_path / "backups"
     backup_dir.mkdir()
     _set(db, "backup_dir", str(backup_dir))
-    _set(db, "migration_failures", None)
     _set(db, "selfcheck_backup_max_age_days", None)
     _set(db, "last_verified_restore", json.dumps({
         "at": datetime.now().isoformat(timespec="seconds"),
@@ -234,12 +232,23 @@ def test_backup_dir_unwritable(env, tmp_path):
         os.chmod(locked, 0o700)
 
 
-def test_migration_failed(env):
+def test_schema_behind(env, monkeypatch):
+    """A migration file the database has not applied — the code is newer
+    than the schema. Simulated by the code shipping one more file."""
+    import schema
     import selfcheck
-    _set(env["db"], "migration_failures", "ALTER TABLE visits ... failed")
+    real = schema.migration_files()
+    monkeypatch.setattr(schema, "migration_files",
+                        lambda: real + [("9999", "9999_from_the_future.sql", "/nonexistent")])
     result = selfcheck.run_self_check(env["db"])
-    assert "migration_failed" in codes(result)
-    assert severity_of(result, "migration_failed") == "fail"
+    assert "schema_behind" in codes(result)
+    assert severity_of(result, "schema_behind") == "fail"
+    assert "9999_from_the_future.sql" in json.dumps(result)
+
+
+def test_control_an_up_to_date_schema_is_not_reported(env):
+    import selfcheck
+    assert "schema_behind" not in codes(selfcheck.run_self_check(env["db"]))
 
 
 def test_restore_unverified_when_never_verified(env):

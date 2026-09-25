@@ -282,7 +282,8 @@ def _validate_release(path, tag_name):
     version = open(version_path).read().strip()
     if f"v{version}" != tag_name:
         return False, f"VERSION file says {version}, but the release tag is {tag_name}."
-    for required in ("app.py", "requirements.txt", "schema_postgres.sql"):
+    for required in ("app.py", "requirements.txt", "schema.py",
+                     os.path.join("migrations", "0001_baseline.sql")):
         if not os.path.isfile(os.path.join(path, required)):
             return False, f"Downloaded release is missing {required}."
     return True, None
@@ -316,14 +317,14 @@ def _check_imports(release_path):
 
 
 def _run_schema_sync(release_path):
-    """Runs the NEW release's own schema-apply logic (setup.apply_schema,
-    which applies both schema_postgres.sql AND
-    INCREMENTAL_SCHEMA_STATEMENTS internally) against the shared, live
-    database — using the new release's OWN copy of that logic, in case a
-    future release changes it. Only ever additive (new column/table with
-    a default) per RELEASE_WORKFLOW.md §6 step 2 — never a
-    drop/rename/type-narrowing, so this is safe to run before the new
-    release is actually serving traffic."""
+    """Runs the NEW release's own schema step (setup.apply_schema ->
+    schema.apply: every migration file this database has not applied yet,
+    each once, in its own transaction) against the shared, live database —
+    using the new release's OWN copy, since the new migrations are in it. A
+    failing migration exits non-zero, which fails the update before the
+    pointer flips; the pre-update backup covers the rest. Migrations stay
+    additive per RELEASE_WORKFLOW.md §6 step 2, so this is safe to run
+    before the new release is serving traffic."""
     py = _venv_python(release_path)
     subprocess.run(
         [py, "-c", "import setup; setup.load_dotenv_now(); setup.apply_schema()"],

@@ -693,3 +693,27 @@ result under each money setting.
   **1057 passed, 4 skipped**; JO environment **1058 passed, 3 skipped** — the
   skips are data-dependent (no barcode seeded, no visit to export, …) and
   tracked. With no database: 446 passed, 615 skipped, 0 errors.
+- **2026-09-25 — Phase 2a: migrations run once each.** `schema.py` applies
+  numbered files in `migrations/` — each once, in its own transaction, under an
+  advisory lock, recorded in `schema_migrations` — then seeds roles and
+  permissions (which also re-grants the system role every permission). A
+  failing file rolls back whole and stops the run: `setup.py` exits non-zero,
+  which fails an update before its pointer flips. `schema_postgres.sql` plus the
+  99-statement `INCREMENTAL_SCHEMA_STATEMENTS` list became
+  `migrations/0001_baseline.sql`; built both ways, the two schemas compared
+  **equal** (tables, columns, constraints and indexes, as Postgres reports them),
+  and IQ's predecessor schema matched too apart from index names.
+  `tests/schema_snapshot.json` now pins the schema; `scripts/schema_snapshot.py`
+  regenerates it on purpose. The `migration_failures` setting and its banner are
+  gone; a database behind the code is reported instead (`schema_behind`, a
+  self-check failure and a dashboard banner). A restore brings an older backup
+  forward through the same runner. Found on the way: two source-parsing tests
+  (`test_sql_placeholders.py`, and `test_frontend.py`'s citation check) globbed
+  `*.sql` at the root and would have gone silently empty — the first one's
+  control caught it; the second had no control and now has one. The updater's
+  release validation had no test at all; it has four.
+  Mutation-checked: skip-and-continue, per-statement commits, a dropped index,
+  and a stale required-file name each turn a test red.
+  **Suite:** IQ **1071 passed, 4 skipped**; JO **1071 passed, 4 skipped**; no
+  database 457 passed, 0 errors.
+

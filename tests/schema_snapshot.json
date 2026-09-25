@@ -1,0 +1,3156 @@
+{
+ "appointments": {
+  "columns": {
+   "appointment_type": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "appt_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "owner_name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "pet_name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "resource_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "resource_type": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "slot_label": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "appointments_appointment_type_check": "CHECK ((appointment_type = ANY (ARRAY['Medical'::text, 'Grooming'::text])))",
+   "appointments_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "appointments_pkey": "PRIMARY KEY (id)",
+   "appointments_resource_id_fkey": "FOREIGN KEY (resource_id) REFERENCES users(id) ON DELETE RESTRICT",
+   "appointments_resource_type_check": "CHECK ((resource_type = ANY (ARRAY['vet'::text, 'grooming'::text])))"
+  },
+  "indexes": {
+   "appointments_pkey": "CREATE UNIQUE INDEX appointments_pkey ON public.appointments USING btree (id)",
+   "idx_appt_date": "CREATE INDEX idx_appt_date ON public.appointments USING btree (appt_date)",
+   "uq_appointments_slot": "CREATE UNIQUE INDEX uq_appointments_slot ON public.appointments USING btree (appt_date, slot_label, resource_type, COALESCE(resource_id, ''::text))"
+  }
+ },
+ "attachments": {
+  "columns": {
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "inpatient_case_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "original_name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "patient_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "relative_path": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "uploaded_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "uploaded_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "attachments_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
+   "attachments_one_anchor_ck": "CHECK (((visit_id IS NOT NULL) <> (inpatient_case_id IS NOT NULL)))",
+   "attachments_patient_id_fkey": "FOREIGN KEY (patient_id) REFERENCES patients(id)",
+   "attachments_pkey": "PRIMARY KEY (id)",
+   "attachments_uploaded_by_fkey": "FOREIGN KEY (uploaded_by) REFERENCES users(id)",
+   "attachments_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "attachments_pkey": "CREATE UNIQUE INDEX attachments_pkey ON public.attachments USING btree (id)",
+   "idx_attach_case": "CREATE INDEX idx_attach_case ON public.attachments USING btree (inpatient_case_id)",
+   "idx_attach_patient": "CREATE INDEX idx_attach_patient ON public.attachments USING btree (patient_id)",
+   "idx_attach_visit": "CREATE INDEX idx_attach_visit ON public.attachments USING btree (visit_id)"
+  }
+ },
+ "audit_log": {
+  "columns": {
+   "action": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "field": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "new_value": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "old_value": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "record_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "table_name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "username": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "audit_log_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "audit_log_pkey": "CREATE UNIQUE INDEX audit_log_pkey ON public.audit_log USING btree (id)",
+   "idx_audit_ts": "CREATE INDEX idx_audit_ts ON public.audit_log USING btree (\"timestamp\")"
+  }
+ },
+ "audit_session_lines": {
+  "columns": {
+   "critical_item": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "nearest_expiry_date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "received_since_prior": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "double precision"
+   },
+   "reorder_threshold": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "double precision"
+   },
+   "session_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "stock_counted": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "double precision"
+   },
+   "target_coverage_days": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "double precision"
+   }
+  },
+  "constraints": {
+   "audit_session_lines_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "audit_session_lines_pkey": "PRIMARY KEY (id)",
+   "audit_session_lines_received_since_prior_check": "CHECK (((received_since_prior >= (0)::double precision) AND (received_since_prior < 'Infinity'::double precision)))",
+   "audit_session_lines_reorder_threshold_check": "CHECK (((reorder_threshold IS NULL) OR ((reorder_threshold >= (0)::double precision) AND (reorder_threshold < 'Infinity'::double precision))))",
+   "audit_session_lines_session_id_fkey": "FOREIGN KEY (session_id) REFERENCES audit_sessions(id)",
+   "audit_session_lines_session_id_item_id_key": "UNIQUE (session_id, item_id)",
+   "audit_session_lines_stock_counted_check": "CHECK (((stock_counted IS NULL) OR ((stock_counted >= (0)::double precision) AND (stock_counted < 'Infinity'::double precision))))",
+   "audit_session_lines_target_coverage_days_check": "CHECK (((target_coverage_days IS NULL) OR ((target_coverage_days >= (0)::double precision) AND (target_coverage_days < 'Infinity'::double precision))))"
+  },
+  "indexes": {
+   "audit_session_lines_pkey": "CREATE UNIQUE INDEX audit_session_lines_pkey ON public.audit_session_lines USING btree (id)",
+   "audit_session_lines_session_id_item_id_key": "CREATE UNIQUE INDEX audit_session_lines_session_id_item_id_key ON public.audit_session_lines USING btree (session_id, item_id)",
+   "idx_auditlines_item": "CREATE INDEX idx_auditlines_item ON public.audit_session_lines USING btree (item_id)",
+   "idx_auditlines_session": "CREATE INDEX idx_auditlines_session ON public.audit_session_lines USING btree (session_id)"
+  }
+ },
+ "audit_sessions": {
+  "columns": {
+   "audit_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "confirmed_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "performed_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "status": {
+    "default": "'Draft'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "audit_sessions_performed_by_fkey": "FOREIGN KEY (performed_by) REFERENCES users(id)",
+   "audit_sessions_pkey": "PRIMARY KEY (id)",
+   "audit_sessions_status_check": "CHECK ((status = ANY (ARRAY['Draft'::text, 'Confirmed'::text])))"
+  },
+  "indexes": {
+   "audit_sessions_pkey": "CREATE UNIQUE INDEX audit_sessions_pkey ON public.audit_sessions USING btree (id)"
+  }
+ },
+ "backup_log": {
+  "columns": {
+   "error": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "filepath": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "filesize_bytes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "bigint"
+   },
+   "finished_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "started_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "status": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "triggered_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "backup_log_pkey": "PRIMARY KEY (id)",
+   "backup_log_status_check": "CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text])))"
+  },
+  "indexes": {
+   "backup_log_pkey": "CREATE UNIQUE INDEX backup_log_pkey ON public.backup_log USING btree (id)",
+   "idx_backup_log_started": "CREATE INDEX idx_backup_log_started ON public.backup_log USING btree (started_at)"
+  }
+ },
+ "billing": {
+  "columns": {
+   "billing_type": {
+    "default": "'Automatic'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "cleanup_amount": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "date_billed": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "discount_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_percent": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(5,2)"
+   },
+   "discount_source": {
+    "default": "'staff'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "manual_amount": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "total": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "billing_billing_type_check": "CHECK ((billing_type = ANY (ARRAY['Automatic'::text, 'Manual'::text])))",
+   "billing_cleanup_applied_by_fkey": "FOREIGN KEY (cleanup_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "billing_discount_applied_by_fkey": "FOREIGN KEY (discount_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "billing_discount_source_check": "CHECK ((discount_source = ANY (ARRAY['staff'::text, 'member'::text])))",
+   "billing_pkey": "PRIMARY KEY (visit_id)",
+   "billing_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "billing_pkey": "CREATE UNIQUE INDEX billing_pkey ON public.billing USING btree (visit_id)"
+  }
+ },
+ "boarding_incidents": {
+  "columns": {
+   "boarding_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "contact_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "contacted": {
+    "default": "'N'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "issue": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "response": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "boarding_incidents_boarding_id_fkey": "FOREIGN KEY (boarding_id) REFERENCES boarding_sessions(id)",
+   "boarding_incidents_pkey": "PRIMARY KEY (id)",
+   "boarding_incidents_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT"
+  },
+  "indexes": {
+   "boarding_incidents_pkey": "CREATE UNIQUE INDEX boarding_incidents_pkey ON public.boarding_incidents USING btree (id)",
+   "idx_boardingincidents_boarding": "CREATE INDEX idx_boardingincidents_boarding ON public.boarding_incidents USING btree (boarding_id)"
+  }
+ },
+ "boarding_sessions": {
+  "columns": {
+   "admitted_items": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "billed_total": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_amount": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_percent": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(5,2)"
+   },
+   "discount_source": {
+    "default": "'staff'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "dismissal_date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "dismissed": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "entry_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "patient_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "price_per_day": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "room": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "special_needs": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "special_needs_notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "total": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "total_is_auto": {
+    "default": "true",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "updated_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "boarding_sessions_cleanup_applied_by_fkey": "FOREIGN KEY (cleanup_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "boarding_sessions_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "boarding_sessions_discount_applied_by_fkey": "FOREIGN KEY (discount_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "boarding_sessions_discount_source_check": "CHECK ((discount_source = ANY (ARRAY['staff'::text, 'member'::text])))",
+   "boarding_sessions_patient_id_fkey": "FOREIGN KEY (patient_id) REFERENCES patients(id)",
+   "boarding_sessions_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "boarding_sessions_pkey": "CREATE UNIQUE INDEX boarding_sessions_pkey ON public.boarding_sessions USING btree (id)",
+   "idx_boarding_patient": "CREATE INDEX idx_boarding_patient ON public.boarding_sessions USING btree (patient_id)"
+  }
+ },
+ "cash_register_audits": {
+  "columns": {
+   "audit_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "counted_cash": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "difference": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "performed_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "status": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "system_card": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "system_cash": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "system_transfer": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "cash_register_audits_performed_by_fkey": "FOREIGN KEY (performed_by) REFERENCES users(id)",
+   "cash_register_audits_pkey": "PRIMARY KEY (id)",
+   "cash_register_audits_status_check": "CHECK ((status = ANY (ARRAY['Deficit'::text, 'Surplus'::text, 'Perfect'::text])))"
+  },
+  "indexes": {
+   "cash_register_audits_pkey": "CREATE UNIQUE INDEX cash_register_audits_pkey ON public.cash_register_audits USING btree (id)",
+   "idx_cashaudits_date": "CREATE INDEX idx_cashaudits_date ON public.cash_register_audits USING btree (audit_date)"
+  }
+ },
+ "cash_register_payouts": {
+  "columns": {
+   "amount": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "logged_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "payout_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "cash_register_payouts_logged_by_fkey": "FOREIGN KEY (logged_by) REFERENCES users(id)",
+   "cash_register_payouts_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "cash_register_payouts_pkey": "CREATE UNIQUE INDEX cash_register_payouts_pkey ON public.cash_register_payouts USING btree (id)",
+   "idx_cashpayouts_date": "CREATE INDEX idx_cashpayouts_date ON public.cash_register_payouts USING btree (payout_date)"
+  }
+ },
+ "consignment_receipts": {
+  "columns": {
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "delivery_reference": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "quantity": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "received_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "received_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "unit_cost_at_receipt": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "consignment_receipts_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "consignment_receipts_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "consignment_receipts_pkey": "PRIMARY KEY (id)",
+   "consignment_receipts_received_by_fkey": "FOREIGN KEY (received_by) REFERENCES users(id)"
+  },
+  "indexes": {
+   "consignment_receipts_pkey": "CREATE UNIQUE INDEX consignment_receipts_pkey ON public.consignment_receipts USING btree (id)",
+   "idx_consreceipts_distributor": "CREATE INDEX idx_consreceipts_distributor ON public.consignment_receipts USING btree (distributor_id)",
+   "idx_consreceipts_item": "CREATE INDEX idx_consreceipts_item ON public.consignment_receipts USING btree (item_id)"
+  }
+ },
+ "consignment_returns": {
+  "columns": {
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "quantity": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "return_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "returned_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "unit_cost_at_return": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "consignment_returns_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "consignment_returns_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "consignment_returns_pkey": "PRIMARY KEY (id)",
+   "consignment_returns_returned_by_fkey": "FOREIGN KEY (returned_by) REFERENCES users(id)"
+  },
+  "indexes": {
+   "consignment_returns_pkey": "CREATE UNIQUE INDEX consignment_returns_pkey ON public.consignment_returns USING btree (id)",
+   "idx_consreturns_distributor": "CREATE INDEX idx_consreturns_distributor ON public.consignment_returns USING btree (distributor_id)",
+   "idx_consreturns_item": "CREATE INDEX idx_consreturns_item ON public.consignment_returns USING btree (item_id)"
+  }
+ },
+ "consignment_settlements": {
+  "columns": {
+   "amount_owed": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "amount_paid": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "payment_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "period_end": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "period_start": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "settled_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "consignment_settlements_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "consignment_settlements_pkey": "PRIMARY KEY (id)",
+   "consignment_settlements_settled_by_fkey": "FOREIGN KEY (settled_by) REFERENCES users(id)"
+  },
+  "indexes": {
+   "consignment_settlements_pkey": "CREATE UNIQUE INDEX consignment_settlements_pkey ON public.consignment_settlements USING btree (id)",
+   "idx_conssettlements_distributor": "CREATE INDEX idx_conssettlements_distributor ON public.consignment_settlements USING btree (distributor_id)"
+  }
+ },
+ "consignment_shrinkage": {
+  "columns": {
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "liability_overridden": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "liable_party": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "logged_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "logged_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "quantity": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "unit_cost": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "consignment_shrinkage_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "consignment_shrinkage_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "consignment_shrinkage_liable_party_check": "CHECK ((liable_party = ANY (ARRAY['Distributor'::text, 'Clinic'::text])))",
+   "consignment_shrinkage_logged_by_fkey": "FOREIGN KEY (logged_by) REFERENCES users(id)",
+   "consignment_shrinkage_pkey": "PRIMARY KEY (id)",
+   "consignment_shrinkage_reason_check": "CHECK ((reason = ANY (ARRAY['Damaged'::text, 'Expired'::text, 'Other'::text])))"
+  },
+  "indexes": {
+   "consignment_shrinkage_pkey": "CREATE UNIQUE INDEX consignment_shrinkage_pkey ON public.consignment_shrinkage USING btree (id)",
+   "idx_consshrinkage_distributor": "CREATE INDEX idx_consshrinkage_distributor ON public.consignment_shrinkage USING btree (distributor_id)",
+   "idx_consshrinkage_item": "CREATE INDEX idx_consshrinkage_item ON public.consignment_shrinkage USING btree (item_id)"
+  }
+ },
+ "distributor_bill_payments": {
+  "columns": {
+   "amount": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "bill_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "payment_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   }
+  },
+  "constraints": {
+   "distributor_bill_payments_amount_check": "CHECK ((amount > (0)::numeric))",
+   "distributor_bill_payments_bill_id_fkey": "FOREIGN KEY (bill_id) REFERENCES distributor_bills(id)",
+   "distributor_bill_payments_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id)",
+   "distributor_bill_payments_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "distributor_bill_payments_pkey": "CREATE UNIQUE INDEX distributor_bill_payments_pkey ON public.distributor_bill_payments USING btree (id)",
+   "idx_distbillpayments_bill": "CREATE INDEX idx_distbillpayments_bill ON public.distributor_bill_payments USING btree (bill_id)"
+  }
+ },
+ "distributor_bills": {
+  "columns": {
+   "bill_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "bill_reference": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "total_amount": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "distributor_bills_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id)",
+   "distributor_bills_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "distributor_bills_pkey": "PRIMARY KEY (id)",
+   "distributor_bills_total_amount_check": "CHECK ((total_amount >= (0)::numeric))"
+  },
+  "indexes": {
+   "distributor_bills_pkey": "CREATE UNIQUE INDEX distributor_bills_pkey ON public.distributor_bills USING btree (id)",
+   "idx_distbills_distributor": "CREATE INDEX idx_distbills_distributor ON public.distributor_bills USING btree (distributor_id)"
+  }
+ },
+ "distributors": {
+  "columns": {
+   "catalog_link": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "contact_person": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "email": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "lead_time_days": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "payment_terms": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "phone": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "distributors_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "distributors_pkey": "CREATE UNIQUE INDEX distributors_pkey ON public.distributors USING btree (id)"
+  }
+ },
+ "id_counters": {
+  "columns": {
+   "next_val": {
+    "default": "1",
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "prefix": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "id_counters_pkey": "PRIMARY KEY (prefix)"
+  },
+  "indexes": {
+   "id_counters_pkey": "CREATE UNIQUE INDEX id_counters_pkey ON public.id_counters USING btree (prefix)"
+  }
+ },
+ "inpatient_billing": {
+  "columns": {
+   "case_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "discountable": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "logged_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "price_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "quantity": {
+    "default": "1",
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "unit_cost": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "unit_price": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "inpatient_billing_case_id_fkey": "FOREIGN KEY (case_id) REFERENCES inpatient_cases(id)",
+   "inpatient_billing_logged_by_fkey": "FOREIGN KEY (logged_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "inpatient_billing_pkey": "PRIMARY KEY (id)",
+   "inpatient_billing_price_id_fkey": "FOREIGN KEY (price_id) REFERENCES price_list(id)"
+  },
+  "indexes": {
+   "idx_inpbilling_case": "CREATE INDEX idx_inpbilling_case ON public.inpatient_billing USING btree (case_id)",
+   "inpatient_billing_pkey": "CREATE UNIQUE INDEX inpatient_billing_pkey ON public.inpatient_billing USING btree (id)"
+  }
+ },
+ "inpatient_cases": {
+  "columns": {
+   "admission_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "admitted_items": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "attending_vet_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "bcs": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "cleanup_amount": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "complaint": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_percent": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(5,2)"
+   },
+   "discount_source": {
+    "default": "'staff'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "dismissal_date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "dismissed": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "exam_findings": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "patient_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "supervising_vet_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "total": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "updated_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "weight_kg": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "double precision"
+   }
+  },
+  "constraints": {
+   "inpatient_cases_attending_vet_id_fkey": "FOREIGN KEY (attending_vet_id) REFERENCES users(id)",
+   "inpatient_cases_bcs_check": "CHECK (((bcs >= 1) AND (bcs <= 9)))",
+   "inpatient_cases_cleanup_applied_by_fkey": "FOREIGN KEY (cleanup_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "inpatient_cases_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "inpatient_cases_discount_applied_by_fkey": "FOREIGN KEY (discount_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "inpatient_cases_discount_source_check": "CHECK ((discount_source = ANY (ARRAY['staff'::text, 'member'::text])))",
+   "inpatient_cases_patient_id_fkey": "FOREIGN KEY (patient_id) REFERENCES patients(id)",
+   "inpatient_cases_pkey": "PRIMARY KEY (id)",
+   "inpatient_cases_supervising_vet_id_fkey": "FOREIGN KEY (supervising_vet_id) REFERENCES users(id)",
+   "inpatient_cases_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "idx_inpatient_patient": "CREATE INDEX idx_inpatient_patient ON public.inpatient_cases USING btree (patient_id)",
+   "inpatient_cases_pkey": "CREATE UNIQUE INDEX inpatient_cases_pkey ON public.inpatient_cases USING btree (id)"
+  }
+ },
+ "inpatient_contact_log": {
+  "columns": {
+   "case_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "picked_up": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "staff_user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "inpatient_contact_log_case_id_fkey": "FOREIGN KEY (case_id) REFERENCES inpatient_cases(id)",
+   "inpatient_contact_log_pkey": "PRIMARY KEY (id)",
+   "inpatient_contact_log_staff_user_id_fkey": "FOREIGN KEY (staff_user_id) REFERENCES users(id) ON DELETE RESTRICT"
+  },
+  "indexes": {
+   "idx_inpcontact_case": "CREATE INDEX idx_inpcontact_case ON public.inpatient_contact_log USING btree (case_id)",
+   "inpatient_contact_log_pkey": "CREATE UNIQUE INDEX inpatient_contact_log_pkey ON public.inpatient_contact_log USING btree (id)"
+  }
+ },
+ "inpatient_updates": {
+  "columns": {
+   "case_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "note": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "inpatient_updates_case_id_fkey": "FOREIGN KEY (case_id) REFERENCES inpatient_cases(id)",
+   "inpatient_updates_pkey": "PRIMARY KEY (id)",
+   "inpatient_updates_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT"
+  },
+  "indexes": {
+   "idx_inpupdates_case": "CREATE INDEX idx_inpupdates_case ON public.inpatient_updates USING btree (case_id)",
+   "inpatient_updates_pkey": "CREATE UNIQUE INDEX inpatient_updates_pkey ON public.inpatient_updates USING btree (id)"
+  }
+ },
+ "inventory_list": {
+  "columns": {
+   "active": {
+    "default": "true",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "barcode": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "barcode_source": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "category": {
+    "default": "'Medical'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "consignment_since": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "cost_price": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "ownership_type": {
+    "default": "'Owned'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "track_expiry": {
+    "default": "true",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "unit": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "inventory_consignment_needs_distributor_ck": "CHECK (((ownership_type <> 'Consignment'::text) OR (distributor_id IS NOT NULL)))",
+   "inventory_list_barcode_key": "UNIQUE (barcode)",
+   "inventory_list_barcode_source_check": "CHECK ((barcode_source = ANY (ARRAY['manual'::text, 'generated'::text])))",
+   "inventory_list_category_check": "CHECK ((category = ANY (ARRAY['Medical'::text, 'Retail'::text])))",
+   "inventory_list_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "inventory_list_ownership_type_check": "CHECK ((ownership_type = ANY (ARRAY['Owned'::text, 'Consignment'::text])))",
+   "inventory_list_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "inventory_list_barcode_key": "CREATE UNIQUE INDEX inventory_list_barcode_key ON public.inventory_list USING btree (barcode)",
+   "inventory_list_pkey": "CREATE UNIQUE INDEX inventory_list_pkey ON public.inventory_list USING btree (id)"
+  }
+ },
+ "inventory_transactions": {
+  "columns": {
+   "change_qty": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "double precision"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "ref_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "inventory_transactions_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "inventory_transactions_pkey": "PRIMARY KEY (id)",
+   "inventory_transactions_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT"
+  },
+  "indexes": {
+   "idx_invtxn_item": "CREATE INDEX idx_invtxn_item ON public.inventory_transactions USING btree (item_id)",
+   "inventory_transactions_pkey": "CREATE UNIQUE INDEX inventory_transactions_pkey ON public.inventory_transactions USING btree (id)"
+  }
+ },
+ "login_log": {
+  "columns": {
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "ip": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "success": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "timestamp": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "user_agent": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "username": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "login_log_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "login_log_pkey": "CREATE UNIQUE INDEX login_log_pkey ON public.login_log USING btree (id)"
+  }
+ },
+ "monthly_financial_summary": {
+  "columns": {
+   "cogs": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "month": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "revenue": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "updated_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "monthly_financial_summary_pkey": "PRIMARY KEY (month)"
+  },
+  "indexes": {
+   "monthly_financial_summary_pkey": "CREATE UNIQUE INDEX monthly_financial_summary_pkey ON public.monthly_financial_summary USING btree (month)"
+  }
+ },
+ "monthly_opex": {
+  "columns": {
+   "marketing": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "month": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "other": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "rent": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "salaries": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "utilities": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "monthly_opex_pkey": "PRIMARY KEY (month)"
+  },
+  "indexes": {
+   "monthly_opex_pkey": "CREATE UNIQUE INDEX monthly_opex_pkey ON public.monthly_opex USING btree (month)"
+  }
+ },
+ "owners": {
+  "columns": {
+   "address": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "is_member": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "member_card_number": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "member_enrolled_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "member_expires_on": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "member_since": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "phone": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "owners_member_enrolled_by_fkey": "FOREIGN KEY (member_enrolled_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "owners_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "idx_owners_member_card": "CREATE UNIQUE INDEX idx_owners_member_card ON public.owners USING btree (member_card_number) WHERE (member_card_number IS NOT NULL)",
+   "idx_owners_phone_unique": "CREATE UNIQUE INDEX idx_owners_phone_unique ON public.owners USING btree (phone) WHERE (phone IS NOT NULL)",
+   "owners_pkey": "CREATE UNIQUE INDEX owners_pkey ON public.owners USING btree (id)"
+  }
+ },
+ "patients": {
+  "columns": {
+   "age_note": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "animal_name": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "housing": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "microchip": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "owner_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "repro_status": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "sex": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "species": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "patients_owner_id_fkey": "FOREIGN KEY (owner_id) REFERENCES owners(id)",
+   "patients_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "idx_patients_microchip_unique": "CREATE UNIQUE INDEX idx_patients_microchip_unique ON public.patients USING btree (microchip) WHERE (microchip IS NOT NULL)",
+   "idx_patients_owner": "CREATE INDEX idx_patients_owner ON public.patients USING btree (owner_id)",
+   "patients_pkey": "CREATE UNIQUE INDEX patients_pkey ON public.patients USING btree (id)"
+  }
+ },
+ "payments": {
+  "columns": {
+   "amount": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "boarding_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "inpatient_case_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "user_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "payments_boarding_id_fkey": "FOREIGN KEY (boarding_id) REFERENCES boarding_sessions(id)",
+   "payments_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
+   "payments_one_anchor_ck": "CHECK ((((((visit_id IS NOT NULL))::integer + ((inpatient_case_id IS NOT NULL))::integer) + ((boarding_id IS NOT NULL))::integer) = 1))",
+   "payments_pkey": "PRIMARY KEY (id)",
+   "payments_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+   "payments_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "idx_payments_boarding": "CREATE INDEX idx_payments_boarding ON public.payments USING btree (boarding_id)",
+   "idx_payments_case": "CREATE INDEX idx_payments_case ON public.payments USING btree (inpatient_case_id)",
+   "idx_payments_visit": "CREATE INDEX idx_payments_visit ON public.payments USING btree (visit_id)",
+   "payments_pkey": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)"
+  }
+ },
+ "permissions": {
+  "columns": {
+   "category": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "label": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "sort_order": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   }
+  },
+  "constraints": {
+   "permissions_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "permissions_pkey": "CREATE UNIQUE INDEX permissions_pkey ON public.permissions USING btree (id)"
+  }
+ },
+ "price_list": {
+  "columns": {
+   "active": {
+    "default": "true",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "can_discount": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "category": {
+    "default": "'Service'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "cost_price": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "linked_item_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "sale_price": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "price_list_category_check": "CHECK ((category = ANY (ARRAY['Service'::text, 'Medicine'::text, 'Retail'::text])))",
+   "price_list_linked_item_id_fkey": "FOREIGN KEY (linked_item_id) REFERENCES inventory_list(id)",
+   "price_list_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "price_list_pkey": "CREATE UNIQUE INDEX price_list_pkey ON public.price_list USING btree (id)"
+  }
+ },
+ "refund_items": {
+  "columns": {
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "line_total": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "quantity": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "refund_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "sale_item_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "unit_price": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "refund_items_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "refund_items_pkey": "PRIMARY KEY (id)",
+   "refund_items_refund_id_fkey": "FOREIGN KEY (refund_id) REFERENCES refunds(id)",
+   "refund_items_sale_item_id_fkey": "FOREIGN KEY (sale_item_id) REFERENCES sale_items(id)"
+  },
+  "indexes": {
+   "idx_refunditems_refund": "CREATE INDEX idx_refunditems_refund ON public.refund_items USING btree (refund_id)",
+   "refund_items_pkey": "CREATE UNIQUE INDEX refund_items_pkey ON public.refund_items USING btree (id)"
+  }
+ },
+ "refunds": {
+  "columns": {
+   "amount": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "boarding_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "cleanup_amount_at_refund": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "inpatient_case_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "processed_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "reason": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "refund_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "date"
+   },
+   "refund_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "refund_type": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "restocked": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "sale_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "refunds_anchor_ck": "CHECK ((((refund_type = 'retail'::text) AND (sale_id IS NOT NULL) AND (visit_id IS NULL) AND (inpatient_case_id IS NULL) AND (boarding_id IS NULL)) OR ((refund_type = 'service'::text) AND (sale_id IS NULL) AND (((((visit_id IS NOT NULL))::integer + ((inpatient_case_id IS NOT NULL))::integer) + ((boarding_id IS NOT NULL))::integer) = 1))))",
+   "refunds_boarding_id_fkey": "FOREIGN KEY (boarding_id) REFERENCES boarding_sessions(id)",
+   "refunds_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
+   "refunds_pkey": "PRIMARY KEY (id)",
+   "refunds_processed_by_fkey": "FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "refunds_refund_type_check": "CHECK ((refund_type = ANY (ARRAY['retail'::text, 'service'::text])))",
+   "refunds_sale_id_fkey": "FOREIGN KEY (sale_id) REFERENCES sales(id)",
+   "refunds_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "idx_refunds_date": "CREATE INDEX idx_refunds_date ON public.refunds USING btree (refund_date)",
+   "idx_refunds_sale": "CREATE INDEX idx_refunds_sale ON public.refunds USING btree (sale_id)",
+   "refunds_pkey": "CREATE UNIQUE INDEX refunds_pkey ON public.refunds USING btree (id)"
+  }
+ },
+ "restore_log": {
+  "columns": {
+   "error": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "finished_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "source_file": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "started_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "status": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "triggered_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "restore_log_pkey": "PRIMARY KEY (id)",
+   "restore_log_status_check": "CHECK ((status = ANY (ARRAY['success'::text, 'failed'::text])))"
+  },
+  "indexes": {
+   "idx_restore_log_started": "CREATE INDEX idx_restore_log_started ON public.restore_log USING btree (started_at)",
+   "restore_log_pkey": "CREATE UNIQUE INDEX restore_log_pkey ON public.restore_log USING btree (id)"
+  }
+ },
+ "role_permissions": {
+  "columns": {
+   "permission_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "role_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "role_permissions_permission_id_fkey": "FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE",
+   "role_permissions_pkey": "PRIMARY KEY (role_id, permission_id)",
+   "role_permissions_role_id_fkey": "FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE"
+  },
+  "indexes": {
+   "role_permissions_pkey": "CREATE UNIQUE INDEX role_permissions_pkey ON public.role_permissions USING btree (role_id, permission_id)"
+  }
+ },
+ "roles": {
+  "columns": {
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "description": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_cap": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "is_system": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "is_vet_role": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "roles_discount_cap_check": "CHECK (((discount_cap >= 0) AND (discount_cap <= 100)))",
+   "roles_name_key": "UNIQUE (name)",
+   "roles_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "roles_name_key": "CREATE UNIQUE INDEX roles_name_key ON public.roles USING btree (name)",
+   "roles_pkey": "CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (id)"
+  }
+ },
+ "sale_items": {
+  "columns": {
+   "discountable": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "distributor_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "item_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "line_total": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "quantity": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "sale_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "integer"
+   },
+   "unit_cost": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "unit_price": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "sale_items_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "sale_items_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
+   "sale_items_pkey": "PRIMARY KEY (id)",
+   "sale_items_sale_id_fkey": "FOREIGN KEY (sale_id) REFERENCES sales(id)"
+  },
+  "indexes": {
+   "idx_saleitems_sale": "CREATE INDEX idx_saleitems_sale ON public.sale_items USING btree (sale_id)",
+   "sale_items_pkey": "CREATE UNIQUE INDEX sale_items_pkey ON public.sale_items USING btree (id)"
+  }
+ },
+ "sales": {
+  "columns": {
+   "cash_received": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "cashier_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "change_given": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_amount": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "cleanup_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_applied_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "discount_percent": {
+    "default": "0",
+    "identity": null,
+    "null": false,
+    "type": "numeric(5,2)"
+   },
+   "discount_source": {
+    "default": "'staff'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "idempotency_key": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "owner_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "payment_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "sale_date": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "subtotal": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "total": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   }
+  },
+  "constraints": {
+   "sales_cashier_id_fkey": "FOREIGN KEY (cashier_id) REFERENCES users(id)",
+   "sales_cleanup_applied_by_fkey": "FOREIGN KEY (cleanup_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "sales_discount_applied_by_fkey": "FOREIGN KEY (discount_applied_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "sales_discount_source_check": "CHECK ((discount_source = ANY (ARRAY['staff'::text, 'member'::text])))",
+   "sales_owner_id_fkey": "FOREIGN KEY (owner_id) REFERENCES owners(id) ON DELETE RESTRICT",
+   "sales_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "idx_sales_idempotency_key": "CREATE UNIQUE INDEX idx_sales_idempotency_key ON public.sales USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL)",
+   "sales_pkey": "CREATE UNIQUE INDEX sales_pkey ON public.sales USING btree (id)"
+  }
+ },
+ "schema_migrations": {
+  "columns": {
+   "applied_at": {
+    "default": "now()",
+    "identity": null,
+    "null": false,
+    "type": "timestamp with time zone"
+   },
+   "filename": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "version": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "schema_migrations_pkey": "PRIMARY KEY (version)"
+  },
+  "indexes": {
+   "schema_migrations_pkey": "CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (version)"
+  }
+ },
+ "self_check_log": {
+  "columns": {
+   "findings": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "ran_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "reported_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "status": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "self_check_log_pkey": "PRIMARY KEY (id)",
+   "self_check_log_status_check": "CHECK ((status = ANY (ARRAY['ok'::text, 'warn'::text, 'fail'::text])))"
+  },
+  "indexes": {
+   "idx_selfcheck_ran": "CREATE INDEX idx_selfcheck_ran ON public.self_check_log USING btree (ran_at DESC)",
+   "self_check_log_pkey": "CREATE UNIQUE INDEX self_check_log_pkey ON public.self_check_log USING btree (id)"
+  }
+ },
+ "settings": {
+  "columns": {
+   "key": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "value": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "settings_pkey": "PRIMARY KEY (key)"
+  },
+  "indexes": {
+   "settings_pkey": "CREATE UNIQUE INDEX settings_pkey ON public.settings USING btree (key)"
+  }
+ },
+ "users": {
+  "columns": {
+   "active": {
+    "default": "true",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "custom_discount_cap": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "full_name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "must_change_password": {
+    "default": "false",
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "password_changed_at": {
+    "default": "''::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "password_hash": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "role_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "username": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "users_custom_discount_cap_check": "CHECK (((custom_discount_cap >= 0) AND (custom_discount_cap <= 100)))",
+   "users_pkey": "PRIMARY KEY (id)",
+   "users_role_id_fkey": "FOREIGN KEY (role_id) REFERENCES roles(id)",
+   "users_username_key": "UNIQUE (username)"
+  },
+  "indexes": {
+   "idx_users_role": "CREATE INDEX idx_users_role ON public.users USING btree (role_id)",
+   "users_pkey": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+   "users_username_key": "CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)"
+  }
+ },
+ "visit_billing_lines": {
+  "columns": {
+   "category": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "discountable": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "boolean"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "name": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "price_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "quantity": {
+    "default": "1",
+    "identity": null,
+    "null": false,
+    "type": "numeric(10,3)"
+   },
+   "unit_cost": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "unit_price": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "numeric(15,3)"
+   },
+   "visit_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "visit_billing_lines_pkey": "PRIMARY KEY (id)",
+   "visit_billing_lines_price_id_fkey": "FOREIGN KEY (price_id) REFERENCES price_list(id)",
+   "visit_billing_lines_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
+  },
+  "indexes": {
+   "idx_visitbillinglines_visit": "CREATE INDEX idx_visitbillinglines_visit ON public.visit_billing_lines USING btree (visit_id)",
+   "visit_billing_lines_pkey": "CREATE UNIQUE INDEX visit_billing_lines_pkey ON public.visit_billing_lines USING btree (id)"
+  }
+ },
+ "visits": {
+  "columns": {
+   "bcs": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "integer"
+   },
+   "case_status": {
+    "default": "'Needs Filling'::text",
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "case_status_changed_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "complaint": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "created_by": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "doctor": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "exam": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "followup_date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "followup_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "followup_needed": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "followup_reason": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "followup_status": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_admitted_items": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_contacted": {
+    "default": "'N'::text",
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_needed": {
+    "default": "'N'::text",
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_notes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_services": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "grooming_status": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "history": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "patient_id": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "payment_status": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "treatment": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "updated_at": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "updates_log": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "visit_type": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "weight_kg": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "double precision"
+   },
+   "wellness_contact_method": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "wellness_contacted": {
+    "default": "'N'::text",
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "wellness_needed": {
+    "default": "'N'::text",
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "wellness_next_dose_date": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "date"
+   },
+   "wellness_type": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "visits_bcs_check": "CHECK (((bcs >= 1) AND (bcs <= 9)))",
+   "visits_case_status_check": "CHECK ((case_status = ANY (ARRAY['Needs Filling'::text, 'Ongoing'::text, 'Admitted to Inpatient'::text, 'Deceased/Euthanized'::text, 'Lost to Follow Up'::text, 'Resolved'::text, 'Referred'::text])))",
+   "visits_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "visits_patient_id_fkey": "FOREIGN KEY (patient_id) REFERENCES patients(id)",
+   "visits_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "idx_visits_date": "CREATE INDEX idx_visits_date ON public.visits USING btree (date)",
+   "idx_visits_patient": "CREATE INDEX idx_visits_patient ON public.visits USING btree (patient_id)",
+   "visits_pkey": "CREATE UNIQUE INDEX visits_pkey ON public.visits USING btree (id)"
+  }
+ }
+}

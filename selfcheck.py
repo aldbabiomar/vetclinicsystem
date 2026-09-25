@@ -48,6 +48,7 @@ import shutil
 from datetime import datetime, timedelta
 
 import logic
+import schema
 
 # Severity ordering, worst last — used to compute the overall status.
 _RANK = {"ok": 0, "warn": 1, "fail": 2}
@@ -254,13 +255,17 @@ def _check_disk_low(ctx):
     return None
 
 
-def _check_migration_failed(ctx):
-    failures = ctx["migration_failures"]
-    if failures and str(failures).strip():
+def _check_schema_behind(ctx):
+    """The database has not applied every migration this code ships — a
+    release started without its schema step (schema.py). Anything that
+    touches the missing tables or columns fails until setup runs again."""
+    pending = ctx["schema_pending"]
+    if pending:
         return _finding(
-            "migration_failed", "fail",
-            N_("Some schema updates could not be applied on the last launch: %(failures)s"),
-        {"failures": failures},
+            "schema_behind", "fail",
+            N_("The database is missing %(count)s schema update(s) this version needs "
+               "(%(files)s). Run setup again."),
+            {"count": len(pending), "files": ", ".join(pending)},
         )
     return None
 
@@ -372,7 +377,7 @@ _CHECKS = (
     _check_backup_stranded,
     _check_backup_dir,
     _check_disk_low,
-    _check_migration_failed,
+    _check_schema_behind,
     _check_update_rolled_back,
     _check_restore_unverified,
 )
@@ -407,7 +412,7 @@ def _gather(db):
         "backup_max_age_days": logic.int_setting(
             db, "selfcheck_backup_max_age_days", BACKUP_MAX_AGE_DEFAULT
         ),
-        "migration_failures": logic.get_setting(db, "migration_failures"),
+        "schema_pending": [name for _, name in schema.pending(db)],
         "last_verified_restore": logic.get_setting(db, "last_verified_restore"),
         "disk_free_bytes": None,
     }

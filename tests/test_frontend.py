@@ -527,8 +527,12 @@ def test_every_cited_document_can_be_found():
     # dated document (SIMULATION_AUDIT_2026-09-11.md) matches whole. Without
     # that it matched only the tail, "11.md", and reported an unresolvable
     # citation no entry in docs/README.md could ever satisfy.
-    sources = (list(root.glob("*.py")) + list(root.glob("*.sql"))
+    # migrations/ since phase 2: the schema's comments cite the audits too,
+    # and the old root-level *.sql glob went silently empty when the schema
+    # moved there.
+    sources = (list(root.glob("*.py")) + sorted((root / "migrations").glob("*.sql"))
                + sorted((root / "routes").glob("*.py")))
+    assert any(p.suffix == ".sql" for p in sources), "the schema files are not being read"
     for path in sources:
         for name in re.findall(r"\b([A-Za-z0-9_][A-Za-z0-9_.-]*\.md)\b",
                                path.read_text(encoding="utf-8")):

@@ -695,6 +695,8 @@ under a lock; IQ's POS search calls it per result (P13). Add
 
 ## D5 — Migrations re-run in full on every launch
 
+> **Fixed — phase 2a.** `schema.py` + `migrations/`: each file runs once, in its own transaction; a failure stops the install or update instead of being recorded and started past. P18's IQ/JO list differences are moot — there is one baseline, and IQ's schema was checked against it (identical apart from index names).
+
 `INCREMENTAL_SCHEMA_STATEMENTS` (107 IQ / 99 JO statements) runs on every
 start, including ~30 `DROP CONSTRAINT`/`ADD CONSTRAINT` pairs that each
 re-validate a whole table under an ACCESS EXCLUSIVE lock, full-table `UPDATE`

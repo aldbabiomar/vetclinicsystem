@@ -40,10 +40,11 @@
 </div>
 {% endif %}
 
-{% if migration_failures %}
+{% if schema_pending %}
 <div class="notice-banner" role="note">
-  {{ _("Some schema updates couldn't be applied on the last launch — some newer "
-        "features may not work correctly: %(migration_failures)s", migration_failures=migration_failures) }}
+  {{ _("The database is missing %(count)s schema update(s) this version needs (%(files)s) — "
+        "some features will not work until setup is run again.",
+        count=schema_pending|length, files=schema_pending|join(", ")) }}
 </div>
 {% endif %}
 

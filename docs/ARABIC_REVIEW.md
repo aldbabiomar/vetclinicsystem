@@ -77,3 +77,14 @@ amount that can be paid out — where it said أصغر فئة نقدية).
 | 1 | Heads up: this price isn't a multiple of %(unit)s %(currency)s — totals including this item are rounded to it at checkout (this is handled automatically). | تنبيه: هذا السعر ليس من مضاعفات %(unit)s %(currency)s — تُقرَّب الإجماليات التي تتضمن هذا الصنف إليها عند الدفع (يتم ذلك تلقائيًا). |
 | 2 | This sale has no refundable value left to pay out — the smallest amount that can be paid out is %(unit)s %(currency)s and only %(left)s %(currency)s of this sale is still refundable. | لم تعد لهذه العملية قيمة قابلة للاسترداد — أصغر مبلغ يمكن صرفه هو %(unit)s %(currency)s ولم يتبقَّ سوى %(left)s %(currency)s قابلة للاسترداد من هذه العملية. |
 | 3 | This record has no refundable value left to pay out — the smallest amount that can be paid out is %(unit)s %(currency)s. | لم تعد لهذا السجل قيمة قابلة للاسترداد — أصغر مبلغ يمكن صرفه هو %(unit)s %(currency)s. |
+
+## 4. Schema-update warnings (2)
+
+Shown to an admin when the database has not received every update the running
+version needs. They replace two reviewed messages about updates that failed to
+apply, and reuse their wording (تحديثات for "updates").
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | The database is missing %(count)s schema update(s) this version needs (%(files)s). Run setup again. | تنقص قاعدة البيانات %(count)s من التحديثات التي يحتاجها هذا الإصدار (%(files)s). شغّل الإعداد مرة أخرى. |
+| 2 | The database is missing %(count)s schema update(s) this version needs (%(files)s) — some features will not work until setup is run again. | تنقص قاعدة البيانات %(count)s من التحديثات التي يحتاجها هذا الإصدار (%(files)s) — لن تعمل بعض الميزات حتى يُشغَّل الإعداد مرة أخرى. |

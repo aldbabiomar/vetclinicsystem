@@ -218,7 +218,7 @@ def pos_page():
     db = get_db()
     cap = auth.discount_cap_for()
     # Fresh one-time token per page load — see pos_checkout()'s dedup
-    # check and idx_sales_idempotency_key in schema_postgres.sql.
+    # check and idx_sales_idempotency_key in migrations/0001_baseline.sql.
     return render_template("pos.html", discount_cap=cap, idempotency_key=uuid.uuid4().hex,
                            member_rate=logic.member_discount_rate(db))
 

@@ -193,11 +193,11 @@ q() { docker exec -e PGPASSWORD="$PGPASS" "$CONTAINER" \
 echo ""
 echo "5. Verifying the schema"
 TABLES=$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';")
-# Count real statements, not prose. Comments in the schema file mention
-# "CREATE TABLE IF NOT EXISTS" when explaining why something lives where it
-# does, and a plain grep counted those too -- inflating the expected total
-# and making a complete restore look short.
-EXPECTED=$(grep -cE '^[[:space:]]*CREATE TABLE' "$REPO_DIR/schema_postgres.sql" 2>/dev/null || echo 0)
+# Count real statements, not prose, across every migration (a comment that
+# mentions CREATE TABLE is not one), plus schema_migrations itself, which the
+# runner creates rather than a migration file.
+EXPECTED=$(( $(cat "$REPO_DIR"/migrations/[0-9][0-9][0-9][0-9]_*.sql 2>/dev/null \
+             | grep -cE '^[[:space:]]*CREATE TABLE' || echo 0) + 1 ))
 if [[ "${TABLES:-0}" -gt 0 ]]; then
   pass "$TABLES tables restored (current schema defines $EXPECTED)"
   if [[ "${TABLES:-0}" -lt "$EXPECTED" ]]; then

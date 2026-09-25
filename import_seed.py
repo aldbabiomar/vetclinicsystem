@@ -18,9 +18,9 @@ load_dotenv()
 import auth
 import db as dbmod
 import logic
+import schema
 
 BASE_DIR = os.path.dirname(__file__)
-SCHEMA_PATH = os.path.join(BASE_DIR, "schema_postgres.sql")
 SEED_PATH = os.path.join(BASE_DIR, "seed_data.json")
 
 
@@ -71,8 +71,8 @@ def main():
             "against a non-empty database to avoid wiping real clinic data. "
             "If you really want to start over, wipe the Postgres data volume first."
         )
-    dbmod.run_script(con, open(SCHEMA_PATH).read())
-    auth.seed_default_roles_and_permissions(con)
+    # Idempotent: setup.py has normally applied it already.
+    schema.apply(con, log=lambda *a: None)
     cur = con
 
     data = json.load(open(SEED_PATH))
@@ -207,7 +207,7 @@ def main():
         r = cur.execute("SELECT date FROM visits WHERE id=?", (vid,)).fetchone()
         date_billed = r["date"] if r else None
         # `codes` was removed from billing in both schemas (see the column
-        # comment in schema_postgres.sql where it used to be) — this INSERT
+        # comment in migrations/0001_baseline.sql where it used to be) — this INSERT
         # crashed the moment billing had any real rows. Seeded as Manual
         # with a lump sum (no per-line source data to seed Automatic
         # billing lines with), per ORPHANED_RECORDS_AUDIT.md F-23. Latent
