@@ -48,7 +48,7 @@
       <td>{{ r.received_date|localdate }}</td>
       <td>{{ r.item_name }}</td>
       <td>{{ r.distributor_name }}</td>
-      <td class="num-col">{{ r.quantity|round(2) }}</td>
+      <td class="num-col">{{ r.quantity|qty }}</td>
       <td class="num-col">{{ r.unit_cost_at_receipt|money }}</td>
       <td>{{ r.delivery_reference or '—' }}</td>
       <td>{{ r.notes or '—' }}</td>

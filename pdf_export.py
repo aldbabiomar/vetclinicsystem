@@ -226,7 +226,7 @@ def export_patient_billing(db, patient_id):
         data = [["Service", f"Price ({_cur()})"]]
         for l in summary["lines"]:
             amount = l.get("line_total", l["price"])
-            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {l['quantity']:g}"
+            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {logic.format_quantity(l['quantity'])}"
             data.append([label, f"{_m(amount)}"])
         data.append(["Subtotal", f"{_m(summary['subtotal'])}"])
         _drow = _discount_row(summary["subtotal"], summary["discount_percent"],
@@ -281,7 +281,7 @@ def export_sale_receipt(db, sale_id):
 
     data = [["Item", f"Unit Price ({_cur()})", "Qty", f"Line Total ({_cur()})"]]
     for l in lines:
-        data.append([l["name"], f"{_m(l['unit_price'])}", f"{l['quantity']:g}", f"{_m(l['line_total'])}"])
+        data.append([l["name"], f"{_m(l['unit_price'])}", logic.format_quantity(l['quantity']), f"{_m(l['line_total'])}"])
     t = _section_table(data, [70 * mm, 35 * mm, 20 * mm, 40 * mm])
     story.append(t)
     story.append(Spacer(1, 14))
@@ -351,7 +351,7 @@ def export_visit_pdf(db, visit_id):
     if v["weight_kg"] is not None or v["bcs"] is not None:
         bits = []
         if v["weight_kg"] is not None:
-            bits.append(f"Weight: {v['weight_kg']:g} kg")
+            bits.append(f"Weight: {logic.format_quantity(v['weight_kg'])} kg")
         if v["bcs"] is not None:
             bits.append(f"BCS: {v['bcs']}/9")
         story.append(Paragraph(" \u00b7 ".join(bits), ss["Body"]))
@@ -384,7 +384,7 @@ def export_visit_pdf(db, visit_id):
         data = [["Item", f"Price ({_cur()})"]]
         for l in summary["lines"]:
             amount = l.get("line_total", l["price"])
-            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {l['quantity']:g}"
+            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {logic.format_quantity(l['quantity'])}"
             data.append([label, f"{_m(amount)}"])
         story.append(_section_table(data, [120 * mm, 45 * mm]))
         story.append(Spacer(1, 6))
@@ -451,7 +451,7 @@ def export_inpatient_pdf(db, case_id):
     if c["weight_kg"] is not None or c["bcs"] is not None:
         bits = []
         if c["weight_kg"] is not None:
-            bits.append(f"Weight: {c['weight_kg']:g} kg")
+            bits.append(f"Weight: {logic.format_quantity(c['weight_kg'])} kg")
         if c["bcs"] is not None:
             bits.append(f"BCS: {c['bcs']}/9")
         story.append(Paragraph(" \u00b7 ".join(bits), ss["Body"]))
@@ -473,7 +473,7 @@ def export_inpatient_pdf(db, case_id):
     if summary["lines"]:
         data = [["Procedure", "Qty", f"Unit Price ({_cur()})", f"Line Total ({_cur()})"]]
         for l in summary["lines"]:
-            data.append([l["name"], f"{l['quantity']:g}", f"{_m(l['unit_price'])}", f"{_m(l['line_total'])}"])
+            data.append([l["name"], logic.format_quantity(l['quantity']), f"{_m(l['unit_price'])}", f"{_m(l['line_total'])}"])
         story.append(_section_table(data, [70 * mm, 20 * mm, 35 * mm, 40 * mm]))
         story.append(Spacer(1, 6))
     bill_rows = [["Subtotal", f"{_m(summary['subtotal'])} {_cur()}"]]

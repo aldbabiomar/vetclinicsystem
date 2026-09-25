@@ -60,7 +60,7 @@
       <td>{{ l.logged_at[:10] }}</td>
       <td>{{ l.item_name }}</td>
       <td>{{ l.distributor_name }}</td>
-      <td class="num-col">{{ l.quantity|round(2) }}</td>
+      <td class="num-col">{{ l.quantity|qty }}</td>
       <td>{{ l.reason }}</td>
       <td>{{ l.liable_party|tr }}{% if l.liability_overridden %} <span class="small muted">{{ _('(overridden)') }}</span>{% endif %}</td>
       <td class="num-col">{{ l.unit_cost|money }}</td>

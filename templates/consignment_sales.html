@@ -31,7 +31,7 @@
       <td>{{ r.month }}</td>
       <td>{{ r.distributor_name }}</td>
       <td>{{ r.item_name }}</td>
-      <td class="num-col">{{ r.units_sold|round(2) }}</td>
+      <td class="num-col">{{ r.units_sold|qty }}</td>
       <td class="num-col">{{ r.revenue|money }}</td>
       <td class="num-col">{{ r.owed_to_distributor|money }}</td>
       <td class="num-col">{{ r.your_markup|money }}</td>

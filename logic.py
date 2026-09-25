@@ -3,9 +3,12 @@ VetClinicSystem — computation engine (v3).
 Pure computation over Postgres tables; no Flask imports.
 """
 import calendar
+import math
 import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+
+from flask_babel import gettext
 from collections import defaultdict
 
 import auth as authmod
@@ -213,21 +216,70 @@ def member_discount_for(db, owner):
     return rate, "member"
 
 
-def format_percent(v):
-    """A percentage on its way into display text: 10.0 -> "10", 12.5 -> "12.5".
+def format_quantity(v):
+    """A count, measurement or percentage on its way into display text:
+    Decimal("12.000") -> "12", Decimal("2.500") -> "2.5", 10 -> "10".
 
-    discount_percent is DOUBLE PRECISION in IQ and NUMERIC in JO, so a whole
-    percentage arrives as 10.0 / Decimal("10.00") and renders with a
-    meaningless decimal tail on a customer-facing panel. Fractional rates are
-    kept intact — a clinic may legitimately set 12.5%.
+    Every such column is NUMERIC, so a whole number arrives with the column's
+    decimal tail ("× 1.000" on a receipt, "4.500 kg"). f"{x:g}" does NOT fix
+    that for a Decimal — it keeps the zeros. Never scientific notation.
 
-    Digits only; Arabic-Indic conversion stays with core.display_number(),
-    which is the one boundary that decides that.
+    Digits only; Arabic-Indic conversion stays with core.display_number() and
+    the |qty filter, the boundaries that decide that. Not for a value that
+    will be put back into an <input> in Arabic — that one stays Western.
     """
     if v is None or v == "":
         return ""
-    f = float(v)
-    return str(int(f)) if f == int(f) else f"{f:g}"
+    d = v if isinstance(v, Decimal) else Decimal(str(v))
+    if not d.is_finite():
+        return str(d)
+    d = d.normalize()
+    return "0" if d == 0 else format(d, "f")
+
+
+_ARABIC_INDIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+def to_arabic_indic_digits(s):
+    """Substitute Eastern Arabic-Indic digits into an ALREADY-FORMATTED string.
+
+    Display only, and the boundary is not decoration -- see
+    ARABIC_LOCALIZATION_PLAN.md §7.1:
+
+      - never on a value that will be parsed back (parse_money, a submitted
+        form value). Every calculation happens in Western digits and this runs
+        at the very last step, on its way into a template.
+      - never on an editable <input>'s value. A number input's underlying
+        value is a Western-digit string in every browser regardless of locale,
+        so converting what is displayed risks a mismatch with what the
+        keyboard types and what gets submitted.
+      - never on an ID or reference code (V0001, INV301). Those are
+        identifiers, matched elsewhere as literal strings, not quantities.
+      - never inside pdf_export.py. PDFs stay English with Western digits,
+        permanently (§0). If this helper is ever tempting to call from that
+        module, something has been wired wrong.
+    """
+    if s is None:
+        return s
+    return str(s).translate(_ARABIC_INDIC_DIGITS)
+
+
+def _display_qty(v):
+    """format_quantity() for a message: Arabic-Indic digits under Arabic."""
+    text = format_quantity(v)
+    try:
+        from flask_babel import get_locale
+        if str(get_locale()) == "ar":
+            return to_arabic_indic_digits(text)
+    except RuntimeError:
+        pass
+    return text
+
+
+def format_percent(v):
+    """A percentage on its way into display text: 10.00 -> "10", 12.5 -> "12.5"
+    (a clinic may legitimately set 12.5%)."""
+    return format_quantity(v)
 
 
 def N_(text):
@@ -536,16 +588,18 @@ def ordering_sheet(db):
         target = s["target_coverage_days"] or 30
         suggested_qty = None
         if rate and rate > 0 and stock is not None:
-            suggested_qty = max(0, int(-(-((target * rate) - stock) // 1)))
+            # math.ceil, not -(-x // 1): on a Decimal `//` truncates toward
+            # zero, so that idiom rounds a positive shortfall DOWN.
+            suggested_qty = max(0, math.ceil((target * rate) - stock))
 
         item_rows = by_item.get(s["item_id"], [])
         trend, trend_note = "Not enough data", "Not enough audit history yet (need 2+ confirmed audits)"
         if len(item_rows) >= 2:
             prior_rate = item_rows[-2]["daily_usage_rate"]
             if rate is not None and prior_rate is not None:
-                if rate > prior_rate * 1.15:
+                if rate > prior_rate * Decimal("1.15"):
                     trend, trend_note = "Increasing", "Usage rising - consider more coverage days"
-                elif rate < prior_rate * 0.85:
+                elif rate < prior_rate * Decimal("0.85"):
                     trend, trend_note = "Decreasing", "Usage falling - consider fewer coverage days"
                 else:
                     trend, trend_note = "Steady", "Usage steady - keep current target"
@@ -1797,10 +1851,13 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
     # closed rather than let `quantity > None` either silently pass or
     # raise a TypeError.
     if status and status["current_stock"] is None:
-        return False, None, "This item hasn't been through an inventory audit yet — run an audit before writing off stock."
+        return False, None, gettext(
+            "This item hasn't been through an inventory audit yet — run an audit before writing off stock.")
     current_stock = status["current_stock"] if status else 0
     if quantity > current_stock:
-        return False, None, f"Only {current_stock:g} unit(s) on the shelf — can't write off {quantity:g}."
+        return False, None, gettext(
+            "Only %(stock)s unit(s) on the shelf — can't write off %(quantity)s.",
+            stock=_display_qty(current_stock), quantity=_display_qty(quantity))
     item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s
@@ -1838,10 +1895,13 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
     db.execute("SELECT id FROM inventory_list WHERE id=? FOR UPDATE", (item_id,))
     status = inventory_status_by_id(db, item_id)
     if status and status["current_stock"] is None:
-        return False, None, "This item hasn't been through an inventory audit yet — run an audit before returning stock."
+        return False, None, gettext(
+            "This item hasn't been through an inventory audit yet — run an audit before returning stock.")
     current_stock = status["current_stock"] if status else 0
     if quantity > current_stock:
-        return False, None, f"Only {current_stock:g} unit(s) on the shelf — can't return {quantity:g}."
+        return False, None, gettext(
+            "Only %(stock)s unit(s) on the shelf — can't return %(quantity)s.",
+            stock=_display_qty(current_stock), quantity=_display_qty(quantity))
     item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s

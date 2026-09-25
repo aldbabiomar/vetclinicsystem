@@ -22,7 +22,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
 
 bp = Blueprint("consignment", __name__)
 
@@ -553,7 +553,7 @@ def consignment_receiving_new():
                                       received_date, f.get("delivery_reference"), f.get("notes"), session["user_id"])
     auth.log_change(db, "consignment_receipts", item_id, "create")
     db.commit()
-    flash(_("Received %(quantity)s %(name)s.", quantity=f"{quantity:g}", name=item['name']), "success")
+    flash(_("Received %(quantity)s %(name)s.", quantity=display_quantity(quantity), name=item['name']), "success")
     return redirect(url_for("consignment.consignment_receiving_page"))
 
 
@@ -625,7 +625,7 @@ def consignment_shrinkage_new():
         return redisplay()
     auth.log_change(db, "consignment_shrinkage", item_id, "create")
     db.commit()
-    flash(_("Logged %(quantity)s %(name)s as shrinkage (%(liable_party)s liable).", quantity=f"{quantity:g}", name=item['name'], liable_party=liable_party), "success")
+    flash(_("Logged %(quantity)s %(name)s as shrinkage (%(liable_party)s liable).", quantity=display_quantity(quantity), name=item['name'], liable_party=liable_party), "success")
     return redirect(url_for("consignment.consignment_shrinkage_page"))
 
 
@@ -688,7 +688,7 @@ def consignment_returns_new():
         return redisplay()
     auth.log_change(db, "consignment_returns", item_id, "create")
     db.commit()
-    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=f"{quantity:g}", name=item['name'], distributor_id=item['distributor_id']), "success")
+    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=display_quantity(quantity), name=item['name'], distributor_id=item['distributor_id']), "success")
     return redirect(url_for("consignment.consignment_returns_page"))
 
 

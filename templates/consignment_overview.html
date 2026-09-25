@@ -23,11 +23,11 @@
     {% for r in rows %}
     <tr>
       <td>{{ r.distributor_name }}</td>
-      <td class="num-col">{{ r.shelf_units|round(2) }}</td>
+      <td class="num-col">{{ r.shelf_units|qty }}</td>
       <td class="num-col">{{ r.shelf_value|money }}</td>
       <td class="num-col">{{ r.amount_owed|money }}</td>
       <td>{{ r.last_settlement_date[:10] if r.last_settlement_date else 'Never settled' }}</td>
-      <td class="num-col">{{ r.units_sold_this_month|round(2) }}</td>
+      <td class="num-col">{{ r.units_sold_this_month|qty }}</td>
       <td style="white-space:nowrap;">
         {% if has_permission('manage_consignment_settlements') %}
         <a class="btn small secondary" href="{{ url_for('consignment.consignment_settlements_page', distributor_id=r.distributor_id) }}">{{ _('Settle') }}</a>

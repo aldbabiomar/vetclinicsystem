@@ -81,7 +81,7 @@ Prior audits were read first so closed findings are not re-reported
 | **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | Confirmed by code |
 | **P1–P20** | — | — | Parity gaps, non-money | see §4 |
 | **D1–D12** | — | — | Design that could be simplified | see §5 |
-| **M1–M8** | — | — | Found while merging, after this audit | see §10 |
+| **M1–M9** | — | — | Found while merging, after this audit | see §10 |
 
 ---
 
@@ -735,6 +735,8 @@ of bug it documents.
 
 ## D9 — Missing indexes for the filters the app actually runs
 
+> **Fixed — phase 2b**, every index listed (plus refunds by visit / case / stay). The `substr(timestamp,1,10)=?` filters go with `timestamptz` in phase 2c.
+
 No index on `sales(sale_date)`, `payments(date)`, `refund_items(sale_item_id)`,
 `sale_items(item_id)`, `login_log(username, timestamp)` (read on every login
 attempt), `visits(followup_date)`, `visits(wellness_next_dose_date)`,
@@ -744,6 +746,8 @@ attempt), `visits(followup_date)`, `visits(wellness_next_dose_date)`,
 each is a full scan that grows with years of data.
 
 ## D10 — Inconsistent constraints on money
+
+> **Fixed — phase 2b.** Every NUMERIC column has a CHECK — its sign as the routes already enforce it, percentages 0–100, and never NaN (which passes `>= 0` in Postgres) — pinned for future columns by `tests/test_quantities.py::test_every_numeric_column_refuses_nan`. Quantization before validation was phase 1 (B6).
 
 Only `distributor_bill_payments.amount` has `CHECK (amount > 0)`; `payments`,
 `refunds`, `cash_register_payouts`, `consignment_*` quantities and
@@ -872,3 +876,5 @@ not collide with the sections above.
 | **M6** | both | **The pure test tier errored without a database** — `test_localization.py`'s autouse fixture wrote to the database on teardown, so a bare `pytest` reported 6 errors instead of skipping, contrary to the documented "every tier skips cleanly". | phase 1 |
 | **M7** | both | **The browser tier never ran the IQ money rules.** Every browser test ran under JO, whose cash unit changes nothing, so the till's 250-note rounding and change-rounds-down had never been exercised in a real browser. | phase 1, IQ-marked POS tests in `test_browser.py`, mutation-checked |
 | **M8** | both | **A distributor could be owed money that could never be settled.** An item already on the shelf can be flagged Consignment with no delivery logged; its sales then count as owed (from `consignment_since`), but `consignment_balance()` took the first period's start only from receipts, shrinkage and returns — so it stayed `None`, and the settlement route refused every attempt as "There's nothing to settle for this distributor yet" beside the amount owed. The suite's own "cannot pay more than is owed" test had been hitting exactly this refusal: it logged a delivery and sold nothing, so it never reached the check it was named for. | phase 1, `consignment_since` counts as activity; the test now sells through the POS and asserts the refusal's reason, with a control |
+| **M9** | both | **Quantities printed four different ways, two of them wrong.** The POS receipt and inpatient billing printed the raw column (`Item × 1.000`), the refunds list printed `|int` — a 2.5-unit refund showed as 2 — and consignment pages printed `|round(2)` (`5.0`). | phase 2b, one formatter (`logic.format_quantity`, the `|qty` filter) on every count and weight |
+

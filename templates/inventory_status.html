@@ -35,8 +35,8 @@
     <tr>
       <td><strong>{{ r.name }}</strong>{% if r.critical_item %} <span class="badge danger" style="margin-left:4px;">{{ _('critical') }}</span>{% endif %}{% if r.ownership_type == 'Consignment' %} <span class="badge" style="margin-left:4px;">{{ _('consignment') }}</span>{% endif %}</td>
       <td class="muted">{{ r.unit or "—" }}</td>
-      <td class="num-col">{{ r.current_stock if r.current_stock is not none else "—" }}</td>
-      <td class="num-col">{{ r.reorder_threshold if r.reorder_threshold is not none else "—" }}</td>
+      <td class="num-col">{{ r.current_stock|qty if r.current_stock is not none else "—" }}</td>
+      <td class="num-col">{{ r.reorder_threshold|qty if r.reorder_threshold is not none else "—" }}</td>
       <td>{{ r.latest_audit_date|localdate or "—" }}</td>
       <td>{{ r.nearest_expiry_date|localdate or "—" }}</td>
       <td><span class="badge {{ 'danger' if r.stock_status=='LOW STOCK' else ('muted' if r.stock_status=='No audits yet' else 'ok') }}">{{ r.stock_status|tr }}</span></td>

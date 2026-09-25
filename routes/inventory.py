@@ -23,7 +23,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting
+from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, quantity_json
 
 bp = Blueprint("inventory", __name__)
 
@@ -46,7 +46,7 @@ def api_inventory_lookup():
         # here and the name search below are separate paths into the same cart.
         discountable = logic.discountable_by_item_ids(db, [row["id"]]).get(row["id"], False)
         return jsonify({"id": row["id"], "name": row["name"], "price": price,
-                        "stock": status["current_stock"] if status else None,
+                        "stock": quantity_json(status["current_stock"]) if status else None,
                         "discountable": discountable})
     if q:
         rows = db.execute("SELECT id, name FROM inventory_list WHERE active=true AND category='Retail' AND name ILIKE ? LIMIT 10",
@@ -66,7 +66,7 @@ def api_inventory_lookup():
             price = logic.item_sale_price(db, r["id"])
             status = status_by_item.get(r["id"])
             out.append({"id": r["id"], "name": r["name"], "price": price,
-                        "stock": status["current_stock"] if status else None,
+                        "stock": quantity_json(status["current_stock"]) if status else None,
                         "discountable": discountable_by_item.get(r["id"], False)})
         return jsonify(out)
     return jsonify([])

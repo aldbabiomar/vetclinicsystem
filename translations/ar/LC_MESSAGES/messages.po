@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-25 09:51+0300\n"
-"PO-Revision-Date: 2026-09-25 09:52+0300\n"
+"POT-Creation-Date: 2026-09-25 12:08+0300\n"
+"PO-Revision-Date: 2026-09-25 12:08+0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ar\n"
 "Language-Team: ar <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: app.py:689
+#: app.py:702
 msgid ""
 "You were signed out before that could be saved, so nothing was stored. "
 "Please sign in and enter it again."
@@ -27,16 +27,16 @@ msgstr ""
 "تم تسجيل خروجك قبل أن يُحفظ ذلك، فلم يُخزَّن شيء. يرجى تسجيل الدخول "
 "وإدخاله مرة أخرى."
 
-#: app.py:715
+#: app.py:728
 msgid "Your password was changed — please log in again."
 msgstr "تم تغيير كلمة المرور — يرجى تسجيل الدخول مرة أخرى."
 
-#: app.py:791
+#: app.py:804
 #, python-format
 msgid "That file is too large — the limit is %(MAX_UPLOAD_MB)s MB per upload."
 msgstr "الملف كبير جدًا — الحد الأقصى %(MAX_UPLOAD_MB)s ميجابايت لكل رفع."
 
-#: app.py:828
+#: app.py:841
 msgid ""
 "One of the number fields on that form wasn't valid. Please check the "
 "amounts and try again."
@@ -44,11 +44,11 @@ msgstr ""
 "أحد الحقول الرقمية في ذلك النموذج غير صالح. يرجى التحقق من المبالغ "
 "والمحاولة مرة أخرى."
 
-#: app.py:836
+#: app.py:849
 msgid "That phone number doesn't look valid. Please check it and try again."
 msgstr "رقم الهاتف لا يبدو صحيحًا. يرجى التحقق منه والمحاولة مرة أخرى."
 
-#: app.py:872
+#: app.py:885
 msgid ""
 "This page had been open too long to submit safely, so nothing was saved. "
 "Please check what you entered and submit it again."
@@ -56,7 +56,7 @@ msgstr ""
 "بقيت هذه الصفحة مفتوحة مدة أطول من أن تُرسَل بأمان، فلم يُحفظ شيء. يرجى "
 "مراجعة ما أدخلته وإرساله مرة أخرى."
 
-#: app.py:875
+#: app.py:888
 msgid ""
 "You were signed out while this page was open. Please sign in again — you "
 "may need to re-enter what you were working on."
@@ -64,7 +64,7 @@ msgstr ""
 "تم تسجيل خروجك بينما كانت هذه الصفحة مفتوحة. يرجى تسجيل الدخول مرة أخرى —"
 " قد تحتاج إلى إعادة إدخال ما كنت تعمل عليه."
 
-#: app.py:879
+#: app.py:892
 msgid ""
 "That form was missing something the server needed. Please reload the page"
 " and try again."
@@ -72,11 +72,11 @@ msgstr ""
 "النموذج ينقصه شيء يحتاجه الخادم. يرجى إعادة تحميل الصفحة والمحاولة مرة "
 "أخرى."
 
-#: app.py:892
+#: app.py:905
 msgid "That number is too large to be a valid value here."
 msgstr "هذا الرقم كبير جدًا ليكون قيمة صالحة هنا."
 
-#: app.py:1008
+#: app.py:1021
 msgid ""
 "Too many login attempts from this network. Please wait a few minutes and "
 "try again."
@@ -84,7 +84,7 @@ msgstr ""
 "محاولات تسجيل دخول كثيرة من هذه الشبكة. يرجى الانتظار بضع دقائق دون "
 "محاولة، ثم إعادة المحاولة."
 
-#: app.py:1015
+#: app.py:1028
 #, python-format
 msgid ""
 "Too many failed attempts for that account. Try again in about "
@@ -93,75 +93,75 @@ msgstr ""
 "محاولات فاشلة كثيرة على هذا الحساب. حاول مرة أخرى بعد نحو "
 "%(minutes_left)s دقيقة (حوالي %(strftime)s)."
 
-#: app.py:1027
+#: app.py:1040
 msgid "Incorrect username or password, or account is disabled."
 msgstr "اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب معطّل."
 
-#: app.py:1065
+#: app.py:1078
 msgid "Current password is incorrect."
 msgstr "كلمة المرور الحالية غير صحيحة."
 
-#: app.py:1069
+#: app.py:1082
 msgid "New password and confirmation don't match."
 msgstr "كلمة المرور الجديدة والتأكيد غير متطابقين."
 
-#: app.py:1080
+#: app.py:1093
 msgid "Password updated."
 msgstr "تم تحديث كلمة المرور."
 
-#: app.py:1213
+#: app.py:1226
 msgid "Report data rebuilt from current billing, sales, and cost data."
 msgstr "تمت إعادة بناء بيانات التقارير من الفوترة والمبيعات والتكاليف الحالية."
 
-#: app.py:1283
+#: app.py:1296
 msgid "Revenue by category"
 msgstr "الإيرادات حسب الفئة"
 
-#: app.py:1283
+#: app.py:1296
 msgid "Vet performance"
 msgstr "أداء الأطباء"
 
-#: app.py:1283
+#: app.py:1296
 msgid "Client value"
 msgstr "قيمة العملاء"
 
-#: app.py:1284
+#: app.py:1297
 msgid "Weekday appointment load"
 msgstr "حِمل المواعيد حسب أيام الأسبوع"
 
-#: app.py:1284
+#: app.py:1297
 msgid "Inpatient/boarding occupancy"
 msgstr "إشغال الإقامة المرضية والفندقية"
 
-#: app.py:1285
+#: app.py:1298
 msgid "Payment mix"
 msgstr "توزيع طرق الدفع"
 
-#: app.py:1285
+#: app.py:1298
 msgid "Cash Register health"
 msgstr "سلامة صندوق النقد"
 
-#: app.py:1315
+#: app.py:1328
 msgid "Computing cohort retention grid"
 msgstr "جارٍ حساب جدول الاحتفاظ بالعملاء"
 
-#: app.py:1334
+#: app.py:1347
 msgid "Pick a month first."
 msgstr "اختر الشهر أولًا."
 
-#: app.py:1337
+#: app.py:1350
 msgid "That's not a valid month."
 msgstr "هذا ليس شهرًا صالحًا."
 
-#: app.py:1346
+#: app.py:1359
 msgid "Operating costs must be valid numbers."
 msgstr "يجب أن تكون التكاليف التشغيلية أرقامًا صالحة."
 
-#: app.py:1354
+#: app.py:1367
 msgid "Operating costs can't be negative."
 msgstr "لا يمكن أن تكون التكاليف التشغيلية سالبة."
 
-#: app.py:1364
+#: app.py:1377
 #, python-format
 msgid "Operating costs saved for %(month)s."
 msgstr "تم حفظ التكاليف التشغيلية لشهر %(month)s."
@@ -908,7 +908,7 @@ msgstr "رسالة نصية"
 msgid "Message"
 msgstr "الرسالة"
 
-#: logic.py:260
+#: logic.py:312
 msgid ""
 "No database backup has ever run yet — set a backup folder on the Settings"
 " page."
@@ -916,18 +916,40 @@ msgstr ""
 "لم تُشغَّل أي نسخة احتياطية لقاعدة البيانات بعد — عيّن مجلدًا للنسخ "
 "الاحتياطي من صفحة الإعدادات."
 
-#: logic.py:263
+#: logic.py:315
 #, python-format
 msgid "The last database backup failed: %(error)s."
 msgstr "فشلت آخر نسخة احتياطية لقاعدة البيانات: %(error)s."
 
-#: logic.py:278
+#: logic.py:330
 msgid "The last backup started but never finished — check the Settings page."
 msgstr "بدأت آخر نسخة احتياطية ولم تكتمل — راجع صفحة الإعدادات."
 
-#: logic.py:283
+#: logic.py:335
 msgid "The database hasn't been backed up in 2+ days — check the Settings page."
 msgstr "لم تُنسخ قاعدة البيانات احتياطيًا منذ يومين أو أكثر — راجع صفحة الإعدادات."
+
+#: logic.py:1855
+msgid ""
+"This item hasn't been through an inventory audit yet — run an audit "
+"before writing off stock."
+msgstr "هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل شطب المخزون."
+
+#: logic.py:1859
+#, python-format
+msgid "Only %(stock)s unit(s) on the shelf — can't write off %(quantity)s."
+msgstr "على الرف %(stock)s وحدة فقط — لا يمكن شطب %(quantity)s."
+
+#: logic.py:1899
+msgid ""
+"This item hasn't been through an inventory audit yet — run an audit "
+"before returning stock."
+msgstr "هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل إعادة المخزون."
+
+#: logic.py:1903
+#, python-format
+msgid "Only %(stock)s unit(s) on the shelf — can't return %(quantity)s."
+msgstr "على الرف %(stock)s وحدة فقط — لا يمكن إعادة %(quantity)s."
 
 #: selfcheck.py:122
 msgid "No database backup has ever run on this install."

@@ -19,7 +19,7 @@
     <div class="detail-grid">
       <div class="detail-item"><div class="k">{{ _('Visit Type') }}</div><div class="v">{{ visit.visit_type|tr }}</div></div>
       <div class="detail-item"><div class="k">{{ _('Doctor') }}</div><div class="v">{{ visit.doctor or "—" }}</div></div>
-      <div class="detail-item"><div class="k">{{ _('Weight') }}</div><div class="v">{{ (visit.weight_kg ~ " kg") if visit.weight_kg is not none else "—" }}</div></div>
+      <div class="detail-item"><div class="k">{{ _('Weight') }}</div><div class="v">{{ (visit.weight_kg|qty ~ " kg") if visit.weight_kg is not none else "—" }}</div></div>
       <div class="detail-item"><div class="k">{{ _('BCS') }}</div><div class="v">{{ (visit.bcs ~ "/9") if visit.bcs is not none else "—" }}</div></div>
       <div class="detail-item"><div class="k">{{ _('Case Status') }}</div><div class="v"><span class="badge {{ 'ok' if visit.case_status=='Resolved' else ('danger' if visit.case_status=='Deceased/Euthanized' else 'warn') }}">{{ visit.case_status|tr }}</span></div></div>
     </div>
@@ -117,7 +117,7 @@
       </form>
 
       <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
-        {% for l in summary.lines %}<div class="list-line"><div>{{ l.name }}{% if l.quantity and l.quantity != 1 %} × {{ l.quantity|round(2) }}{% endif %}</div><div>{{ (l.line_total if l.line_total is defined else l.price)|money }} {{ currency_label() }}</div></div>{% endfor %}
+        {% for l in summary.lines %}<div class="list-line"><div>{{ l.name }}{% if l.quantity and l.quantity != 1 %} × {{ l.quantity|qty }}{% endif %}</div><div>{{ (l.line_total if l.line_total is defined else l.price)|money }} {{ currency_label() }}</div></div>{% endfor %}
         <div class="detail-item" style="margin-top:8px;"><div class="k">{{ _('Subtotal') }}</div><div class="v">{{ summary.subtotal|money }} {{ currency_label() }}</div></div>
         {% if summary.discount_source == 'member' %}
           {{ member_discount_line(summary, url_for('clinical.rewards_remove_discount', surface='visit', bill_id=visit.id)) }}

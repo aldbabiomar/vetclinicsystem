@@ -104,7 +104,7 @@
       </td>
       <td class="small">
         {% if r.refund_type == 'retail' %}
-          {% if r.sale_id %}<a href="{{ url_for('sales.pos_receipt', sale_id=r.sale_id) }}">{{ _('Sale #%(sale_id)s', sale_id=r.sale_id) }}</a> — {% endif %}{% for it in r.refund_lines %}{{ it.name }} × {{ it.quantity|int }}{{ ", " if not loop.last }}{% endfor %}
+          {% if r.sale_id %}<a href="{{ url_for('sales.pos_receipt', sale_id=r.sale_id) }}">{{ _('Sale #%(sale_id)s', sale_id=r.sale_id) }}</a> — {% endif %}{% for it in r.refund_lines %}{{ it.name }} × {{ it.quantity|qty }}{{ ", " if not loop.last }}{% endfor %}
         {% else %}
           {% if r.visit_id %}{{ _('Visit %(visit_id)s', visit_id=r.visit_id) }}{% endif %}
           {% if r.inpatient_case_id %}{{ ", " if r.visit_id }}{{ _('Inpatient Case %(case_id)s', case_id=r.inpatient_case_id) }}{% endif %}

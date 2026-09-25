@@ -572,31 +572,23 @@ def csp_nonce():
 # ---------------------------------------------------------------------------
 # Arabic-Indic numerals — display only
 # ---------------------------------------------------------------------------
-_ARABIC_INDIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+# Defined in logic.py (which cannot import this module — core imports it)
+# and re-exported here, so there is one digit table.
+to_arabic_indic_digits = logic.to_arabic_indic_digits
 
 
-def to_arabic_indic_digits(s):
-    """Substitute Eastern Arabic-Indic digits into an ALREADY-FORMATTED string.
+def display_quantity(v):
+    """A count or measurement on its way into a message: trailing zeros
+    dropped (logic.format_quantity), Arabic-Indic digits under Arabic."""
+    return display_number(logic.format_quantity(v))
 
-    Display only, and the boundary is not decoration -- see
-    ARABIC_LOCALIZATION_PLAN.md §7.1:
 
-      - never on a value that will be parsed back (parse_money, a submitted
-        form value). Every calculation happens in Western digits and this runs
-        at the very last step, on its way into a template.
-      - never on an editable <input>'s value. A number input's underlying
-        value is a Western-digit string in every browser regardless of locale,
-        so converting what is displayed risks a mismatch with what the
-        keyboard types and what gets submitted.
-      - never on an ID or reference code (V0001, INV301). Those are
-        identifiers, matched elsewhere as literal strings, not quantities.
-      - never inside pdf_export.py. PDFs stay English with Western digits,
-        permanently (§0). If this helper is ever tempting to call from that
-        module, something has been wired wrong.
-    """
-    if s is None:
-        return s
-    return str(s).translate(_ARABIC_INDIC_DIGITS)
+def quantity_json(v):
+    """A count for a JSON response: a number, never the string Flask makes of
+    a Decimal. Page scripts do arithmetic on it, and "12" + 1 is "121"."""
+    if v is None:
+        return None
+    return int(v) if v == int(v) else float(v)
 
 
 def display_number(v):

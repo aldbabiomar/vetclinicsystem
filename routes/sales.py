@@ -24,7 +24,7 @@ from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import display_number
+from core import display_number, display_quantity
 from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity
 
 bp = Blueprint("sales", __name__)
@@ -337,7 +337,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
         if status and qty > status["current_stock"]:
             return 0, [], notices, _(
                 "Only %(stock)s %(unit)s of %(name)s in stock — sale blocked.",
-                stock=display_number(f"{status['current_stock']:g}"), unit=status["unit"] or "",
+                stock=display_quantity(status['current_stock']), unit=status["unit"] or "",
                 name=status["name"])
         line_total = price * qty
         subtotal += line_total
@@ -708,7 +708,7 @@ def refund_retail_save():
             flash(_("One of the selected items isn't part of that sale."), "error")
             return redisplay()
         if qty > line["remaining"]:
-            flash(_("Can't refund %(qty)s %(name)s — only %(remaining)s left refundable from this sale.", qty=f"{qty:g}", name=line['name'], remaining=f"{line['remaining']:g}"), "error")
+            flash(_("Can't refund %(qty)s %(name)s — only %(remaining)s left refundable from this sale.", qty=display_quantity(qty), name=line['name'], remaining=display_quantity(line['remaining'])), "error")
             return redisplay()
         price = line["unit_price"]
         line_total = money.to_store(price * qty)

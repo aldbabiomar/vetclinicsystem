@@ -716,4 +716,25 @@ result under each money setting.
   and a stale required-file name each turn a test red.
   **Suite:** IQ **1071 passed, 4 skipped**; JO **1071 passed, 4 skipped**; no
   database 457 passed, 0 errors.
+- **2026-09-25 — Phase 2b: no floats, and every amount checked by the
+  database.** The last seven float columns — the four audit-count columns,
+  `inventory_transactions.change_qty` and both `weight_kg` — are
+  `NUMERIC(10,3)`: the width `parse_quantity()` already bounds every count to
+  (§4.1 said `(12,3)`; a column wider than its parser's bound buys nothing,
+  and one bound for every count is the point). Every NUMERIC
+  column now has a CHECK: its sign as the routes enforce it, percentages 0–100,
+  `amount_paid <= amount_owed` on settlements, and **never NaN** — Postgres sorts
+  NaN above every number, so `>= 0` alone admits it. A structural test fails
+  for any future numeric column without one. The D9 indexes are in, including
+  the first index `login_log` has ever had (it is read on every login).
+  Decimal counts changed the meaning of two lines in the Ordering Sheet, both
+  fixed before they could ship and pinned by tests: `-(-x // 1)` rounds a
+  positive Decimal DOWN (`//` truncates toward zero), and `rate * 1.15`
+  raises TypeError. One formatter now prints every count and weight (M9), the
+  POS stock goes to the browser as a JSON number (a string would have turned
+  a capped quantity plus one into "131"), and four consignment refusals that
+  were English-only are translated (F1). `isolated_test_env.sh reset iq|jo`
+  rebuilds just the database after an in-place baseline edit.
+  **Suite:** IQ **1094 passed, 4 skipped**; JO **1094 passed, 4 skipped**; no
+  database 473 passed.
 

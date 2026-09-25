@@ -27,8 +27,9 @@ design are not built yet — check the plan's log before assuming.
 The project has **never been deployed**. There is no install to keep
 compatible with, so a schema or behaviour change needs no migration path —
 until the first release (1.0.0) is published, `migrations/0001_baseline.sql`
-(once it exists) may be edited in place. After 1.0.0, only new numbered
-migrations.
+may be edited in place (then regenerate `tests/schema_snapshot.json` with
+`scripts/schema_snapshot.py --write` and read the diff). After 1.0.0, only new
+numbered migrations.
 
 Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 
@@ -129,8 +130,9 @@ Rounding a payable total to the cash unit, never letting a real bill round
 down to free, giving change and refunds down to the cash unit, and warning
 about an amount that cannot be paid in cash are **one** set of functions
 parameterised by the cash unit. With JO's unit of 0.001 they change nothing,
-which is JO's behaviour. The plan's §3.3 is the specification; until phase 1
-lands, the code still carries JO's exact-decimal behaviour only.
+which is JO's behaviour. All of it lives in `money.py` (phase 1, done); the
+browser previews mirror it in `static/money.js`. Tests default to JO; mark a
+test `@pytest.mark.money("IQ")` to run it under IQ.
 
 Threshold constants are where money bugs hide: `balance <= 0.5` or
 `abs(diff) < 1` mean "noise" in one currency and "real money" in the other.
@@ -149,8 +151,8 @@ throwaway clinic — same code, different setting, and both can run at once.
 - **Kill by PORT, never by command pattern.** The app is launched with `exec`,
   so `pkill -f ".../python3 app.py"` matches nothing and leaves an old process
   serving code that predates your change — indistinguishable from a real pass.
-  `scripts/simulation/restart_test_apps.sh` kills by port and asserts the pid
-  changed.
+  `scripts/isolated_test_env.sh restart iq|jo` kills by port and asserts the
+  pid changed — use it after any code or catalogue change.
 - **A loading shell is not the page.** `/insights`, `/retention` and the
   consignment overview answer with a placeholder that polls a job and then
   navigates. Wait for `.vz-progress-shell` to disappear before asserting.
@@ -186,7 +188,7 @@ when the suite is green under **both**. `TEST_DATABASE_URL` is deliberately not
 `DATABASE_URL`: the tests write and delete rows.
 
 Baseline at the start of the merge (JO tree, renamed, jo setting):
-**844 passed, 4 skipped**. The 4 skips are data- or feature-dependent (no
+**844 passed, 4 skipped**; the plan's progress log records each phase's run. The 4 skips are data- or feature-dependent (no
 barcode seeded, no visit to export, no dated row, JO CSS not driving modal
 opacity) and are tracked for removal in the plan. Re-measure; do not quote.
 

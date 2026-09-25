@@ -88,3 +88,16 @@ apply, and reuse their wording (تحديثات for "updates").
 |---|---|---|
 | 1 | The database is missing %(count)s schema update(s) this version needs (%(files)s). Run setup again. | تنقص قاعدة البيانات %(count)s من التحديثات التي يحتاجها هذا الإصدار (%(files)s). شغّل الإعداد مرة أخرى. |
 | 2 | The database is missing %(count)s schema update(s) this version needs (%(files)s) — some features will not work until setup is run again. | تنقص قاعدة البيانات %(count)s من التحديثات التي يحتاجها هذا الإصدار (%(files)s) — لن تعمل بعض الميزات حتى يُشغَّل الإعداد مرة أخرى. |
+
+## 5. Consignment write-off and return refusals (4)
+
+Shown in English before (audit F1). Built from the reviewed consignment terms:
+شطب (write off), الرف (the shelf), إعادة (return), and the existing
+"لم يُجرد بعد — أجرِ جردًا" wording.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Only %(stock)s unit(s) on the shelf — can't write off %(quantity)s. | على الرف %(stock)s وحدة فقط — لا يمكن شطب %(quantity)s. |
+| 2 | Only %(stock)s unit(s) on the shelf — can't return %(quantity)s. | على الرف %(stock)s وحدة فقط — لا يمكن إعادة %(quantity)s. |
+| 3 | This item hasn't been through an inventory audit yet — run an audit before writing off stock. | هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل شطب المخزون. |
+| 4 | This item hasn't been through an inventory audit yet — run an audit before returning stock. | هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل إعادة المخزون. |

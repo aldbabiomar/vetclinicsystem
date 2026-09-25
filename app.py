@@ -470,6 +470,16 @@ def money_filter(v):
     return formatted
 
 
+@app.template_filter("qty")
+def qty_filter(v):
+    """A count or measurement for display: "12", not "12.000"; "4.5", not
+    "4.500"; Arabic-Indic digits under Arabic. Never on an <input> value."""
+    formatted = logic.format_quantity(v)
+    if str(get_locale()) == "ar":
+        formatted = to_arabic_indic_digits(formatted)
+    return formatted
+
+
 @app.template_filter("finding")
 def finding_filter(f):
     """Render a self-check finding in the current language.
@@ -625,6 +635,9 @@ def form_value(form, name, default=""):
 app.jinja_env.globals["pagination_url"] = pagination_url
 app.jinja_env.globals["has_permission"] = auth.has_permission
 app.jinja_env.globals["bind_port"] = BIND_PORT
+# A count or measurement as an <input> value or placeholder: "12", not
+# "12.000" — and Western digits, unlike |qty (an input is parsed back).
+app.jinja_env.globals["qty_value"] = logic.format_quantity
 app.jinja_env.globals["fv"] = form_value
 # logic.format_percent() strips the meaningless decimal tail; display_number()
 # converts to Arabic-Indic digits when the locale is ar. Composed here rather

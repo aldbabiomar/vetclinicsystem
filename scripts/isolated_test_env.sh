@@ -8,6 +8,7 @@
 #   scripts/isolated_test_env.sh down   iq|jo   # tear down (container, venv, data dir)
 #   scripts/isolated_test_env.sh status iq|jo   # check what's running
 #   scripts/isolated_test_env.sh restart iq|jo  # reload the app after a code or catalogue change
+#   scripts/isolated_test_env.sh reset   iq|jo  # fresh database (migrations changed in place), app restarted
 #
 # The second argument is the MONEY SETTING the throwaway clinic runs under —
 # iq (whole dinars, 250-note cash rounding) or jo (3-decimal dinars). It is the
@@ -37,7 +38,7 @@ MONEY="${2:-}"
 ACTION="${1:-}"
 
 if [[ "$MONEY" != "iq" && "$MONEY" != "jo" ]]; then
-  echo "Usage: $0 {up|down|status|restart} {iq|jo}" >&2
+  echo "Usage: $0 {up|down|status|restart|reset} {iq|jo}" >&2
   exit 1
 fi
 APP="$MONEY"   # kept as the name the functions below print
@@ -221,38 +222,8 @@ restart() {
   echo "  Restarted: pid $old -> $new, http://127.0.0.1:${APP_PORT}"
 }
 
-up() {
-  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
-  docker run -d --name "$CONTAINER" \
-    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
-    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
-  sleep 4
-
-  echo "== Setting up Python venv =="
-  python3 -m venv "$VENV_DIR"
-  "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
-
-  # Test-only dependencies. Deliberately NOT in requirements.txt -- the apps
-  # have no build step and no browser dependency, and that stays true.
-  #
-  # Installed here because without them a whole tier goes dormant SILENTLY:
-  # test_browser.py gates on pytest.importorskip at module scope, which
-  # collects ZERO tests and reports as "1 skipped", not 13. IQ's browser tier
-  # had never once run for this reason, which is how a Settings page that
-  # scrolled sideways on every phone reached a soak install. COMPARISON.md
-  # §40.3.
-  # pytest-cov is here so CLAUDE.md section 7's documented coverage command
-  # actually runs in the environment that same document tells you to build. It
-  # did not, until 2026-09-10: `pytest --cov=.` failed with "unrecognized
-  # arguments" and `python -m coverage` with "No module named coverage", which
-  # is why the coverage table in section 7 kept being quoted rather than
-  # re-measured. Still test-only -- never add it to requirements.txt.
-  echo "== Installing test-only deps (pytest, pytest-cov, playwright) =="
-  "$VENV_DIR/bin/pip" install -q pytest pytest-cov playwright
-  "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
-    || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
-    || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
-
+# Migrations + the admin user + one Retail item, into the (empty) test database.
+seed_db() {
   echo "== Applying schema + seeding test data =="
   mkdir -p "$DATA_DIR/logs"
   DATABASE_URL="postgresql://postgres:test@localhost:${DB_PORT}/${DB_NAME}" \
@@ -294,6 +265,64 @@ con.commit()
 con.close()
 print("Schema applied, admin user + test item seeded.")
 PYEOF
+}
+
+# Recreate the test DATABASE only — drop it, migrate, seed, restart the app —
+# keeping the container and the venv. For when migrations/ changed in place
+# (allowed before 1.0.0): `up` would rebuild the venv and Playwright for
+# nothing. Refuses unless the container is this environment's own.
+reset() {
+  echo "== Resetting the $APP test database =="
+  if ! docker ps --filter "name=^${CONTAINER}\$" --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+    echo "  !! $CONTAINER is not running — use \`up\`." >&2
+    exit 1
+  fi
+  local listener
+  listener="$(port_listener_pid || true)"
+  if [[ -n "$listener" ]]; then
+    kill $listener 2>/dev/null || true
+    for _ in $(seq 1 20); do port_listener_pid >/dev/null || break; sleep 0.5; done
+  fi
+  docker exec "$CONTAINER" psql -U postgres -q -c "DROP DATABASE IF EXISTS ${DB_NAME} WITH (FORCE)" \
+    -c "CREATE DATABASE ${DB_NAME}" >/dev/null
+  seed_db
+  launch_app
+  echo "  Reset: fresh ${DB_NAME}, app on http://127.0.0.1:${APP_PORT} (pid $(port_listener_pid))"
+}
+
+up() {
+  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
+  docker run -d --name "$CONTAINER" \
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
+    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
+  sleep 4
+
+  echo "== Setting up Python venv =="
+  python3 -m venv "$VENV_DIR"
+  "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
+
+  # Test-only dependencies. Deliberately NOT in requirements.txt -- the apps
+  # have no build step and no browser dependency, and that stays true.
+  #
+  # Installed here because without them a whole tier goes dormant SILENTLY:
+  # test_browser.py gates on pytest.importorskip at module scope, which
+  # collects ZERO tests and reports as "1 skipped", not 13. IQ's browser tier
+  # had never once run for this reason, which is how a Settings page that
+  # scrolled sideways on every phone reached a soak install. COMPARISON.md
+  # §40.3.
+  # pytest-cov is here so CLAUDE.md section 7's documented coverage command
+  # actually runs in the environment that same document tells you to build. It
+  # did not, until 2026-09-10: `pytest --cov=.` failed with "unrecognized
+  # arguments" and `python -m coverage` with "No module named coverage", which
+  # is why the coverage table in section 7 kept being quoted rather than
+  # re-measured. Still test-only -- never add it to requirements.txt.
+  echo "== Installing test-only deps (pytest, pytest-cov, playwright) =="
+  "$VENV_DIR/bin/pip" install -q pytest pytest-cov playwright
+  "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
+    || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
+    || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
+
+  seed_db
 
   launch_app
 
@@ -349,5 +378,6 @@ case "$ACTION" in
   down) down ;;
   status) status ;;
   restart) restart ;;
-  *) echo "Usage: $0 {up|down|status|restart} {iq|jo}" >&2; exit 1 ;;
+  reset) reset ;;
+  *) echo "Usage: $0 {up|down|status|restart|reset} {iq|jo}" >&2; exit 1 ;;
 esac
