@@ -1,41 +1,28 @@
 """
-Money *transaction* tests — VetClinicSystem.
+Money routes under the IQ money setting (Iraqi dinar) — ported one for one
+from the predecessor IQ app's test_money_routes.py. Every assertion is IQ's;
+only the helper names changed (money.round_to_denomination became
+money.round_cash, money.IQ.cash_unit the IQ cash unit, money.IQ.cleanup_cap the
+IQ Clean Up cap), because IQ's rules are now money.py's single set of rules
+run with IQ's numbers.
 
-test_money.py covers the arithmetic. This file covers the routes that
-actually move money: they read a form, check stock under a lock, compute a
-total, write a sale, decrement inventory and work out change — all in one
-request. None of that is reachable from a pure function test, which is why
-`pos_checkout` (203 lines), `visit_billing_save` (145) and
-`refund_retail_save` (141) sat at 1-2% coverage while the arithmetic
-underneath them was at 100%.
-
-These need a throwaway Postgres and skip cleanly without one — see
-conftest.py for how to point them at the isolated test environment.
-
-Every test creates its own item/owner/patient with a unique id and asserts
-on rows it wrote itself, so tests do not depend on each other's leftovers
-or on what the environment happened to seed.
-
-JO's money model drives every figure below: amounts are `Decimal`, columns
-are NUMERIC(12,3), and there is **no note rounding and no anti-"looks free"
-floor**. Where IQ's equivalent file asserts a total is a multiple of 250,
-this one asserts it is exact to the fils. Do not reconcile the two files.
+The JO counterparts are test_money_routes.py.
 """
-import money
+
 import uuid
 from datetime import datetime, date
 
 import pytest
 
+import logic
+import money
+
 from decimal import Decimal
 
-import logic
 from conftest import needs_db
 
 
-pytestmark = needs_db
-
-D = Decimal
+pytestmark = [needs_db, pytest.mark.money("IQ")]
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +47,10 @@ def sellable(db):
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
                "VALUES (?,?,?,?,?,?,?,?)",
-               (inv_id, f"Route Test Item {inv_id}", "Retail", "unit", False, D("2.000"), "Owned", True))
+               (inv_id, f"Route Test Item {inv_id}", "Retail", "unit", False, 1000.0, "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
                "VALUES (?,?,?,?,?,?,?,?)",
-               (pl_id, f"Route Test Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
+               (pl_id, f"Route Test Item {inv_id}", "Retail", 1000.0, 5000.0, True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
                      (date.today().isoformat(), "U001", "Confirmed",
@@ -73,7 +60,7 @@ def sellable(db):
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (session_id, inv_id, 100.0, 0.0))
     db.commit()
-    yield {"inv_id": inv_id, "pl_id": pl_id, "price": D("10.000"), "stock": 100}
+    yield {"inv_id": inv_id, "pl_id": pl_id, "price": 5000.0, "stock": 100.0}
     for sql, args in (
         ("DELETE FROM inventory_transactions WHERE item_id=?", (inv_id,)),
         ("DELETE FROM sale_items WHERE item_id=?", (inv_id,)),
@@ -110,9 +97,9 @@ def test_checkout_writes_a_sale_with_the_rounded_total(client, db, sellable):
     resp = _checkout(client, sellable["inv_id"], qty=1, payment_method="Card")
     assert resp.status_code == 302, "a successful checkout redirects to the receipt"
     sale = _latest_sale(db)
-    assert sale["subtotal"] == D("10.000")
-    assert sale["total"] == D("10.000")
-    assert sale["total"].as_tuple().exponent >= -3, "must fit NUMERIC(12,3)"
+    assert sale["subtotal"] == 5000.0
+    assert sale["total"] == 5000.0
+    assert sale["total"] % money.IQ.cash_unit == 0, "total must be payable in real notes"
 
 
 def test_checkout_records_the_line_and_decrements_stock(client, db, sellable):
@@ -121,43 +108,44 @@ def test_checkout_records_the_line_and_decrements_stock(client, db, sellable):
     sale = _latest_sale(db)
     line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
     assert line["quantity"] == 3
-    assert line["unit_price"] == D("10.000")
-    assert line["line_total"] == D("30.000")
+    assert line["unit_price"] == 5000.0
+    assert line["line_total"] == 15000.0
     assert _stock_now(db, sellable["inv_id"]) == before - 3, "stock must fall by exactly what was sold"
 
 
 def test_checkout_applies_a_discount_to_the_stored_total(client, db, sellable):
     _checkout(client, sellable["inv_id"], qty=2, discount_percent=10, payment_method="Card")
     sale = _latest_sale(db)
-    assert sale["subtotal"] == D("20.000")
-    assert sale["total"] == D("18.000")
+    assert sale["subtotal"] == 10000.0
+    assert sale["total"] == 9000.0
     assert sale["discount_percent"] == 10
     assert sale["discount_applied_by"], "a discounted sale must record who applied it"
 
 
 def test_checkout_total_matches_the_arithmetic_the_unit_tests_pin(client, db, sellable):
-    """Ties the route to the exact-Decimal arithmetic. A divergence here is
-    how a receipt and a report end up disagreeing by a fils."""
+    """Ties the route to compute-level rounding: whatever the route stores
+    must be what round_to_denomination would produce. A divergence here is
+    how a receipt and a report end up disagreeing."""
     _checkout(client, sellable["inv_id"], qty=3, discount_percent=7, payment_method="Card")
     sale = _latest_sale(db)
-    expected = round(sale["subtotal"] * (1 - sale["discount_percent"] / D(100)), 3)
+    expected = money.round_cash(Decimal(str(sale["subtotal"] * (1 - sale["discount_percent"] / Decimal(100)))))
     assert sale["total"] == expected
 
 
 def test_checkout_change_is_floored_so_the_clinic_never_overpays(client, db, sellable):
-    """The opposite of IQ, and deliberately so: JOD has no note to floor to,
-    so change is the exact difference to the fils. Flooring it here would
-    quietly keep a few fils of the customer's money on every cash sale."""
-    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received="10.750")
+    """Change is rounded DOWN to a real note. Rounding it up would have the
+    clinic hand back more cash than it owes on every single sale."""
+    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received=5400)
     sale = _latest_sale(db)
-    assert sale["cash_received"] == D("10.750")
-    assert sale["change_given"] == D("0.750"), "exact change, not rounded to anything"
-    assert sale["change_given"] == sale["cash_received"] - sale["total"]
+    assert sale["cash_received"] == 5400
+    assert sale["change_given"] == money.round_cash(Decimal(str(400)), "down")
+    assert sale["change_given"] <= 5400 - sale["total"], "never hand back more than is owed"
+    assert sale["change_given"] % money.IQ.cash_unit == 0
 
 
 def test_checkout_refuses_cash_below_the_total(client, db, sellable):
     before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
-    resp = _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received="0.500")
+    resp = _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received=100)
     assert resp.status_code == 200, "underpayment redisplays the form rather than redirecting"
     assert db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"] == before, "nothing may be written"
 
@@ -232,9 +220,9 @@ def test_checkout_refuses_an_item_that_has_never_been_audited(client, db):
     and unknown must mean "cannot sell", not "sell without limit"."""
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-               "VALUES (?,?,?,?,?,?,?,?)", (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
+               "VALUES (?,?,?,?,?,?,?,?)", (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, 100.0, "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
-               "VALUES (?,?,?,?,?,?,?,?)", (pl_id, f"Unaudited {inv_id}", "Retail", D("1.000"), D("5.000"), True, inv_id, True))
+               "VALUES (?,?,?,?,?,?,?,?)", (pl_id, f"Unaudited {inv_id}", "Retail", 100.0, 1000.0, True, inv_id, True))
     db.commit()
     try:
         before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
@@ -248,20 +236,19 @@ def test_checkout_refuses_an_item_that_has_never_been_audited(client, db):
 
 
 def test_cleanup_write_off_reduces_the_stored_total(client, db, sellable):
-    _checkout(client, sellable["inv_id"], qty=1, payment_method="Card", cleanup_amount="0.500")
+    _checkout(client, sellable["inv_id"], qty=1, payment_method="Card", cleanup_amount=250)
     sale = _latest_sale(db)
-    assert sale["cleanup_amount"] == D("0.500")
-    assert sale["total"] == D("9.500")
+    assert sale["cleanup_amount"] == 250
+    assert sale["total"] == 4750.0
     assert sale["cleanup_applied_by"], "a write-off must record who applied it"
 
 
 def test_cleanup_above_the_cap_is_refused(client, db, sellable):
-    """CLEANUP_CAP is a flat global ceiling. Without this the write-off is an
-    unbounded discount that bypasses the role discount cap entirely."""
-    import app as app_module
+    """money.IQ.cleanup_cap is a flat global ceiling. Without this the write-off
+    is an unbounded discount that bypasses the role discount cap entirely."""
     before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
     resp = _checkout(client, sellable["inv_id"], qty=1, payment_method="Card",
-                     cleanup_amount=str(money.JO.cleanup_cap + D("1.000")))
+                     cleanup_amount=money.IQ.cleanup_cap + 250)
     assert resp.status_code == 200
     assert db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"] == before
 
@@ -270,7 +257,7 @@ def test_a_refused_checkout_leaves_stock_untouched(client, db, sellable):
     """The whole transaction must roll back together. A sale that fails
     after decrementing stock silently loses inventory."""
     before = _stock_now(db, sellable["inv_id"])
-    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received="0.001")
+    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received=1)
     assert _stock_now(db, sellable["inv_id"]) == before
 
 
@@ -308,34 +295,32 @@ def _bill(client, visit_id, **data):
 
 
 def test_manual_bill_stores_the_rounded_total(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
-    assert row["manual_amount"] == D("100.000")
-    assert row["total"] == D("100.000")
-    assert row["total"].as_tuple().exponent >= -3
+    assert row["manual_amount"] == 10000.0
+    assert row["total"] == 10000.0
+    assert row["total"] % money.IQ.cash_unit == 0
 
 
 def test_manual_bill_total_agrees_with_compute_bill_totals(client, db, visit):
     """The stored `total` is what reports read instead of re-deriving the
     arithmetic. If it drifts from compute_bill_totals, the receipt and the
     P&L disagree and neither is obviously wrong."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="13.755")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="13750")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
     expected, _, _, _, _ = logic.compute_bill_totals(
-        row["manual_amount"], row["discount_percent"], D(0), row["cleanup_amount"],
+        row["manual_amount"], row["discount_percent"], 0, row["cleanup_amount"],
         # A Manual bill is one typed figure and is discountable in full (A4).
         discountable_subtotal=row["manual_amount"])
     assert row["total"] == expected
 
 
-def test_a_sub_unit_bill_is_stored_exactly_not_inflated(client, db, visit):
-    """The mirror image of IQ's anti-"looks free" floor, and the reason these
-    two files must never be merged. IQ lifts a sub-note charge to 250 IQD so a
-    real charge never prints as free. In JOD, 0.100 is a genuine payable
-    amount -- inflating it would overcharge the client."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="0.100")
+def test_manual_bill_below_a_note_is_lifted_not_shown_as_free(client, db, visit):
+    """The anti-"looks free" floor, end to end through the route rather than
+    the helper: a real 100 IQD charge must not store as a 0 IQD bill."""
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
-    assert row["total"] == D("0.100")
+    assert row["total"] == money.IQ.cash_unit
 
 
 def test_manual_bill_requires_a_positive_amount(client, db, visit):
@@ -361,20 +346,22 @@ def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
     """Nothing else in the app ever surfaces `paid > total`. If a bill is
     allowed to shrink under an existing payment, the overpayment becomes
     invisible — not refunded, not flagged, just gone from every view."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("100.000"), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", date.today().isoformat(), "U001"))
     db.commit()
-    resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10.000")
+    resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="1000")
     assert resp.status_code == 200
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
-    assert row["manual_amount"] == D("100.000"), "the bill must be left as it was"
+    assert row["manual_amount"] == 10000.0, "the bill must be left as it was"
 
 
 def test_billing_a_missing_visit_is_refused(client, db):
-    """JO has always had the existence guard on the happy path; IQ did not,
-    and its route tests found the gap. Kept here so the guard cannot be
-    removed from JO in a future tidy-up."""
+    """Regression guard. IQ had no existence check on the happy path: the
+    only "Visit not found" lived inside redisplay(), which runs solely when
+    validation *fails*, so a well-formed POST naming a visit that isn't there
+    reached the INSERT and died on the foreign key -- an error page rather
+    than a message. JO already had the guard."""
     resp = client.post("/visits/NOPE-DOES-NOT-EXIST/billing",
                        data={"billing_type": "Manual", "manual_amount": "1000"},
                        follow_redirects=False)
@@ -392,10 +379,10 @@ def boarding(db, visit):
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
-        (visit["patient_id"], date.today().isoformat(), False, False, D(0), D(0), False, D("200.000")))
+        (visit["patient_id"], date.today().isoformat(), False, False, 0.0, 0.0, False, 20000.0))
     bid = cur.fetchone()["id"]
     db.commit()
-    yield {"id": bid, "total": D("200.000"), "patient_id": visit["patient_id"]}
+    yield {"id": bid, "total": 20000.0, "patient_id": visit["patient_id"]}
     db.execute("DELETE FROM payments WHERE boarding_id=?", (bid,))
     db.execute("DELETE FROM boarding_sessions WHERE id=?", (bid,))
     db.commit()
@@ -406,15 +393,15 @@ def _pay(client, bid, **data):
 
 
 def test_boarding_payment_is_recorded(client, db, boarding):
-    _pay(client, boarding["id"], amount="50.000", method="Cash")
+    _pay(client, boarding["id"], amount="5000", method="Cash")
     row = db.execute("SELECT * FROM payments WHERE boarding_id=? ORDER BY id DESC LIMIT 1",
                      (boarding["id"],)).fetchone()
-    assert row["amount"] == D("50.000")
+    assert row["amount"] == 5000.0
 
 
 def test_boarding_payment_cannot_exceed_the_balance(client, db, boarding):
     before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
-    resp = _pay(client, boarding["id"], amount=str(boarding["total"] + D("50.000")), method="Cash")
+    resp = _pay(client, boarding["id"], amount=str(boarding["total"] + 5000), method="Cash")
     assert resp.status_code == 200
     after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
     assert after == before, "an overpayment must write nothing"
@@ -437,7 +424,7 @@ def test_boarding_payment_is_checked_against_the_POST_DISCOUNT_balance(client, d
 
 
 def test_boarding_discount_is_stored_when_the_payment_is_valid(client, db, boarding):
-    discounted = boarding["total"] * D("0.9")
+    discounted = boarding["total"] * 0.9
     _pay(client, boarding["id"], amount=str(discounted), discount_percent="10", method="Cash")
     row = db.execute("SELECT * FROM boarding_sessions WHERE id=?", (boarding["id"],)).fetchone()
     assert row["discount_percent"] == 10
@@ -446,7 +433,7 @@ def test_boarding_discount_is_stored_when_the_payment_is_valid(client, db, board
 
 def test_boarding_payment_rejects_zero_and_negative(client, db, boarding):
     before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
-    for bad in ("0", "-5.000"):
+    for bad in ("0", "-500"):
         resp = _pay(client, boarding["id"], amount=bad, method="Cash")
         assert resp.status_code == 200
     after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
@@ -455,7 +442,7 @@ def test_boarding_payment_rejects_zero_and_negative(client, db, boarding):
 
 def test_boarding_payment_rejects_a_discount_above_the_cap(client, db, boarding):
     before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
-    resp = _pay(client, boarding["id"], amount="10.000", discount_percent="150", method="Cash")
+    resp = _pay(client, boarding["id"], amount="1000", discount_percent="150", method="Cash")
     assert resp.status_code == 200
     after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
     assert after == before
@@ -468,7 +455,7 @@ def test_boarding_payment_rejects_a_discount_above_the_cap(client, db, boarding)
 @pytest.fixture
 def completed_sale(client, db, sellable):
     """A real sale, made through the real checkout, to refund against."""
-    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received="50.000")
+    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received=25000)
     sale = _latest_sale(db)
     line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
     yield {"sale": sale, "line": line, "inv_id": sellable["inv_id"]}
@@ -495,30 +482,47 @@ def test_retail_refund_is_recorded_against_the_sale(client, db, completed_sale):
     assert resp.status_code == 302
     rows = _refunds_for(db, sale["id"])
     assert len(rows) == 1
-    assert rows[0]["amount"] == D("10.000")
+    assert rows[0]["amount"] == 5000.0
 
 
-def test_refund_is_exact_to_the_fils_not_rounded(client, db, sellable):
-    """The mirror of IQ, and deliberately so. IQ floors a refund to a whole
-    250 note so it never pays out more than the lines came to. JOD has no
-    note to floor to, so the refund is the exact line total — flooring it
-    here would quietly keep a few fils of the customer's money on every
-    refund, in the clinic's favour, permanently."""
-    db.execute("UPDATE price_list SET sale_price=? WHERE id=?", (D("10.505"), sellable["pl_id"]))
+@pytest.fixture
+def awkward_priced_sale(client, db, sellable):
+    """A sale whose line total is deliberately NOT a multiple of 250.
+
+    This matters: at a tidy price like 5000, rounding "down" and rounding
+    "nearest" produce the same answer, so a test using one cannot detect the
+    other being substituted. 5200 is the cheapest way to make the two modes
+    disagree (down -> 5000, nearest -> 5250) and that difference is the whole
+    point of the rule. 5100 does NOT work: it sits below the halfway mark, so
+    both modes give 5000 and the test would pass while proving nothing.
+    """
+    db.execute("UPDATE price_list SET sale_price=? WHERE id=?", (5200.0, sellable["pl_id"]))
     db.commit()
-    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received="20.000")
+    _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received=6000)
     sale = _latest_sale(db)
     line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
-    try:
-        _refund_retail(client, sale["id"], line["id"], 1)
-        row = _refunds_for(db, sale["id"])[0]
-        assert row["amount"] == D("10.505"), "exact, not rounded to anything"
-        assert row["amount"] == line["line_total"]
-    finally:
-        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)",
-                   (sale["id"],))
-        db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
-        db.commit()
+    yield {"sale": sale, "line": line}
+    db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)",
+               (sale["id"],))
+    db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
+    db.commit()
+
+
+def test_refund_rounds_DOWN_so_more_never_leaves_than_was_taken(client, db, awkward_priced_sale):
+    """A refund is money leaving the clinic. Rounding it the usual way would
+    push it ABOVE what the refunded line actually came to — every time, in
+    the customer's favour, permanently.
+
+    The line here is 5200: rounding down gives 5000, nearest would give 5250.
+    Only a price that is not already a whole number of notes can tell the two
+    apart, which is why this test does not reuse the ordinary sale fixture."""
+    sale, line = awkward_priced_sale["sale"], awkward_priced_sale["line"]
+    _refund_retail(client, sale["id"], line["id"], 1)
+    row = _refunds_for(db, sale["id"])[0]
+    assert row["amount"] == 5000.0, "must round down to a note, not to the nearest one"
+    assert row["amount"] != money.round_cash(Decimal(str(line["line_total"])), "nearest")
+    assert row["amount"] <= line["line_total"], "never refund more than the line came to"
+    assert row["amount"] % money.IQ.cash_unit == 0
 
 
 def test_refund_cannot_exceed_what_the_sale_collected(client, db, completed_sale):
@@ -538,8 +542,6 @@ def test_repeated_partial_refunds_cannot_together_exceed_the_sale(client, db, co
     for _ in range(int(line["quantity"])):
         _refund_retail(client, sale["id"], line["id"], 1)
     total_refunded = sum(r["amount"] for r in _refunds_for(db, sale["id"]))
-    # No epsilon: JOD amounts are exact Decimals, so a tolerance here would
-    # both be meaningless and raise TypeError on Decimal + float.
     assert total_refunded <= sale["total"]
     resp = _refund_retail(client, sale["id"], line["id"], 1)
     assert resp.status_code == 200, "the one that would tip it over must be refused"
@@ -557,12 +559,12 @@ def test_aggregate_cap_bites_when_clean_up_shrank_what_was_collected(client, db,
     the sale total *after* the lines, so every line stays individually
     refundable in full while their sum exceeds what the clinic actually took.
     Only the aggregate cap sees that."""
-    _checkout(client, sellable["inv_id"], qty=4, payment_method="Card", cleanup_amount="1.000")
+    _checkout(client, sellable["inv_id"], qty=4, payment_method="Card", cleanup_amount=1000)
     sale = _latest_sale(db)
     line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
     assert line is not None, "the checkout did not produce a sale"
     try:
-        assert sale["cleanup_amount"] == D("1.000"), "fixture must actually apply a write-off"
+        assert sale["cleanup_amount"] == 1000, "fixture must actually apply a write-off"
         assert line["line_total"] > sale["total"], (
             "fixture must produce lines worth more than the sale collected")
         resp = _refund_retail(client, sale["id"], line["id"], line["quantity"])
@@ -632,12 +634,12 @@ def test_refund_rejects_a_non_numeric_quantity(client, db, completed_sale):
 def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
     """A service refund is capped by what was actually collected on that
     visit — otherwise it is a way to pay money out against nothing."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
     db.commit()
     resp = client.post("/refunds/service", data={
-        "visit_id": visit["visit_id"], "amount": "90.000",
+        "visit_id": visit["visit_id"], "amount": "9000",
         "refund_method": "Cash", "reason": "over-refund attempt"}, follow_redirects=False)
     assert resp.status_code == 200, "refunding more than was paid must be refused"
     rows = db.execute("SELECT * FROM refunds WHERE visit_id=?", (visit["visit_id"],)).fetchall()
@@ -645,18 +647,77 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
 
 
 def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
     db.commit()
     try:
         resp = client.post("/refunds/service", data={
-            "visit_id": visit["visit_id"], "amount": "25.000",
+            "visit_id": visit["visit_id"], "amount": "2500",
             "refund_method": "Cash", "reason": "partial"}, follow_redirects=False)
         assert resp.status_code == 302
         rows = db.execute("SELECT * FROM refunds WHERE visit_id=?", (visit["visit_id"],)).fetchall()
         assert len(rows) == 1
-        assert rows[0]["amount"] == D("25.000")
+        assert rows[0]["amount"] == 2500.0
+    finally:
+        db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+        db.commit()
+
+
+def _paid_visit(client, db, visit, paid):
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+               (visit["visit_id"], Decimal(paid), "Cash", date.today().isoformat(), "U001"))
+    db.commit()
+
+
+def _service_refund(client, visit_id, amount):
+    return client.post("/refunds/service", data={
+        "visit_id": visit_id, "amount": amount, "refund_method": "Cash", "reason": "M2"},
+        follow_redirects=False)
+
+
+def _service_refunds(db, visit_id):
+    return [r["amount"] for r in db.execute(
+        "SELECT amount FROM refunds WHERE visit_id=? ORDER BY id", (visit_id,)).fetchall()]
+
+
+def test_m2_a_service_refund_never_pays_out_more_than_is_refundable(client, db, visit):
+    """GUARD (CODE_AUDIT §10 M2). 1,200 paid, 1,200 refunded: the predecessor
+    checked 1,200 against the cap and then stored the NEAREST note, 1,250 —
+    paying out 50 IQD more than was ever collected. Down, it is 1,000."""
+    _paid_visit(client, db, visit, "1200")
+    try:
+        assert _service_refund(client, visit["visit_id"], "1200").status_code == 302
+        assert _service_refunds(db, visit["visit_id"]) == [Decimal(1000)]
+    finally:
+        db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+        db.commit()
+
+
+def test_m2_a_small_service_refund_is_never_recorded_as_zero(client, db, visit):
+    """GUARD. 100 IQD rounded to the nearest note is 0 — the predecessor
+    recorded "Service refund of 0 IQD". With a note still refundable, the
+    customer is paid one note, as on the retail path (SIMULATION_AUDIT F3)."""
+    _paid_visit(client, db, visit, "5000")
+    try:
+        assert _service_refund(client, visit["visit_id"], "100").status_code == 302
+        assert _service_refunds(db, visit["visit_id"]) == [Decimal(250)]
+    finally:
+        db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+        db.commit()
+
+
+def test_m2_a_refund_is_refused_when_not_one_note_is_refundable(client, db, visit):
+    """CONTROL for the one-note rule: it never pays out more than was paid.
+    100 paid, 100 refunded — there is no note to hand over, so it is refused
+    with a message saying why, and nothing is recorded."""
+    _paid_visit(client, db, visit, "100")
+    try:
+        resp = _service_refund(client, visit["visit_id"], "100")
+        assert resp.status_code == 200
+        assert "smallest amount that can be paid out" in resp.data.decode()
+        assert _service_refunds(db, visit["visit_id"]) == []
     finally:
         db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
         db.commit()
@@ -666,13 +727,13 @@ def test_service_refund_needs_exactly_one_target(client, db, visit):
     """Linked to a visit OR an inpatient case, never both and never neither —
     otherwise the refund is attributed to nothing and escapes both caps."""
     resp = client.post("/refunds/service", data={
-        "amount": "10.000", "refund_method": "Cash", "reason": "no target"},
+        "amount": "1000", "refund_method": "Cash", "reason": "no target"},
         follow_redirects=False)
     assert resp.status_code == 200
 
 
 def test_service_refund_rejects_zero_and_negative(client, db, visit):
-    for bad in ("0", "-10.000"):
+    for bad in ("0", "-1000"):
         resp = client.post("/refunds/service", data={
             "visit_id": visit["visit_id"], "amount": bad,
             "refund_method": "Cash", "reason": "bad"}, follow_redirects=False)
@@ -688,14 +749,14 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
     A refund recorded with no payout method leaves no trace of how the money
     physically left the clinic, which is exactly what cash reconciliation
     reads."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("50.000"), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
     db.commit()
     try:
         for bad in ("", "Bitcoin", "cash"):
             resp = client.post("/refunds/service", data={
-                "visit_id": visit["visit_id"], "amount": "25.000",
+                "visit_id": visit["visit_id"], "amount": "2500",
                 "refund_method": bad, "reason": "bad method"}, follow_redirects=False)
             assert resp.status_code == 200, f"method {bad!r} must be refused"
         assert db.execute("SELECT * FROM refunds WHERE visit_id=?",
@@ -718,18 +779,18 @@ def _payments_for(db, visit_id):
 
 
 def test_visit_payment_is_recorded(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    _pay_visit(client, visit["visit_id"], amount="40.000", method="Cash")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    _pay_visit(client, visit["visit_id"], amount="4000", method="Cash")
     rows = _payments_for(db, visit["visit_id"])
     assert len(rows) == 1
-    assert rows[0]["amount"] == D("40.000")
+    assert rows[0]["amount"] == 4000.0
 
 
 def test_visit_payment_cannot_exceed_the_balance(client, db, visit):
     """Overpaying a visit has no undo — there is no delete route for a
     payment, so the money can only be corrected by issuing a refund."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    resp = _pay_visit(client, visit["visit_id"], amount="150.000", method="Cash")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    resp = _pay_visit(client, visit["visit_id"], amount="15000", method="Cash")
     assert resp.status_code == 200
     assert _payments_for(db, visit["visit_id"]) == []
 
@@ -738,33 +799,33 @@ def test_visit_payments_accumulate_against_one_balance(client, db, visit):
     """Each instalment is individually within the balance; together they must
     not exceed it. Checking only the current payment is how a bill gets
     overpaid across several small ones."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     for _ in range(4):
-        _pay_visit(client, visit["visit_id"], amount="25.000", method="Cash")
+        _pay_visit(client, visit["visit_id"], amount="2500", method="Cash")
     paid = sum(r["amount"] for r in _payments_for(db, visit["visit_id"]))
-    assert paid == D("100.000")
-    resp = _pay_visit(client, visit["visit_id"], amount="25.000", method="Cash")
+    assert paid == 10000.0
+    resp = _pay_visit(client, visit["visit_id"], amount="2500", method="Cash")
     assert resp.status_code == 200, "the instalment that would tip it over must be refused"
     assert sum(r["amount"] for r in _payments_for(db, visit["visit_id"])) == paid
 
 
 def test_visit_payment_rejects_zero_and_negative(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    for bad in ("0", "-10.000"):
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    for bad in ("0", "-1000"):
         resp = _pay_visit(client, visit["visit_id"], amount=bad, method="Cash")
         assert resp.status_code == 200
     assert _payments_for(db, visit["visit_id"]) == []
 
 
 def test_visit_payment_rejects_a_non_numeric_amount(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     resp = _pay_visit(client, visit["visit_id"], amount="abc", method="Cash")
     assert resp.status_code == 200
     assert _payments_for(db, visit["visit_id"]) == []
 
 
 def test_visit_payment_on_a_missing_visit_is_refused(client, db):
-    resp = _pay_visit(client, "NOPE-NOT-A-VISIT", amount="10.000", method="Cash")
+    resp = _pay_visit(client, "NOPE-NOT-A-VISIT", amount="1000", method="Cash")
     assert resp.status_code != 500, "must degrade, not raise"
     assert db.execute("SELECT * FROM payments WHERE visit_id=?",
                       ("NOPE-NOT-A-VISIT",)).fetchall() == []
@@ -773,21 +834,18 @@ def test_visit_payment_on_a_missing_visit_is_refused(client, db):
 def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):
     """Clean Up on a visit behaves like it does everywhere else: capped, and
     it lowers what is still owed rather than counting as a payment."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    _pay_visit(client, visit["visit_id"], amount="99.000", method="Cash", cleanup_amount="1.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    _pay_visit(client, visit["visit_id"], amount="9000", method="Cash", cleanup_amount="1000")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
-    assert row["cleanup_amount"] == D("1.000")
+    assert row["cleanup_amount"] == 1000
     summary = logic.visit_billing_summary(db, visit["visit_id"])
-    # <= 0, not <= 0.5: in JOD a leftover half is real uncollected money, not
-    # rounding artifact. See COMPARISON.md §1.1.
-    assert summary["balance"] <= 0, "the bill should now be settled"
+    assert summary["balance"] <= 0.5, "the bill should now be settled"
 
 
 def test_visit_cleanup_above_the_cap_is_refused(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    import app as app_module
-    resp = _pay_visit(client, visit["visit_id"], amount="10.000", method="Cash",
-                      cleanup_amount=str(money.JO.cleanup_cap + D("1.000")))
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
+    resp = _pay_visit(client, visit["visit_id"], amount="1000", method="Cash",
+                      cleanup_amount=str(money.IQ.cleanup_cap + 250))
     assert resp.status_code == 200
     assert _payments_for(db, visit["visit_id"]) == []
 
@@ -802,7 +860,7 @@ def inpatient_case(client, db, visit):
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, discount_percent, "
         "total, cleanup_amount) VALUES (?,?,?,?,?,?) RETURNING id",
-        (visit["patient_id"], date.today().isoformat(), False, D(0), D(0), D(0)))
+        (visit["patient_id"], date.today().isoformat(), False, 0.0, 0.0, 0.0))
     case_id = cur.fetchone()["id"]
     db.commit()
     yield {"id": case_id, "patient_id": visit["patient_id"]}
@@ -826,9 +884,9 @@ def priced_service(db):
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
                "VALUES (?,?,?,?,?,?,?)",
-               (pl_id, f"Inpatient Service {pl_id}", "Service", D("4.000"), D("12.000"), True, True))
+               (pl_id, f"Inpatient Service {pl_id}", "Service", 2000.0, 6000.0, True, True))
     db.commit()
-    yield {"id": pl_id, "price": D("12.000")}
+    yield {"id": pl_id, "price": 6000.0}
     # pytest tears fixtures down in reverse setup order, so this runs BEFORE
     # the inpatient case that billed against it — the price row is still
     # referenced by inpatient_billing at this point. Clear the lines that
@@ -868,14 +926,14 @@ def test_inpatient_payment_cannot_exceed_the_balance(client, db, inpatient_case,
                 data={"price_id": priced_service["id"], f"qty_{priced_service['id']}": "1"},
                 follow_redirects=False)
     summary = logic.inpatient_billing_summary(db, inpatient_case["id"])
-    over = (summary["balance"] or D(0)) + D("100.000")
+    over = (summary["balance"] or 0) + 10000
     resp = _inpatient_pay(client, inpatient_case["id"], amount=str(over), method="Cash")
     assert resp.status_code == 200
     assert _inpatient_payments(db, inpatient_case["id"]) == []
 
 
 def test_inpatient_payment_rejects_zero_and_negative(client, db, inpatient_case):
-    for bad in ("0", "-5.000"):
+    for bad in ("0", "-500"):
         resp = _inpatient_pay(client, inpatient_case["id"], amount=bad, method="Cash")
         assert resp.status_code == 200
     assert _inpatient_payments(db, inpatient_case["id"]) == []
@@ -888,7 +946,7 @@ def test_inpatient_payment_rejects_a_non_numeric_amount(client, db, inpatient_ca
 
 
 def test_inpatient_payment_on_a_missing_case_degrades(client, db):
-    resp = _inpatient_pay(client, 999999, amount="10.000", method="Cash")
+    resp = _inpatient_pay(client, 999999, amount="1000", method="Cash")
     assert resp.status_code != 500
 
 
@@ -900,10 +958,10 @@ def test_inpatient_summary_agrees_with_the_shared_arithmetic(client, db, inpatie
                 follow_redirects=False)
     summary = logic.inpatient_billing_summary(db, inpatient_case["id"])
     expected, _, _, _, _ = logic.compute_bill_totals(
-        summary["subtotal"], summary["discount_percent"], D(0), summary["cleanup_amount"],
+        summary["subtotal"], summary["discount_percent"], 0, summary["cleanup_amount"],
         discountable_subtotal=summary["discountable_subtotal"])
     assert summary["total"] == expected
-    assert summary["total"].as_tuple().exponent >= -3, "must fit NUMERIC(12,3)"
+    assert summary["total"] % money.IQ.cash_unit == 0
 
 
 # ---------------------------------------------------------------------------
@@ -914,7 +972,7 @@ def test_boarding_stay_can_be_created(client, db, visit):
     resp = client.post("/boarding/new", data={
         "patient_id": visit["patient_id"],
         "entry_date": date.today().isoformat(),
-        "price_per_day": "10.000", "room": "R1",
+        "price_per_day": "5000", "room": "R1",
         "special_needs": "", "total": ""}, follow_redirects=False)
     row = db.execute("SELECT * FROM boarding_sessions WHERE patient_id=? ORDER BY id DESC LIMIT 1",
                      (visit["patient_id"],)).fetchone()
@@ -922,7 +980,7 @@ def test_boarding_stay_can_be_created(client, db, visit):
         pytest.skip("this build's boarding form takes a shape this test does not model")
     try:
         assert resp.status_code == 302
-        assert row["price_per_day"] == D("10.000")
+        assert row["price_per_day"] == 5000.0
     finally:
         db.execute("DELETE FROM payments WHERE boarding_id=?", (row["id"],))
         db.execute("DELETE FROM boarding_sessions WHERE id=?", (row["id"],))
@@ -935,7 +993,7 @@ def test_boarding_rejects_a_negative_daily_rate(client, db, visit):
     resp = client.post("/boarding/new", data={
         "patient_id": visit["patient_id"],
         "entry_date": date.today().isoformat(),
-        "price_per_day": "-10.000", "room": "R1"}, follow_redirects=False)
+        "price_per_day": "-5000", "room": "R1"}, follow_redirects=False)
     assert resp.status_code == 200
     assert db.execute("SELECT count(*) AS c FROM boarding_sessions").fetchone()["c"] == before
 
@@ -945,7 +1003,7 @@ def test_boarding_rejects_a_malformed_entry_date(client, db, visit):
     for bad in ("not-a-date", "2026-08-25garbage"):
         resp = client.post("/boarding/new", data={
             "patient_id": visit["patient_id"], "entry_date": bad,
-            "price_per_day": "10.000", "room": "R1"}, follow_redirects=False)
+            "price_per_day": "5000", "room": "R1"}, follow_redirects=False)
         assert resp.status_code != 500, f"{bad!r} must not raise"
     assert db.execute("SELECT count(*) AS c FROM boarding_sessions").fetchone()["c"] == before
 
@@ -955,16 +1013,16 @@ def test_boarding_rejects_a_malformed_entry_date(client, db, visit):
 # ---------------------------------------------------------------------------
 
 def test_visit_discount_can_be_applied(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "10"}, follow_redirects=False)
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
     assert row["discount_percent"] == 10
-    assert row["total"] == D("90.000"), "the stored total must follow the discount"
+    assert row["total"] == 9000.0, "the stored total must follow the discount"
 
 
 def test_visit_discount_above_the_role_cap_is_refused(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     resp = client.post(f"/visits/{visit['visit_id']}/discount",
                        data={"discount_percent": "95"}, follow_redirects=False)
     assert resp.status_code != 500
@@ -973,7 +1031,7 @@ def test_visit_discount_above_the_role_cap_is_refused(client, db, visit):
 
 
 def test_visit_discount_rejects_a_non_numeric_value(client, db, visit):
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     resp = client.post(f"/visits/{visit['visit_id']}/discount",
                        data={"discount_percent": "loads"}, follow_redirects=False)
     assert resp.status_code != 500
@@ -985,14 +1043,13 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     """Discounting after payment can push the total under what was collected,
     which is an overpayment nothing surfaces — the same hazard the billing
     route guards, on a different entry point."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], D("100.000"), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", date.today().isoformat(), "U001"))
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "50"}, follow_redirects=False)
     summary = logic.visit_billing_summary(db, visit["visit_id"])
-    # No tolerance: in JOD an excess is real money, not rounding artifact.
     assert summary["paid"] <= summary["total"], (
         "a discount must not leave more paid than the bill is worth")
 
@@ -1002,7 +1059,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
 # ---------------------------------------------------------------------------
 
 def _payout(client, **data):
-    payload = {"day": date.today().isoformat(), "amount": "50.000", "reason": "route test"}
+    payload = {"day": date.today().isoformat(), "amount": "5000", "reason": "route test"}
     payload.update(data)
     return client.post("/cash-register/payout", data=payload, follow_redirects=False)
 
@@ -1040,7 +1097,7 @@ def test_a_payout_cannot_exceed_what_is_in_the_drawer(client, db):
 
 def test_a_payout_rejects_zero_and_negative(client, db):
     before = _payouts(db)
-    for bad in ("0", "-50.000"):
+    for bad in ("0", "-5000"):
         resp = _payout(client, amount=bad)
         assert resp.status_code != 500
     assert _payouts(db) == before, "a non-positive payout must not be recorded"
@@ -1061,13 +1118,13 @@ def test_a_payout_needs_a_reason(client, db, sellable):
     guard refuses the payout before the reason is ever looked at, and the
     test passes whether the reason check exists or not — which is exactly
     what a mutation check caught it doing."""
-    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received="50.000")
+    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received=25000)
     sale = _latest_sale(db)
     assert sale["payment_method"] == "Cash" and sale["total"] > 0, "need cash in the drawer"
 
     before = _payouts(db)
     # Well within the drawer, so only the missing reason can refuse it.
-    resp = _payout(client, amount=str(sale["total"] / 2), reason="")
+    resp = _payout(client, amount=str(int(sale["total"] // 2)), reason="")
     assert resp.status_code != 500
     assert _payouts(db) == before, "a payout with no reason must not be recorded"
 
@@ -1076,10 +1133,10 @@ def test_a_payout_within_the_drawer_and_with_a_reason_is_recorded(client, db, se
     """The control for the two guards above: with cash present and a reason
     given, the payout must actually go through — otherwise the tests either
     side of it prove nothing."""
-    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received="50.000")
+    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received=25000)
     sale = _latest_sale(db)
     before = _payouts(db)
-    amount = sale["total"] / 2
+    amount = int(sale["total"] // 2)
     resp = _payout(client, amount=str(amount), reason="petty cash")
     assert resp.status_code != 500
     assert _payouts(db) == before + 1, "a valid payout must be recorded"
@@ -1103,17 +1160,17 @@ def test_a_payout_rejects_a_malformed_date(client, db):
 def test_price_list_bulk_edit_applies_a_valid_change(client, db):
     name = f"Bulk Price {uuid.uuid4().hex[:6]}"
     client.post("/price-list/new", data={
-        "name": name, "category": "Service", "cost_price": "2.000", "sale_price": "10.000"},
+        "name": name, "category": "Service", "cost_price": "1000", "sale_price": "5000"},
         follow_redirects=False)
     row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
     assert row is not None
     try:
         resp = client.post("/price-list/bulk-edit", json={"items": [
             {"id": row["id"], "fields": {"name": name, "category": "Service",
-                                         "cost_price": "3.000", "sale_price": "14.000"}}]})
+                                         "cost_price": "1500", "sale_price": "7000"}}]})
         assert resp.get_json().get("ok"), f"control edit should succeed: {resp.get_json()}"
         after = db.execute("SELECT * FROM price_list WHERE id=?", (row["id"],)).fetchone()
-        assert after["sale_price"] == D("14.000")
+        assert after["sale_price"] == 7000.0
     finally:
         db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
         db.commit()
@@ -1122,119 +1179,18 @@ def test_price_list_bulk_edit_applies_a_valid_change(client, db):
 def test_price_list_bulk_edit_rejects_a_negative_price(client, db):
     name = f"Bulk Price {uuid.uuid4().hex[:6]}"
     client.post("/price-list/new", data={
-        "name": name, "category": "Service", "cost_price": "2.000", "sale_price": "10.000"},
+        "name": name, "category": "Service", "cost_price": "1000", "sale_price": "5000"},
         follow_redirects=False)
     row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
     assert row is not None
     try:
         resp = client.post("/price-list/bulk-edit", json={"items": [
             {"id": row["id"], "fields": {"name": name, "category": "Service",
-                                         "cost_price": "3.000", "sale_price": "-14.000"}}]})
+                                         "cost_price": "1500", "sale_price": "-7000"}}]})
         assert resp.status_code < 500
         assert not resp.get_json().get("ok"), "a negative price must be reported as an error"
         after = db.execute("SELECT * FROM price_list WHERE id=?", (row["id"],)).fetchone()
-        assert after["sale_price"] == D("10.000"), "the original price must survive"
+        assert after["sale_price"] == 5000.0, "the original price must survive"
     finally:
         db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
         db.commit()
-
-
-# ---------------------------------------------------------------------------
-# CODE_AUDIT_2026-09-25 B6 and B7 — fixed by money.py, pinned at the route
-#
-# Both were the predecessor JO app applying a rule at a different precision
-# from the one it stored: B6 validated an amount before rounding it (0.0004
-# passed `> 0` and was stored as 0.000), B7 kept IQ's whole-dinar tolerance
-# for a three-decimal currency. money.parse() and money.audit_status() fix
-# them in one place; these make sure every route keeps going through it.
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def distributor_bill(db):
-    did, bid = _uid("DIST"), _uid("DB")
-    db.execute("INSERT INTO distributors (id, name) VALUES (?,?)", (did, f"Precision Dist {did}"))
-    db.execute("INSERT INTO distributor_bills (id, distributor_id, bill_date, total_amount, created_at) "
-               "VALUES (?,?,?,?,?)",
-               (bid, did, date.today().isoformat(), D("10.000"), datetime.now().isoformat(timespec="seconds")))
-    db.commit()
-    yield {"dist_id": did, "bill_id": bid}
-    db.execute("DELETE FROM distributor_bill_payments WHERE bill_id IN "
-               "(SELECT id FROM distributor_bills WHERE distributor_id=?)", (did,))
-    db.execute("DELETE FROM distributor_bills WHERE distributor_id=?", (did,))
-    db.execute("DELETE FROM distributors WHERE id=?", (did,))
-    db.commit()
-
-
-def _bill_payments(db, bill_id):
-    return db.execute("SELECT amount FROM distributor_bill_payments WHERE bill_id=?",
-                      (bill_id,)).fetchall()
-
-
-def test_b6_a_payment_that_rounds_to_nothing_is_refused_not_a_500(client, db, distributor_bill):
-    """GUARD. 0.0004 is below the fils. The predecessor passed it through
-    `amount > 0`, stored it as 0.000 and hit a CHECK constraint: HTTP 500."""
-    d = distributor_bill
-    resp = client.post(f"/distributors/{d['dist_id']}/bills/{d['bill_id']}/payments/new",
-                       data={"amount": "0.0004"})
-    assert resp.status_code == 200, f"expected the form back with an error, got {resp.status_code}"
-    assert "greater than zero" in resp.data.decode()
-    assert _bill_payments(db, d["bill_id"]) == []
-
-
-def test_b6_control_the_smallest_real_payment_is_recorded(client, db, distributor_bill):
-    d = distributor_bill
-    resp = client.post(f"/distributors/{d['dist_id']}/bills/{d['bill_id']}/payments/new",
-                       data={"amount": "0.001"})
-    assert resp.status_code == 302
-    assert [r["amount"] for r in _bill_payments(db, d["bill_id"])] == [D("0.001")]
-
-
-def test_b6_a_bill_that_rounds_to_nothing_is_refused(client, db, distributor_bill):
-    """GUARD. The predecessor accepted it and showed a 0.000 bill."""
-    d = distributor_bill
-    client.post(f"/distributors/{d['dist_id']}/bills/new", data={"total_amount": "0.0004"})
-    count = db.execute("SELECT COUNT(*) AS n FROM distributor_bills WHERE distributor_id=?",
-                       (d["dist_id"],)).fetchone()["n"]
-    assert count == 1, "a bill worth 0.000 was logged"
-
-
-def test_b6_the_balance_check_sees_the_amount_that_will_be_stored(client, db, distributor_bill):
-    """GUARD. 10.0004 against a 10.000 bill is 10.000 at the fils — exactly
-    the balance. Checked unrounded it reads as an overpayment and is refused,
-    although what Postgres would store is the exact balance. (A value both
-    sides round the same way, like 1.0005, cannot tell the two apart.)"""
-    d = distributor_bill
-    resp = client.post(f"/distributors/{d['dist_id']}/bills/{d['bill_id']}/payments/new",
-                       data={"amount": "10.0004"})
-    assert resp.status_code == 302, "the exact balance, typed with a sub-fils tail, was refused"
-    assert [r["amount"] for r in _bill_payments(db, d["bill_id"])] == [D("10.000")]
-
-
-def _audit(client, db, day, counted):
-    client.post("/cash-register/audit", data={"day": day, "counted_cash": counted, "notes": "B7"},
-                follow_redirects=True)
-    return db.execute("SELECT id, status FROM cash_register_audits WHERE audit_date=? "
-                      "ORDER BY id DESC LIMIT 1", (day,)).fetchone()
-
-
-def test_b7_a_drawer_off_by_under_one_dinar_is_not_perfect(client, db):
-    """GUARD. The audit's own repro: nothing expected on 2020-01-01, 0.900
-    counted. The predecessor called it Perfect (`abs(diff) < 1`)."""
-    row = _audit(client, db, "2020-01-01", "0.9")
-    try:
-        assert row, "the audit was not recorded"
-        assert row["status"] == "Surplus"
-    finally:
-        if row:
-            db.execute("DELETE FROM cash_register_audits WHERE id=?", (row["id"],))
-            db.commit()
-
-
-def test_b7_control_an_exact_count_is_perfect(client, db):
-    row = _audit(client, db, "2020-01-02", "0")
-    try:
-        assert row and row["status"] == "Perfect"
-    finally:
-        if row:
-            db.execute("DELETE FROM cash_register_audits WHERE id=?", (row["id"],))
-            db.commit()

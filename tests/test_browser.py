@@ -640,10 +640,9 @@ def _rid(prefix):
     return f"{prefix}{_uuid.uuid4().hex[:8].upper()}"
 
 
-@pytest.fixture
-def member_cart(db):
-    """A member owner, a 10% rate, and two retail items with stock — one
-    discountable, one not.
+def _seed_member_cart(db, sale_price):
+    """A member owner, a 10% rate, and two retail items with stock, each
+    priced `sale_price` — one discountable, one not.
 
     The confirmed audit is not set-dressing: pos_checkout() refuses to sell
     anything whose current_stock is None, so without it every checkout here
@@ -666,7 +665,7 @@ def member_cart(db):
                    (inv_id, name, "Retail", "unit", False, 0, "Owned", True))
         db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
                    "VALUES (?,?,?,?,?,?,?,?)",
-                   (pl_id, name, "Retail", 0, Decimal("10.500"), True, inv_id, can_discount))
+                   (pl_id, name, "Retail", 0, Decimal(sale_price), True, inv_id, can_discount))
         cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                          "VALUES (?,?,?,?,?) RETURNING id",
                          (_date.today().isoformat(), "U001", "Confirmed",
@@ -678,7 +677,14 @@ def member_cart(db):
                    "VALUES (?,?,?,?)", (sid, inv_id, 50, 0))
         items[key] = {"inv_id": inv_id, "pl_id": pl_id, "name": name}
     db.commit()
-    yield {"owner_id": owner_id, "owner_name": f"Rewards Browser {owner_id}", "items": items}
+    # sale_ids: sales a test makes WITHOUT a customer (a walk-in), which the
+    # owner_id sweep below cannot find. The test appends them.
+    return {"owner_id": owner_id, "owner_name": f"Rewards Browser {owner_id}", "items": items,
+            "audit_ids": audit_ids, "sale_ids": []}
+
+
+def _remove_member_cart(db, cart):
+    owner_id, items, audit_ids = cart["owner_id"], cart["items"], cart["audit_ids"]
     db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                ("member_discount_percent", "0"))
@@ -691,8 +697,27 @@ def member_cart(db):
     for sid in audit_ids:
         db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
     db.execute("DELETE FROM sales WHERE owner_id=?", (owner_id,))
+    for sale_id in cart["sale_ids"]:
+        db.execute("DELETE FROM sales WHERE id=?", (sale_id,))
     db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
     db.commit()
+
+
+@pytest.fixture
+def member_cart(db):
+    """JO amounts: two items at 10.500."""
+    cart = _seed_member_cart(db, "10.500")
+    yield cart
+    _remove_member_cart(db, cart)
+
+
+@pytest.fixture
+def iq_member_cart(db):
+    """IQ amounts: two items at 10,100 IQD — deliberately NOT a multiple of
+    the 250-dinar note, so every figure the till shows has to be rounded."""
+    cart = _seed_member_cart(db, "10100")
+    yield cart
+    _remove_member_cart(db, cart)
 
 
 def _add_item_to_cart(page, name):
@@ -780,6 +805,94 @@ def test_the_pos_preview_matches_the_server_on_a_member_mixed_cart(browser, db, 
         assert row["discount_source"] == "member"
         assert float(row["total"]) == previewed, (
             f"the till showed {previewed} and the server charged {row['total']}")
+        assert not errors, f"JavaScript errors during the sale: {errors}"
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------------------
+# The till under the IQ money setting
+#
+# Every test above runs under JO (the suite's default), where the cash unit is
+# the fils and money.js's rounding changes nothing — so none of them could
+# notice the browser rounding an IQ total differently from the server. These
+# put IQ amounts that are NOT multiples of the 250-dinar note in front of the
+# real page, and compare what the cashier reads with what gets recorded.
+# ---------------------------------------------------------------------------
+
+def _iq_page(browser):
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    _login(page)
+    page.goto(f"{APP_URL}/pos", wait_until="networkidle")
+    return ctx, page, errors
+
+
+@pytest.mark.money("IQ")
+def test_the_iq_till_rounds_the_total_and_the_change_as_the_server_does(browser, db, iq_member_cart):
+    """GUARD. 10,100 IQD rounds to the nearest note, 10,000; 10,400 handed
+    over leaves 400, which rounds DOWN to a 250 note — to the NEAREST note it
+    would be 500, and the clinic would hand back more than it owes. (300 would
+    not tell the two apart: it is 250 either way.) The recorded sale must
+    carry the 10,000 the till showed."""
+    ctx, page, errors = _iq_page(browser)
+    try:
+        _add_item_to_cart(page, iq_member_cart["items"]["a"]["name"])
+        assert _shown_total(page) == 10000, (
+            f"the till shows {_shown_total(page)} for a 10,100 IQD item; the server charges 10,000")
+
+        page.select_option("#paymentMethod", "Cash")
+        page.fill("#cashReceivedInput", "10400")
+        page.wait_for_function("() => document.getElementById('changeDue').textContent.trim() !== '—'",
+                               timeout=10000)
+        change = page.inner_text("#changeDue")
+        assert change.startswith("250 "), f"change shown as {change!r}; 400 must round DOWN to 250"
+        assert "150" in page.inner_text("#changeNote"), (
+            "the 150 IQD the clinic absorbs should be explained under the change")
+
+        before = db.execute("SELECT COALESCE(MAX(id), 0) AS m FROM sales").fetchone()["m"]
+        page.click("#completeSaleBtn")
+        page.wait_for_load_state("networkidle")
+        row = db.execute("SELECT id, total FROM sales WHERE id > ? ORDER BY id DESC LIMIT 1",
+                         (before,)).fetchone()
+        assert row, "the sale was not recorded"
+        iq_member_cart["sale_ids"].append(row["id"])
+        assert row["total"] == 10000, f"the till showed 10,000 and the server charged {row['total']}"
+        assert not errors, f"JavaScript errors during the sale: {errors}"
+    finally:
+        ctx.close()
+
+
+@pytest.mark.money("IQ")
+def test_the_iq_preview_matches_the_server_on_a_member_mixed_cart(browser, db, iq_member_cart):
+    """GUARD. The seam the JO version of this test cannot reach: the member
+    discount lands between notes. 10% off the eligible 10,100 is 9,090, plus
+    the other 10,100 in full is 19,190 — which the server rounds to 19,250."""
+    ctx, page, errors = _iq_page(browser)
+    try:
+        _add_item_to_cart(page, iq_member_cart["items"]["a"]["name"])
+        _add_item_to_cart(page, iq_member_cart["items"]["b"]["name"])
+        assert _shown_total(page) == 20250      # 20,200 walk-in, to the nearest note
+
+        page.fill("#posCustomerInput", iq_member_cart["owner_name"][:20])
+        page.wait_for_selector('#posCustomerResults [data-vz-act="pos-9"]', timeout=10000)
+        page.click('#posCustomerResults [data-vz-act="pos-9"]')
+        page.wait_for_function("() => document.getElementById('posDiscountField').hidden",
+                               timeout=10000)
+
+        previewed = _shown_total(page)
+        assert previewed == 19250, f"the preview shows {previewed}; 19,190 rounds to 19,250"
+
+        page.select_option("#paymentMethod", "Card")
+        page.click("#completeSaleBtn")
+        page.wait_for_load_state("networkidle")
+        row = db.execute("SELECT total, discount_source FROM sales WHERE owner_id=? "
+                         "ORDER BY id DESC LIMIT 1", (iq_member_cart["owner_id"],)).fetchone()
+        assert row, "the sale was not recorded against the customer"
+        assert row["discount_source"] == "member"
+        assert row["total"] == previewed, f"the till showed {previewed} and the server charged {row['total']}"
         assert not errors, f"JavaScript errors during the sale: {errors}"
     finally:
         ctx.close()

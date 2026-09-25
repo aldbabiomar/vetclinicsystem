@@ -137,12 +137,23 @@ def test_a_small_refund_stays_exact(client, db, sellable):
         "a JOD refund is exact — neither rounded to zero nor lifted to a note")
 
 
-def test_this_app_has_no_denomination_rounding_at_all():
-    """The anti-port guard. IQ grew money.payable_total() for its floor; if
-    that module or its helpers ever appear here, the currency model has been
-    broken in a way the arithmetic tests above would only catch by accident."""
-    with pytest.raises(ImportError):
-        import money  # noqa: F401
+@pytest.mark.parametrize("amount", ["0.001", "0.100", "0.124", "0.240", "1.999", "12.345", "999.999"])
+def test_the_jo_money_setting_rounds_nothing(amount):
+    """The anti-port guard, restated for one codebase. The predecessor JO app
+    asserted that IQ's money.py could not even be imported; now both money
+    settings share one money.py, and what must never leak across is the
+    RULE: under JO every payable, change and refund figure is exact to the
+    fils — the 250-note rounding and the anti-"looks free" floor only exist
+    because IQ's cash unit is 250. If any of these moves an amount, JO has
+    started rounding."""
+    import money
+    jo = money.JO
+    x = D(amount)
+    assert money.payable(x, 0, jo) == x
+    assert money.balance_due(x, 0, jo) == x
+    assert money.change_due(x + D("5"), D("5"), jo) == x
+    assert money.refund_payout(x, D("1000"), jo) == (x, None)
+    assert money.is_cash_payable(x, jo)
 
 
 # ===========================================================================

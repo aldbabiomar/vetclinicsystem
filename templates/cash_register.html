@@ -94,7 +94,7 @@
       <input type="hidden" name="day" value="{{ fv(payout_form, 'day', day) }}">
       <div class="form-grid">
         <div class="field" style="grid-column:1/-1;"><label for="cashregister-1-amount">{{ _('Amount (%(currency_label)s)', currency_label=currency_label()) }}</label>
-          <input id="cashregister-1-amount" type="number" name="amount" min="1" step="0.001" required autofocus value="{{ fv(payout_form, 'amount') }}">
+          <input id="cashregister-1-amount" type="number" name="amount" min="1" step="{{ money_step() }}" required autofocus value="{{ fv(payout_form, 'amount') }}">
         </div>
         <div class="field" style="grid-column:1/-1;"><label for="cashregister-2-reason">{{ _('Reason') }}</label>
           <input id="cashregister-2-reason" type="text" name="reason" value="{{ fv(payout_form, 'reason') }}" placeholder="{{ _('e.g. paid the produce delivery driver') }}" required>
@@ -120,7 +120,7 @@
       <input type="hidden" name="day" value="{{ fv(audit_form, 'day', day) }}">
       <div class="form-grid">
         <div class="field" style="grid-column:1/-1;"><label for="cashregister-3-counted_cash">{{ _('Cash Counted From the Register (%(currency_label)s)', currency_label=currency_label()) }}</label>
-          <input id="cashregister-3-counted_cash" type="number" name="counted_cash" min="0" step="0.001" required autofocus value="{{ fv(audit_form, 'counted_cash') }}">
+          <input id="cashregister-3-counted_cash" type="number" name="counted_cash" min="0" step="{{ money_step() }}" required autofocus value="{{ fv(audit_form, 'counted_cash') }}">
         </div>
         <div class="field" style="grid-column:1/-1;"><label for="cashregister-4-notes">{{ _('Notes (optional)') }}</label>
           <input id="cashregister-4-notes" type="text" name="notes" value="{{ fv(audit_form, 'notes') }}" placeholder="{{ _('e.g. counted twice, drawer was short a note') }}">

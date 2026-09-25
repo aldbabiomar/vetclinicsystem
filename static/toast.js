@@ -87,7 +87,13 @@
   // out a long form will actually see it.
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("main .flash, .auth-flash-wrap .flash").forEach(function (el) {
-      const kind = el.classList.contains("error") ? "error" : el.classList.contains("success") ? "success" : "status";
+      // flash(..., "warning") is an action that SUCCEEDED but needs the
+      // user's attention (a drawer count that came out short, an amount that
+      // can't be paid in notes) — shown with the warn state, not the neutral
+      // in-progress one it used to fall through to.
+      const kind = el.classList.contains("error") ? "error"
+        : el.classList.contains("success") ? "success"
+        : el.classList.contains("warning") ? "warn" : "status";
       show(el.textContent.trim(), kind);
       el.remove();
     });

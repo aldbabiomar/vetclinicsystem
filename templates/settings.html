@@ -22,6 +22,26 @@
     </div>
   </div>
 
+  <div class="section-title" id="money-setting">{{ _('Money Setting') }}</div>
+  {% if not money_setting %}
+  <div class="notice-banner" role="note">{{ _('Choose the money setting before recording any price or amount. Billing, payments, the point of sale and the price list stay locked until it is set.') }}</div>
+  {% endif %}
+  <div class="form-grid">
+    <div class="field"><label for="settings-money_setting">{{ _('Money Setting') }}</label>
+      <select id="settings-money_setting" name="money_setting" {{ 'disabled' if money_setting and money_locked }}>
+        {% if not money_setting %}<option value="" selected>{{ _('— Choose IQ or JO —') }}</option>{% endif %}
+        {% for m in money_settings %}<option value="{{ m.code }}" {{ 'selected' if money_setting and money_setting.code == m.code }}>{{ money_setting_label(m.code) }}</option>{% endfor %}
+      </select>
+      {% if money_setting and money_locked %}
+      <span class="small muted">{{ _('Locked: money has been recorded in %(currency)s, so the setting can no longer change.', currency=money_setting.currency) }}</span>
+      {% elif money_setting %}
+      <span class="small muted">{{ _('Can be changed until the first price or amount is recorded; then it locks.') }}</span>
+      {% else %}
+      <span class="small muted">{{ _('IQ: whole dinars, cash rounded to the 250-dinar note, +964 phone numbers. JO: three decimals, exact to the fils, +962 phone numbers.') }}</span>
+      {% endif %}
+    </div>
+  </div>
+
   <div class="section-title">{{ _('Inventory Alerts') }}</div>
   <div class="form-grid">
     <div class="field"><label for="settings-4-audit_overdue_days">{{ _('Audit Overdue After (Days)') }}</label><input id="settings-4-audit_overdue_days" type="number" name="audit_overdue_days" value="{{ settings.audit_overdue_days }}" min="1" max="3650" step="1"></div>

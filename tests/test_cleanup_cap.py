@@ -17,7 +17,11 @@ import pytest
 
 from decimal import Decimal
 
-from core import CLEANUP_CAP as CAP, cleanup_amount_error
+import money
+from core import cleanup_amount_error
+
+# The JO money setting's cap — this module runs under JO (conftest's default).
+CAP = money.JO.cleanup_cap
 
 
 # ---------------------------------------------------------------------------

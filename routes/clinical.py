@@ -25,7 +25,7 @@ from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, CLEANUP_CAP, PER_PAGE, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 
 bp = Blueprint("clinical", __name__)
 
@@ -729,7 +729,7 @@ def _parse_visit_fields(f):
     visit_date = clean_date(f.get("date"), field="date") or date.today().isoformat()
     wellness_needed = f.get("wellness_needed", "N")
     grooming_needed = f.get("grooming_needed", "N")
-    weight_kg = parse_money(f.get("weight_kg"))
+    weight_kg = parse_quantity(f.get("weight_kg"))
     bcs = parse_bcs(f.get("bcs"))
     # A negative weight is not a real measurement. IQ has always rejected it
     # here; JO did not, so it reached the chart and every trend built on it.
@@ -898,7 +898,7 @@ def visit_edit(visit_id):
             edited_date = clean_date(f.get("date"), field="date")
             edited_followup_date = clean_date(f.get("followup_date"), field="followup_date")
             edited_wellness_next_dose_date = clean_date(f.get("wellness_next_dose_date"), field="wellness_next_dose_date") if wellness_needed == "Y" else None
-            edited_weight_kg = parse_money(f.get("weight_kg"))
+            edited_weight_kg = parse_quantity(f.get("weight_kg"))
             edited_bcs = parse_bcs(f.get("bcs"))
         except BadDate as e:
             flash(str(e), "error")
@@ -970,6 +970,7 @@ def visit_edit(visit_id):
 
 @bp.route("/visits/<visit_id>/billing", methods=["POST"])
 @auth.permission_required("manage_visits")
+@requires_money_setting
 def visit_billing_save(visit_id):
     db = get_db()
     f = request.form
@@ -1010,7 +1011,7 @@ def visit_billing_save(visit_id):
         # database error.
         for pid in f.getlist("price_id"):
             try:
-                qty = parse_money(f.get(f"qty_{pid}", "").strip())
+                qty = parse_quantity(f.get(f"qty_{pid}", "").strip())
             except BadNumber:
                 had_bad_number = True
                 continue
@@ -1093,7 +1094,7 @@ def visit_billing_save(visit_id):
             new_subtotal or 0, existing["discount_percent"], 0, existing["cleanup_amount"],
             discountable_subtotal=new_discountable or 0)
         if paid_row["s"] > new_total:
-            flash(_("That change would leave %(fmt_money)s paid against a %(fmt_money2)s JOD bill. Process a service refund for the difference first.", fmt_money=logic.fmt_money(paid_row['s']), fmt_money2=logic.fmt_money(new_total)), "error")
+            flash(_("That change would leave %(fmt_money)s paid against a %(fmt_money2)s %(currency)s bill. Process a service refund for the difference first.", fmt_money=display_money(paid_row['s']), fmt_money2=display_money(new_total), currency=currency_label()), "error")
             return redisplay()
     old_month = logic.month_key(existing["date_billed"]) if existing else None
     # UPSERT rather than a SELECT-then-branch INSERT/UPDATE — visit_id is
@@ -1144,6 +1145,7 @@ def visit_billing_save(visit_id):
 
 @bp.route("/visits/<visit_id>/discount", methods=["POST"])
 @auth.permission_required("manage_visits")
+@requires_money_setting
 def visit_discount_save(visit_id):
     db = get_db()
     f = request.form
@@ -1156,7 +1158,7 @@ def visit_discount_save(visit_id):
         return render_template("visit_detail.html", **ctx, form=f, discount_error=True)
 
     try:
-        percent = parse_money(f.get("discount_percent")) or 0
+        percent = parse_percent(f.get("discount_percent")) or 0
     except BadNumber:
         flash(_("Discount must be a valid number."), "error")
         return redisplay()
@@ -1240,6 +1242,7 @@ _REWARD_REMOVAL_SURFACES = {
 
 @bp.route("/rewards/<surface>/<bill_id>/remove-discount", methods=["POST"])
 @auth.permission_required("manage_rewards")
+@requires_money_setting
 def rewards_remove_discount(surface, bill_id):
     db = get_db()
     spec = _REWARD_REMOVAL_SURFACES.get(surface)
@@ -1288,6 +1291,7 @@ def rewards_remove_discount(surface, bill_id):
 
 @bp.route("/visits/<visit_id>/payment", methods=["POST"])
 @auth.permission_required("manage_visits")
+@requires_money_setting
 def visit_payment_add(visit_id):
     db = get_db()
     f = request.form
@@ -1317,7 +1321,7 @@ def visit_payment_add(visit_id):
     summary = logic.visit_billing_summary(db, visit_id)
     balance = summary["balance"]
     if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s JOD on this visit.", fmt_money=logic.fmt_money(balance)), "error")
+        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this visit.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
@@ -1349,6 +1353,7 @@ def visit_payment_add(visit_id):
         logic.refresh_visit_billing_total(db, visit_id)
     db.commit()
     flash(_("Payment recorded."), "success")
+    flash_cash_denomination_warning(amount)
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
 
@@ -1785,6 +1790,7 @@ def boarding_incident(boarding_id):
 
 @bp.route("/boarding/<int:boarding_id>/payment", methods=["POST"])
 @auth.permission_required("manage_boarding")
+@requires_money_setting
 def boarding_payment(boarding_id):
     db = get_db()
     f = request.form
@@ -1814,7 +1820,7 @@ def boarding_payment(boarding_id):
     # to settle before the balance checks below that use it.
     raw_discount = f.get("discount_percent")
     try:
-        discount_percent = parse_money(raw_discount) or 0
+        discount_percent = parse_percent(raw_discount) or 0
     except BadNumber:
         flash(_("Discount must be a valid number."), "error")
         return redisplay()
@@ -1838,12 +1844,6 @@ def boarding_payment(boarding_id):
     except BadNumber:
         flash(_("Clean Up amount must be a valid number."), "error")
         return redisplay()
-    if cleanup_amount < 0:
-        flash(_("Clean Up amount can't be negative."), "error")
-        return redisplay()
-    if summary["cleanup_amount"] + cleanup_amount > CLEANUP_CAP:
-        flash(_("Clean Up can't exceed %(CLEANUP_CAP)s JOD total on this bill.", CLEANUP_CAP=CLEANUP_CAP), "error")
-        return redisplay()
 
     # The discount and the Clean Up both change the balance this payment is
     # being checked against, and all three arrive in the same submission — so
@@ -1862,7 +1862,7 @@ def boarding_payment(boarding_id):
         summary["cleanup_amount"] + cleanup_amount,
         discountable_subtotal=summary["discountable_subtotal"])
     if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s JOD on this stay.", fmt_money=logic.fmt_money(balance)), "error")
+        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this stay.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
     cur = db.execute(
         "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
@@ -1889,6 +1889,7 @@ def boarding_payment(boarding_id):
         logic.refresh_boarding_total(db, boarding_id)
     db.commit()
     flash(_("Payment recorded."), "success")
+    flash_cash_denomination_warning(amount)
     return redirect(url_for("clinical.boarding_page"))
 
 
@@ -1957,7 +1958,7 @@ def inpatient_new():
                 selected_patient_label=f"{prow['animal_name']} — {prow['owner_name']} ({pid})" if prow else None,
             )
         try:
-            new_weight_kg = parse_money(f.get("weight_kg"))
+            new_weight_kg = parse_quantity(f.get("weight_kg"))
             new_bcs = parse_bcs(f.get("bcs"))
             new_admission_date = clean_date(f.get("admission_date"), field="admission_date")
         except BadNumber:
@@ -2042,7 +2043,7 @@ def inpatient_edit(case_id):
     dismissed = f.get("dismissed") == "on"
     try:
         edited_dismissal_date = clean_date(f.get("dismissal_date"), field="dismissal_date") if dismissed else None
-        edited_weight_kg = parse_money(f.get("weight_kg"))
+        edited_weight_kg = parse_quantity(f.get("weight_kg"))
         edited_bcs = parse_bcs(f.get("bcs"))
     except (BadDate, BadNumber) as e:
         flash(str(e) if isinstance(e, BadDate) else "Weight and BCS must be valid numbers.", "error")
@@ -2123,6 +2124,7 @@ def inpatient_contact_add(case_id):
 
 @bp.route("/inpatient/<int:case_id>/billing", methods=["POST"])
 @auth.permission_required("manage_inpatient")
+@requires_money_setting
 def inpatient_billing_add(case_id):
     db = get_db()
     # Locked for the same reason inpatient_discount_save() locks this row
@@ -2203,6 +2205,7 @@ def inpatient_billing_add(case_id):
 
 @bp.route("/inpatient/<int:case_id>/billing/<int:line_id>/delete", methods=["POST"])
 @auth.permission_required("manage_inpatient")
+@requires_money_setting
 def inpatient_billing_delete(case_id, line_id):
     db = get_db()
     row = db.execute("SELECT timestamp FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id)).fetchone()
@@ -2225,7 +2228,7 @@ def inpatient_billing_delete(case_id, line_id):
         remaining_subtotal, summary["discount_percent"], 0, summary["cleanup_amount"],
         discountable_subtotal=remaining_discountable)
     if summary["paid"] > remaining_total:
-        flash(_("Removing this line would leave %(fmt_money)s paid against a %(fmt_money2)s JOD bill. Process a service refund for the difference first.", fmt_money=logic.fmt_money(summary['paid']), fmt_money2=logic.fmt_money(remaining_total)), "error")
+        flash(_("Removing this line would leave %(fmt_money)s paid against a %(fmt_money2)s %(currency)s bill. Process a service refund for the difference first.", fmt_money=display_money(summary['paid']), fmt_money2=display_money(remaining_total), currency=currency_label()), "error")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
     db.execute("DELETE FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id))
     logic.refresh_inpatient_total(db, case_id)
@@ -2239,6 +2242,7 @@ def inpatient_billing_delete(case_id, line_id):
 
 @bp.route("/inpatient/<int:case_id>/discount", methods=["POST"])
 @auth.permission_required("manage_inpatient")
+@requires_money_setting
 def inpatient_discount_save(case_id):
     db = get_db()
     f = request.form
@@ -2251,7 +2255,7 @@ def inpatient_discount_save(case_id):
         return render_template("inpatient_detail.html", **ctx, form=f, discount_error=True)
 
     try:
-        percent = parse_money(f.get("discount_percent")) or 0
+        percent = parse_percent(f.get("discount_percent")) or 0
     except BadNumber:
         flash(_("Discount must be a valid number."), "error")
         return redisplay()
@@ -2295,6 +2299,7 @@ def inpatient_discount_save(case_id):
 
 @bp.route("/inpatient/<int:case_id>/payment", methods=["POST"])
 @auth.permission_required("manage_inpatient")
+@requires_money_setting
 def inpatient_payment_add(case_id):
     db = get_db()
     f = request.form
@@ -2324,7 +2329,7 @@ def inpatient_payment_add(case_id):
     summary = logic.inpatient_billing_summary(db, case_id)
     balance = summary["balance"]
     if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s JOD on this case.", fmt_money=logic.fmt_money(balance)), "error")
+        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this case.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
@@ -2356,6 +2361,7 @@ def inpatient_payment_add(case_id):
         logic.refresh_inpatient_total(db, case_id)
     db.commit()
     flash(_("Payment recorded."), "success")
+    flash_cash_denomination_warning(amount)
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
 
 

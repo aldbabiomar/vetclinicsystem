@@ -15,6 +15,7 @@ from decimal import Decimal
 import auth
 import db as dbmod
 import logic
+import money
 import pdf_export
 import uuid
 
@@ -23,9 +24,20 @@ from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, page_count, page_offset, parse_money, parse_quantity
+from core import display_number
+from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity
 
 bp = Blueprint("sales", __name__)
+
+
+@bp.before_request
+def _money_setting_gate():
+    """Every page in this blueprint records or shows money, so none of them
+    is usable before the clinic's money setting (IQ / JO) is chosen. App-level
+    before_request hooks — the login gate among them — run first."""
+    if money.current() is None:
+        return money_setting_prompt()
+    return None
 
 
 @bp.route("/api/sales/<int:sale_id>/refundable-items")
@@ -128,7 +140,7 @@ def cash_register_payout_new():
     # exactly how much is left in the drawer before this new one.
     drawer_cash = logic.cash_register_totals(db, day)["Cash"]
     if amount > drawer_cash:
-        flash(_("That's more than the %(fmt_money)s JOD currently expected in the drawer for this day.", fmt_money=logic.fmt_money(drawer_cash)), "error")
+        flash(_("That's more than the %(fmt_money)s %(currency)s currently expected in the drawer for this day.", fmt_money=display_money(drawer_cash), currency=currency_label()), "error")
         return redisplay(day)
     cur = db.execute(
         "INSERT INTO cash_register_payouts (payout_date, amount, reason, logged_by, created_at) "
@@ -138,7 +150,8 @@ def cash_register_payout_new():
     payout_id = cur.fetchone()["id"]
     auth.log_change(db, "cash_register_payouts", str(payout_id), "create")
     db.commit()
-    flash(_("%(fmt_money)s JOD logged out of the register.", fmt_money=logic.fmt_money(amount)), "success")
+    flash(_("%(fmt_money)s %(currency)s logged out of the register.", fmt_money=display_money(amount), currency=currency_label()), "success")
+    flash_cash_denomination_warning(amount)
     return redirect(url_for("sales.cash_register_page", date=day))
 
 
@@ -171,13 +184,11 @@ def cash_register_audit_new():
     # gets permanently compared against, so it has to be the real live
     # number, not whatever the page happened to show when it was loaded.
     totals = logic.cash_register_totals(db, day)
-    difference = round(counted_cash - totals["Cash"], 3)
-    if abs(difference) < 1:
-        status = "Perfect"
-    elif difference < 0:
-        status = "Deficit"
-    else:
-        status = "Surplus"
+    difference = money.to_store(counted_cash - totals["Cash"])
+    # Exact: "Perfect" only when the counts agree to the smallest amount a
+    # person can enter. The predecessor JO app kept IQ's `abs(diff) < 1`, which
+    # called a drawer 999 fils short "Perfect" (CODE_AUDIT_2026-09-25.md B7).
+    status = money.audit_status(difference)
     cur = db.execute(
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, "
         "counted_cash, difference, status, notes, performed_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -194,7 +205,7 @@ def cash_register_audit_new():
         # record in the same red as a failure reads as "that did not work"
         # and invites staff to re-run the count. The discrepancy still
         # needs attention, which is what the warning state is for.
-        flash(_("Audit recorded for %(day)s: %(status)s of %(fmt_money)s JOD.", day=day, status=status, fmt_money=logic.fmt_money(abs(difference))), "warning")
+        flash(_("Audit recorded for %(day)s: %(status)s of %(fmt_money)s %(currency)s.", day=day, status=_(status), fmt_money=display_money(abs(difference)), currency=currency_label()), "warning")
     return redirect(url_for("sales.cash_register_page", date=day))
 
 
@@ -244,7 +255,7 @@ def _merged_cart_quantities(item_ids, quantities):
         try:
             qty = parse_quantity(qty, required=True)
         except BadNumber:
-            return None, "Cart quantities must be valid numbers."
+            return None, _("Cart quantities must be valid numbers.")
         if qty <= 0:
             continue
         qty_by_item[iid] = qty_by_item.get(iid, 0) + qty
@@ -300,7 +311,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     for iid, qty in qty_by_item.items():
         price = logic.item_sale_price(db, iid)
         if price is None:
-            notices.append(f"Item {iid} has no sale price set in the Price List — skipped.")
+            notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=iid))
             continue
         status = logic.inventory_status_by_id(db, iid)
         # current_stock is None until this item has been through at least one
@@ -320,13 +331,14 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
         # down. "No usable count" is what both branches mean.
         if status and (status["current_stock"] is None
                        or status["current_stock"] != status["current_stock"]):
-            return 0, [], notices, (
-                f"{status['name']} hasn't been through an inventory audit yet — "
-                "run an audit before selling it.")
+            return 0, [], notices, _(
+                "%(name)s hasn't been through an inventory audit yet — run an audit before selling it.",
+                name=status["name"])
         if status and qty > status["current_stock"]:
-            return 0, [], notices, (
-                f"Only {status['current_stock']} {status['unit'] or ''} of "
-                f"{status['name']} in stock — sale blocked.")
+            return 0, [], notices, _(
+                "Only %(stock)s %(unit)s of %(name)s in stock — sale blocked.",
+                stock=display_number(f"{status['current_stock']:g}"), unit=status["unit"] or "",
+                name=status["name"])
         line_total = price * qty
         subtotal += line_total
         # Missing means no active linked price_list row, which is charged in
@@ -344,21 +356,25 @@ def _cash_payment_for(f, total):
     Non-cash payments resolve to (None, None, None) — the columns stay null
     rather than storing a zero that would look like "paid nothing in cash".
 
-    Change is exact to the fils: JOD has no denomination floor, so unlike IQ
-    there is nothing to round down to and no clinic-absorbed remainder.
+    Change is rounded DOWN to the money setting's cash unit (money.change_due)
+    — never hand back more than is owed. Under IQ that is the 250-dinar note
+    and any remainder is absorbed by the clinic; under JO it is the fils, so
+    change is exact.
     """
     if f.get("payment_method") != "Cash":
         return None, None, None
     try:
         cash_received = parse_money(f.get("cash_received"))
     except BadNumber:
-        return None, None, "Cash Received must be a valid number."
+        return None, None, _("Cash Received must be a valid number.")
     if cash_received is None:
         return None, None, None
     if cash_received < total:
-        return None, None, (f"Cash received ({cash_received:,.3f} JOD) is less than "
-                            f"the total ({total:,.3f} JOD).")
-    return cash_received, max(round(cash_received - total, 3), 0), None
+        return None, None, _("Cash received (%(received)s %(currency)s) is less than the total "
+                             "(%(total)s %(currency)s) — collect the full amount before completing the sale.",
+                             received=display_money(cash_received), total=display_money(total),
+                             currency=currency_label())
+    return cash_received, money.change_due(cash_received, total), None
 
 
 def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount,
@@ -375,7 +391,7 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
         "payment_method, cash_received, change_given, idempotency_key, cleanup_amount, cleanup_applied_by, "
         "owner_id, discount_source) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
-        (now, session["user_id"], round(subtotal, 3), discount_percent,
+        (now, session["user_id"], money.to_store(subtotal), discount_percent,
          session["user_id"] if discount_percent else None, total, payment_method,
          cash_received, change_given, idempotency_key, cleanup_amount,
          session["user_id"] if cleanup_amount else None,
@@ -386,7 +402,7 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
         db.execute(
             "INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, line_total, unit_cost, distributor_id, discountable) "
             "VALUES (?,?,?,?,?,?,?,?)",
-            (sale_id, iid, qty, price, round(line_total, 3), unit_cost, distributor_id, discountable))
+            (sale_id, iid, qty, price, money.to_store(line_total), unit_cost, distributor_id, discountable))
         db.execute(
             "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
             "VALUES (?,?,?,?,?,?)",
@@ -438,9 +454,9 @@ def pos_checkout():
     item_ids = request.form.getlist("item_id")
     quantities = request.form.getlist("quantity")
     try:
-        discount_percent = parse_money(f.get("discount_percent")) or 0
+        discount_percent = parse_percent(f.get("discount_percent")) or 0
     except BadNumber:
-        return refuse("Discount must be a valid number.")
+        return refuse(_("Discount must be a valid number."))
 
     # Identifying the customer is OPTIONAL and opt-in — nothing prompts for
     # it and the walk-in path is unchanged, so owner_id is NULL on most sales
@@ -450,14 +466,14 @@ def pos_checkout():
     if owner_id:
         owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone()
         if not owner:
-            return refuse("That customer no longer exists — search again.")
+            return refuse(_("That customer no longer exists — search again."))
     member_percent, discount_source = logic.member_discount_for(db, owner)
     if discount_source == "member":
         # Card only. Refused outright rather than silently ignored, so the
         # cashier sees why the number they typed did not take effect.
         if discount_percent > 0:
-            return refuse("This customer's rewards card already discounts this sale — "
-                          "a staff discount can't be added on top of it.")
+            return refuse(_("This customer's rewards card already discounts this sale — "
+                            "a staff discount can't be added on top of it."))
         discount_percent = member_percent
     else:
         # The role cap bounds STAFF discretion only; a member's rate is
@@ -466,15 +482,15 @@ def pos_checkout():
         if error:
             return refuse(error)
     if not item_ids:
-        return refuse("Cart is empty.")
+        return refuse(_("Cart is empty."))
     # Scoped to staff discounts. A member's card discounts the ELIGIBLE lines
     # and charges the rest in full, which is the whole point of the per-line
     # snapshot.
     if discount_source == "staff" and discount_percent > 0:
         blocked = logic.non_discountable_line_names_for_items(db, item_ids)
         if blocked:
-            return refuse("Can't apply a discount — the cart includes item(s) marked as "
-                          f"not discountable: {', '.join(blocked)}.")
+            return refuse(_("Can't apply a discount — the cart includes item(s) marked as "
+                            "not discountable: %(names)s.", names=", ".join(blocked)))
 
     qty_by_item, error = _merged_cart_quantities(item_ids, quantities)
     if error:
@@ -488,7 +504,7 @@ def pos_checkout():
     if error:
         return refuse(error)
     if not lines:
-        return refuse("Nothing to sell.")
+        return refuse(_("Nothing to sell."))
 
     # The discount comes off the eligible lines only, through the same
     # logic.discounted_raw_total() the bill path uses — one function, not the
@@ -498,17 +514,22 @@ def pos_checkout():
     discountable_subtotal = sum(
         line_total for _iid, _qty, _price, line_total, _cost, _dist, discountable in lines
         if discountable)
-    total = round(logic.discounted_raw_total(subtotal, discountable_subtotal, discount_percent), 3)
+    # money.payable(), the same rule the bill path uses: rounded to the cash
+    # unit, and never rounded down to free. Under IQ a cart under half a note
+    # used to ring up as 0 and hand back every dinar tendered as change
+    # (SEAM_RULES.md F1); under JO it changes nothing.
+    total = money.payable(
+        logic.discounted_raw_total(subtotal, discountable_subtotal, discount_percent), discount_percent)
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
     except BadNumber:
-        return refuse("Clean Up amount must be a valid number.")
+        return refuse(_("Clean Up amount must be a valid number."))
     # existing_amount=0: a brand-new sale has no prior Clean Up to accumulate
     # against, unlike the other three surfaces.
     error = cleanup_amount_error(cleanup_amount, 0, total)
     if error:
         return refuse(error)
-    total = max(total - cleanup_amount, 0)
+    total = money.to_store(max(total - cleanup_amount, 0))
 
     cash_received, change_given, error = _cash_payment_for(f, total)
     if error:
@@ -540,7 +561,7 @@ def pos_checkout():
             if existing_sale:
                 return redirect(url_for("sales.pos_receipt", sale_id=existing_sale["id"]))
         raise
-    flash(_("Sale #%(sale_id)s completed — total %(fmt_money)s JOD.", sale_id=sale_id, fmt_money=logic.fmt_money(total)), "success")
+    flash(_("Sale #%(sale_id)s completed — total %(fmt_money)s %(currency)s.", sale_id=sale_id, fmt_money=display_money(total), currency=currency_label()), "success")
     return redirect(url_for("sales.pos_receipt", sale_id=sale_id))
 
 
@@ -637,7 +658,7 @@ def refund_retail_save():
     # from the UI, not just from a crafted POST. IQ has always validated it.
     refund_method = f.get("refund_method")
     if refund_method not in PAYMENT_METHODS:
-        flash("Pick how this refund was actually paid out: " + ", ".join(PAYMENT_METHODS) + ".", "error")
+        flash(_("Pick how this refund was actually paid out: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS)), "error")
         return redisplay()
     reason = (f.get("reason") or "").strip()
     try:
@@ -690,7 +711,7 @@ def refund_retail_save():
             flash(_("Can't refund %(qty)s %(name)s — only %(remaining)s left refundable from this sale.", qty=f"{qty:g}", name=line['name'], remaining=f"{line['remaining']:g}"), "error")
             return redisplay()
         price = line["unit_price"]
-        line_total = round(price * qty, 3)
+        line_total = money.to_store(price * qty)
         total += line_total
         lines.append((line["item_id"], sid, qty, price, line_total))
 
@@ -701,18 +722,28 @@ def refund_retail_save():
     # Microsecond precision — same reasoning as pos_checkout()'s `now`
     # (restocking here writes an inventory_transactions row too).
     now = datetime.now().isoformat(timespec="microseconds")
-    rounded_total = round(total, 3)
     # Aggregate cap — see CLEANUP_FEATURE_PLAN.md §3.7/§4.5. Per-line
     # pricing above is untouched; this only stops the SUM of every retail
     # refund against this sale from exceeding what the sale actually
     # collected (sale["total"] already reflects any Clean Up applied at
-    # sale time, so no separate reference to cleanup_amount is needed
-    # here).
+    # sale time, so no separate reference to cleanup_amount is needed).
     already_refunded_total = db.execute(
         "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE sale_id=? AND refund_type='retail'", (sale_id,)
     ).fetchone()["s"]
+    # Money leaving the clinic rounds DOWN to the cash unit, like change —
+    # and a real return is never settled at zero: a line worth less than one
+    # 250-dinar note pays one note, while the sale still has that much to
+    # give back (money.refund_payout; SIMULATION_AUDIT F3). Exact under JO.
+    headroom = sale["total"] - already_refunded_total
+    rounded_total, why = money.refund_payout(total, headroom)
+    if why:
+        flash(_("This sale has no refundable value left to pay out — the smallest amount that can be "
+                "paid out is %(unit)s %(currency)s and only %(left)s %(currency)s of this sale is still refundable.",
+                unit=display_money(money.require().cash_unit), left=display_money(max(headroom, 0)),
+                currency=currency_label()), "error")
+        return redisplay()
     if already_refunded_total + rounded_total > sale["total"]:
-        flash(_("That's more than this sale actually collected (%(fmt_money)s JOD, after any Clean Up applied at sale time) minus what's already been refunded.", fmt_money=logic.fmt_money(sale['total'])), "error")
+        flash(_("That's more than this sale actually collected (%(fmt_money)s %(currency)s, after any Clean Up applied at sale time) minus what's already been refunded.", fmt_money=display_money(sale['total']), currency=currency_label()), "error")
         return redisplay()
     cur = db.execute(
         "INSERT INTO refunds (refund_type, refund_date, amount, restocked, sale_id, reason, refund_method, "
@@ -738,7 +769,12 @@ def refund_retail_save():
     logic.recompute_month_summary(db, logic.month_key(refund_date))
     auth.log_change(db, "refunds", str(refund_id), "create")
     db.commit()
-    flash(f"Refund of {total:,.3f} JOD recorded" + (" and stock restored." if restock else "."), "success")
+    if restock:
+        flash(_("Refund of %(amount)s %(currency)s recorded and stock restored.",
+                amount=display_money(rounded_total), currency=currency_label()), "success")
+    else:
+        flash(_("Refund of %(amount)s %(currency)s recorded.",
+                amount=display_money(rounded_total), currency=currency_label()), "success")
     return redirect(url_for("sales.refunds_page"))
 
 
@@ -763,7 +799,7 @@ def refund_service_save():
     # payout method leaves no trace of how the money left the clinic.
     refund_method = f.get("refund_method")
     if refund_method not in PAYMENT_METHODS:
-        flash("Pick how this refund was actually paid out: " + ", ".join(PAYMENT_METHODS) + ".", "error")
+        flash(_("Pick how this refund was actually paid out: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS)), "error")
         return redisplay()
     try:
         refund_date = clean_date(f.get("refund_date"), field="refund_date") or date.today().isoformat()
@@ -805,7 +841,7 @@ def refund_service_save():
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
-            flash(_("That's more than what's left refundable on this visit (%(fmt_money)s JOD).", fmt_money=logic.fmt_money(cap)), "error")
+            flash(_("That's more than what's left refundable on this visit (%(fmt_money)s %(currency)s).", fmt_money=display_money(cap), currency=currency_label()), "error")
             return redisplay()
 
     case_id = None
@@ -822,7 +858,7 @@ def refund_service_save():
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
-            flash(_("That's more than what's left refundable on this case (%(fmt_money)s JOD).", fmt_money=logic.fmt_money(cap)), "error")
+            flash(_("That's more than what's left refundable on this case (%(fmt_money)s %(currency)s).", fmt_money=display_money(cap), currency=currency_label()), "error")
             return redisplay()
 
     boarding_id = None
@@ -839,9 +875,19 @@ def refund_service_save():
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
-            flash(_("That's more than what's left refundable on this stay (%(fmt_money)s JOD).", fmt_money=logic.fmt_money(cap)), "error")
+            flash(_("That's more than what's left refundable on this stay (%(fmt_money)s %(currency)s).", fmt_money=display_money(cap), currency=currency_label()), "error")
             return redisplay()
 
+    # Rounded DOWN to the cash unit like every refund, never to zero while
+    # something is refundable (money.refund_payout). The predecessor IQ app
+    # rounded service refunds to the NEAREST note, which recorded a refund of
+    # 0 for anything under half a note and could round above what was paid.
+    payout, why = money.refund_payout(amount, cap)
+    if why:
+        flash(_("This record has no refundable value left to pay out — the smallest amount that can be "
+                "paid out is %(unit)s %(currency)s.", unit=display_money(money.require().cash_unit),
+                currency=currency_label()), "error")
+        return redisplay()
     now = datetime.now().isoformat(timespec="seconds")
     # Snapshot, not a live lookup — see CLEANUP_FEATURE_PLAN.md §3.7/§4.5.
     # No cap change here: the paid-minus-already-refunded caps above
@@ -861,12 +907,12 @@ def refund_service_save():
         "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, inpatient_case_id, boarding_id, reason, "
         "refund_method, processed_by, created_at, cleanup_amount_at_refund) "
         "VALUES ('service',?,?,?,?,?,?,?,?,?,?) RETURNING id",
-        (refund_date, round(amount, 3), visit_id, case_id, boarding_id, reason, refund_method, session["user_id"], now,
+        (refund_date, payout, visit_id, case_id, boarding_id, reason, refund_method, session["user_id"], now,
          cleanup_amount_at_refund),
     )
     refund_id = cur.fetchone()["id"]
     logic.recompute_month_summary(db, logic.month_key(refund_date))
     auth.log_change(db, "refunds", str(refund_id), "create")
     db.commit()
-    flash(_("Service refund of %(amount)s JOD recorded.", amount=f"{amount:,.3f}"), "success")
+    flash(_("Service refund of %(amount)s %(currency)s recorded.", amount=display_money(payout), currency=currency_label()), "success")
     return redirect(url_for("sales.refunds_page"))

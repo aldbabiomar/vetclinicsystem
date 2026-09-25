@@ -23,6 +23,7 @@ citation stops resolving.
 | `plans/UNIFIED_CODEBASE_PLAN.md` | The plan for merging IQ and JO into this one system, with the decisions taken and progress. **In progress.** |
 | `CODE_AUDIT_2026-09-25.md` | The last audit of the two predecessor apps: bugs, parity gaps, design. Every finding is tracked to where it is fixed in the merged system. |
 | `RELEASE_WORKFLOW.md` | How to version, tag and publish a release that the in-app updater will accept. |
+| `ARABIC_REVIEW.md` | Arabic written during the merge without clinic review — English and Arabic side by side, for a native speaker to confirm. Delete rows as they are confirmed. |
 | `SEAM_RULES.md` | Rules that must hold on every sibling code path (the four payment surfaces, the date filters, …), the register of every time one did not, and the checklist for adding a rule. |
 
 ## Feature specifications — built

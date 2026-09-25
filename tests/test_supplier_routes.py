@@ -385,18 +385,97 @@ def _settlements(db, dist_id):
                       (dist_id,)).fetchone()["c"]
 
 
-def test_a_settlement_cannot_pay_more_than_is_owed(client, db, consignment_item):
-    """Settling above the outstanding balance pays a distributor twice for
-    the same stock. There is no delete route for a settlement."""
-    client.post("/consignment/receiving/new", data={
-        "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+@pytest.fixture
+def sell_consigned(client, db, consignment_item):
+    """sell(qty, unit_cost, sale_price) -> what the distributor is now owed.
+
+    A distributor is owed for consigned units SOLD, at the cost snapshotted
+    on each sale line (logic.consignment_balance) — a delivery alone owes
+    nothing. So this sells through the real POS rather than writing rows.
+    It exists because the over-settlement test below used to receive stock
+    and sell none: every settlement it tried was refused as "nothing to
+    settle", before the "more than is owed" check it was named for.
+    """
+    inv_id, dist = consignment_item["id"], consignment_item["distributor_id"]
+    pl_id = _uid("PL")
+    made = {"price": False}
+
+    def sell(qty, unit_cost, sale_price):
+        db.execute("UPDATE inventory_list SET cost_price=? WHERE id=?", (D(unit_cost), inv_id))
+        if not made["price"]:
+            db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, "
+                       "linked_item_id, can_discount) VALUES (?,?,?,?,?,?,?,?)",
+                       (pl_id, f"Consign {inv_id}", "Retail", D(unit_cost), D(sale_price), True, inv_id, True))
+            made["price"] = True
+        db.commit()
+        resp = client.post("/pos/checkout", data={"item_id": inv_id, "quantity": str(qty),
+                                                  "payment_method": "Card"}, follow_redirects=False)
+        assert resp.status_code == 302, "the consigned sale was refused — the test would prove nothing"
+        return logic.consignment_balance(db, dist)["amount_owed"]
+
+    yield sell
+    sale_ids = [r["sale_id"] for r in db.execute(
+        "SELECT DISTINCT sale_id FROM sale_items WHERE item_id=?", (inv_id,)).fetchall()]
+    db.execute("DELETE FROM consignment_settlements WHERE distributor_id=?", (dist,))
+    db.execute("DELETE FROM sale_items WHERE item_id=?", (inv_id,))
+    for sid in sale_ids:
+        db.execute("DELETE FROM sales WHERE id=?", (sid,))
+    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.commit()
+
+
+def _settle(client, dist, amount):
+    return client.post(f"/consignment/settlements/{dist}/new",
+                       data={"amount_paid": amount, "payment_method": "Cash"}, follow_redirects=False)
+
+
+def _settled_amounts(db, dist):
+    return [r["amount_paid"] for r in db.execute(
+        "SELECT amount_paid FROM consignment_settlements WHERE distributor_id=? ORDER BY id",
+        (dist,)).fetchall()]
+
+
+def test_a_settlement_cannot_pay_more_than_is_owed(client, db, sell_consigned, consignment_item):
+    """GUARD. Settling above the outstanding balance pays a distributor twice
+    for the same stock, and there is no delete route for a settlement. One
+    fils over is enough to be refused — and refused for THAT reason."""
+    owed = sell_consigned(5, "2.000", "3.500")
+    assert owed == D("10.000")
     dist = consignment_item["distributor_id"]
-    before = _settlements(db, dist)
-    resp = client.post(f"/consignment/settlements/{dist}/new",
-                       data={"amount_paid": "999999.000"}, follow_redirects=False)
-    assert resp.status_code != 500
-    assert _settlements(db, dist) == before, "an over-settlement must not be recorded"
+    resp = _settle(client, dist, "10.001")
+    assert resp.status_code == 200
+    assert "owed this period" in resp.data.decode(), "refused, but not for being more than is owed"
+    assert _settled_amounts(db, dist) == []
+
+
+def test_control_settling_exactly_what_is_owed_is_recorded(client, db, sell_consigned, consignment_item):
+    """CONTROL, and two guards of its own:
+      - the item was FLAGGED Consignment with no delivery logged, so this is
+        also the first settlement that CODE_AUDIT §10 M8 refused;
+      - once settled in full nothing is owed. The sale happened in the same
+        second as the settlement, so with a seconds-precision period_end it
+        was counted again in the next period (CODE_AUDIT B13)."""
+    owed = sell_consigned(5, "2.000", "3.500")
+    dist = consignment_item["distributor_id"]
+    assert _settle(client, dist, str(owed)).status_code == 302
+    assert _settled_amounts(db, dist) == [owed]
+    assert logic.consignment_balance(db, dist)["amount_owed"] == 0
+
+
+@pytest.mark.money("IQ")
+def test_m3_an_iq_settlement_is_recorded_as_it_was_checked(client, db, sell_consigned, consignment_item):
+    """GUARD (CODE_AUDIT §10 M3). 6 units at a 200 IQD cost: 1,200 owed,
+    1,200 paid. The predecessor IQ app checked 1,200 against what was owed and
+    then stored it rounded to the NEAREST note — 1,250, more than was owed,
+    and a carry-forward of -50. A settlement is a record of a transfer that
+    already happened; it is stored as entered."""
+    owed = sell_consigned(6, "200", "500")
+    assert owed == D(1200)
+    dist = consignment_item["distributor_id"]
+    resp = _settle(client, dist, "1200")
+    assert resp.status_code == 302
+    assert _settled_amounts(db, dist) == [D(1200)]
+    assert logic.consignment_balance(db, dist)["amount_owed"] == 0
 
 
 def test_settling_a_distributor_with_no_activity_is_refused(client, db, distributor):

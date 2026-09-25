@@ -34,7 +34,7 @@
       <p class="small muted pos-field-row" id="posMemberNote" hidden></p>
       <div class="field" style="margin:10px 0;">
         <label for="cleanupInput">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label>
-        <input type="number" id="cleanupInput" step="0.001" min="0" value="{{ fv(form, 'cleanup_amount', '0') }}" data-vzh="pos-1">
+        <input type="number" id="cleanupInput" step="{{ money_step() }}" min="0" value="{{ fv(form, 'cleanup_amount', '0') }}" data-vzh="pos-1">
       </div>
       <div class="detail-item"><div class="k">{{ _('Total') }}</div><div class="v" style="font-size:20px; font-weight:700;" id="cartTotal">0 {{ currency_label() }}</div></div>
       <div class="field" style="margin:10px 0;">
@@ -48,7 +48,7 @@
       <div id="cashFields" style="display:{{ 'none' if form and fv(form, 'payment_method', 'Cash')!='Cash' else '' }};">
         <div class="field" style="margin:10px 0;">
           <label for="cashReceivedInput">{{ _('Cash Received (%(currency_label)s)', currency_label=currency_label()) }}</label>
-          <input type="number" id="cashReceivedInput" step="0.001" min="0" value="{{ fv(form, 'cash_received') }}" data-vzh="pos-1">
+          <input type="number" id="cashReceivedInput" step="{{ money_step('cash') }}" min="0" value="{{ fv(form, 'cash_received') }}" data-vzh="pos-1">
         </div>
         <div class="detail-item"><div class="k">{{ _('Change Due') }}</div><div class="v" style="font-size:18px; font-weight:700;" id="changeDue">—</div></div>
         <div class="meta small" id="changeNote" style="margin-top:2px;"></div>
@@ -91,7 +91,7 @@ searchInput.addEventListener('input', () => {
             window.__posSearchResults = list;
             resultsDiv.innerHTML = list.map((i, idx) =>
               `<div class="list-line" style="cursor:pointer;" data-idx="${idx}" data-vz-act="pos-4">
-                 <div class="who">${escapeHtml(i.name)}</div><div class="meta">${i.price != null ? i.price + ' {{ currency_label() }}' : {{ _('no price set')|tojson }}} · stock: ${i.stock ?? '—'}</div>
+                 <div class="who">${escapeHtml(i.name)}</div><div class="meta">${i.price != null ? window.VZMoney.format(i.price) + ' {{ currency_label() }}' : {{ _('no price set')|tojson }}} · ${ {{ _('stock: {stock}')|tojson }}.replace('{stock}', i.stock != null ? window.VZMoney.localizeDigits(i.stock) : '—') }</div>
                </div>`
             ).join('');
           })
@@ -141,7 +141,7 @@ function renderCart() {
   else {
     linesDiv.innerHTML = cart.map(c => `
       <div class="pos-cart-line">
-        <div>${escapeHtml(c.name)}<div class="meta small">${c.price} {{ currency_label() }} each</div></div>
+        <div>${escapeHtml(c.name)}<div class="meta small">${ {{ _('{price} %(currency)s each', currency=currency_label())|tojson }}.replace('{price}', window.VZMoney.format(c.price)) }</div></div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button class="btn small secondary" type="button" data-vz-act="pos-5" data-line-id="${c.id}">-</button>
           <input type="number" min="1" ${c.stock != null ? `max="${c.stock}"` : ''} value="${c.qty}" style="width:56px; text-align:center;" data-vz-change="pos-6" data-line-id="${c.id}">
@@ -163,9 +163,11 @@ function renderCart() {
   // Preview only — pos_checkout() recomputes and validates the
   // authoritative total (and the Clean Up cap) server-side regardless of
   // what this hidden field carries, same trust boundary as discount today.
-  const total = Math.max(preCleanupTotal - cleanup, 0);
-  document.getElementById('cartSubtotal').textContent = subtotal.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
-  document.getElementById('cartTotal').textContent = total.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
+  // Rounded exactly as pos_checkout() rounds it (money.payable): to the
+  // nearest 250-dinar note under IQ, never down to free; unchanged under JO.
+  const total = Math.max(window.VZMoney.payable(preCleanupTotal, discount) - cleanup, 0);
+  document.getElementById('cartSubtotal').textContent = window.VZMoney.format(subtotal) + ' {{ currency_label() }}';
+  document.getElementById('cartTotal').textContent = window.VZMoney.format(total) + ' {{ currency_label() }}';
   renderChange(total);
 }
 function toggleCashFields() {
@@ -183,11 +185,19 @@ function renderChange(total) {
     noteEl.textContent = '';
     return;
   }
-  const change = Math.max(cashReceived - total, 0);
-  changeDueEl.textContent = change.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}) + ' {{ currency_label() }}';
-  noteEl.textContent = cashReceived < total
-    ? {{ _('Cash received is {amount} %(currency_label)s short of the total.', currency_label=currency_label())|tojson }}.replace('{amount}', (total - cashReceived).toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3}))
-    : '';
+  // Rounded DOWN to the cash unit, as the server does (money.change_due):
+  // never hand back more than is owed. Exact under JO.
+  const exactChange = cashReceived - total;
+  const change = window.VZMoney.changeDue(cashReceived, total);
+  changeDueEl.textContent = window.VZMoney.format(change) + ' {{ currency_label() }}';
+  if (exactChange < 0) {
+    noteEl.textContent = {{ _('Cash received is {amount} %(currency_label)s short of the total.', currency_label=currency_label())|tojson }}.replace('{amount}', window.VZMoney.format(-exactChange));
+  } else if (Math.abs(exactChange - change) > 1e-9) {
+    noteEl.textContent = {{ _('(exact: {exact} %(currency_label)s — {rounding} %(currency_label)s rounding, absorbed by clinic)', currency_label=currency_label())|tojson }}
+      .replace('{exact}', window.VZMoney.format(exactChange)).replace('{rounding}', window.VZMoney.format(exactChange - change));
+  } else {
+    noteEl.textContent = '';
+  }
 }
 function prepareSubmit() {
   if (!cart.length) { window.VZToast.show({{ _('Cart is empty.')|tojson }}, 'error'); return false; }

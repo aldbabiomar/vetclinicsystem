@@ -829,6 +829,17 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
   background: var(--warn-tint); color: var(--warn-ink);
   border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
 }
+/* A notice that must stay on the page until its cause is dealt with — the
+   money setting not yet chosen is the case it was added for. Same reasoning
+   as .selfcheck-banner above: NOT class="flash", which toast.js turns into a
+   toast and removes. */
+.notice-banner {
+  padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 16px;
+  font-size: 13.5px; line-height: 1.5;
+  background: var(--warn-tint); color: var(--warn-ink);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+}
+.notice-banner a { color: inherit; font-weight: 600; text-decoration: underline; }
 .selfcheck-banner.fail {
   background: var(--danger-tint); color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 32%, transparent);

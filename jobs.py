@@ -21,6 +21,7 @@ not a smooth per-row counter, because that's the actual granularity of
 work these operations do — reporting anything finer would be manufacturing
 false precision.
 """
+import contextvars
 import threading
 import time
 import uuid
@@ -87,7 +88,11 @@ def start(step_labels, fn):
                     _jobs[job_id]["error"] = str(e)
                     _jobs[job_id]["finished_at"] = time.time()
 
-    threading.Thread(target=runner, daemon=True).start()
+    # The job runs in the context of the request that started it — in
+    # particular the clinic's money setting (money.py keeps it in a
+    # ContextVar), which a bare new thread would not inherit.
+    ctx = contextvars.copy_context()
+    threading.Thread(target=ctx.run, args=(runner,), daemon=True).start()
     return job_id
 
 

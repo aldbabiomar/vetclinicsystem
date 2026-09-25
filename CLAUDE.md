@@ -68,6 +68,7 @@ VetClinicSystem/                  ← repo root = this folder
 │   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log
 │   ├── CODE_AUDIT_2026-09-25.md          ← findings, tracked to their fixes
 │   ├── RELEASE_WORKFLOW.md, SEAM_RULES.md
+│   ├── ARABIC_REVIEW.md          ← Arabic written without clinic review; confirm, then delete rows
 │   ├── features/                 ← specs of built features (Clean Up, monitoring, rewards card)
 │   └── archive/                  ← IQ/JO-era documents, cited by code comments
 └── webapps/                      ← NOT tracked. The two predecessor apps' clones, kept as
@@ -239,6 +240,11 @@ template, an `<option>` or the catalogue, read `docs/archive/COMPARISON.md`
   do not guess (`docs/archive/arabic/`).
 - After editing `translations/ar/LC_MESSAGES/messages.po`, run
   `pybabel compile -d translations` — a test fails if the `.mo` is older.
+- **Rewording an English string changes its msgid**, so it silently renders
+  English under Arabic. `tests/test_catalogue.py` extracts every msgid the code
+  uses and fails until each has Arabic; it also refuses a translation that is
+  one sentence repeated, a dropped placeholder and any fuzzy entry. Arabic you
+  write yourself goes into `docs/ARABIC_REVIEW.md` for the clinic to confirm.
 - PDFs stay English with the Latin currency code, permanently.
 
 ## 7. Releases

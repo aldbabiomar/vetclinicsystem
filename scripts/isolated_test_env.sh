@@ -7,6 +7,7 @@
 #   scripts/isolated_test_env.sh up     iq|jo   # create + start, print connection info
 #   scripts/isolated_test_env.sh down   iq|jo   # tear down (container, venv, data dir)
 #   scripts/isolated_test_env.sh status iq|jo   # check what's running
+#   scripts/isolated_test_env.sh restart iq|jo  # reload the app after a code or catalogue change
 #
 # The second argument is the MONEY SETTING the throwaway clinic runs under —
 # iq (whole dinars, 250-note cash rounding) or jo (3-decimal dinars). It is the
@@ -36,7 +37,7 @@ MONEY="${2:-}"
 ACTION="${1:-}"
 
 if [[ "$MONEY" != "iq" && "$MONEY" != "jo" ]]; then
-  echo "Usage: $0 {up|down|status} {iq|jo}" >&2
+  echo "Usage: $0 {up|down|status|restart} {iq|jo}" >&2
   exit 1
 fi
 APP="$MONEY"   # kept as the name the functions below print
@@ -99,81 +100,12 @@ status() {
   [[ -d "$DATA_DIR" ]] && echo "  data dir: $DATA_DIR" || echo "  data dir: none"
 }
 
-up() {
-  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
-  docker run -d --name "$CONTAINER" \
-    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
-    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
-  sleep 4
-
-  echo "== Setting up Python venv =="
-  python3 -m venv "$VENV_DIR"
-  "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
-
-  # Test-only dependencies. Deliberately NOT in requirements.txt -- the apps
-  # have no build step and no browser dependency, and that stays true.
-  #
-  # Installed here because without them a whole tier goes dormant SILENTLY:
-  # test_browser.py gates on pytest.importorskip at module scope, which
-  # collects ZERO tests and reports as "1 skipped", not 13. IQ's browser tier
-  # had never once run for this reason, which is how a Settings page that
-  # scrolled sideways on every phone reached a soak install. COMPARISON.md
-  # §40.3.
-  # pytest-cov is here so CLAUDE.md section 7's documented coverage command
-  # actually runs in the environment that same document tells you to build. It
-  # did not, until 2026-09-10: `pytest --cov=.` failed with "unrecognized
-  # arguments" and `python -m coverage` with "No module named coverage", which
-  # is why the coverage table in section 7 kept being quoted rather than
-  # re-measured. Still test-only -- never add it to requirements.txt.
-  echo "== Installing test-only deps (pytest, pytest-cov, playwright) =="
-  "$VENV_DIR/bin/pip" install -q pytest pytest-cov playwright
-  "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
-    || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
-    || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
-
-  echo "== Applying schema + seeding test data =="
-  mkdir -p "$DATA_DIR/logs"
-  DATABASE_URL="postgresql://postgres:test@localhost:${DB_PORT}/${DB_NAME}" \
-    "$VENV_DIR/bin/python3" - "$REPO_DIR" "$MONEY" <<'PYEOF'
-import sys, os
-sys.path.insert(0, sys.argv[1])
-os.chdir(sys.argv[1])
-money_setting = sys.argv[2].upper()
-import db as dbmod, auth, setup
-from datetime import datetime
-
-con = dbmod.connect()
-with open("schema_postgres.sql") as f:
-    dbmod.run_script(con, f.read())
-con.commit()
-
-setup.apply_incremental_migrations(con)
-
-auth.seed_default_roles_and_permissions(con)
-con.commit()
-
-admin_role = con.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
-con.execute(
-    "INSERT INTO users (id, username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-    "VALUES (?,?,?,?,?,?,?,?)",
-    ("U001", "admin", auth.hash_password("Admin12345!"), "Test Admin", admin_role["id"],
-     True, False, datetime.now().isoformat(timespec="seconds")),
-)
-con.execute(
-    "INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, active) "
-    "VALUES ('INV301', 'Test Retail Item', 'Retail', 'unit', false, 1.000, true)"
-)
-con.execute(
-    "INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
-    "VALUES ('PL301', 'Test Retail Item', 'Retail', 5.000, true, 'INV301', true)"
-)
-con.commit()
-con.close()
-print("Schema applied, admin user + test item seeded.")
-PYEOF
-
+# Starts the app against the environment's database and verifies that the
+# recorded pid is the process actually listening on the port. Used by both
+# `up` and `restart`.
+launch_app() {
   echo "== Starting the app =="
-  SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  [[ -n "${SECRET_KEY:-}" ]] || SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
   # `${ENV_PREFIX}_HOST=val cmd` does NOT work as an env-assignment prefix in
   # bash — assignment-prefix detection is purely lexical (checks for a literal
   # `identifier=` token before any expansion happens), so a dynamically-built
@@ -242,12 +174,140 @@ PYEOF
   else
     echo "  !! lsof unavailable — could not confirm the pid below is the app." >&2
   fi
+}
+
+# Restart the app so it serves the code (and compiled catalogue) currently on
+# disk — Flask-Babel and every imported module are loaded once, at start.
+#
+# Kills by PORT, never by a command pattern: the launch `exec`s into the
+# resolved Python.app path, so a `pkill -f ".../bin/python3 app.py"` matches
+# nothing, exits 0, and leaves the old process serving — an afternoon of
+# "verified" against code that predates the change. And then asserts that the
+# listening pid actually CHANGED, because a restart that silently did not
+# happen reads exactly like one that did. (docs/archive/COMPARISON.md §57.7.)
+restart() {
+  echo "== Restarting the $APP test app on port ${APP_PORT} =="
+  if ! have_lsof; then
+    echo "  !! lsof unavailable — cannot find the app by port. Refusing." >&2
+    exit 1
+  fi
+  local old
+  old="$(port_listener_pid || true)"
+  if [[ -z "$old" ]]; then
+    echo "  !! Nothing is listening on ${APP_PORT} — run \`up\` first." >&2
+    exit 1
+  fi
+  kill $old 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    port_listener_pid >/dev/null || break
+    sleep 0.5
+  done
+  if port_listener_pid >/dev/null; then
+    kill -9 $old 2>/dev/null || true
+    sleep 1
+  fi
+  if port_listener_pid >/dev/null; then
+    echo "  !! Port ${APP_PORT} is still held after killing pid(s) $old. Refusing to launch a second copy." >&2
+    exit 1
+  fi
+  [[ -n "${SECRET_KEY:-}" ]] || SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  launch_app
+  local new
+  new="$(port_listener_pid || true)"
+  if [[ -z "$new" || "$new" == "$old" ]]; then
+    echo "  !! The listening pid did not change ($old -> ${new:-none}); the old app may still be serving." >&2
+    exit 1
+  fi
+  echo "  Restarted: pid $old -> $new, http://127.0.0.1:${APP_PORT}"
+}
+
+up() {
+  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
+  docker run -d --name "$CONTAINER" \
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
+    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
+  sleep 4
+
+  echo "== Setting up Python venv =="
+  python3 -m venv "$VENV_DIR"
+  "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
+
+  # Test-only dependencies. Deliberately NOT in requirements.txt -- the apps
+  # have no build step and no browser dependency, and that stays true.
+  #
+  # Installed here because without them a whole tier goes dormant SILENTLY:
+  # test_browser.py gates on pytest.importorskip at module scope, which
+  # collects ZERO tests and reports as "1 skipped", not 13. IQ's browser tier
+  # had never once run for this reason, which is how a Settings page that
+  # scrolled sideways on every phone reached a soak install. COMPARISON.md
+  # §40.3.
+  # pytest-cov is here so CLAUDE.md section 7's documented coverage command
+  # actually runs in the environment that same document tells you to build. It
+  # did not, until 2026-09-10: `pytest --cov=.` failed with "unrecognized
+  # arguments" and `python -m coverage` with "No module named coverage", which
+  # is why the coverage table in section 7 kept being quoted rather than
+  # re-measured. Still test-only -- never add it to requirements.txt.
+  echo "== Installing test-only deps (pytest, pytest-cov, playwright) =="
+  "$VENV_DIR/bin/pip" install -q pytest pytest-cov playwright
+  "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
+    || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
+    || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
+
+  echo "== Applying schema + seeding test data =="
+  mkdir -p "$DATA_DIR/logs"
+  DATABASE_URL="postgresql://postgres:test@localhost:${DB_PORT}/${DB_NAME}" \
+    "$VENV_DIR/bin/python3" - "$REPO_DIR" "$MONEY" <<'PYEOF'
+import sys, os
+sys.path.insert(0, sys.argv[1])
+os.chdir(sys.argv[1])
+money_setting = sys.argv[2].upper()
+import db as dbmod, auth, setup
+from datetime import datetime
+
+con = dbmod.connect()
+with open("schema_postgres.sql") as f:
+    dbmod.run_script(con, f.read())
+con.commit()
+
+setup.apply_incremental_migrations(con)
+
+auth.seed_default_roles_and_permissions(con)
+con.commit()
+
+# The throwaway clinic's money setting: the second argument to this script.
+con.execute(
+    "INSERT INTO settings (key, value) VALUES ('money_setting', ?) "
+    "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (money_setting,))
+admin_role = con.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
+con.execute(
+    "INSERT INTO users (id, username, password_hash, full_name, role_id, active, must_change_password, created_at) "
+    "VALUES (?,?,?,?,?,?,?,?)",
+    ("U001", "admin", auth.hash_password("Admin12345!"), "Test Admin", admin_role["id"],
+     True, False, datetime.now().isoformat(timespec="seconds")),
+)
+# Priced in the throwaway clinic's own currency: 5,000 / 1,000 IQD under IQ
+# (a real note amount), 5.000 / 1.000 JOD under JO.
+cost, price = ("1000", "5000") if money_setting == "IQ" else ("1.000", "5.000")
+con.execute(
+    "INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, active) "
+    "VALUES ('INV301', 'Test Retail Item', 'Retail', 'unit', false, ?, true)", (cost,)
+)
+con.execute(
+    "INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
+    "VALUES ('PL301', 'Test Retail Item', 'Retail', ?, true, 'INV301', true)", (price,)
+)
+con.commit()
+con.close()
+print("Schema applied, admin user + test item seeded.")
+PYEOF
+
+  launch_app
 
   echo
   echo "== Ready =="
   echo "  URL:      http://127.0.0.1:${APP_PORT}"
   echo "  Login:    admin / Admin12345!"
-  echo "  Test item: INV301 / PL301 (Retail, 5.000)"
+  echo "  Test item: INV301 / PL301 (Retail; 5,000 IQD or 5.000 JOD)"
   echo "  App PID:  $(cat "$PID_FILE")  (kill this yourself when done testing)"
   echo "  App log:  $DATA_DIR/app_stdout.log"
   echo "  Errors:   $DATA_DIR/logs/errors.log"
@@ -294,5 +354,6 @@ case "$ACTION" in
   up) up ;;
   down) down ;;
   status) status ;;
-  *) echo "Usage: $0 {up|down|status} {iq|jo}" >&2; exit 1 ;;
+  restart) restart ;;
+  *) echo "Usage: $0 {up|down|status|restart} {iq|jo}" >&2; exit 1 ;;
 esac

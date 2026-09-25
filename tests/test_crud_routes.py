@@ -11,6 +11,7 @@ later.
 Like the money route tests, these need a throwaway Postgres and skip
 cleanly without one. See conftest.py.
 """
+import money
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -38,8 +39,8 @@ def _phone():
     # PHONE_LOCAL_LENGTH counts digits AFTER the leading trunk 0 is stripped,
     # so the string itself carries one more: "0" + LENGTH digits. Verified
     # against normalize_phone() rather than assumed.
-    body = str(uuid.uuid4().int)[:app_module.PHONE_LOCAL_LENGTH - 1].ljust(
-        app_module.PHONE_LOCAL_LENGTH - 1, "0")
+    body = str(uuid.uuid4().int)[:money.JO.phone_local_length - 1].ljust(
+        money.JO.phone_local_length - 1, "0")
     return "07" + body
 
 

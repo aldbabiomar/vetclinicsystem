@@ -9,6 +9,7 @@ the user form is what decides who can apply a discount.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import money
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -27,8 +28,8 @@ def _uid(prefix):
 
 def _phone():
     import app as app_module
-    body = str(uuid.uuid4().int)[:app_module.PHONE_LOCAL_LENGTH - 1].ljust(
-        app_module.PHONE_LOCAL_LENGTH - 1, "0")
+    body = str(uuid.uuid4().int)[:money.JO.phone_local_length - 1].ljust(
+        money.JO.phone_local_length - 1, "0")
     return "07" + body
 
 

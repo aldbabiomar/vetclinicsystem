@@ -20,7 +20,7 @@ import re
 
 import pytest
 
-from conftest import needs_db
+from conftest import TEST_DB_URL, needs_db
 
 EASTERN = "٠١٢٣٤٥٦٧٨٩"
 # A string translated in translations/ar/LC_MESSAGES/messages.po. If the
@@ -62,9 +62,13 @@ def _reset_language():
     makes. Leaving it on "ar" would break every test in the suite that asserts
     on English flash text — which is exactly what the cookie version of this
     fixture already had to stop once (nine failures in
-    test_refund_boarding.py, from a file that passed in isolation)."""
+    test_refund_boarding.py, from a file that passed in isolation).
+
+    Only with a database: this file's pure tests would otherwise ERROR on
+    teardown in a run without one, where every tier is meant to skip."""
     yield
-    _set_language(None)
+    if TEST_DB_URL:
+        _set_language(None)
 
 
 def _as(client, lang):

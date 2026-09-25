@@ -55,7 +55,7 @@
     <form method="post" action="{{ url_for('sales.refund_service_save') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-grid">
-        <div class="field"><label for="refunds-4-amount">{{ _('Refund Amount (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="refunds-4-amount" type="number" name="amount" min="1" step="0.001" required value="{{ fv(service_form, 'amount') }}"></div>
+        <div class="field"><label for="refunds-4-amount">{{ _('Refund Amount (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="refunds-4-amount" type="number" name="amount" min="1" step="{{ money_step() }}" required value="{{ fv(service_form, 'amount') }}"></div>
         <div class="field"><label for="refunds-5-refund_date">{{ _('Refund Date') }}</label><input id="refunds-5-refund_date" type="date" name="refund_date" value="{{ fv(service_form, 'refund_date', today) }}"></div>
         <div class="field"><label for="refunds-6-refund_method">{{ _('Method') }}</label>
           <select id="refunds-6-refund_method" name="refund_method">
@@ -156,7 +156,7 @@ function renderRefundLines() {
   if (!refundLines.length) { linesDiv.innerHTML = '<div class="empty-note">' + {{ _('This sale has nothing left to refund.')|tojson }} + '</div>'; renderRefundTotal(); return; }
   linesDiv.innerHTML = `<p class="small muted" style="margin:6px 0;">Sale #${refundSaleId} — set the quantity to refund for each line:</p>` + refundLines.map((l, idx) => `
     <div class="pos-cart-line">
-      <div>${escapeHtml(l.name)}<div class="meta small">${l.unit_price} {{ currency_label() }} each — ${l.remaining} left refundable</div></div>
+      <div>${escapeHtml(l.name)}<div class="meta small">${ {{ _('{price} %(currency)s each — {remaining} left refundable', currency=currency_label())|tojson }}.replace('{price}', window.VZMoney.format(l.unit_price)).replace('{remaining}', window.VZMoney.localizeDigits(l.remaining)) }</div></div>
       <div style="display:flex; align-items:center; gap:6px;">
         <input type="number" min="0" max="${l.remaining}" step="any" value="${l.refundQty}" style="width:70px;" data-vz-change="refunds-3" data-idx="${idx}">
       </div>
@@ -167,14 +167,18 @@ function renderRefundLines() {
 function setRefundQty(idx, value) {
   let qty = parseFloat(value);
   if (isNaN(qty) || qty < 0) qty = 0;
-  if (qty > refundLines[idx].remaining) { window.VZToast.show(`Only ${refundLines[idx].remaining} left refundable for ${refundLines[idx].name}.`, 'warn'); qty = refundLines[idx].remaining; }
+  if (qty > refundLines[idx].remaining) { window.VZToast.show({{ _('Only {remaining} left refundable for {name}.')|tojson }}.replace('{remaining}', window.VZMoney.localizeDigits(refundLines[idx].remaining)).replace('{name}', refundLines[idx].name), 'warn'); qty = refundLines[idx].remaining; }
   refundLines[idx].refundQty = qty;
   renderRefundLines();
 }
 
 function renderRefundTotal() {
   const total = refundLines.reduce((s, l) => s + l.unit_price * l.refundQty, 0);
-  document.getElementById('refundCartTotal').textContent = total.toLocaleString() + ' {{ currency_label() }}';
+  // What refund_retail_save() will actually pay out (money.refund_payout):
+  // rounded DOWN to the cash unit, but never to zero for a real return.
+  let payout = window.VZMoney.roundCash(total, 'down');
+  if (total > 0 && payout === 0) payout = window.VZMoney.cashUnit();
+  document.getElementById('refundCartTotal').textContent = window.VZMoney.format(payout) + ' {{ currency_label() }}';
 }
 
 function prepareRefundSubmit() {

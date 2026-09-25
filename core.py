@@ -17,7 +17,7 @@ import secrets
 import re
 import socket
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from flask_babel import lazy_gettext as _l, gettext as _
 from flask import flash, g, render_template, request, url_for
@@ -25,6 +25,7 @@ from flask import flash, g, render_template, request, url_for
 import db as dbmod
 import jobs
 import logic
+import money
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -76,10 +77,10 @@ def lan_address():
 # module that registers it. They are pure helpers over `request` and the parsed
 # values -- no route, no database of their own.
 #
-# parse_money(), MAX_MONEY and the PHONE_* constants differ between the two
-# apps on purpose (IQ is whole-IQD float with 250-note rounding, JO is exact
-# three-decimal Decimal; the phone formats differ too). Each app's own version
-# moved here; they must not be merged. See COMPARISON.md §1.1.
+# Money is parsed through money.py, which takes its precision, bounds and
+# rounding from the clinic's money setting (IQ or JO). Nothing here knows which
+# one is active. See money.py for the rules and COMPARISON.md §1.1 for why the
+# two predecessor apps' money models used to differ.
 class BadNumber(ValueError):
     """Raised by parse_money() when a submitted field isn't blank but also
     isn't a valid number — lets the route catch it once and show a friendly
@@ -87,27 +88,42 @@ class BadNumber(ValueError):
     error (Postgres) turning into an uncaught 500."""
 
 
-# The widest value any NUMERIC(12,3) column in this schema can hold. Checked
-# here, once, rather than at each call site — an amount past this is always a
-# typo (a phone number into a price field is the common one), and letting it
-# reach Postgres turns that typo into a 500 mid-form instead of a flash. See
-# ERROR_500_AUDIT.md E-06.
-MAX_MONEY = Decimal("999999999.999")
 def parse_money(raw, required=False):
+    """A typed money amount -> Decimal, at the money setting's precision
+    (whole dinars under IQ, fils under JO). Blank collapses to None (or
+    BadNumber when required). Text, NaN, Infinity and anything past the
+    setting's max_amount raise BadNumber — NaN in particular, because every
+    `x > cap` check downstream silently evaluates False against it.
+
+    The value is rounded to the entry precision BEFORE any caller compares
+    it, so `amount > 0` sees what the database will store.
+
+    Raises money.MoneySettingNotChosen if no money setting has been chosen —
+    money routes are gated before this (requires_money_setting), so reaching
+    it means a route was missed; app.py turns it into a prompt, not a 500.
+
+    Only for MONEY. Percentages go through parse_percent(), and counts and
+    measurements (quantities, weights, stock) through parse_quantity() —
+    rounding a 4.2 kg weight to a whole number because the clinic works in
+    whole dinars would be a bug.
     """
-    Returns a Decimal, not a float — the JOD is a 3-decimal currency
-    (ISO 4217 gives it, like KWD/BHD, a fils subunit actually in everyday
-    use), unlike the IQD this app was originally forked from, where every
-    real amount is a whole number and float64 loses nothing. float64
-    can't exactly represent most 3-decimal fractions (0.1 + 0.2 != 0.3 in
-    binary floating point), so every money column/value in this app is
-    Decimal from parse through storage. Mixing Decimal and float in the
-    same arithmetic expression raises TypeError immediately at that line
-    — deliberate, since a silent implicit float coercion here would
-    reintroduce exactly the precision loss this exists to prevent. Plain
-    int literals (0, 100, a quantity from parse_int()) mix with Decimal
-    fine; only float does not.
-    """
+    if raw is None or str(raw).strip() == "":
+        if required:
+            raise BadNumber("required")
+        return None
+    try:
+        return money.parse(raw)
+    except money.BadAmount as e:
+        raise BadNumber(str(e))
+
+
+PERCENT_QUANTUM = Decimal("0.01")  # discount_percent is NUMERIC(5,2)
+
+
+def parse_percent(raw, required=False):
+    """A typed percentage -> Decimal to two places (the column's scale), so a
+    discount is computed with exactly the value that gets stored. Range
+    checks (0-100, the role cap) stay with the caller."""
     if raw is None or str(raw).strip() == "":
         if required:
             raise BadNumber("required")
@@ -116,18 +132,9 @@ def parse_money(raw, required=False):
         val = Decimal(str(raw).strip())
     except InvalidOperation:
         raise BadNumber(raw)
-    # Decimal("nan")/Decimal("inf") parse without raising, the same trap
-    # float() had — and every bound check elsewhere in the app (`x > cap`,
-    # `x < 0`, etc.) silently evaluates to False against NaN, so an
-    # unchecked NaN doesn't just slip past validation, it appears to
-    # *pass* every check downstream. Reject both here, once, so every
-    # one of this function's call sites inherits the fix instead of
-    # needing its own guard.
-    if not val.is_finite():
+    if not val.is_finite() or abs(val) > 1000:
         raise BadNumber(raw)
-    if abs(val) > MAX_MONEY:
-        raise BadNumber(f"{raw} is too large — check for a typo.")
-    return val
+    return val.quantize(PERCENT_QUANTUM, rounding=ROUND_HALF_UP)
 
 
 MAX_INT = 2_147_483_647  # widest value any INTEGER column in this schema can hold
@@ -204,15 +211,12 @@ def has_negative(*values):
     return any(v is not None and v < 0 for v in values)
 
 
-# Each deployment of this app serves exactly one clinic in one country, so a
-# small self-contained normalizer (rather than pulling in a general-purpose
-# library like `phonenumbers`) is simpler and has no extra dependency to
-# install. Differs per clinic — these are the two lines that change between
-# ChamPet (Iraq) and VetClinicSystem (Jordan).
-PHONE_COUNTRY_CODE = "962"
-PHONE_LOCAL_LENGTH = 9  # digits after the country code, for a number with no explicit +/00 prefix — Jordan mobile numbers (07X XXX XXXX) are 9 digits once the leading trunk 0 is stripped
-
-
+# The phone format follows the money setting: an IQ clinic's local numbers
+# are +964 with 10 digits after the trunk 0, a JO clinic's +962 with 9 (see
+# money.MoneySetting). A small self-contained normalizer rather than a
+# general-purpose library — simpler, and no extra dependency to install.
+# Before the money setting is chosen there is no local format to assume, so
+# only a full international number (+964..., 00962...) is accepted.
 class BadPhone(ValueError):
     """Raised by normalize_phone() when a submitted phone number isn't blank
     but also can't be confidently normalized to E.164 — lets the route show
@@ -231,7 +235,7 @@ def normalize_phone(raw):
     A number with no explicit +/00 prefix is ambiguous — there's no way to
     tell "a local number, missing its usual leading 0" from "a foreign
     number, typed without its country code" from the digits alone — so
-    that case is held to a strict PHONE_LOCAL_LENGTH-digit count (a real
+    that case is held to the money setting's strict local digit count (a real
     local mobile number's actual length) rather than just "looks like
     *some* valid-length phone number." Without this, an implausibly short
     entry (a typo, a truncated paste) or a foreign number missing its
@@ -245,6 +249,7 @@ def normalize_phone(raw):
     if raw is None or not str(raw).strip():
         return None
     raw = str(raw).strip()
+    m = money.current()
     digits = re.sub(r"\D", "", raw)
     if not digits:
         raise BadPhone(raw)
@@ -256,15 +261,16 @@ def normalize_phone(raw):
         candidate = "+" + digits[2:]
         if re.fullmatch(r"\+[1-9]\d{7,14}", candidate):
             return candidate
-    else:
+    elif m is not None:
+        code, length = m.phone_country_code, m.phone_local_length
         if digits.startswith("0"):
             local = digits[1:]
-        elif digits.startswith(PHONE_COUNTRY_CODE) and len(digits) == len(PHONE_COUNTRY_CODE) + PHONE_LOCAL_LENGTH:
-            local = digits[len(PHONE_COUNTRY_CODE):]
+        elif digits.startswith(code) and len(digits) == len(code) + length:
+            local = digits[len(code):]
         else:
             local = digits
-        if len(local) == PHONE_LOCAL_LENGTH:
-            return "+" + PHONE_COUNTRY_CODE + local
+        if len(local) == length:
+            return "+" + code + local
     raise BadPhone(raw)
 
 
@@ -379,23 +385,112 @@ def cleanup_amount_error(new_amount, existing_amount, balance):
         discount, not before, so a discount-and-clean-up in one click cannot
         write off more than the discounted bill.
 
-    JOD is exact three-decimal Decimal — no denomination rounding — so these
-    are straight comparisons. IQ's copy compares floats against a 250-rounded
-    cap; the two must not be merged (COMPARISON.md §1.1).
+    The cap comes from the money setting (1,000 under IQ, 1.000 under JO).
     """
+    cap = money.require().cleanup_cap
     if new_amount < 0:
         return _("Clean Up amount can't be negative.")
-    if existing_amount + new_amount > CLEANUP_CAP:
-        return _("Clean Up on this bill can't exceed %(cap)s JOD in total.", cap=display_number(CLEANUP_CAP))
+    if existing_amount + new_amount > cap:
+        return _("Clean Up on this bill can't exceed %(cap)s %(currency)s in total.",
+                 cap=display_money(cap), currency=currency_label())
     if new_amount > balance:
         return _("Clean Up can't exceed the remaining balance.")
     return None
 
 
+def currency_label():
+    """The currency as it should READ in the active language: the Arabic
+    abbreviation in Arabic (د.ع / د.أ), the Latin ISO code otherwise (IQD /
+    JOD). Empty before a money setting is chosen. PDFs never use this — they
+    stay English with the Latin code (ARABIC_LOCALIZATION_PLAN.md §0)."""
+    m = money.current()
+    if m is None:
+        return ""
+    from flask_babel import get_locale
+    return m.label_ar if str(get_locale()) == "ar" else m.currency
+
+
+def money_setting_label(code):
+    """The translated name of a money setting, for Settings and messages.
+    Spelled out here (not built from money.py's data) so the extractor sees
+    both strings."""
+    if code == "IQ":
+        return _("IQ — Iraqi dinar (IQD)")
+    if code == "JO":
+        return _("JO — Jordanian dinar (JOD)")
+    return code or ""
+
+
+def display_money(amount):
+    """money.fmt() with Arabic-Indic digits when the locale is Arabic — the
+    same choke point as the |money template filter, for amounts that go into
+    a flashed message."""
+    return display_number(money.fmt(amount))
+
+
+def flash_cash_denomination_warning(amount):
+    """A gentle, non-blocking heads-up when a typed payment, refund or payout
+    can't be paid exactly in cash (under IQ: not a multiple of the 250-dinar
+    note). It still saves as entered; this exists because the Cash Register's
+    end-of-day audit compares against physically counted notes, so an odd
+    amount can make an otherwise-correct day look slightly off. Never fires
+    under JO, whose cash unit is the fils."""
+    m = money.current()
+    if m is not None and amount is not None and not money.is_cash_payable(amount, m):
+        flash(_("Heads up: this amount isn't a multiple of %(unit)s %(currency)s. It'll still save "
+                "as entered, but the Cash Register's end-of-day audit compares against physical "
+                "notes, so an odd amount here can make an otherwise-correct day look slightly off.",
+                unit=display_money(m.cash_unit), currency=currency_label()), "warning")
+
+
+def flash_price_rounding_notice(sale_price):
+    """After saving a Price List price that can't be paid exactly in cash
+    (under IQ: not a multiple of the 250-dinar note): totals including it are
+    rounded at checkout automatically, but the admin should know. Never fires
+    under JO."""
+    m = money.current()
+    if m is not None and sale_price is not None and not money.is_cash_payable(sale_price, m):
+        flash(_("Heads up: this price isn't a multiple of %(unit)s %(currency)s — totals including this "
+                "item are rounded to it at checkout (this is handled automatically).",
+                unit=display_money(m.cash_unit), currency=currency_label()), "warning")
+
+
+def requires_money_setting(view):
+    """Gate for every route that records or shows money.
+
+    Until an admin chooses IQ or JO in Settings, money cannot be recorded —
+    it would have no currency. A request that needs it is sent to Settings
+    (anyone who can change it) or back to the dashboard (everyone else) with
+    a message saying why, instead of reaching money.require() and failing
+    deeper down."""
+    from functools import wraps
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if money.current() is None:
+            return money_setting_prompt()
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def money_setting_prompt():
+    """The response for a money screen opened before the money setting is
+    chosen. Shared by requires_money_setting and app.py's handler for
+    money.MoneySettingNotChosen, so both say the same thing."""
+    from flask import redirect, session
+    if "manage_settings" in (session.get("permissions") or []):
+        flash(_("Choose the clinic's money setting (IQ or JO) first — nothing with a price or "
+                "an amount can be recorded until it is set."), "error")
+        return redirect(url_for("settings.settings_page") + "#money-setting")
+    flash(_("Billing, payments and prices aren't available yet: an admin needs to choose the "
+            "clinic's money setting in Settings first."), "error")
+    return redirect(url_for("dashboard"))
+
+
 def parse_quantity(raw, required=False):
     """Same shape as parse_money(), for NUMERIC(10,3) quantity columns
     (POS cart, refund lines, inpatient billing) — bounded at that column
-    type's own ceiling rather than MAX_MONEY's wider one. See
+    type's own ceiling rather than a money amount's wider one. See
     ERROR_500_AUDIT.md E-06."""
     if raw is None or str(raw).strip() == "":
         if required:
@@ -448,11 +543,6 @@ def date_filter_arg(name="date", message="That date wasn't valid — showing all
     if value is None and clean(raw) is not None:
         flash(message, "error")
     return value
-
-
-# Flat ceiling on the cumulative "Clean Up" write-off allowed per bill —
-# see CLEANUP_FEATURE_PLAN.md §3.3. Not per-role; a global constant.
-CLEANUP_CAP = Decimal("1.000")
 
 
 MAX_QUANTITY = Decimal("9999999.999")  # widest value any NUMERIC(10,3) column can hold

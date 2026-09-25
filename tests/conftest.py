@@ -116,3 +116,63 @@ def db(flask_app):
         except Exception:
             pass
         con.close()
+
+
+# ---------------------------------------------------------------------------
+# The money setting
+# ---------------------------------------------------------------------------
+# VetClinicSystem runs under a money setting, IQ or JO (money.py). Every test
+# runs under one: JO unless the test (or its module, via `pytestmark`) is
+# marked `@pytest.mark.money("IQ")`. The setting is made active in-process
+# (money.set_current) for tests that call logic/money directly, AND written
+# to the test database's settings table, because routes — through the test
+# client or the live app the browser tests drive — read it from there on
+# every request.
+#
+# Most of this suite was written for JO's exact three-decimal behaviour and
+# runs under JO; IQ's rules (250-note rounding, the anti-"looks free" floor,
+# change and refunds rounded down) have their own tests marked IQ, and the
+# money specification in test_money.py covers both side by side.
+import money as _money
+
+_stored_money_code = None
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", 'money(code): run this test under money setting "IQ" or "JO" (default JO)')
+
+
+def _store_money_setting(code):
+    """Write the setting to the test database, skipping the round-trip when
+    the previous test already left it at this value."""
+    global _stored_money_code
+    if not TEST_DB_URL or _stored_money_code == code:
+        return
+    import psycopg
+    with psycopg.connect(TEST_DB_URL) as con:
+        con.execute(
+            "INSERT INTO settings (key, value) VALUES ('money_setting', %s) "
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (code,))
+        con.commit()
+    _stored_money_code = code
+
+
+def forget_stored_money_setting():
+    """Call after a test changes the setting itself (e.g. through Settings),
+    so the next test re-writes its own instead of trusting the cache."""
+    global _stored_money_code
+    _stored_money_code = None
+
+
+@pytest.fixture(autouse=True)
+def money_setting(request):
+    marker = request.node.get_closest_marker("money")
+    code = (marker.args[0] if marker else "JO").upper()
+    setting = _money.SETTINGS[code]
+    _store_money_setting(code)
+    token = _money.set_current(setting)
+    try:
+        yield setting
+    finally:
+        _money.reset_current(token)

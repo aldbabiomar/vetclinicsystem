@@ -176,8 +176,8 @@
 
     <form method="post" action="{{ url_for('clinical.inpatient_payment_add', case_id=case.id) }}" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; align-items:flex-end;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="field" style="flex:1;"><label for="inpatientdetail-12-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="inpatientdetail-12-amount" type="number" step="0.001" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
-      <div class="field"><label for="inpatientdetail-13-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="inpatientdetail-13-cleanup_amount" type="number" step="0.001" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error else '0' }}"></div>
+      <div class="field" style="flex:1;"><label for="inpatientdetail-12-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="inpatientdetail-12-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
+      <div class="field"><label for="inpatientdetail-13-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="inpatientdetail-13-cleanup_amount" type="number" step="{{ money_step() }}" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error else '0' }}"></div>
       <div class="field"><label for="inpatientdetail-14-method">{{ _('Method') }}</label>
         <select id="inpatientdetail-14-method" name="method">
           {% set m = fv(form, 'method', 'Cash') if payment_error else 'Cash' %}

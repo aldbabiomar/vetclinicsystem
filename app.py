@@ -43,6 +43,7 @@ import barcode as barcode_mod
 import attachments as attach_mod
 import jobs
 import pdf_export
+import money
 
 # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
 # live in core.py so the route blueprints under routes/ can reach them
@@ -61,20 +62,20 @@ from core import (
     BadDate,
     BadNumber,
     BadPhone,
-    CLEANUP_CAP,
     MAX_INT,
-    MAX_MONEY,
     MAX_PAGE,
     MAX_QUANTITY,
     PAYMENT_METHODS,
     PER_PAGE,
-    PHONE_COUNTRY_CODE,
-    PHONE_LOCAL_LENGTH,
     _render_with_progress,
     clean,
     clean_date,
     clean_date_filter,
     cleanup_amount_error,
+    currency_label,
+    money_setting_label,
+    money_setting_prompt,
+    requires_money_setting,
     date_filter_arg,
     discount_percent_error,
     get_page,
@@ -174,19 +175,10 @@ babel = Babel(app, locale_selector=_select_locale)
 # symptom of missing it is every page 500-ing at that line, including /login.
 app.jinja_env.globals["get_locale"] = get_locale
 
-@app.template_global()
-def currency_label():
-    """The currency word as it should READ in the active language.
-
-    Confirmed choice: the Arabic abbreviation rather than the Latin ISO code,
-    in the same position as today (number first). Kept as a template global so
-    the 100-odd places that print it stay a single source of truth -- and so a
-    future change is one line rather than a sweep.
-
-    Deliberately NOT used inside pdf_export.py, which stays English with the
-    Latin code permanently (ARABIC_LOCALIZATION_PLAN.md §0).
-    """
-    return "د.أ" if str(get_locale()) == "ar" else "JOD"
+# currency_label() lives in core.py (routes need it for flashed messages too);
+# exposed to every template here. It follows the money setting: IQD / د.ع or
+# JOD / د.أ, and empty before one is chosen.
+app.jinja_env.globals["currency_label"] = currency_label
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +271,31 @@ def _reject_null_bytes():
     if request.method == "POST" and request.is_json and _has_null(request.get_json(silent=True)):
         return ("Bad Request", 400)
     return None
+
+
+@app.before_request
+def _load_money_setting():
+    """Make the clinic's money setting (IQ / JO) active for this request —
+    money.fmt(), money.require() and every rounding rule read it from here.
+    Read once per request, straight from the settings table, so a change in
+    Settings applies on the very next request. A database that cannot be
+    reached leaves it unset rather than failing here: the route (or the error
+    page) is the right place for that error to surface."""
+    if request.endpoint == "static":
+        return None
+    try:
+        setting = money.load(get_db())
+    except Exception:
+        setting = None
+    g.money_token = money.set_current(setting)
+    return None
+
+
+@app.teardown_request
+def _unload_money_setting(exc):
+    token = g.pop("money_token", None)
+    if token is not None:
+        money.reset_current(token)
 
 
 def _has_null(value):
@@ -447,7 +464,7 @@ def money_filter(v):
     """The one choke point every displayed money amount already passes
     through, which is why the Arabic-Indic substitution hooks in here rather
     than per template. Display only -- see core.to_arabic_indic_digits()."""
-    formatted = logic.fmt_money(v)
+    formatted = money.fmt(v)
     if str(get_locale()) == "ar":
         formatted = to_arabic_indic_digits(formatted)
     return formatted
@@ -616,7 +633,24 @@ app.jinja_env.globals["fv"] = form_value
 # its way into a user-facing message converts, or one sentence carries two
 # numeral systems.
 app.jinja_env.globals["format_percent"] = lambda v: display_number(logic.format_percent(v))
-app.jinja_env.globals["CLEANUP_CAP"] = CLEANUP_CAP
+app.jinja_env.globals["money_step"] = money.input_step
+app.jinja_env.globals["money_setting_label"] = money_setting_label
+
+
+@app.context_processor
+def inject_money_setting():
+    """The active money setting for templates: `money_setting` (None before
+    one is chosen — money forms render a prompt instead), the Clean Up cap,
+    and the values money.js needs so live previews in the browser round
+    exactly like the server does."""
+    m = money.current()
+    return dict(
+        money_setting=m,
+        CLEANUP_CAP=display_number(money.fmt(m.cleanup_cap)) if m else "",
+        money_js=({"code": m.code, "minorUnits": m.minor_units, "cashUnit": str(m.cash_unit),
+                   "quantum": str(m.quantum), "phoneCountryCode": m.phone_country_code,
+                   "phoneLocalLength": m.phone_local_length} if m else None),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -772,6 +806,16 @@ def _fallback_redirect():
     if is_safe_local_path(path):
         return redirect(path)
     return redirect(url_for("dashboard"))
+
+
+@app.errorhandler(money.MoneySettingNotChosen)
+def handle_money_setting_not_chosen(e):
+    """Backstop: money was about to be parsed, rounded or stored before an
+    admin chose IQ or JO. Money routes are gated before they get this far
+    (core.requires_money_setting); this makes a missed one a prompt, not a
+    500, and rolls back anything the request had already written."""
+    mark_transaction_failed()
+    return money_setting_prompt()
 
 
 @app.errorhandler(BadNumber)
@@ -1139,6 +1183,7 @@ def _reports_context(db):
 
 @app.route("/reports")
 @auth.permission_required("view_financial_reports")
+@requires_money_setting
 def reports():
     db = get_db()
     return render_template("reports.html", **_reports_context(db))
@@ -1146,6 +1191,7 @@ def reports():
 
 @app.route("/reports/yearly")
 @auth.permission_required("view_financial_reports")
+@requires_money_setting
 def reports_yearly():
     db = get_db()
     all_pl = logic.yearly_pl(db)
@@ -1159,6 +1205,7 @@ def reports_yearly():
 
 @app.route("/reports/rebuild", methods=["POST"])
 @auth.permission_required("view_financial_reports")
+@requires_money_setting
 def reports_rebuild_summary():
     db = get_db()
     logic.recompute_full_summary(db)
@@ -1172,6 +1219,7 @@ def reports_rebuild_summary():
 # ---------------------------------------------------------------------------
 @app.route("/insights")
 @auth.permission_required("view_insights_retention")
+@requires_money_setting
 def insights():
     months_back = 12
     cutoff = logic.month_list(months_back)[0] + "-01"
@@ -1273,6 +1321,7 @@ def retention():
 
 @app.route("/reports/opex", methods=["POST"])
 @auth.permission_required("view_financial_reports")
+@requires_money_setting
 def reports_opex_save():
     db = get_db()
     f = request.form

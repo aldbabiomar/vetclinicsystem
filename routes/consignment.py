@@ -14,6 +14,7 @@ from datetime import datetime
 import auth
 import db as dbmod
 import logic
+import money
 import pdf_export
 
 from flask_babel import gettext as _
@@ -21,7 +22,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
+from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
 
 bp = Blueprint("consignment", __name__)
 
@@ -206,6 +207,7 @@ def distributor_detail(dist_id):
 
 @bp.route("/distributors/<dist_id>/bills/new", methods=["POST"])
 @auth.permission_required("manage_distributors")
+@requires_money_setting
 def distributor_bill_new(dist_id):
     db = get_db()
     f = request.form
@@ -244,6 +246,7 @@ def distributor_bill_new(dist_id):
 
 @bp.route("/distributors/<dist_id>/bills/<bill_id>/delete", methods=["POST"])
 @auth.permission_required("manage_distributors")
+@requires_money_setting
 def distributor_bill_delete(dist_id, bill_id):
     db = get_db()
     if not db.execute("SELECT 1 FROM distributor_bills WHERE id=? AND distributor_id=?", (bill_id, dist_id)).fetchone():
@@ -264,6 +267,7 @@ def distributor_bill_delete(dist_id, bill_id):
 
 @bp.route("/distributors/<dist_id>/bills/<bill_id>/payments/new", methods=["POST"])
 @auth.permission_required("manage_distributors")
+@requires_money_setting
 def distributor_payment_new(dist_id, bill_id):
     db = get_db()
     f = request.form
@@ -303,7 +307,7 @@ def distributor_payment_new(dist_id, bill_id):
     # badge next to a negative balance with nothing indicating an
     # overpayment/credit happened.
     if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s JOD on this bill.", fmt_money=logic.fmt_money(balance)), "error")
+        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this bill.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
     try:
         payment_date = clean_date(f.get("payment_date"), field="payment_date") or date.today().isoformat()
@@ -325,6 +329,7 @@ def distributor_payment_new(dist_id, bill_id):
 
 @bp.route("/distributors/<dist_id>/payments/<int:payment_id>/delete", methods=["POST"])
 @auth.permission_required("manage_distributors")
+@requires_money_setting
 def distributor_payment_delete(dist_id, payment_id):
     db = get_db()
     owned = db.execute(
@@ -344,6 +349,7 @@ def distributor_payment_delete(dist_id, payment_id):
 
 @bp.route("/distributors/<dist_id>/export.pdf")
 @auth.permission_required("manage_distributors")
+@requires_money_setting
 def distributor_export_pdf(dist_id):
     db = get_db()
     dist = db.execute("SELECT id FROM distributors WHERE id=?", (dist_id,)).fetchone()
@@ -364,6 +370,7 @@ def distributor_export_pdf(dist_id):
 # ---------------------------------------------------------------------------
 @bp.route("/consignment")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_overview():
     # consignment_distributors_overview() recomputes full inventory status
     # per Consignment item per distributor — wrapped in the same
@@ -389,6 +396,7 @@ def consignment_overview():
 
 @bp.route("/consignment/items")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_items():
     db = get_db()
     page = get_page()
@@ -407,6 +415,7 @@ def consignment_items():
 
 @bp.route("/consignment/items/bulk-edit", methods=["POST"])
 @auth.permission_required("manage_consignment_items")
+@requires_money_setting
 def consignment_items_bulk_edit():
     """
     Same batching rationale as inventory_catalog_bulk_edit() — one
@@ -500,12 +509,14 @@ def _consignment_receiving_page_context():
 
 @bp.route("/consignment/receiving")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_receiving_page():
     return render_template("consignment_receiving.html", **_consignment_receiving_page_context())
 
 
 @bp.route("/consignment/receiving/new", methods=["POST"])
 @auth.permission_required("manage_consignment_stock")
+@requires_money_setting
 def consignment_receiving_new():
     db = get_db()
     f = request.form
@@ -522,7 +533,7 @@ def consignment_receiving_new():
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
     try:
-        quantity = parse_money(f.get("quantity"), required=True)
+        quantity = parse_quantity(f.get("quantity"), required=True)
         unit_cost = parse_money(f.get("unit_cost"), required=True)
     except BadNumber:
         flash(_("Quantity and Unit Cost must be valid numbers."), "error")
@@ -561,12 +572,14 @@ def _consignment_shrinkage_page_context():
 
 @bp.route("/consignment/shrinkage")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_shrinkage_page():
     return render_template("consignment_shrinkage.html", **_consignment_shrinkage_page_context())
 
 
 @bp.route("/consignment/shrinkage/new", methods=["POST"])
 @auth.permission_required("manage_consignment_stock")
+@requires_money_setting
 def consignment_shrinkage_new():
     db = get_db()
     f = request.form
@@ -583,7 +596,7 @@ def consignment_shrinkage_new():
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
     try:
-        quantity = parse_money(f.get("quantity"), required=True)
+        quantity = parse_quantity(f.get("quantity"), required=True)
     except BadNumber:
         flash(_("Quantity must be a valid number."), "error")
         return redisplay()
@@ -631,12 +644,14 @@ def _consignment_returns_page_context():
 
 @bp.route("/consignment/returns")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_returns_page():
     return render_template("consignment_returns.html", **_consignment_returns_page_context())
 
 
 @bp.route("/consignment/returns/new", methods=["POST"])
 @auth.permission_required("manage_consignment_stock")
+@requires_money_setting
 def consignment_returns_new():
     db = get_db()
     f = request.form
@@ -653,7 +668,7 @@ def consignment_returns_new():
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
     try:
-        quantity = parse_money(f.get("quantity"), required=True)
+        quantity = parse_quantity(f.get("quantity"), required=True)
     except BadNumber:
         flash(_("Quantity must be a valid number."), "error")
         return redisplay()
@@ -679,6 +694,7 @@ def consignment_returns_new():
 
 @bp.route("/consignment/sales")
 @auth.permission_required("view_consignment")
+@requires_money_setting
 def consignment_sales_page():
     db = get_db()
     distributor_id = request.args.get("distributor_id") or None
@@ -722,6 +738,7 @@ def _consignment_settlements_page_context(distributor_id):
 
 @bp.route("/consignment/settlements/<distributor_id>")
 @auth.permission_required("manage_consignment_settlements")
+@requires_money_setting
 def consignment_settlements_page(distributor_id):
     ctx = _consignment_settlements_page_context(distributor_id)
     if ctx is None:
@@ -732,6 +749,7 @@ def consignment_settlements_page(distributor_id):
 
 @bp.route("/consignment/settlements/<distributor_id>/new", methods=["POST"])
 @auth.permission_required("manage_consignment_settlements")
+@requires_money_setting
 def consignment_settlement_new(distributor_id):
     db = get_db()
     # Locked before computing the balance — consignment_balance() reads
@@ -781,9 +799,13 @@ def consignment_settlement_new(distributor_id):
         flash(_("There's nothing to settle for this distributor yet."), "error")
         return redisplay()
     if amount_paid > balance["amount_owed"]:
-        flash(_("That's more than the %(fmt_money)s JOD owed this period.", fmt_money=logic.fmt_money(balance['amount_owed'])), "error")
+        flash(_("That's more than the %(fmt_money)s %(currency)s owed this period.", fmt_money=display_money(balance['amount_owed']), currency=currency_label()), "error")
         return redisplay()
-    amount_paid = round(amount_paid, 3)
+    # Recorded exactly as entered (parse_money already rounded it to the money
+    # setting's precision, before the check above). The predecessor IQ app
+    # rounded it to the nearest 250-dinar note AFTER the check, so a payment
+    # could be recorded as more than was owed, or as a different amount than
+    # was actually transferred.
     cur = db.execute(
         "INSERT INTO consignment_settlements (distributor_id, period_start, period_end, amount_owed, amount_paid, "
         "payment_method, notes, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -794,16 +816,17 @@ def consignment_settlement_new(distributor_id):
     settlement_id = cur.fetchone()["id"]
     auth.log_change(db, "consignment_settlements", str(settlement_id), "create")
     db.commit()
-    residual = round(balance["amount_owed"] - amount_paid, 3)
+    residual = money.to_store(balance["amount_owed"] - amount_paid)
     if residual > 0:
-        flash(_("Settlement recorded: %(fmt_money)s JOD paid of %(fmt_money2)s JOD owed — %(fmt_money3)s JOD carries forward.", fmt_money=logic.fmt_money(amount_paid), fmt_money2=logic.fmt_money(balance['amount_owed']), fmt_money3=logic.fmt_money(residual)), "success")
+        flash(_("Settlement recorded: %(fmt_money)s %(currency)s paid of %(fmt_money2)s %(currency)s owed — %(fmt_money3)s %(currency)s carries forward.", fmt_money=display_money(amount_paid), fmt_money2=display_money(balance['amount_owed']), fmt_money3=display_money(residual), currency=currency_label()), "success")
     else:
-        flash(_("Settlement recorded: %(fmt_money)s JOD paid, settled in full.", fmt_money=logic.fmt_money(amount_paid)), "success")
+        flash(_("Settlement recorded: %(fmt_money)s %(currency)s paid, settled in full.", fmt_money=display_money(amount_paid), currency=currency_label()), "success")
     return redirect(url_for("consignment.consignment_settlements_page", distributor_id=distributor_id))
 
 
 @bp.route("/consignment/settlements/export/<int:settlement_id>")
 @auth.permission_required("manage_consignment_settlements")
+@requires_money_setting
 def consignment_settlement_export(settlement_id):
     db = get_db()
     settlement = db.execute("SELECT id FROM consignment_settlements WHERE id=?", (settlement_id,)).fetchone()

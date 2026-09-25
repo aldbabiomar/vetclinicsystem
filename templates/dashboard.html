@@ -12,25 +12,36 @@
 </div>
 
 {% if opex_due %}
-<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+<div class="notice-banner" role="note">
   {{ _('This month\'s operating costs haven\'t been entered yet — add them on the Monthly P&L page before the month closes.') }}
 </div>
 {% endif %}
 
+{% if not money_setting %}
+<div class="notice-banner" role="note">
+  {% if has_permission('manage_settings') %}
+  {{ _('Choose the clinic\'s money setting (IQ or JO) before recording any price or amount.') }}
+  <a href="{{ url_for('settings.settings_page') }}#money-setting">{{ _('Open Settings →') }}</a>
+  {% else %}
+  {{ _('Billing, payments and prices are not available yet: an admin needs to choose the clinic\'s money setting in Settings first.') }}
+  {% endif %}
+</div>
+{% endif %}
+
 {% if backup_alert %}
-<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+<div class="notice-banner" role="note">
   {{ backup_alert|finding }} <a href="{{ url_for('settings.settings_page') }}">{{ _('Open Settings →') }}</a>
 </div>
 {% endif %}
 
 {% if unbilled_count %}
-<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+<div class="notice-banner" role="note">
   {% if unbilled_count == 1 %}{{ _('1 bill has no Date Billed set — it is missing from Monthly & Yearly P&L until fixed.') }}{% else %}{{ _('%(unbilled_count)s bills have no Date Billed set — they are missing from Monthly & Yearly P&L until fixed.', unbilled_count=unbilled_count) }}{% endif %}
 </div>
 {% endif %}
 
 {% if migration_failures %}
-<div class="flash warn" style="background:var(--warn-tint); color:var(--warn-ink); margin-bottom:16px;">
+<div class="notice-banner" role="note">
   {{ _("Some schema updates couldn't be applied on the last launch — some newer "
         "features may not work correctly: %(migration_failures)s", migration_failures=migration_failures) }}
 </div>

@@ -234,15 +234,15 @@ INCREMENTAL_SCHEMA_STATEMENTS = [
     "UPDATE inventory_list SET barcode_source='generated' WHERE barcode IS NOT NULL AND barcode_source IS NULL",
 
     # --- "Clean Up" feature — see CLEANUP_FEATURE_PLAN.md.
-    "ALTER TABLE billing ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(12,3) NOT NULL DEFAULT 0",
+    "ALTER TABLE billing ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0",
     "ALTER TABLE billing ADD COLUMN IF NOT EXISTS cleanup_applied_by TEXT",
-    "ALTER TABLE inpatient_cases ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(12,3) NOT NULL DEFAULT 0",
+    "ALTER TABLE inpatient_cases ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0",
     "ALTER TABLE inpatient_cases ADD COLUMN IF NOT EXISTS cleanup_applied_by TEXT",
-    "ALTER TABLE boarding_sessions ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(12,3) NOT NULL DEFAULT 0",
+    "ALTER TABLE boarding_sessions ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0",
     "ALTER TABLE boarding_sessions ADD COLUMN IF NOT EXISTS cleanup_applied_by TEXT",
-    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(12,3) NOT NULL DEFAULT 0",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0",
     "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cleanup_applied_by TEXT",
-    "ALTER TABLE refunds ADD COLUMN IF NOT EXISTS cleanup_amount_at_refund NUMERIC(12,3) NOT NULL DEFAULT 0",
+    "ALTER TABLE refunds ADD COLUMN IF NOT EXISTS cleanup_amount_at_refund NUMERIC(15,3) NOT NULL DEFAULT 0",
 
     # --- ORPHANED_RECORDS_AUDIT.md F-07 — distributor snapshot on sale_items.
     "ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS distributor_id TEXT REFERENCES distributors(id)",

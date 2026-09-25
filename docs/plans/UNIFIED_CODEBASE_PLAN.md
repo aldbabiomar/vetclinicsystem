@@ -649,3 +649,47 @@ result under each money setting.
   predecessor trees under `webapps/` — rewritten in the tooling phase. The
   one-off translation scripts (`ar_batch*.py`, `wrap_*.py`, `fix_*.py`) are
   spent and will be archived then.
+- **2026-09-25 — Phase 1: one money model, two money settings.** `money.py`
+  is the only place money is rounded, compared or parsed: `Decimal`
+  throughout, every money column `NUMERIC(15,3)`, and the two settings as data
+  (`money.IQ`: whole dinars, 250-dinar cash unit, 1,000 Clean Up cap, +964/10
+  digits; `money.JO`: three decimals, the fils, 1.000 cap, +962/9). IQ's rules
+  are the general rules with IQ's numbers — payable totals half-up to the cash
+  unit with the anti-"looks free" floor, change and refunds rounded down, a
+  refund never zero while a unit is refundable, the drawer audit exact. The
+  setting is chosen in Settings (D-9), locks itself once `money.MONEY_TABLES`
+  hold a row, and is enforced on the server, not just by disabling the
+  dropdown. Until it is chosen, every money screen redirects with a message
+  (D-10) and phone fields accept international numbers only. It drives the
+  phone format, the currency label (IQD/JOD in English, د.ع/د.أ in Arabic,
+  the Latin code on PDFs), every `step=` on a money input, and the browser
+  previews (`static/money.js`, fed from `window.VZ_MONEY`). Active per request
+  through a `ContextVar`, copied into background job threads.
+  **IQ's tests came across verbatim in intent:** `test_money_iq.py` (110, from
+  IQ's `test_money.py`) and `test_money_routes_iq.py` (from IQ's
+  `test_money_routes.py`), marked `@pytest.mark.money("IQ")`; the suite's
+  default stays JO. Two IQ-marked browser tests put non-note amounts in front
+  of the real till — until now no browser test had ever run the IQ rules.
+  **Also fixed:** audit B6 and B7 (JO precision and the 1-JOD "Perfect"
+  tolerance, now pinned at the route); B13's same-second double count (the
+  restock term waits for `timestamptz`); and eight bugs the audit had missed,
+  recorded as `CODE_AUDIT_2026-09-25.md` §10 M1–M8 — among them JO's rewards
+  card that could never be switched on (M1), IQ service refunds of 0 or of
+  more than was paid (M2, now `SEAM_RULES.md` S8), and distributors owed
+  money that could never be settled (M8). Every new guard was
+  mutation-checked: the bug put back, the test watched failing, the fix
+  restored.
+  **Arabic:** 57 msgids changed or added (the currency became `%(currency)s`
+  in ~20 messages, and POS/refund refusals that had always shown English are
+  wrapped for the first time). 21 reuse the predecessors' reviewed Arabic;
+  36 were written from the catalogue's glossary and are listed in
+  `docs/ARABIC_REVIEW.md` for the clinic. Six translations that were one
+  sentence repeated are fixed. `tests/test_catalogue.py` now extracts every
+  msgid the code uses and fails on a missing, fuzzy, doubled or
+  placeholder-dropping translation.
+  **Tooling:** `scripts/isolated_test_env.sh restart iq|jo` reloads the app,
+  killing by port and asserting the pid changed.
+  **Suite, both money settings, browser tier alive:** IQ environment
+  **1057 passed, 4 skipped**; JO environment **1058 passed, 3 skipped** — the
+  skips are data-dependent (no barcode seeded, no visit to export, …) and
+  tracked. With no database: 446 passed, 615 skipped, 0 errors.

@@ -7,6 +7,8 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script nonce="{{ csp_nonce }}">window.VZ_MONEY = {{ money_js|tojson }};</script>
+<script src="{{ url_for('static', filename='money.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 // Applied before first paint so switching themes never shows a flash of the other theme.
 (function() {

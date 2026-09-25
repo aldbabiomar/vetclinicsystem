@@ -1,7 +1,8 @@
 /*
- * Client-side mirror of app.py's normalize_phone() — same branch structure,
- * same PHONE_COUNTRY_CODE/PHONE_LOCAL_LENGTH constants, so a number this
- * accepts is exactly a number the server will also accept (and vice versa).
+ * Client-side mirror of core.normalize_phone() — same branch structure, same
+ * country code and local length (from the money setting, via window.VZ_MONEY),
+ * so a number this accepts is exactly a number the server will also accept
+ * (and vice versa).
  * Kept as an exact port rather than a single regex because normalize_phone()
  * has multiple accept branches (+E.164, 00-prefixed, local-with-trunk-0,
  * bare local) that don't collapse into one pattern without either rejecting
@@ -21,8 +22,13 @@
 (function () {
   "use strict";
 
-  var COUNTRY_CODE = "962";
-  var LOCAL_LENGTH = 9;
+  // The local phone format follows the clinic's money setting (IQ: +964 and
+  // 10 digits, JO: +962 and 9), the same values core.normalize_phone() uses.
+  // Before a money setting is chosen there is no local format to assume, so
+  // only a full international number (+... or 00...) is valid.
+  var MONEY = window.VZ_MONEY || null;
+  var COUNTRY_CODE = MONEY ? String(MONEY.phoneCountryCode) : null;
+  var LOCAL_LENGTH = MONEY ? Number(MONEY.phoneLocalLength) : null;
   var MESSAGE = "That phone number doesn't look valid — check the digits and try again.";
 
   function isValidPhone(raw) {
@@ -37,6 +43,7 @@
     if (digits.indexOf("00") === 0) {
       return /^\+[1-9]\d{7,14}$/.test("+" + digits.slice(2));
     }
+    if (!COUNTRY_CODE) return false;
     var local;
     if (digits.charAt(0) === "0") {
       local = digits.slice(1);

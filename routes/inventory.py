@@ -23,13 +23,14 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field
+from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting
 
 bp = Blueprint("inventory", __name__)
 
 
 @bp.route("/api/inventory/lookup")
 @auth.permission_required("process_pos_sales")
+@requires_money_setting
 def api_inventory_lookup():
     db = get_db()
     barcode_val = request.args.get("barcode", "").strip()
@@ -73,6 +74,7 @@ def api_inventory_lookup():
 
 @bp.route("/api/price-list/lookup")
 @auth.permission_required("manage_visits", "manage_inpatient")
+@requires_money_setting
 def api_price_list_lookup():
     db = get_db()
     q = request.args.get("q", "").strip()
@@ -123,6 +125,7 @@ def _price_list_context(db):
 
 @bp.route("/price-list")
 @auth.permission_required("manage_price_list")
+@requires_money_setting
 def price_list():
     db = get_db()
     return render_template("price_list.html", **_price_list_context(db))
@@ -130,6 +133,7 @@ def price_list():
 
 @bp.route("/price-list/new", methods=["POST"])
 @auth.permission_required("manage_price_list")
+@requires_money_setting
 def price_list_new():
     db = get_db()
     f = request.form
@@ -179,11 +183,13 @@ def price_list_new():
     auth.log_change(db, "price_list", pid, "create")
     db.commit()
     flash(_("%(pid)s added to price list.", pid=pid), "success")
+    flash_price_rounding_notice(sale_price)
     return redirect(url_for("inventory.price_list"))
 
 
 @bp.route("/price-list/<item_id>/edit", methods=["POST"])
 @auth.permission_required("manage_price_list")
+@requires_money_setting
 def price_list_edit(item_id):
     db = get_db()
     f = request.form
@@ -240,11 +246,13 @@ def price_list_edit(item_id):
     auth.log_change(db, "price_list", item_id, "update", changes)
     db.commit()
     flash(_("Price updated."), "success")
+    flash_price_rounding_notice(sale_price)
     return redirect(url_for("inventory.price_list"))
 
 
 @bp.route("/price-list/bulk-edit", methods=["POST"])
 @auth.permission_required("manage_price_list")
+@requires_money_setting
 def price_list_bulk_edit():
     """
     Saves many Price List row edits in a single request instead of one
@@ -327,6 +335,7 @@ def price_list_bulk_edit():
 
 @bp.route("/price-list/<item_id>/delete", methods=["POST"])
 @auth.permission_required("manage_price_list")
+@requires_money_setting
 def price_list_delete(item_id):
     db = get_db()
     db.execute("UPDATE price_list SET active=false WHERE id=?", (item_id,))

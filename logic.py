@@ -9,6 +9,7 @@ from decimal import Decimal
 from collections import defaultdict
 
 import auth as authmod
+import money
 
 MISSED_WINDOW_DAYS = 14   # 2 weeks — used for follow-ups, wellness, and Lost to Follow Up
 WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
@@ -285,13 +286,9 @@ def backup_alert_message(last_backup_row):
 
 
 def fmt_money(amount):
-    """The JOD's fils subunit (3 decimal places, per ISO 4217 — same as
-    KWD/BHD) is in everyday real use, unlike IQD's, which is practically
-    obsolete — so unlike the fork this app started from, amounts are
-    never rounded to whole numbers for display."""
-    if amount is None:
-        return "\u2014"
-    return f"{amount:,.3f}"
+    """Display form of an amount under the clinic's money setting — whole
+    dinars under IQ, three decimals under JO. See money.fmt()."""
+    return money.fmt(amount)
 
 
 # ---------------------------------------------------------------------------
@@ -680,22 +677,14 @@ def discounted_raw_total(subtotal, discountable_subtotal, discount_percent):
 
     Lives in one function that BOTH compute_bill_totals() and pos_checkout()
     call, rather than being written out at each — one rule spelled out in two
-    places is exactly the shape every entry in SEAM_RULES.md came from.
-
-    Decimal(100), not 100: mixing a float into JOD's exact arithmetic raises
-    TypeError here rather than silently losing fils. IQ's copy of this
-    function uses plain float division and the two must never be swapped
-    (COMPARISON.md §1.1).
+    places is exactly the shape every entry in SEAM_RULES.md came from. The
+    arithmetic itself is money.discounted().
 
     On a staff discount `discountable_subtotal == subtotal` always (the
     guards refuse a staff discount on a bill holding a non-discountable
-    line), so this returns exactly `subtotal * (1 - d)` and nothing about a
-    pre-rewards bill changes.
+    line), so this returns exactly `subtotal * (1 - d)`.
     """
-    discount_percent = discount_percent or 0
-    discountable_subtotal = discountable_subtotal or 0
-    return (discountable_subtotal * (1 - discount_percent / Decimal(100))
-            + (subtotal - discountable_subtotal))
+    return money.discounted(subtotal or 0, discountable_subtotal or 0, discount_percent or 0)
 
 
 def compute_bill_totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
@@ -713,34 +702,37 @@ def compute_bill_totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
     cannot afford. Forgetting it is a TypeError instead. See
     features/REWARDS_CARD_PLAN.md §2.2 and seam rule 6.
 
+    The payable total is the discounted figure rounded to the money
+    setting's cash unit by money.payable() — to the nearest 250-dinar note
+    under IQ, never rounding a real bill down to free; unchanged under JO.
+    Applied ONCE, to the whole total, never per line: rounding each line
+    separately would drift the bill away from its own subtotal.
+
     cleanup_amount is a capped, explicit staff write-off (see
-    CLEANUP_FEATURE_PLAN.md) applied on top of the discount-adjusted total —
-    JO has no denomination-rounding step to layer it after (unlike IQ), so
-    it's simply subtracted from the exact 3-decimal total below.
+    CLEANUP_FEATURE_PLAN.md) applied AFTER that rounding, on top of whatever
+    it produced — not a replacement for it.
 
     Returns (total, paid, balance, status, pre_cleanup_total). That last one
-    is the total BEFORE Clean Up comes off: receipts print it instead of
-    re-deriving `subtotal * (1 - d)`, which does not match on a bill holding
-    non-discountable lines.
+    is the payable total BEFORE Clean Up comes off: receipts print it instead
+    of re-deriving `subtotal * (1 - d)`, which does not match on a bill
+    holding non-discountable lines — returning it from here is what keeps
+    `subtotal - discount - Clean Up = total` true on every export.
     """
     discount_percent = discount_percent or 0
-    pre_cleanup_total = round(
-        discounted_raw_total(subtotal, discountable_subtotal, discount_percent), 3)
-    total = max(pre_cleanup_total - (cleanup_amount or 0), 0)
-    paid = round(paid or 0, 3)
-    balance = round(total - paid, 3)
+    pre_cleanup_total = money.payable(
+        discounted_raw_total(subtotal, discountable_subtotal, discount_percent), discount_percent)
+    total = money.to_store(max(pre_cleanup_total - (cleanup_amount or 0), 0))
+    paid = money.to_store(paid or 0)
+    # What is still owed, at the cash unit: a remainder smaller than half a
+    # 250-dinar note is not collectable under IQ and reads as settled. There
+    # is deliberately no tolerance constant in the status test below — the
+    # predecessor apps carried `<= 0.5` (noise in IQD, real money in JOD).
+    balance = money.balance_due(total, paid)
     if total <= 0:
         status = "N/A"
     elif paid <= 0:
         status = "Unpaid"
-    # A plain <= 0 here, not a tolerance — this used to be `<= 0.5`, a
-    # threshold carried over unchanged from the IQD fork, where it was
-    # meaningless noise-absorption (money there is rounded to a 250 IQD
-    # note, so anything this small was rounding artifact, not real debt).
-    # In JOD, every amount is an exact Decimal to 3 places (1 fils), so
-    # there's no rounding noise to absorb — a leftover 0.5 JOD (500 fils)
-    # is real, uncollected money, not noise, and shouldn't display as paid.
-    elif balance <= 0:
+    elif money.is_settled(balance):
         status = "Fully Paid"
     else:
         status = "Partially Paid"
@@ -773,7 +765,7 @@ def visit_billing_summary(db, visit_id):
         # exactly (quantity + line_total per line).
         lines = [{"id": r["price_id"], "name": r["name"], "category": r["category"],
                   "price": r["unit_price"], "quantity": r["quantity"],
-                  "line_total": round(r["unit_price"] * r["quantity"], 3),
+                  "line_total": money.to_store(r["unit_price"] * r["quantity"]),
                   "discountable": bool(r["discountable"])}
                  for r in snapshot_rows]
         subtotal = sum(l["line_total"] for l in lines)
@@ -785,10 +777,10 @@ def visit_billing_summary(db, visit_id):
     total, paid, balance, status, pre_cleanup_total = compute_bill_totals(
         subtotal, discount_percent, paid_row["s"], cleanup_amount,
         discountable_subtotal=discountable_subtotal)
-    return {"billing_type": b["billing_type"], "lines": lines, "subtotal": round(subtotal, 3),
+    return {"billing_type": b["billing_type"], "lines": lines, "subtotal": money.to_store(subtotal),
             "discount_percent": discount_percent, "cleanup_amount": cleanup_amount,
             "discount_source": b["discount_source"], "pre_cleanup_total": pre_cleanup_total,
-            "discountable_subtotal": round(discountable_subtotal, 3),
+            "discountable_subtotal": money.to_store(discountable_subtotal),
             "total": total, "paid": paid, "balance": balance, "status": status}
 
 
@@ -823,7 +815,7 @@ def inpatient_billing_summary(db, case_id):
         if r["discountable"]:
             discountable_subtotal += line_total
         lines.append({"id": r["id"], "name": r["name"], "quantity": r["quantity"],
-                       "unit_price": unit_price, "line_total": round(line_total, 3),
+                       "unit_price": unit_price, "line_total": money.to_store(line_total),
                        "discountable": bool(r["discountable"])})
     case = db.execute("SELECT discount_percent, discount_source, cleanup_amount FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
     discount_percent = case["discount_percent"] if case else 0
@@ -832,9 +824,9 @@ def inpatient_billing_summary(db, case_id):
     total, paid, balance, status, pre_cleanup_total = compute_bill_totals(
         subtotal, discount_percent, paid_row["s"], cleanup_amount,
         discountable_subtotal=discountable_subtotal)
-    return {"lines": lines, "subtotal": round(subtotal, 3), "discount_percent": discount_percent,
+    return {"lines": lines, "subtotal": money.to_store(subtotal), "discount_percent": discount_percent,
             "discount_source": case["discount_source"] if case else "staff",
-            "discountable_subtotal": round(discountable_subtotal, 3),
+            "discountable_subtotal": money.to_store(discountable_subtotal),
             "pre_cleanup_total": pre_cleanup_total,
             "cleanup_amount": cleanup_amount, "total": total, "paid": paid, "balance": balance, "status": status}
 
@@ -863,7 +855,7 @@ def boarding_nights(entry_date, dismissal_date):
 def boarding_suggested_total(price_per_day, entry_date, dismissal_date):
     if not price_per_day:
         return None
-    return round(price_per_day * boarding_nights(entry_date, dismissal_date), 3)
+    return money.to_store(price_per_day * boarding_nights(entry_date, dismissal_date))
 
 
 def boarding_billing_summary_from_fields(b, paid):
@@ -1336,8 +1328,8 @@ def recompute_month_summary(db, month):
     if not month:
         return
     revenue_by_month, cogs_by_month = _revenue_and_cogs_by_month(db, month=month)
-    revenue = round(revenue_by_month.get(month, 0), 3)
-    cogs = round(cogs_by_month.get(month, 0), 3)
+    revenue = money.to_store(revenue_by_month.get(month, 0))
+    cogs = money.to_store(cogs_by_month.get(month, 0))
     now_str = datetime.now().isoformat(timespec="seconds")
     db.execute(
         "INSERT INTO monthly_financial_summary (month, revenue, cogs, updated_at) VALUES (?,?,?,?) "
@@ -1370,8 +1362,8 @@ def recompute_full_summary(db):
     now_str = datetime.now().isoformat(timespec="seconds")
     db.execute("DELETE FROM monthly_financial_summary")
     for month in months:
-        revenue = round(revenue_by_month.get(month, 0), 3)
-        cogs = round(cogs_by_month.get(month, 0), 3)
+        revenue = money.to_store(revenue_by_month.get(month, 0))
+        cogs = money.to_store(cogs_by_month.get(month, 0))
         db.execute(
             "INSERT INTO monthly_financial_summary (month, revenue, cogs, updated_at) VALUES (?,?,?,?)",
             (month, revenue, cogs, now_str),
@@ -1430,12 +1422,12 @@ def monthly_pl(db, months_back=12):
     prior_net = None
     for month in months:
         row = summary_rows.get(month)
-        revenue = round(row["revenue"], 3) if row else 0
-        cogs = round(row["cogs"], 3) if row else 0
-        gross_profit = round(revenue - cogs, 3)
+        revenue = money.to_store(row["revenue"]) if row else 0
+        cogs = money.to_store(row["cogs"]) if row else 0
+        gross_profit = money.to_store(revenue - cogs)
         opex = opex_rows.get(month, {"rent": 0, "salaries": 0, "utilities": 0, "marketing": 0, "other": 0})
-        total_opex = round(sum(opex.get(k, 0) or 0 for k in ("rent", "salaries", "utilities", "marketing", "other")), 3)
-        net_profit = round(gross_profit - total_opex, 3)
+        total_opex = money.to_store(sum(opex.get(k, 0) or 0 for k in ("rent", "salaries", "utilities", "marketing", "other")))
+        net_profit = money.to_store(gross_profit - total_opex)
         net_margin = round(net_profit / revenue, 4) if revenue else None
 
         mom_change = None
@@ -1473,15 +1465,15 @@ def yearly_pl(db):
     prior_net = None
     for y in sorted(by_year.keys()):
         d = by_year[y]
-        gross_profit = round(d["revenue"] - d["cogs"], 3)
-        net_profit = round(gross_profit - d["total_opex"], 3)
+        gross_profit = money.to_store(d["revenue"] - d["cogs"])
+        net_profit = money.to_store(gross_profit - d["total_opex"])
         net_margin = round(net_profit / d["revenue"], 4) if d["revenue"] else None
         yoy_change = None
         if prior_net not in (None, 0):
             yoy_change = round((net_profit - prior_net) / abs(prior_net) * 100, 1)
         prior_net = net_profit
-        out.append({"year": y, "revenue": round(d["revenue"], 3), "cogs": round(d["cogs"], 3),
-                    "gross_profit": gross_profit, "total_opex": round(d["total_opex"], 3),
+        out.append({"year": y, "revenue": money.to_store(d["revenue"]), "cogs": money.to_store(d["cogs"]),
+                    "gross_profit": gross_profit, "total_opex": money.to_store(d["total_opex"]),
                     "net_profit": net_profit, "net_margin": net_margin, "yoy_change": yoy_change})
     return out
 
@@ -1523,7 +1515,7 @@ def refundable_sale_items(db, sale_id):
         # On a staff discount every line is discountable, so this stays
         # exactly the old uniform behaviour.
         line_discount = discount_percent if r["discountable"] else 0
-        unit_price = round(r["unit_price"] * (1 - line_discount / Decimal(100)), 3)
+        unit_price = money.to_store(r["unit_price"] * (1 - line_discount / Decimal(100)))
         lines.append({
             "sale_item_id": r["sale_item_id"], "item_id": r["item_id"], "name": r["name"],
             "unit_price": unit_price, "quantity": r["quantity"],
@@ -1922,26 +1914,38 @@ def consignment_balance(db, distributor_id):
         (distributor_id,),
     ).fetchone()
     if last:
-        residual = round((last["amount_owed"] or 0) - (last["amount_paid"] or 0), 3)
+        residual = money.to_store((last["amount_owed"] or 0) - (last["amount_paid"] or 0))
         period_start = last["period_end"]
         last_settlement_date = last["created_at"]
     else:
         # No prior settlement — start from this distributor's earliest
-        # consignment activity of any kind (receiving is when their
-        # stock first became sellable at all).
+        # consignment activity of any kind: receiving (when their stock
+        # first became sellable), shrinkage, a return — or an item being
+        # FLAGGED Consignment. The last one matters on its own: an item
+        # already on the shelf can be flagged with no receiving at all,
+        # and its sales count as owed from consignment_since (below).
+        # Without it period_start stayed None, and the settlement route
+        # refused the distributor's first settlement as "nothing to
+        # settle" while showing an amount owed (CODE_AUDIT §10 M8).
         earliest = db.execute(
             "SELECT MIN(x) AS m FROM ("
             "  SELECT MIN(created_at) AS x FROM consignment_receipts WHERE distributor_id=?"
             "  UNION ALL SELECT MIN(logged_at) FROM consignment_shrinkage WHERE distributor_id=?"
             "  UNION ALL SELECT MIN(created_at) FROM consignment_returns WHERE distributor_id=?"
+            "  UNION ALL SELECT MIN(consignment_since) FROM inventory_list"
+            "    WHERE distributor_id=? AND ownership_type='Consignment'"
             ") t",
-            (distributor_id, distributor_id, distributor_id),
+            (distributor_id, distributor_id, distributor_id, distributor_id),
         ).fetchone()
         residual = 0
         period_start = earliest["m"] if earliest else None
         last_settlement_date = None
 
-    period_end = datetime.now().isoformat(timespec="seconds")
+    # To the microsecond, like sale_date, and every sum below is bounded by
+    # it: with a seconds-precision bound, a sale in the same second as a
+    # settlement ('…T10:00:00.3' > '…T10:00:00') was counted in that
+    # settlement AND again in the next (CODE_AUDIT B13).
+    period_end = datetime.now().isoformat(timespec="microseconds")
 
     # si.distributor_id is a snapshot taken at checkout time (see
     # pos_checkout()) — this is what makes attribution historically stable:
@@ -1953,9 +1957,10 @@ def consignment_balance(db, distributor_id):
     # F-07.
     sold_where = (
         "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=? "
-        "AND s.sale_date > GREATEST(?, COALESCE(i.consignment_since, ''))"
+        "AND s.sale_date > GREATEST(?, COALESCE(i.consignment_since, '')) "
+        "AND s.sale_date <= ?"
     )
-    sold_params = [distributor_id, period_start or ""]
+    sold_params = [distributor_id, period_start or "", period_end]
     sold_row = db.execute(
         "SELECT COALESCE(SUM(si.quantity * COALESCE(si.unit_cost, 0)), 0) AS cost, "
         "COALESCE(SUM(si.quantity), 0) AS units "
@@ -1983,8 +1988,8 @@ def consignment_balance(db, distributor_id):
     ).fetchall()
     restocked_cost = sum(rr["quantity"] * cost_by_item.get(rr["item_id"], 0) for rr in restocked_rows)
 
-    shrink_where = "WHERE distributor_id=? AND liable_party='Clinic'"
-    shrink_params = [distributor_id]
+    shrink_where = "WHERE distributor_id=? AND liable_party='Clinic' AND logged_at <= ?"
+    shrink_params = [distributor_id, period_end]
     if period_start:
         shrink_where += " AND logged_at > ?"
         shrink_params.append(period_start)
@@ -1994,8 +1999,8 @@ def consignment_balance(db, distributor_id):
     ).fetchone()
     shrinkage_cost = shrink_row["cost"] or 0
 
-    new_activity = round(sold_cost - restocked_cost + shrinkage_cost, 3)
-    amount_owed = round(residual + new_activity, 3)
+    new_activity = money.to_store(sold_cost - restocked_cost + shrinkage_cost)
+    amount_owed = money.to_store(residual + new_activity)
 
     return {
         "residual": residual, "period_start": period_start, "period_end": period_end,
@@ -2052,7 +2057,7 @@ def consignment_distributors_overview(db):
         balance = consignment_balance(db, d["id"])
         out.append({
             "distributor_id": d["id"], "distributor_name": d["name"],
-            "shelf_units": shelf_units, "shelf_value": round(shelf_value, 3),
+            "shelf_units": shelf_units, "shelf_value": money.to_store(shelf_value),
             "amount_owed": balance["amount_owed"], "last_settlement_date": balance["last_settlement_date"],
             "units_sold_this_month": month_units,
         })
@@ -2191,10 +2196,10 @@ def cash_register_totals(db, day):
     payouts_total = db.execute(
         "SELECT COALESCE(SUM(amount), 0) AS s FROM cash_register_payouts WHERE payout_date=?", (day,)
     ).fetchone()["s"]
-    totals["Cash"] = round(totals["Cash"] - payouts_total, 3)
+    totals["Cash"] = money.to_store(totals["Cash"] - payouts_total)
     for k in ("Card", "Transfer", "other"):
-        totals[k] = round(totals[k], 3)
-    totals["all"] = round(totals["Cash"] + totals["Card"] + totals["Transfer"] + totals["other"], 3)
+        totals[k] = money.to_store(totals[k])
+    totals["all"] = money.to_store(totals["Cash"] + totals["Card"] + totals["Transfer"] + totals["other"])
     return totals
 
 
@@ -2480,13 +2485,13 @@ def revenue_by_category(db, months_back=12):
         (cutoff,) * 6,
     ).fetchall()
 
-    grid = {(r["month"], r["category"]): round(r["revenue"] or 0, 3) for r in rows}
+    grid = {(r["month"], r["category"]): money.to_store(r["revenue"] or 0) for r in rows}
     return {
         "months": months,
         "categories": REVENUE_CATEGORIES,
         "grid": {m: {c: grid.get((m, c), 0) for c in REVENUE_CATEGORIES} for m in months},
-        "totals_by_category": {c: round(sum(grid.get((m, c), 0) for m in months), 3) for c in REVENUE_CATEGORIES},
-        "totals_by_month": {m: round(sum(grid.get((m, c), 0) for c in REVENUE_CATEGORIES), 3) for m in months},
+        "totals_by_category": {c: money.to_store(sum(grid.get((m, c), 0) for m in months)) for c in REVENUE_CATEGORIES},
+        "totals_by_month": {m: money.to_store(sum(grid.get((m, c), 0) for c in REVENUE_CATEGORIES)) for m in months},
     }
 
 
@@ -2523,11 +2528,11 @@ def vet_performance(db, months_back=12):
     ).fetchall()
     out = []
     for r in rows:
-        revenue = round(r["revenue"] or 0, 3)
+        revenue = money.to_store(r["revenue"] or 0)
         visits = r["visit_count"] or 0
         out.append({
             "doctor": r["doctor"], "visit_count": visits, "revenue": revenue,
-            "avg_revenue_per_visit": round(revenue / visits, 3) if visits else 0,
+            "avg_revenue_per_visit": money.to_store(revenue / visits) if visits else 0,
         })
     return out
 
@@ -2603,8 +2608,8 @@ def client_value(db, limit=20, months_back=12):
     ).fetchall()
     active = [{"id": r["id"], "name": r["name"], "payment_count": r["payment_count"],
                "is_member": is_active_member(r),
-               "total_paid": round(r["total_paid"] or 0, 3)} for r in rows]
-    avg_spend = round(sum(r["total_paid"] for r in active) / len(active), 3) if active else 0
+               "total_paid": money.to_store(r["total_paid"] or 0)} for r in rows]
+    avg_spend = money.to_store(sum(r["total_paid"] for r in active) / len(active)) if active else 0
     return active[:limit], avg_spend, len(active)
 
 

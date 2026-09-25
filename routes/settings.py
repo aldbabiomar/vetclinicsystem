@@ -28,7 +28,8 @@ import auth
 import db as dbmod
 import jobs
 import logic
-from core import parse_money, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
+import money
+from core import money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
 
@@ -239,20 +240,41 @@ def settings_page():
                 return redirect(url_for("settings.settings_page"))
 
         # The rewards-card rate is a PERCENTAGE, so it goes through
-        # parse_money like the staff discount it sits beside -- not through
+        # parse_percent like the staff discount it sits beside -- not through
         # NUMERIC_RANGES above, which is int() only and would refuse a
         # fractional rate that a staff discount already accepts. 0 (the
         # default) means the programme is off.
         rate_val = request.form.get("member_discount_percent")
         if rate_val is not None and rate_val.strip() != "":
             try:
-                rate = parse_money(rate_val)
+                rate = parse_percent(rate_val)
             except BadNumber:
                 flash(_("Member discount must be a valid number."), "error")
                 return redirect(url_for("settings.settings_page"))
             if rate is None or not 0 <= rate <= logic.MEMBER_RATE_MAX:
                 flash(_("Member discount must be between 0%% and %(max)s%%.", max=logic.MEMBER_RATE_MAX), "error")
                 return redirect(url_for("settings.settings_page"))
+
+        # The money setting (IQ / JO). Changeable only while no money has been
+        # recorded — after that, switching would reinterpret every stored
+        # amount in another currency (money.MONEY_TABLES lists what counts).
+        # Enforced here, not just by disabling the dropdown, so a stale page
+        # or a crafted POST cannot switch it either.
+        money_val = request.form.get("money_setting")
+        money_change = None
+        if money_val is not None and money_val.strip() != "":
+            money_val = money_val.strip().upper()
+            if money_val not in money.SETTINGS:
+                flash(_("Not a valid money setting."), "error")
+                return redirect(url_for("settings.settings_page"))
+            current_code = money.current().code if money.current() else None
+            if money_val != current_code:
+                if current_code is not None and money.is_locked(db):
+                    flash(_("The money setting can't be changed once money has been recorded — "
+                            "every stored amount is in %(currency)s.",
+                            currency=money.current().currency), "error")
+                    return redirect(url_for("settings.settings_page"))
+                money_change = (current_code, money_val)
 
         start = request.form.get("appt_start_time")
         end = request.form.get("appt_end_time")
@@ -280,7 +302,12 @@ def settings_page():
         for key in ["clinic_name", "clinic_location", "audit_overdue_days", "expiry_soon_days", "opening_date",
                     "appt_start_time", "appt_end_time", "appt_slot_minutes",
                     "backup_dir", "backup_time", "backup_retention", "language",
-                    "selfcheck_backup_max_age_days", "heartbeat_url", "log_retention_days"]:
+                    "selfcheck_backup_max_age_days", "heartbeat_url", "log_retention_days",
+                    # The rewards-card rate and term. Validated above since the
+                    # rewards card shipped, but missing from this list in the
+                    # predecessor JO app — so saving Settings never stored
+                    # them and the programme could not be switched on.
+                    "member_discount_percent", "member_term_months"]:
             val = request.form.get(key)
             if val is not None:
                 old = logic.get_setting(db, key)
@@ -316,7 +343,17 @@ def settings_page():
             if old != val:
                 auth.log_change(db, "settings", "selfcheck_enabled", "update",
                                 {"selfcheck_enabled": (old, val)})
+        if money_change:
+            db.execute(
+                "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (money.SETTING_KEY, money_change[1]),
+            )
+            auth.log_change(db, "settings", money.SETTING_KEY, "update",
+                            {money.SETTING_KEY: money_change})
         db.commit()
+        if money_change:
+            flash(_("Money setting saved: %(name)s. It locks itself once the first price or amount is recorded.",
+                    name=money_setting_label(money_change[1])), "success")
         if request.form.get("backup_time"):
             import scheduler
             scheduler.reschedule(request.form.get("backup_time"))
@@ -344,6 +381,8 @@ def settings_page():
         autostart_enabled=autostart.is_enabled(),
         incomplete_restore=incomplete_restore,
         app_version=VERSION,
+        money_settings=list(money.SETTINGS.values()),
+        money_locked=money.is_locked(db),
     )
 
 

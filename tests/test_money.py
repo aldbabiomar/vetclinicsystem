@@ -25,6 +25,7 @@ codebase is porting a money fix across without re-deriving it.
 """
 from decimal import Decimal
 
+import money
 import pytest
 
 import app
@@ -96,7 +97,7 @@ def test_parse_money_rejects_values_too_large_for_the_column():
     """NUMERIC(12,3) has a real ceiling. Proactive rejection gives a usable
     message instead of a Postgres error. (IQ has no equivalent cap — a
     documented divergence, see its own test file.)"""
-    assert app.parse_money(str(app.MAX_MONEY)) == app.MAX_MONEY
+    assert app.parse_money(str(money.JO.max_amount)) == money.JO.max_amount
     with pytest.raises(app.BadNumber):
         app.parse_money("1000000000000000000")
 
@@ -250,8 +251,8 @@ def test_cleanup_cap_is_a_decimal_not_a_float():
     TypeError guard only fires on float/Decimal *arithmetic*, and a float
     cap compared against a Decimal total compares fine while silently
     reintroducing binary rounding."""
-    assert isinstance(app.CLEANUP_CAP, Decimal)
-    assert app.CLEANUP_CAP == D("1.000")
+    assert isinstance(money.JO.cleanup_cap, Decimal)
+    assert money.JO.cleanup_cap == D("1.000")
 
 
 # ---------------------------------------------------------------------------

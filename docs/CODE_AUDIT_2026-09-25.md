@@ -60,17 +60,17 @@ Prior audits were read first so closed findings are not re-reported
 | **S2** | High | both | `manage_users_roles` is full Admin in one click: a holder promotes themselves to the system Admin role (or resets the Admin's password) | Verified live |
 | **B4** | Medium | both | The concurrent-edit guard can be defeated by clicking Save twice (JO visit/boarding/inpatient, IQ inpatient) | Verified live (JO), by code (IQ) |
 | **B5** | Medium | both | POS sells a deactivated inventory item with **no stock check** | Verified live |
-| **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | Verified live |
-| **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | Verified live |
+| **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | **Fixed** — phase 1 (`money.parse`), pinned by `test_money_routes.py::test_b6_*` |
+| **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | **Fixed** — phase 1 (`money.audit_status`), pinned by `test_money_routes.py::test_b7_*` |
 | **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | Confirmed by code |
 | **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | Confirmed by code |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
-| **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan |
+| **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | Confirmed by code |
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | Verified live |
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | Verified (logs) |
-| **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | Confirmed by code |
+| **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
 | **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | Inferred |
 | **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | Confirmed by code |
 | **B16** | Low | both | Refund and payment dates are free-form: a refund can be booked before its sale or in a future month | Confirmed by code |
@@ -81,6 +81,7 @@ Prior audits were read first so closed findings are not re-reported
 | **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | Confirmed by code |
 | **P1–P20** | — | — | Parity gaps, non-money | see §4 |
 | **D1–D12** | — | — | Design that could be simplified | see §5 |
+| **M1–M8** | — | — | Found while merging, after this audit | see §10 |
 
 ---
 
@@ -850,3 +851,22 @@ Bring up `scripts/isolated_test_env.sh up iq` / `up jo`, then with
 - **B7** — JO: `POST /cash-register/audit` with `day=2020-01-01&
   counted_cash=0.9` → Perfect.
 - **B11** — `POST /distributors/NOPE/bills/new` with `total_amount=5`.
+
+---
+
+# 10. Found while merging
+
+Bugs the merge turned up that this audit missed. Each was in a predecessor
+app as released; each is fixed in the merged system. IDs are `M` so they do
+not collide with the sections above.
+
+| ID | Apps | Finding | Fixed |
+|---|---|---|---|
+| **M1** | JO | **The rewards card could not be switched on.** Settings validated `member_discount_percent` and `member_term_months` but its save loop never listed them (IQ's did), so saving the form discarded both; the programme stayed at 0% whatever an admin entered. | phase 1, `routes/settings.py` save loop |
+| **M2** | IQ | **A service refund could pay out nothing, or more than was paid.** It was checked against what was refundable and *then* rounded to the *nearest* 250-dinar note: under 125 IQD it was recorded as a refund of 0 (no CHECK on `refunds.amount` stopped it), and 1,200 refundable / 1,200 refunded was stored as 1,250. The retail path already rounded down and never to zero; this sibling did not (a seam, `SEAM_RULES.md`). | phase 1, `money.refund_payout()` on both refund paths; `test_money_routes_iq.py::test_m2_*` |
+| **M3** | both | **A consignment settlement was checked at one amount and stored at another** — the "more than owed" check ran before rounding. In IQ the rounding was to the *nearest* 250-dinar note, so 1,200 owed and 1,200 paid was stored as 1,250 with a carry-forward of −50. Same shape as B6. | phase 1, stored as entered (`money.parse()` at the door); `test_supplier_routes.py::test_m3_*` |
+| **M4** | both | **Six Arabic translations were one sentence written two or three times over** (JO: "Password reset…", "Revenue from billing…", the Clean Up cap, the three "more than what's left refundable…"; IQ had two). They rendered as one run-on line and passed the "is it Arabic" test, because they were. The existing catalogue check also only saw entries that fit on one line. | phase 1; `tests/test_catalogue.py` now checks every entry, parsed |
+| **M5** | both | **Four dashboard warnings disappeared after a few seconds** — flashed as toasts, which auto-dismiss, though each describes a standing condition (overdue audit, expiring stock, …). | phase 1, persistent notice banners |
+| **M6** | both | **The pure test tier errored without a database** — `test_localization.py`'s autouse fixture wrote to the database on teardown, so a bare `pytest` reported 6 errors instead of skipping, contrary to the documented "every tier skips cleanly". | phase 1 |
+| **M7** | both | **The browser tier never ran the IQ money rules.** Every browser test ran under JO, whose cash unit changes nothing, so the till's 250-note rounding and change-rounds-down had never been exercised in a real browser. | phase 1, IQ-marked POS tests in `test_browser.py`, mutation-checked |
+| **M8** | both | **A distributor could be owed money that could never be settled.** An item already on the shelf can be flagged Consignment with no delivery logged; its sales then count as owed (from `consignment_since`), but `consignment_balance()` took the first period's start only from receipts, shrinkage and returns — so it stayed `None`, and the settlement route refused every attempt as "There's nothing to settle for this distributor yet" beside the amount owed. The suite's own "cannot pay more than is owed" test had been hitting exactly this refusal: it logged a delivery and sold nothing, so it never reached the check it was named for. | phase 1, `consignment_since` counts as activity; the test now sells through the POS and asserts the refusal's reason, with a control |
