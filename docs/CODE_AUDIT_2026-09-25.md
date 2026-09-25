@@ -68,8 +68,8 @@ Prior audits were read first so closed findings are not re-reported
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
-| **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | Verified live |
-| **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | Verified (logs) |
+| **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | **Fixed** — existence checks; the audit's sweep kept as `test_error_pages.py` |
+| **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | **Fixed** — `mark_transaction_failed()` rolls back; `test_error_pages.py` |
 | **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
 | **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | **Fixed** — phase 3: no summary table, no Rebuild |
 | **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | Confirmed by code |
@@ -403,7 +403,7 @@ with the check accepting anything, 25 tests fail; with one route bypassing
 it, that route's tests and the seam rule fail; making the settlement's method
 required fails its control.
 
-## B11 — POST routes that 500 on a missing parent — **Verified live**
+## B11 — POST routes that 500 on a missing parent — **Fixed**
 
 **Severity: Low–Medium · both apps**
 
@@ -426,7 +426,20 @@ _distributor_detail_context(dist_id); ctx["form"] = f` with no `None` check
 **Fix.** Existence check (ideally `FOR UPDATE`) before insert in all three;
 `None` check in JO's redisplays.
 
-## B12 — The error page after a DB error — **Verified (error log)**
+**Fixed (merge).**
+
+- **Existence checks.** Each of the three routes now checks that its parent
+  exists. The distributor bill takes a lock (`FOR UPDATE`), so a delete
+  cannot land in between.
+- **Redisplays.** Both distributor redisplays handle a deleted distributor.
+- **Audit ids.** The daily-update and contact routes audit the new row's
+  own id.
+- **The sweep, kept.** `tests/test_error_pages.py` posts a plausible payload
+  with an id that cannot exist to every parameterised POST route (49, with a
+  floor), and fails on any 5xx. Removing any one of the three checks fails it
+  and names the route.
+
+## B12 — The error page after a DB error — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -439,6 +452,13 @@ the default clinic name**, and a second traceback is logged for every error.
 
 **Fix.** `g.db.rollback()` (guarded) at the top of the handler, before
 rendering.
+
+**Fixed (merge).** `mark_transaction_failed()`, which every error handler
+already calls, now rolls back at once, so the error page's own reads work.
+`tests/test_error_pages.py` makes a view fail inside Postgres, with the clinic
+set to Arabic under a distinctive name, and asserts the 500 page carries
+both; the control is the same clinic's normal page. Without the rollback
+it fails, and the second traceback reappears in the log.
 
 ## B13 — Consignment settlement period boundary — **Confirmed by code**
 

@@ -2167,11 +2167,17 @@ def inpatient_edit(case_id):
 @auth.permission_required("manage_inpatient")
 def inpatient_update_add(case_id):
     db = get_db()
+    # A missing case reached the foreign key as a 500 (audit B11).
+    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=?", (case_id,)).fetchone():
+        flash(_("Inpatient case not found."), "error")
+        return redirect(url_for("clinical.inpatient_list"))
     note = request.form.get("note", "").strip()
     if note:
-        db.execute("INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?)",
-                  (case_id, clock.now().isoformat(timespec="seconds"), note, session["user_id"]))
-        auth.log_change(db, "inpatient_updates", str(case_id), "create")
+        update_id = db.execute(
+            "INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?) RETURNING id",
+            (case_id, clock.now(), note, session["user_id"])).fetchone()["id"]
+        # The new row's id, not the case's: the audit log names the record created.
+        auth.log_change(db, "inpatient_updates", str(update_id), "create")
         db.commit()
         flash(_("Update logged."), "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
@@ -2195,11 +2201,18 @@ def inpatient_update_edit(case_id, update_id):
 @auth.permission_required("manage_inpatient")
 def inpatient_contact_add(case_id):
     db = get_db()
+    # A missing case reached the foreign key as a 500 (audit B11).
+    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=?", (case_id,)).fetchone():
+        flash(_("Inpatient case not found."), "error")
+        return redirect(url_for("clinical.inpatient_list"))
     f = request.form
     picked_up = 1 if f.get("picked_up") == "yes" else 0
-    db.execute("INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id, notes) VALUES (?,?,?,?,?)",
-              (case_id, clock.now().isoformat(timespec="seconds"), picked_up, session["user_id"], f.get("notes")))
-    auth.log_change(db, "inpatient_contact_log", str(case_id), "create")
+    contact_id = db.execute(
+        "INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id, notes) "
+        "VALUES (?,?,?,?,?) RETURNING id",
+        (case_id, clock.now(), picked_up, session["user_id"], f.get("notes"))).fetchone()["id"]
+    # The new row's id, not the case's: the audit log names the record created.
+    auth.log_change(db, "inpatient_contact_log", str(contact_id), "create")
     db.commit()
     flash(_("Contact attempt logged."), "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))

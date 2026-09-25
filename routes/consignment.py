@@ -212,9 +212,18 @@ def distributor_detail(dist_id):
 def distributor_bill_new(dist_id):
     db = get_db()
     f = request.form
+    # A distributor can be deleted while its page is open in another tab: the
+    # bill then reached the foreign key as a 500 (audit B11). Locked, so a
+    # delete cannot land between this check and the insert.
+    if not db.execute("SELECT 1 FROM distributors WHERE id=? FOR UPDATE", (dist_id,)).fetchone():
+        flash(_("Distributor not found."), "error")
+        return redirect(url_for("consignment.distributors_list"))
 
     def redisplay():
         ctx = _distributor_detail_context(dist_id)
+        if ctx is None:
+            flash(_("Distributor not found."), "error")
+            return redirect(url_for("consignment.distributors_list"))
         ctx["form"] = f
         ctx["open_new_bill_form"] = True
         return render_template("distributor_detail.html", **ctx)
@@ -275,6 +284,9 @@ def distributor_payment_new(dist_id, bill_id):
 
     def redisplay():
         ctx = _distributor_detail_context(dist_id)
+        if ctx is None:
+            flash(_("Distributor not found."), "error")
+            return redirect(url_for("consignment.distributors_list"))
         ctx["form"] = f
         ctx["payment_form_bill_id"] = bill_id
         return render_template("distributor_detail.html", **ctx)

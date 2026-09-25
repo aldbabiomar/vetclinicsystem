@@ -879,3 +879,13 @@ result under each money setting.
     aborted transaction. Still open, next in line.
 
   **Suite:** IQ **1322 passed, 4 skipped**; JO **1322 passed, 4 skipped**.
+- **2026-09-25 — Audit B11 and B12.**
+  - **B11.** Existence checks on the three POST routes that 500'd on a
+    missing parent, and the two distributor redisplays handle a deleted
+    distributor. The audit's own sweep (every parameterised POST route with
+    an id that cannot exist) is now a test, so a fourth such route cannot be
+    added. The daily-update and contact routes audit the new row's own id.
+  - **B12.** `mark_transaction_failed()` rolls back at once, so an error page
+    after a database error is in the clinic's language, under its name.
+
+  **Suite:** IQ **1328 passed, 4 skipped**; JO **1328 passed, 4 skipped**.

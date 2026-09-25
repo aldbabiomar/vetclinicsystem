@@ -428,8 +428,24 @@ def mark_transaction_failed():
     swallows the exception before it can reach close_db()'s teardown
     argument, so without this, teardown sees exc=None and commits whatever
     the request had already written, half-finished transaction included.
-    See ORPHANED_RECORDS_AUDIT.md F-01."""
+    See ORPHANED_RECORDS_AUDIT.md F-01.
+
+    It also rolls the transaction back now (audit B12). After an error inside
+    Postgres the transaction is aborted, and the error page reads the
+    clinic's language and name from that same connection: every read failed
+    with InFailedSqlTransaction, so an Arabic clinic got an English error
+    page under the default clinic name, and a second traceback was logged for
+    every error. Rolled back, those reads work; teardown still rolls back
+    whatever they touch."""
     g.db_failed = True
+    db = g.get("db")
+    if db is not None:
+        try:
+            db.rollback()
+        except Exception:
+            # A dead connection cannot be rolled back; the error page falls
+            # back to its defaults, as it always did.
+            pass
 
 
 def is_safe_local_path(path):
