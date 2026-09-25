@@ -22,10 +22,10 @@ import re
 
 from flask_babel import gettext as _, lazy_gettext as _l
 from flask import (
-    Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+    Blueprint, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, payment_method_message, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 import clock
 
 bp = Blueprint("clinical", __name__)
@@ -641,7 +641,7 @@ def visit_new_existing():
         try:
             vid = _create_visit(db, patient_id, request.form)
         except (BadDate, BadNumber) as e:
-            flash(str(e) if isinstance(e, BadDate) else "Weight and BCS must be valid numbers.", "error")
+            flash(str(e) if isinstance(e, BadDate) else _("Weight and BCS must be valid numbers."), "error")
             return render_template(
                 "visit_new_existing.html", vets=vet_users(db), wellness_types=WELLNESS_TYPES,
                 grooming_services=GROOMING_SERVICES, form=request.form, selected_patient_id=patient_id,
@@ -947,7 +947,7 @@ def visit_edit(visit_id):
         grooming_services = ",".join(f.getlist("grooming_services")) if grooming_needed == "Y" else None
         new_case_status = f.get("case_status", visit["case_status"])
         if new_case_status not in CASE_STATUSES:
-            flash("Case status must be one of: " + ", ".join(CASE_STATUSES) + ".", "error")
+            flash(_("Case status must be one of: %(choices)s.", choices=list_join(_(c) for c in CASE_STATUSES)), "error")
             return redisplay()
         new_visit_type = f.get("visit_type")
         if new_visit_type not in ("Outpatient", "Inpatient"):
@@ -1063,7 +1063,7 @@ def visit_billing_save(visit_id):
         return redirect(url_for("clinical.visits_list"))
     billing_type = f.get("billing_type", "Automatic")
     if billing_type not in BILLING_TYPES:
-        flash("Billing type must be one of: " + ", ".join(BILLING_TYPES) + ".", "error")
+        flash(_("Billing type must be one of: %(choices)s.", choices=list_join(_(c) for c in BILLING_TYPES)), "error")
         return redisplay()
     priced_lines = []
     had_bad_number = had_bad_price = False
@@ -1431,7 +1431,7 @@ def visit_attachment_upload(visit_id):
         flash(_("No file selected."), "error")
         return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
     _unused, err = attach_mod.save_attachment(db, patient_row["patient_id"], "visit", visit_id, file, session["user_id"])
-    flash(err if err else "File uploaded.", "error" if err else "success")
+    flash(shown(err) if err else _("File uploaded."), "error" if err else "success")
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
 
@@ -2127,7 +2127,7 @@ def inpatient_edit(case_id):
         edited_weight_kg = parse_quantity(f.get("weight_kg"))
         edited_bcs = parse_bcs(f.get("bcs"))
     except (BadDate, BadNumber) as e:
-        flash(str(e) if isinstance(e, BadDate) else "Weight and BCS must be valid numbers.", "error")
+        flash(str(e) if isinstance(e, BadDate) else _("Weight and BCS must be valid numbers."), "error")
         return redisplay()
     if has_negative(edited_weight_kg):
         flash(_("Weight can't be negative."), "error")
@@ -2483,7 +2483,7 @@ def inpatient_attachment_upload(case_id):
         flash(_("No file selected."), "error")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
     _unused, err = attach_mod.save_attachment(db, case["patient_id"], "inpatient", case_id, file, session["user_id"])
-    flash(err if err else "File uploaded.", "error" if err else "success")
+    flash(shown(err) if err else _("File uploaded."), "error" if err else "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
 
 
@@ -2568,11 +2568,11 @@ def appointment_new():
         return redisplay()
     resource_type = f.get("resource_type")
     if resource_type not in RESOURCE_TYPES:
-        flash("Resource type must be one of: " + ", ".join(RESOURCE_TYPES) + ".", "error")
+        flash(_("Resource type must be one of: %(choices)s.", choices=list_join(_(c) for c in RESOURCE_TYPES)), "error")
         return redisplay()
     appointment_type = f.get("appointment_type")
     if appointment_type not in APPOINTMENT_TYPES:
-        flash("Appointment type must be one of: " + ", ".join(APPOINTMENT_TYPES) + ".", "error")
+        flash(_("Appointment type must be one of: %(choices)s.", choices=list_join(_(c) for c in APPOINTMENT_TYPES)), "error")
         return redisplay()
     resource_id = parse_id(f.get("resource_id"))
     if resource_type == "grooming":

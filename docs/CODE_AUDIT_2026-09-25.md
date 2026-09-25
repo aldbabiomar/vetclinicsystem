@@ -65,7 +65,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | **Fixed** — JO's rendering, inherited by the merged tree; now pinned by `test_exports.py` |
 | **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Fixed** — P&L (phase 3) and the consignment credit both reverse the sale line; `sale_item_id` NOT NULL; `test_consignment_restock.py` |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | **Fixed** — a 503 gate that reads no table; `--single-transaction`; `test_restore_gate.py` |
-| **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
+| **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | **Fixed** — every flash, JSON and bulk error through `_()`; background results are `messages.Msg`, translated by `core.flash`/`core.shown`; `test_untranslated_messages.py` |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | **Fixed** — existence checks; the audit's sweep kept as `test_error_pages.py` |
@@ -635,7 +635,7 @@ the lock.
 
 # 2. Bugs — frontend and localization
 
-## F1 — Flash messages that are never translated — **Confirmed by code**
+## F1 — Flash messages that are never translated — **Fixed**
 
 **Severity: Medium · both apps**
 
@@ -663,6 +663,31 @@ be valid numbers."
 does), and have helpers return `(msgid, args)` like `selfcheck` findings.
 Extend `test_localization.py` with the AST scan used here: no `flash()` whose
 first argument is a string literal, f-string or concatenation.
+
+**Fixed (merge).** Three shapes, each held by a scan in
+`tests/test_untranslated_messages.py`:
+
+- **Direct messages.** Every `flash()`/`refuse()`, JSON `{"error": …}` and
+  bulk-editor `errors[key]` is a `_()` call with named placeholders. Counts go
+  through `display_number`, lists through `list_join` (the Arabic "، "), and
+  "must be one of" names its choices translated. The scans also catch
+  f-strings, concatenation, `%`, `.format()` and a ternary with a literal
+  branch.
+- **Helper messages.** `clean_date`'s `BadDate`, `auth.password_error` and
+  the attachment errors are translated where they are made. The attachment
+  errors use `Msg`.
+- **Background messages.** `backup.py`, `updater.py` and `autostart.py` run
+  without a request, so they return `messages.Msg`: a `str` holding the
+  English, which logs and stored rows keep, plus the msgid and arguments.
+  `core.shown()` translates one at display (arguments too, nested `Msg`
+  included). `core.flash()`, which every route now imports instead of
+  `flask.flash`, calls it. The job-status poll applies it to the result and
+  to the live step labels. The rate-limit message is two whole sentences
+  instead of a spliced clause, with its time in the clinic's zone.
+
+109 new Arabic strings are flagged in `ARABIC_REVIEW.md` §15. Mutation-checked:
+a literal flash, `core.flash` passing a `Msg` through untranslated, and the
+job poll without `shown()`.
 
 ## F2 — UI text in static JavaScript is English-only — **Confirmed by code**
 

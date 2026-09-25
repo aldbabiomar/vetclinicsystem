@@ -16,10 +16,10 @@ import logic
 
 from flask_babel import gettext as _
 from flask import (
-    Blueprint, abort, flash, redirect, render_template, request, session, url_for
+    Blueprint, abort, redirect, render_template, request, session, url_for
 )
 
-from core import date_filter_arg, get_db, parse_id
+from core import flash, date_filter_arg, display_number, get_db, parse_id
 import clock
 
 bp = Blueprint("admin", __name__)
@@ -99,9 +99,9 @@ def _warn_orphaned_appointments(db, user_id):
     stranded upcoming appointments. See ORPHANED_RECORDS_AUDIT.md F-17."""
     n = _future_appt_count(db, user_id)
     if n:
-        flash(f"Heads up: {n} upcoming appointment(s) were booked against this person — "
-              f"they won't show on the Appointments grid anymore. Check Appointments for "
-              f'the "need attention" list to reschedule them.', "error")
+        flash(_("Heads up: %(n)s upcoming appointment(s) were booked against this person — "
+                "they won't show on the Appointments grid anymore. Check Appointments for "
+                'the "need attention" list to reschedule them.', n=display_number(n)), "error")
 
 
 @bp.route("/admin/users")
@@ -258,7 +258,7 @@ def admin_role_new():
         flash(_("Give the new role a name."), "error")
         return redirect(url_for("admin.admin_users"))
     if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(?)", (name,)).fetchone():
-        flash(f'A role named "{name}" already exists.', "error")
+        flash(_('A role named "%(name)s" already exists.', name=name), "error")
         return redirect(url_for("admin.admin_users"))
     try:
         cap = int(f.get("discount_cap", "0") or "0")
@@ -283,7 +283,7 @@ def admin_role_new():
     auth.bump_permissions_version(db)
     auth.log_change(db, "roles", role_id, "create", {"name": (None, name)})
     db.commit()
-    flash(f'"{name}" role added.', "success")
+    flash(_('"%(name)s" role added.', name=name), "success")
     if auth.no_vet_role_configured(db):
         flash(_("No role is currently marked \"Can be assigned as a vet\" — Appointments, "
               "New Visit, Grooming, and Inpatient vet pickers will show no options until "
@@ -306,7 +306,7 @@ def admin_role_edit(role_id):
         flash(_("A role needs a name."), "error")
         return redirect(url_for("admin.admin_users"))
     if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(?) AND id<>?", (name, role_id)).fetchone():
-        flash(f'A role named "{name}" already exists.', "error")
+        flash(_('A role named "%(name)s" already exists.', name=name), "error")
         return redirect(url_for("admin.admin_users"))
     try:
         cap = int(f.get("discount_cap", "0") or "0")
@@ -337,7 +337,7 @@ def admin_role_edit(role_id):
     changes = {k: (before[k], after[k]) for k in before if before[k] != after[k]}
     auth.log_change(db, "roles", role_id, "update", changes or None)
     db.commit()
-    flash(f'"{name}" role saved.', "success")
+    flash(_('"%(name)s" role saved.', name=name), "success")
     if auth.no_vet_role_configured(db):
         flash(_("No role is currently marked \"Can be assigned as a vet\" — Appointments, "
               "New Visit, Grooming, and Inpatient vet pickers will show no options until "
@@ -354,9 +354,10 @@ def admin_role_edit(role_id):
         affected = db.execute("SELECT id FROM users WHERE role_id=? AND active=true", (role_id,)).fetchall()
         total = sum(_future_appt_count(db, u["id"]) for u in affected)
         if total:
-            flash(f"Heads up: {total} upcoming appointment(s) across {len(affected)} staff member(s) "
-                  f"on this role won't show on the Appointments grid anymore. Check Appointments for "
-                  f'the "need attention" list to reschedule them.', "error")
+            flash(_("Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) "
+                    "on this role won't show on the Appointments grid anymore. Check Appointments for "
+                    'the "need attention" list to reschedule them.',
+                    total=display_number(total), staff=display_number(len(affected))), "error")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -389,22 +390,24 @@ def admin_role_delete(role_id):
         auth.log_change(db, "roles", role_id, "delete",
                          {"reassigned_to": (None, target["name"]), "staff_moved": (None, len(assigned))})
         db.commit()
-        flash(f'{len(assigned)} staff member(s) moved to {target["name"]} · "{role["name"]}" deleted.', "success")
+        flash(_('%(count)s staff member(s) moved to %(target)s · "%(role)s" deleted.', count=display_number(len(assigned)),
+                target=target["name"], role=role["name"]), "success")
         # Same reasoning as admin_role_edit() above — reassigning every
         # user on a deleted vet-eligible role to a non-vet-eligible target
         # role affects them all at once. See ORPHANED_RECORDS_AUDIT.md F-25.
         if role["is_vet_role"] and not target["is_vet_role"]:
             total = sum(_future_appt_count(db, u["id"]) for u in assigned)
             if total:
-                flash(f"Heads up: {total} upcoming appointment(s) across {len(assigned)} staff member(s) "
-                      f"just moved off a vet-eligible role won't show on the Appointments grid anymore. "
-                      f'Check Appointments for the "need attention" list to reschedule them.', "error")
+                flash(_("Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) "
+                        "just moved off a vet-eligible role won't show on the Appointments grid anymore. "
+                        'Check Appointments for the "need attention" list to reschedule them.',
+                        total=display_number(total), staff=display_number(len(assigned))), "error")
     else:
         db.execute("DELETE FROM roles WHERE id=?", (role_id,))
         auth.bump_permissions_version(db)
         auth.log_change(db, "roles", role_id, "delete", {"name": (role["name"], None)})
         db.commit()
-        flash(f'"{role["name"]}" deleted.', "success")
+        flash(_('"%(name)s" deleted.', name=role["name"]), "success")
     if auth.no_vet_role_configured(db):
         flash(_("No role is currently marked \"Can be assigned as a vet\" — Appointments, "
               "New Visit, Grooming, and Inpatient vet pickers will show no options until "

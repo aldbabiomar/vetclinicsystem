@@ -18,6 +18,8 @@ computer it's running on.
 """
 import os
 import platform
+
+from messages import Msg, N_
 import subprocess
 
 AGENT_LABEL = "com.vetclinicsystem.autostart"
@@ -124,7 +126,7 @@ def _windows_task_create():
     """Create the boot task. Returns (ok, message)."""
     launcher = _windows_launcher_path()
     if not os.path.isfile(launcher):
-        return False, "launcher not found"
+        return False, Msg(N_("launcher not found"))
     # /TR is parsed by schtasks itself, so the path is quoted INSIDE the
     # argument; passing argv as a list only protects it from the shell.
     target = f'"{launcher}"'
@@ -181,7 +183,7 @@ def enable():
         return _macos_enable()
     if system == "Windows":
         return _windows_enable()
-    return False, "Automatic startup isn't supported on this operating system."
+    return False, Msg(N_("Automatic startup isn't supported on this operating system."))
 
 
 def disable():
@@ -190,13 +192,14 @@ def disable():
         return _macos_disable()
     if system == "Windows":
         return _windows_disable()
-    return False, "Automatic startup isn't supported on this operating system."
+    return False, Msg(N_("Automatic startup isn't supported on this operating system."))
 
 
 def _macos_enable():
     launcher = _macos_launcher_path()
     if not os.path.isfile(launcher):
-        return False, f"Could not find “Start VetClinicSystem.command” at {launcher} — can't set up automatic startup."
+        return False, Msg(N_("Could not find “Start VetClinicSystem.command” at %(path)s — can't set up automatic startup."),
+                          path=launcher)
     plist_path = _macos_plist_path()
     log_dir = os.path.join(BASE_DIR, "logs")
     os.makedirs(log_dir, exist_ok=True)
@@ -230,29 +233,30 @@ def _macos_enable():
         result = subprocess.run(["launchctl", "load", plist_path], capture_output=True, text=True)
         if result.returncode != 0:
             os.remove(plist_path)
-            return False, f"Could not register automatic startup: {result.stderr.strip() or 'launchctl failed.'}"
-        return True, "VetClinicSystem will now start automatically when you log in."
+            return False, Msg(N_("Could not register automatic startup: %(error)s"),
+                              error=result.stderr.strip() or "launchctl failed.")
+        return True, Msg(N_("VetClinicSystem will now start automatically when you log in."))
     except OSError as e:
-        return False, f"Could not set up automatic startup: {e}"
+        return False, Msg(N_("Could not set up automatic startup: %(error)s"), error=str(e))
 
 
 def _macos_disable():
     plist_path = _macos_plist_path()
     if not os.path.isfile(plist_path):
-        return True, "Automatic startup is already off."
+        return True, Msg(N_("Automatic startup is already off."))
     subprocess.run(["launchctl", "unload", plist_path], capture_output=True, text=True)
     try:
         os.remove(plist_path)
     except OSError as e:
-        return False, f"Could not remove automatic startup: {e}"
-    return True, "Automatic startup turned off."
+        return False, Msg(N_("Could not remove automatic startup: %(error)s"), error=str(e))
+    return True, Msg(N_("Automatic startup turned off."))
 
 
 def _windows_startup_folder_enable(launcher):
     """The fallback: runs at user logon. Returns (ok, message)."""
     shortcut_path = _windows_shortcut_path()
     if not shortcut_path:
-        return False, "Could not find this account's Startup folder (%APPDATA% isn't set)."
+        return False, Msg(N_("Could not find this account's Startup folder (the APPDATA setting is missing)."))
     try:
         os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
         # A tiny .bat that calls the real launcher is simpler and more
@@ -263,7 +267,7 @@ def _windows_startup_folder_enable(launcher):
             f.write(f'@echo off\r\ncall "{launcher}"\r\n')
         return True, ""
     except OSError as e:
-        return False, f"Could not set up automatic startup: {e}"
+        return False, Msg(N_("Could not set up automatic startup: %(error)s"), error=str(e))
 
 
 def _windows_startup_folder_remove():
@@ -287,7 +291,8 @@ def _windows_enable():
     """
     launcher = _windows_launcher_path()
     if not os.path.isfile(launcher):
-        return False, f"Could not find “Start VetClinicSystem.bat” at {launcher} — can't set up automatic startup."
+        return False, Msg(N_("Could not find “Start VetClinicSystem.bat” at %(path)s — can't set up automatic startup."),
+                          path=launcher)
 
     task_ok, task_out = _windows_task_create()
 
@@ -300,21 +305,21 @@ def _windows_enable():
         # session, console window and browser tab included. Remove any entry
         # left by an earlier non-elevated enable.
         _windows_startup_folder_remove()
-        return True, ("VetClinicSystem will now start automatically when this "
-                      "computer starts up, even before anyone signs in.")
+        return True, Msg(N_("VetClinicSystem will now start automatically when this "
+                            "computer starts up, even before anyone signs in."))
 
     folder_ok, folder_err = _windows_startup_folder_enable(launcher)
     if folder_ok:
         # Say plainly what was and was not achieved. Reporting plain success
         # here would leave someone believing the clinic is covered overnight
         # when it is only covered from the first sign-in.
-        return True, ("VetClinicSystem will now start automatically when you sign in. "
-                      "It could not be set to start at boot as well, which needs "
-                      "Administrator — so if this computer restarts overnight, the app "
-                      "won't run (and no backup will be taken) until someone signs in. "
-                      "To fix that, run this app as an administrator once and turn this "
-                      "setting on again.")
-    return False, folder_err or f"Could not set up automatic startup. {task_out}".strip()
+        return True, Msg(N_("VetClinicSystem will now start automatically when you sign in. "
+                            "It could not be set to start at boot as well, which needs "
+                            "Administrator — so if this computer restarts overnight, the app "
+                            "won't run (and no backup will be taken) until someone signs in. "
+                            "To fix that, run this app as an administrator once and turn this "
+                            "setting on again."))
+    return False, folder_err or Msg(N_("Could not set up automatic startup: %(error)s"), error=task_out or "schtasks failed.")
 
 
 def _windows_disable():
@@ -334,8 +339,8 @@ def _windows_disable():
             folder_err = str(e)
 
     if task_removed and folder_removed:
-        return True, "Automatic startup turned off."
+        return True, Msg(N_("Automatic startup turned off."))
     if not task_removed:
-        return False, ("Could not remove the startup task — it may need Administrator. "
-                       f"{task_out}").strip()
-    return False, f"Could not remove automatic startup: {folder_err}"
+        return False, Msg(N_("Could not remove the startup task — it may need Administrator. %(error)s"),
+                          error=task_out)
+    return False, Msg(N_("Could not remove automatic startup: %(error)s"), error=folder_err)

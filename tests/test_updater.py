@@ -54,7 +54,8 @@ def test_a_rate_limit_says_so_and_does_not_blame_the_connection():
     assert "offline" not in msg.lower(), (
         "the whole point of this function: a rate limit must not be reported "
         "as being offline")
-    assert datetime.fromtimestamp(reset).strftime("%H:%M") in msg, (
+    # In the clinic's time zone, like every time the app shows.
+    assert datetime.fromtimestamp(reset, tz=clock.zone()).strftime("%H:%M") in msg, (
         "the admin needs to know WHEN to try again, not just that they cannot now")
 
 

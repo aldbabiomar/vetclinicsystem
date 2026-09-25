@@ -21,6 +21,7 @@ from datetime import datetime
 
 import logic
 import clock
+from messages import Msg, N_
 
 FILENAME_PREFIX = "vetclinicsystem_backup_"
 FILENAME_SUFFIX = ".dump"
@@ -199,13 +200,14 @@ def resolve_restorable_backup(db, source_file):
     Returns (ok: bool, resolved_path: str|None, message: str|None).
     """
     if not source_file:
-        return False, None, "Choose a backup file to restore from."
+        return False, None, Msg(N_("Choose a backup file to restore from."))
     if not source_file.endswith(FILENAME_SUFFIX):
-        return False, None, f"That doesn't look like a VetClinicSystem backup file (expected a {FILENAME_SUFFIX} file)."
+        return False, None, Msg(N_("That doesn't look like a VetClinicSystem backup file (expected a %(suffix)s file)."),
+                                suffix=FILENAME_SUFFIX)
 
     backup_dir = logic.get_setting(db, "backup_dir")
     if not backup_dir:
-        return False, None, "No backup folder is configured yet — set one on the Settings page."
+        return False, None, Msg(N_("No backup folder is configured yet — set one on the Settings page."))
 
     backup_dir_real = os.path.realpath(backup_dir)
     source_real = os.path.realpath(source_file)
@@ -216,10 +218,10 @@ def resolve_restorable_backup(db, source_file):
         # (e.g. different drive letters on Windows) — definitely outside.
         inside = False
     if not inside:
-        return False, None, "That file isn't inside the configured backup folder."
+        return False, None, Msg(N_("That file isn't inside the configured backup folder."))
 
     if not os.path.isfile(source_file):
-        return False, None, "Choose a valid backup file to restore from."
+        return False, None, Msg(N_("Choose a valid backup file to restore from."))
 
     # Matched against the exact string as submitted (not the realpath'd
     # form above) — that's what run_backup()/_log() actually wrote into
@@ -230,10 +232,9 @@ def resolve_restorable_backup(db, source_file):
         (source_file,),
     ).fetchone()
     if not row:
-        return False, None, (
+        return False, None, Msg(N_(
             "That file isn't in this app's own backup history — restore is only allowed for "
-            "backups VetClinicSystem itself created (see Recent Backups on the Settings page)."
-        )
+            "backups VetClinicSystem itself created (see Recent Backups on the Settings page)."))
     return True, source_file, None
 
 
@@ -341,7 +342,7 @@ def run_restore(get_fresh_db, dump_path, triggered_by=None, on_progress=None):
     str) immediately, without touching anything, if another backup/
     restore/update is already in progress."""
     if not maintenance_lock.acquire(blocking=False):
-        return False, "Another backup, restore, or update is already running — try again once it finishes."
+        return False, Msg(N_("Another backup, restore, or update is already running — try again once it finishes."))
     restore_in_progress.set()
     try:
         return _run_restore_locked(get_fresh_db, dump_path, triggered_by, on_progress)
@@ -378,15 +379,16 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
 
     step(0)  # Checking backup file
     if not dump_path or not os.path.isfile(dump_path):
-        return False, "Choose a valid backup file to restore from."
+        return False, Msg(N_("Choose a valid backup file to restore from."))
     if not dump_path.endswith(FILENAME_SUFFIX):
-        return False, f"That doesn't look like a VetClinicSystem backup file (expected a {FILENAME_SUFFIX} file)."
+        return False, Msg(N_("That doesn't look like a VetClinicSystem backup file (expected a %(suffix)s file)."),
+                          suffix=FILENAME_SUFFIX)
 
     started = clock.now()
     step(1, "Restoring database")
 
     def on_count(done, total):
-        step(1, f"Restoring database ({done}/{total} objects)")
+        step(1, Msg(N_("Restoring database (%(done)s/%(total)s objects)"), done=done, total=total))
 
     _write_restore_marker("in_progress", dump_path, started)
     try:
@@ -398,12 +400,12 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
         # --single-transaction (audit S3): all of the restore, or none of it.
         # It used to be able to stop half way, leaving a mix of old and
         # restored tables.
-        return False, (f"Restore failed: {err} — nothing was changed; the database is as it was "
-                        f"before the restore started.")
+        return False, Msg(N_("Restore failed: %(error)s — nothing was changed; the database is as it was "
+                             "before the restore started."), error=err)
     except Exception as e:
         _write_restore_marker("failed", dump_path, started)
         _try_log_restore(get_fresh_db, "failed", dump_path, str(e), started, triggered_by)
-        return False, f"Restore failed: {e}"
+        return False, Msg(N_("Restore failed: %(error)s"), error=str(e))
     # The data itself is restored (and IDs rewound) at this point,
     # regardless of whether the schema-reconcile step below succeeds —
     # marked here, not at the very end, since this is the actual moment
@@ -428,16 +430,16 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
         finally:
             con.close()
     except Exception as e:
-        err = (f"Restore succeeded, but bringing the restored database up to this app version's "
-                f"schema failed: {e}. The data is restored, but some newer features may not work "
-                f"until this is resolved.")
+        err = Msg(N_("Restore succeeded, but bringing the restored database up to this app version's "
+                     "schema failed: %(error)s. The data is restored, but some newer features may not work "
+                     "until this is resolved."), error=str(e))
         _try_log_restore(get_fresh_db, "failed", dump_path, err, started, triggered_by)
         return False, err
 
     step(3)  # Recording result
     _try_log_restore(get_fresh_db, "success", dump_path, None, started, triggered_by)
     step(4)  # Done
-    return True, f"Restored from {dump_path}"
+    return True, Msg(N_("Restored from %(path)s"), path=dump_path)
 
 
 def _try_log_restore(get_fresh_db, status, dump_path, error, started, triggered_by):
@@ -470,7 +472,7 @@ def run_backup(db, dest_dir=None, retention=None, triggered_by=None, on_progress
     immediately, without touching anything, if another backup/restore/
     update is already running."""
     if not maintenance_lock.acquire(blocking=False):
-        msg = "Another backup, restore, or update is already running — try again once it finishes."
+        msg = Msg(N_("Another backup, restore, or update is already running — try again once it finishes."))
         _log(db, "failed", None, None, msg, triggered_by=triggered_by)
         return False, msg
     try:
@@ -522,7 +524,7 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
         # nightly job with no folder set would otherwise fill Recent Backups
         # with failures and bury real ones. The Dashboard already reports this
         # state on its own via logic.backup_alert_message().
-        msg = "No backup folder configured yet — set one on the Settings page."
+        msg = Msg(N_("No backup folder configured yet — set one on the Settings page."))
         return False, msg
 
     retention = retention or int(logic.get_setting(db, "backup_retention", "30") or 30)
@@ -537,11 +539,11 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
     # is the copy that matters, because the backup runs first and would
     # otherwise recreate the folder before the check ever looks.)
     if not os.path.isdir(dest_dir) and backups_written_here(db, dest_dir):
-        msg = ("The backup folder is gone. Backups were being written there, "
-               "so this looks like a drive or synced folder that is no longer "
-               "connected — reconnect it, or set a new folder on the Settings "
-               "page. Nothing was written, deliberately: a backup saved "
-               "somewhere unexpected is worse than one that failed loudly.")
+        msg = Msg(N_("The backup folder is gone. Backups were being written there, "
+                     "so this looks like a drive or synced folder that is no longer "
+                     "connected — reconnect it, or set a new folder on the Settings "
+                     "page. Nothing was written, deliberately: a backup saved "
+                     "somewhere unexpected is worse than one that failed loudly."))
         _log(db, "failed", None, None, msg, triggered_by=triggered_by)
         return False, msg
 
@@ -553,7 +555,7 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
             f.write("ok")
         os.remove(probe)
     except OSError as e:
-        msg = f"Backup folder isn't writable: {e}"
+        msg = Msg(N_("Backup folder isn't writable: %(error)s"), error=str(e))
         _log(db, "failed", None, None, msg, triggered_by=triggered_by)
         return False, msg
 
@@ -571,14 +573,14 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
         step(2)  # Applying retention policy
         _apply_retention(dest_dir, retention)
         step(3)  # Done
-        return True, f"Backup saved to {out_path}"
+        return True, Msg(N_("Backup saved to %(path)s"), path=out_path)
     except subprocess.CalledProcessError as e:
         err = (e.stderr or "").strip() or str(e)
         _finish_log(db, log_id, "failed", out_path, None, err)
-        return False, f"Backup failed: {err}"
+        return False, Msg(N_("Backup failed: %(error)s"), error=err)
     except Exception as e:
         _finish_log(db, log_id, "failed", out_path, None, str(e))
-        return False, f"Backup failed: {e}"
+        return False, Msg(N_("Backup failed: %(error)s"), error=str(e))
 
 
 def _apply_retention(dest_dir, retention):

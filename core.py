@@ -20,11 +20,12 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from flask_babel import lazy_gettext as _l, gettext as _
-from flask import flash, g, render_template, request, url_for
+from flask import flash as _flask_flash, g, render_template, request, url_for
 
 import db as dbmod
 import jobs
 import logic
+import messages
 import money
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -233,7 +234,9 @@ def clean_date(v, field="date"):
     try:
         d = strict_date(v)
     except ValueError:
-        raise BadDate(f"{field.replace('_', ' ').title()} must be a valid date (YYYY-MM-DD).")
+        # The field's label, translated where the catalogue has it ("Entry
+        # Date", "Dismissal Date", ...), in a translated sentence (audit F1).
+        raise BadDate(_("%(field)s must be a valid date (YYYY-MM-DD).", field=_(field.replace("_", " ").title())))
     return d.isoformat() if d else None
 
 
@@ -608,6 +611,38 @@ def date_filter_arg(name="date", message=None):
 
 
 MAX_QUANTITY = Decimal("9999999.999")  # widest value any NUMERIC(10,3) column can hold
+
+
+def flash(message, category="message"):
+    """flask.flash, with a messages.Msg put into the clinic's language first
+    (audit F1). A flashed message is stored in the session as plain text, so
+    a Msg -- from a backup, a restore, an upload -- has to be translated on
+    the way in, or it shows in English. Every route imports flash from here;
+    tests/test_untranslated_messages.py holds them to it."""
+    _flask_flash(shown(message), category)
+
+
+def list_join(items):
+    """Names joined for a sentence, with the comma of the clinic's language
+    ("، " in Arabic)."""
+    from flask_babel import get_locale
+    try:
+        sep = "، " if str(get_locale()) == "ar" else ", "
+    except RuntimeError:
+        sep = ", "
+    return sep.join(str(i) for i in items)
+
+
+def shown(message):
+    """A message for the page, in the clinic's language (audit F1). A
+    messages.Msg -- made by code that has no request, or is shown later -- is
+    translated now; anything else is shown as it is."""
+    if isinstance(message, messages.Msg):
+        args = {k: shown(v) if isinstance(v, messages.Msg)
+                else display_number(v) if isinstance(v, (int, Decimal)) and not isinstance(v, bool) else v
+                for k, v in message.args.items()}
+        return _(message.msgid, **args)
+    return message
 
 
 def display_date(d):

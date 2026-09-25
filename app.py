@@ -28,8 +28,7 @@ else:
     load_dotenv()
 
 from flask import (
-    Flask, render_template, request, redirect, url_for, flash, g, jsonify,
-    session, send_from_directory, send_file, abort
+    Flask, render_template, request, redirect, url_for, g, jsonify, session, send_from_directory, send_file, abort
 )
 from flask.json.provider import DefaultJSONProvider
 from flask_babel import Babel, get_locale, gettext as _, format_date
@@ -52,6 +51,7 @@ import backup
 # live in core.py so the route blueprints under routes/ can reach them
 # without importing this module, which registers them (see core.py).
 from core import (
+    flash,
     BASE_DIR,
     DB_REQUEST_TIMEOUT_SECONDS,
     VERSION,
@@ -92,6 +92,7 @@ from core import (
     required_field,
     strict_month,
     display_date,
+    shown,
 )
 # Read by heartbeat.py for the payload's uptime figure. Set here rather than in
 # heartbeat itself because that module is imported lazily inside a scheduler
@@ -672,7 +673,7 @@ def jobs_status():
         return jsonify({"status": "not_found"}), 404
     payload = {
         "status": state["status"],
-        "steps": state["steps"],
+        "steps": [shown(step) for step in state["steps"]],
         "current": state["current"],
         "fraction": state.get("fraction"),
         "started_at": state["started_at"],
@@ -1020,7 +1021,7 @@ def handle_pool_timeout(e):
     page, it 500s everything at once. See ERROR_500_AUDIT.md E-03."""
     error_logger.error(f"DB pool exhausted on {request.method} {request.path}")
     if request.accept_mimetypes.best == "application/json" or request.path.startswith("/api/"):
-        return jsonify({"error": "The system is busy right now — try again in a moment."}), 503
+        return jsonify({"error": _("The system is busy right now — try again in a moment.")}), 503
     return render_template("error_busy.html"), 503
 
 

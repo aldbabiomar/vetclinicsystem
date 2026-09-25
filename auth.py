@@ -126,12 +126,12 @@ def password_error(password, username=None):
     not-one-of-the-obvious-ones is the proportionate set.
     """
     if len(password or "") < MIN_PASSWORD_LENGTH:
-        return f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
+        return _("Password must be at least %(n)s characters.", n=MIN_PASSWORD_LENGTH)
     lowered = password.lower()
     if lowered in COMMON_PASSWORDS:
-        return "That password is one of the most commonly guessed ones — please choose another."
+        return _("That password is one of the most commonly guessed ones — please choose another.")
     if username and len(username) >= 3 and username.lower() in lowered:
-        return "Password can't contain the username."
+        return _("Password can't contain the username.")
     return None
 
 

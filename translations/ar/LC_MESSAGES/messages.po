@@ -7114,3 +7114,439 @@ msgstr "لا يمكن أن يكون تاريخ الاسترداد قبل %(date)
 #: templates/audit_session_view.html
 msgid "Includes %(qty)s from Consignment Receiving"
 msgstr "يشمل %(qty)s من استلام الأمانة"
+
+#: audit F1
+msgid "\"%(name)s\" deleted."
+msgstr "تم حذف \"%(name)s\"."
+
+#: audit F1
+msgid "\"%(name)s\" role added."
+msgstr "تمت إضافة الدور \"%(name)s\"."
+
+#: audit F1
+msgid "\"%(name)s\" role saved."
+msgstr "تم حفظ الدور \"%(name)s\"."
+
+#: audit F1
+msgid "%(count)s staff member(s) moved to %(target)s · \"%(role)s\" deleted."
+msgstr "نُقل %(count)s موظف إلى %(target)s · وحُذف الدور \"%(role)s\"."
+
+#: audit F1
+msgid "%(field)s must be a valid date (YYYY-MM-DD)."
+msgstr "يجب أن يكون %(field)s تاريخًا صالحًا (YYYY-MM-DD)."
+
+#: audit F1
+msgid "%(tag)s failed its health check and was never switched to: %(reason)s"
+msgstr "فشل %(tag)s في فحص السلامة ولم يُحوَّل إليه: %(reason)s"
+
+#: audit F1
+msgid "%(tag)s failed to install or boot: %(error)s"
+msgstr "تعذّر تثبيت %(tag)s أو تشغيله: %(error)s"
+
+#: audit F1
+msgid "%(tag)s's database changes failed to apply: %(error)s"
+msgstr "تعذّر تطبيق تغييرات قاعدة البيانات الخاصة بـ %(tag)s: %(error)s"
+
+#: audit F1
+msgid "A backup, restore, or another update is already running — try again once it finishes."
+msgstr "هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد انتهائه."
+
+#: audit F1
+msgid "A barcode already exists for this item."
+msgstr "يوجد باركود لهذا الصنف بالفعل."
+
+#: audit F1
+msgid "A role named \"%(name)s\" already exists."
+msgstr "يوجد دور باسم \"%(name)s\" بالفعل."
+
+#: audit F1
+msgid "Already on the latest version."
+msgstr "أنت على أحدث إصدار بالفعل."
+
+#: audit F1
+msgid "Another backup, restore, or update is already running — try again once it finishes."
+msgstr "هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد انتهائه."
+
+#: audit F1
+msgid "Appointment type must be one of: %(choices)s."
+msgstr "يجب أن يكون نوع الموعد أحد التالي: %(choices)s."
+
+#: audit F1
+msgid "Automatic startup is already off."
+msgstr "التشغيل التلقائي متوقف بالفعل."
+
+#: audit F1
+msgid "Automatic startup isn't supported on this operating system."
+msgstr "التشغيل التلقائي غير مدعوم على نظام التشغيل هذا."
+
+#: audit F1
+msgid "Automatic startup turned off."
+msgstr "تم إيقاف التشغيل التلقائي."
+
+#: audit F1
+msgid "Backup failed — update aborted, nothing was changed."
+msgstr "فشل النسخ الاحتياطي — أُلغي التحديث ولم يتغير شيء."
+
+#: audit F1
+msgid "Backup failed: %(error)s"
+msgstr "فشل النسخ الاحتياطي: %(error)s"
+
+#: audit F1
+msgid "Backup folder isn't writable: %(error)s"
+msgstr "لا يمكن الكتابة في مجلد النسخ الاحتياطي: %(error)s"
+
+#: audit F1
+msgid "Backup saved to %(path)s"
+msgstr "حُفظت النسخة الاحتياطية في %(path)s"
+
+#: audit F1
+msgid "Billing type must be one of: %(choices)s."
+msgstr "يجب أن يكون نوع الفوترة أحد التالي: %(choices)s."
+
+#: audit F1
+msgid "Can't delete this distributor — it still has %(linked)s linked to it. Remove or reassign those first."
+msgstr "لا يمكن حذف هذا المورد — ما زالت مرتبطة به %(linked)s. أزِلها أو انقلها أولًا."
+
+#: audit F1
+msgid "Can’t open that folder: %(error)s"
+msgstr "تعذّر فتح هذا المجلد: %(error)s"
+
+#: audit F1
+msgid "Case status must be one of: %(choices)s."
+msgstr "يجب أن تكون حالة الزيارة أحد التالي: %(choices)s."
+
+#: audit F1
+msgid "Category must be one of: %(choices)s."
+msgstr "يجب أن تكون الفئة أحد التالي: %(choices)s."
+
+#: audit F1
+msgid "Choose a backup file to restore from."
+msgstr "اختر ملف نسخة احتياطية للاستعادة منه."
+
+#: audit F1
+msgid "Choose a valid backup file to restore from."
+msgstr "اختر ملف نسخة احتياطية صالحًا للاستعادة منه."
+
+#: audit F1
+msgid "Cost Price is required and must be a valid number to flag an item as Consignment."
+msgstr "سعر التكلفة مطلوب ويجب أن يكون رقمًا صالحًا لتحديد الصنف كأمانة."
+
+#: audit F1
+msgid "Could not find this account's Startup folder (the APPDATA setting is missing)."
+msgstr "تعذّر العثور على مجلد بدء التشغيل لهذا الحساب (إعداد APPDATA مفقود)."
+
+#: audit F1
+msgid "Could not find “Start VetClinicSystem.bat” at %(path)s — can't set up automatic startup."
+msgstr "تعذّر العثور على “Start VetClinicSystem.bat” في %(path)s — لا يمكن إعداد التشغيل التلقائي."
+
+#: audit F1
+msgid "Could not find “Start VetClinicSystem.command” at %(path)s — can't set up automatic startup."
+msgstr "تعذّر العثور على “Start VetClinicSystem.command” في %(path)s — لا يمكن إعداد التشغيل التلقائي."
+
+#: audit F1
+msgid "Could not register automatic startup: %(error)s"
+msgstr "تعذّر تسجيل التشغيل التلقائي: %(error)s"
+
+#: audit F1
+msgid "Could not remove automatic startup: %(error)s"
+msgstr "تعذّر إلغاء التشغيل التلقائي: %(error)s"
+
+#: audit F1
+msgid "Could not remove the startup task — it may need Administrator. %(error)s"
+msgstr "تعذّر حذف مهمة بدء التشغيل — قد يتطلب ذلك صلاحيات المسؤول (Administrator). %(error)s"
+
+#: audit F1
+msgid "Could not set up automatic startup: %(error)s"
+msgstr "تعذّر إعداد التشغيل التلقائي: %(error)s"
+
+#: audit F1
+msgid "Couldn't check for updates — GitHub could not be reached."
+msgstr "تعذّر التحقق من التحديثات — تعذّر الوصول إلى GitHub."
+
+#: audit F1
+msgid "Couldn't download %(tag)s — update aborted, nothing was changed."
+msgstr "تعذّر تنزيل %(tag)s — أُلغي التحديث ولم يتغير شيء."
+
+#: audit F1
+msgid "Couldn't reach GitHub — this computer appears to be offline."
+msgstr "تعذّر الوصول إلى GitHub — يبدو أن هذا الجهاز غير متصل بالإنترنت."
+
+#: audit F1
+msgid "Couldn't remove the file from disk (%(error)s) — the attachment was not deleted."
+msgstr "تعذّر حذف الملف من القرص (%(error)s) — لم يُحذف المرفق."
+
+#: audit F1
+msgid "Couldn't save the file to disk: %(error)s"
+msgstr "تعذّر حفظ الملف على القرص: %(error)s"
+
+#: audit F1
+msgid "Couldn’t create that folder: %(error)s"
+msgstr "تعذّر إنشاء هذا المجلد: %(error)s"
+
+#: audit F1
+msgid "Downloaded release failed validation: %(reason)s"
+msgstr "فشل الإصدار الذي تم تنزيله في التحقق: %(reason)s"
+
+#: audit F1
+msgid "Downloaded release has no VERSION file."
+msgstr "الإصدار الذي تم تنزيله لا يحتوي على ملف VERSION."
+
+#: audit F1
+msgid "Downloaded release is missing %(file)s."
+msgstr "الإصدار الذي تم تنزيله ينقصه %(file)s."
+
+#: audit F1
+msgid "Enter a barcode."
+msgstr "أدخل باركودًا."
+
+#: audit F1
+msgid "Enter a plain folder name (no slashes)."
+msgstr "أدخل اسم مجلد بسيطًا (دون شرطات مائلة)."
+
+#: audit F1
+msgid "File uploaded."
+msgstr "تم رفع الملف."
+
+#: audit F1
+msgid "GitHub has no published release to compare against, or the configured repository name is wrong."
+msgstr "لا يوجد على GitHub إصدار منشور للمقارنة به، أو أن اسم المستودع المُعَدّ غير صحيح."
+
+#: audit F1
+msgid "GitHub rejected the access token for this install — it may have expired or been revoked."
+msgstr "رفض GitHub رمز الوصول الخاص بهذا التثبيت — ربما انتهت صلاحيته أو أُلغي."
+
+#: audit F1
+msgid "GitHub returned an error (HTTP %(status)s) when asked for the latest release."
+msgstr "أعاد GitHub خطأ (HTTP %(status)s) عند طلب أحدث إصدار."
+
+#: audit F1
+msgid "GitHub's hourly limit for this network has been reached — try again after %(time)s. Nothing is wrong with this computer or the internet connection."
+msgstr "بلغت هذه الشبكة الحد الأقصى لطلبات GitHub في الساعة — حاول مرة أخرى بعد %(time)s. لا توجد مشكلة في هذا الجهاز أو في الاتصال بالإنترنت."
+
+#: audit F1
+msgid "GitHub's hourly limit for this network has been reached. Nothing is wrong with this computer or the internet connection."
+msgstr "بلغت هذه الشبكة الحد الأقصى لطلبات GitHub في الساعة. لا توجد مشكلة في هذا الجهاز أو في الاتصال بالإنترنت."
+
+#: audit F1
+msgid "Heads up: %(n)s upcoming appointment(s) were booked against this person — they won't show on the Appointments grid anymore. Check Appointments for the \"need attention\" list to reschedule them."
+msgstr "تنبيه: %(n)s موعد قادم محجوز باسم هذا الشخص — لن يظهر في جدول المواعيد بعد الآن. راجع قائمة \"بحاجة إلى انتباه\" في المواعيد لإعادة جدولتها."
+
+#: audit F1
+msgid "Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) just moved off a vet-eligible role won't show on the Appointments grid anymore. Check Appointments for the \"need attention\" list to reschedule them."
+msgstr "تنبيه: %(total)s موعد قادم لدى %(staff)s موظف نُقلوا للتو من دور مؤهل للطبيب البيطري لن تظهر في جدول المواعيد بعد الآن. راجع قائمة \"بحاجة إلى انتباه\" في المواعيد لإعادة جدولتها."
+
+#: audit F1
+msgid "Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) on this role won't show on the Appointments grid anymore. Check Appointments for the \"need attention\" list to reschedule them."
+msgstr "تنبيه: %(total)s موعد قادم لدى %(staff)s موظف في هذا الدور لن تظهر في جدول المواعيد بعد الآن. راجع قائمة \"بحاجة إلى انتباه\" في المواعيد لإعادة جدولتها."
+
+#: audit F1
+msgid "Heads up: changing the scheduling hours/slot length just made %(n)s upcoming appointment(s) stop matching a slot on the grid. They're still booked — check Appointments for the \"need attention\" list to reschedule them."
+msgstr "تنبيه: تغيير ساعات العمل أو مدة الموعد جعل %(n)s موعد قادم لا يطابق أي فترة في الجدول. ما زالت محجوزة — راجع قائمة \"بحاجة إلى انتباه\" في المواعيد لإعادة جدولتها."
+
+#: audit F1
+msgid "Item deactivated."
+msgstr "تم إلغاء تفعيل الصنف."
+
+#: audit F1
+msgid "Item reactivated."
+msgstr "تمت إعادة تفعيل الصنف."
+
+#: audit F1
+msgid "Name is required."
+msgstr "الاسم مطلوب."
+
+#: audit F1
+msgid "No backup folder configured yet — set one above, then Save Settings, before backing up."
+msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا أعلاه ثم احفظ الإعدادات قبل النسخ الاحتياطي."
+
+#: audit F1
+msgid "No backup folder configured yet — set one on the Settings page."
+msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا من صفحة الإعدادات."
+
+#: audit F1
+msgid "No backup folder is configured yet — set one on the Settings page."
+msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا من صفحة الإعدادات."
+
+#: audit F1
+msgid "No previous release available to roll back to."
+msgstr "لا يوجد إصدار سابق متاح للرجوع إليه."
+
+#: audit F1
+msgid "No sale with that ID."
+msgstr "لا توجد عملية بيع بهذا الرقم."
+
+#: audit F1
+msgid "Only PDF and JPG/JPEG files are allowed."
+msgstr "يُسمح فقط بملفات PDF وJPG/JPEG."
+
+#: audit F1
+msgid "Only letters, numbers, spaces, and . - _ are allowed."
+msgstr "يُسمح فقط بالأحرف والأرقام والمسافات و . - _"
+
+#: audit F1
+msgid "Password can't contain the username."
+msgstr "لا يمكن أن تحتوي كلمة المرور على اسم المستخدم."
+
+#: audit F1
+msgid "Password must be at least %(n)s characters."
+msgstr "يجب ألا تقل كلمة المرور عن %(n)s حرفًا."
+
+#: audit F1
+msgid "Pick a distributor to flag this item as Consignment."
+msgstr "اختر موردًا لتحديد هذا الصنف كأمانة."
+
+#: audit F1
+msgid "Resource type must be one of: %(choices)s."
+msgstr "يجب أن يكون نوع المورد المحجوز أحد التالي: %(choices)s."
+
+#: audit F1
+msgid "Restore failed: %(error)s"
+msgstr "فشلت الاستعادة: %(error)s"
+
+#: audit F1
+msgid "Restore failed: %(error)s — nothing was changed; the database is as it was before the restore started."
+msgstr "فشلت الاستعادة: %(error)s — لم يتغير شيء؛ قاعدة البيانات كما كانت قبل بدء الاستعادة."
+
+#: audit F1
+msgid "Restore succeeded, but bringing the restored database up to this app version's schema failed: %(error)s. The data is restored, but some newer features may not work until this is resolved."
+msgstr "نجحت الاستعادة، لكن تعذّر تحديث بنية قاعدة البيانات المستعادة لتوافق هذا الإصدار: %(error)s. البيانات مستعادة، لكن قد لا تعمل بعض الميزات الأحدث حتى تُحل هذه المشكلة."
+
+#: audit F1
+msgid "Restored from %(path)s"
+msgstr "تمت الاستعادة من %(path)s"
+
+#: audit F1
+msgid "Restoring database (%(done)s/%(total)s objects)"
+msgstr "جارٍ استعادة قاعدة البيانات (%(done)s/%(total)s عنصر)"
+
+#: audit F1
+msgid "Rolling back to %(tag)s. This page will reconnect in a few seconds."
+msgstr "جارٍ الرجوع إلى %(tag)s. ستُعاد هذه الصفحة الاتصال خلال ثوانٍ."
+
+#: audit F1
+msgid "That barcode is already used by \"%(name)s\"."
+msgstr "هذا الباركود مستخدم بالفعل للصنف \"%(name)s\"."
+
+#: audit F1
+msgid "That barcode was just claimed by another item — try again."
+msgstr "استُخدم هذا الباركود للتو لصنف آخر — حاول مرة أخرى."
+
+#: audit F1
+msgid "That code was just claimed by another item — try again."
+msgstr "استُخدم هذا الرمز للتو لصنف آخر — حاول مرة أخرى."
+
+#: audit F1
+msgid "That doesn't look like a VetClinicSystem backup file (expected a %(suffix)s file)."
+msgstr "لا يبدو هذا ملف نسخة احتياطية من VetClinicSystem (المتوقع ملف %(suffix)s)."
+
+#: audit F1
+msgid "That file isn't in this app's own backup history — restore is only allowed for backups VetClinicSystem itself created (see Recent Backups on the Settings page)."
+msgstr "هذا الملف ليس ضمن سجل النسخ الاحتياطية لهذا التطبيق — لا يُسمح بالاستعادة إلا من نسخ أنشأها VetClinicSystem نفسه (انظر النسخ الاحتياطية الأخيرة في صفحة الإعدادات)."
+
+#: audit F1
+msgid "That file isn't inside the configured backup folder."
+msgstr "هذا الملف ليس داخل مجلد النسخ الاحتياطي المُعَدّ."
+
+#: audit F1
+msgid "That folder is outside the areas this app can browse (%(where)s)."
+msgstr "هذا المجلد خارج المواقع التي يمكن لهذا التطبيق تصفحها (%(where)s)."
+
+#: audit F1
+msgid "That inventory item is already linked to %(row)s — an item can only be linked from one active row at a time."
+msgstr "هذا الصنف مرتبط بالفعل بـ %(row)s — يمكن ربط الصنف من صف نشط واحد فقط في كل مرة."
+
+#: audit F1
+msgid "That parent folder no longer exists."
+msgstr "المجلد الأصلي لم يعد موجودًا."
+
+#: audit F1
+msgid "That password is one of the most commonly guessed ones — please choose another."
+msgstr "كلمة المرور هذه من أكثر كلمات المرور تخمينًا — يرجى اختيار غيرها."
+
+#: audit F1
+msgid "That's too long to be a real barcode — check what you entered."
+msgstr "هذا أطول من أن يكون باركودًا حقيقيًا — تحقق مما أدخلته."
+
+#: audit F1
+msgid "The backup folder is gone. Backups were being written there, so this looks like a drive or synced folder that is no longer connected — reconnect it, or set a new folder on the Settings page. Nothing was written, deliberately: a backup saved somewhere unexpected is worse than one that failed loudly."
+msgstr "مجلد النسخ الاحتياطي غير موجود. كانت النسخ الاحتياطية تُحفظ فيه، لذا يبدو أنه قرص أو مجلد متزامن لم يعد متصلًا — أعد توصيله، أو عيّن مجلدًا جديدًا من صفحة الإعدادات. لم يُكتب شيء عن قصد: نسخة احتياطية محفوظة في مكان غير متوقع أسوأ من نسخة فشلت بشكل واضح."
+
+#: audit F1
+msgid "The new release didn't pass its health check within %(seconds)s seconds."
+msgstr "لم يجتز الإصدار الجديد فحص السلامة خلال %(seconds)s ثانية."
+
+#: audit F1
+msgid "The new release's process exited before it became healthy."
+msgstr "توقفت عملية الإصدار الجديد قبل أن تصبح سليمة."
+
+#: audit F1
+msgid "The system is busy right now — try again in a moment."
+msgstr "النظام مشغول الآن — حاول مرة أخرى بعد قليل."
+
+#: audit F1
+msgid "This file's contents don't match a PDF or JPEG (it may have been renamed)."
+msgstr "محتوى هذا الملف لا يطابق ملف PDF أو JPEG (ربما تمت إعادة تسميته)."
+
+#: audit F1
+msgid "Updated to %(tag)s. Restarting now — this page will reconnect in a few seconds."
+msgstr "تم التحديث إلى %(tag)s. جارٍ إعادة التشغيل الآن — ستُعاد هذه الصفحة الاتصال خلال ثوانٍ."
+
+#: audit F1
+msgid "Updates aren't set up on this install yet — see setup.py --enable-updates."
+msgstr "التحديثات غير مُعَدّة على هذا التثبيت بعد — راجع setup.py --enable-updates."
+
+#: audit F1
+msgid "Updates aren't set up on this install yet."
+msgstr "التحديثات غير مُعَدّة على هذا التثبيت بعد."
+
+#: audit F1
+msgid "VERSION file says %(version)s, but the release tag is %(tag)s."
+msgstr "ملف VERSION يذكر %(version)s، لكن وسم الإصدار هو %(tag)s."
+
+#: audit F1
+msgid "VetClinicSystem will now start automatically when this computer starts up, even before anyone signs in."
+msgstr "سيعمل VetClinicSystem الآن تلقائيًا عند بدء تشغيل هذا الجهاز، حتى قبل أن يسجّل أي شخص الدخول."
+
+#: audit F1
+msgid "VetClinicSystem will now start automatically when you log in."
+msgstr "سيعمل VetClinicSystem الآن تلقائيًا عند تسجيل دخولك."
+
+#: audit F1
+msgid "VetClinicSystem will now start automatically when you sign in. It could not be set to start at boot as well, which needs Administrator — so if this computer restarts overnight, the app won't run (and no backup will be taken) until someone signs in. To fix that, run this app as an administrator once and turn this setting on again."
+msgstr "سيعمل VetClinicSystem الآن تلقائيًا عند تسجيل دخولك. تعذّر ضبطه ليعمل عند إقلاع الجهاز أيضًا، إذ يتطلب ذلك صلاحيات المسؤول (Administrator) — لذا إذا أُعيد تشغيل هذا الجهاز ليلًا فلن يعمل التطبيق (ولن تُؤخذ نسخة احتياطية) حتى يسجّل أحد الدخول. لإصلاح ذلك، شغّل هذا التطبيق كمسؤول مرة واحدة ثم فعّل هذا الإعداد مرة أخرى."
+
+#: audit F1
+msgid "consignment receipt(s)"
+msgstr "عمليات استلام أمانة"
+
+#: audit F1
+msgid "consignment return(s)"
+msgstr "مرتجعات أمانة"
+
+#: audit F1
+msgid "consignment settlement(s)"
+msgstr "تسويات أمانة"
+
+#: audit F1
+msgid "consignment shrinkage entry/entries"
+msgstr "قيود هالك أمانة"
+
+#: audit F1
+msgid "distributor bill(s)"
+msgstr "فواتير مورد"
+
+#: audit F1
+msgid "inventory item(s)"
+msgstr "أصناف مخزون"
+
+#: audit F1
+msgid "launcher not found"
+msgstr "لم يُعثر على ملف التشغيل"
+
+#: audit F1
+msgid "the backup folder"
+msgstr "مجلد النسخ الاحتياطي"
+
+#: audit F1
+msgid "“%(path)s” isn’t a folder VetClinicSystem can see on this computer."
+msgstr "“%(path)s” ليس مجلدًا يمكن لـ VetClinicSystem رؤيته على هذا الجهاز."

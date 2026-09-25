@@ -932,3 +932,13 @@ result under each money setting.
   the audit (§1, S1–S5) is now closed; F1, F2, the D items and the parity
   ports remain.
   **Suite:** IQ **1374 passed, 4 skipped**; JO **1374 passed, 4 skipped**.
+- **2026-09-25 — Audit F1: every message can be shown in Arabic.**
+  - **Direct messages.** Every flash, JSON error and bulk-editor error is
+    wrapped for translation.
+  - **Background messages.** Backup, restore, update and automatic-startup
+    results are `messages.Msg`: English when stored or logged, translated
+    when shown through `core.shown()` / `core.flash()`, which every route now
+    uses. `tests/test_untranslated_messages.py` scans all three shapes.
+  - **Arabic.** 109 new Arabic strings, flagged in `ARABIC_REVIEW.md` §15.
+
+  **Suite:** IQ **1381 passed, 4 skipped**; JO **1381 passed, 4 skipped**.

@@ -14,6 +14,7 @@ from datetime import datetime
 
 import auth
 import clock
+from messages import Msg, N_
 
 # On the versioned-release layout (VETCLINICSYSTEM_DATA_DIR set by the
 # launcher script — see updater.py / setup.py --enable-updates), uploads
@@ -51,11 +52,11 @@ def validate_file(file_storage):
     filename = file_storage.filename or ""
     ext = _ext(filename)
     if ext not in ALLOWED_EXTENSIONS:
-        return False, "Only PDF and JPG/JPEG files are allowed."
+        return False, Msg(N_("Only PDF and JPG/JPEG files are allowed."))
     head = file_storage.stream.read(8)
     file_storage.stream.seek(0)
     if not any(head.startswith(sig) for sig in SIGNATURES[ext]):
-        return False, "This file's contents don't match a PDF or JPEG (it may have been renamed)."
+        return False, Msg(N_("This file's contents don't match a PDF or JPEG (it may have been renamed)."))
     return True, None
 
 
@@ -107,7 +108,7 @@ def save_attachment(db, patient_id, record_type, record_id, file_storage, upload
         file_storage.save(disk_path)
     except OSError as e:
         db.rollback()
-        return None, f"Couldn't save the file to disk: {e}"
+        return None, Msg(N_("Couldn't save the file to disk: %(error)s"), error=str(e))
 
     try:
         db.commit()
@@ -167,6 +168,6 @@ def delete_attachment(db, attachment_id):
         if os.path.exists(disk_path):
             os.remove(disk_path)
     except OSError as e:
-        return None, f"Couldn't remove the file from disk ({e}) — the attachment was not deleted."
+        return None, Msg(N_("Couldn't remove the file from disk (%(error)s) — the attachment was not deleted."), error=str(e))
     db.execute("DELETE FROM attachments WHERE id=?", (attachment_id,))
     return dict(row), None

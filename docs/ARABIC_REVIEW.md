@@ -210,3 +210,126 @@ file, not the catalogue**. Built from استعادة (restore) and نسخة اح
 |---|---|---|
 | 1 | Restoring a backup | جارٍ استعادة نسخة احتياطية |
 | 2 | The clinic's data is being restored from a backup. Nothing can be saved until it is finished. This page reloads by itself, and will be back where you were in a minute or two. | تُستعاد بيانات العيادة الآن من نسخة احتياطية، ولا يمكن حفظ أي شيء حتى تنتهي. ستُعاد تحميل هذه الصفحة تلقائيًا، وستعود إلى ما كنت عليه خلال دقيقة أو دقيقتين. |
+
+## 15. Messages that were English-only (audit F1) (109)
+
+Flash messages, JSON errors and the backup / restore / update / automatic-startup
+results that were never wrapped for translation. Built from the reviewed terms:
+نسخة احتياطية / استعادة / تحديث / إصدار, التشغيل التلقائي (as in "تشغيل
+VetClinicSystem تلقائيًا"), الدور / موظف / المواعيد / "بحاجة إلى انتباه",
+الصنف / المورد / الأمانة / الباركود. GitHub, VERSION, setup.py and file names stay
+in Latin script. **Plural agreement** after a count ("%(n)s موعد") uses the
+singular form throughout, as the catalogue already does ("%(orphaned)s موعد") —
+a native speaker may prefer the counted forms.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | "%(name)s" deleted. | تم حذف "%(name)s". |
+| 2 | "%(name)s" role added. | تمت إضافة الدور "%(name)s". |
+| 3 | "%(name)s" role saved. | تم حفظ الدور "%(name)s". |
+| 4 | %(count)s staff member(s) moved to %(target)s · "%(role)s" deleted. | نُقل %(count)s موظف إلى %(target)s · وحُذف الدور "%(role)s". |
+| 5 | %(field)s must be a valid date (YYYY-MM-DD). | يجب أن يكون %(field)s تاريخًا صالحًا (YYYY-MM-DD). |
+| 6 | %(tag)s failed its health check and was never switched to: %(reason)s | فشل %(tag)s في فحص السلامة ولم يُحوَّل إليه: %(reason)s |
+| 7 | %(tag)s failed to install or boot: %(error)s | تعذّر تثبيت %(tag)s أو تشغيله: %(error)s |
+| 8 | %(tag)s's database changes failed to apply: %(error)s | تعذّر تطبيق تغييرات قاعدة البيانات الخاصة بـ %(tag)s: %(error)s |
+| 9 | A backup, restore, or another update is already running — try again once it finishes. | هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد انتهائه. |
+| 10 | A barcode already exists for this item. | يوجد باركود لهذا الصنف بالفعل. |
+| 11 | A role named "%(name)s" already exists. | يوجد دور باسم "%(name)s" بالفعل. |
+| 12 | Already on the latest version. | أنت على أحدث إصدار بالفعل. |
+| 13 | Another backup, restore, or update is already running — try again once it finishes. | هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد انتهائه. |
+| 14 | Appointment type must be one of: %(choices)s. | يجب أن يكون نوع الموعد أحد التالي: %(choices)s. |
+| 15 | Automatic startup is already off. | التشغيل التلقائي متوقف بالفعل. |
+| 16 | Automatic startup isn't supported on this operating system. | التشغيل التلقائي غير مدعوم على نظام التشغيل هذا. |
+| 17 | Automatic startup turned off. | تم إيقاف التشغيل التلقائي. |
+| 18 | Backup failed — update aborted, nothing was changed. | فشل النسخ الاحتياطي — أُلغي التحديث ولم يتغير شيء. |
+| 19 | Backup failed: %(error)s | فشل النسخ الاحتياطي: %(error)s |
+| 20 | Backup folder isn't writable: %(error)s | لا يمكن الكتابة في مجلد النسخ الاحتياطي: %(error)s |
+| 21 | Backup saved to %(path)s | حُفظت النسخة الاحتياطية في %(path)s |
+| 22 | Billing type must be one of: %(choices)s. | يجب أن يكون نوع الفوترة أحد التالي: %(choices)s. |
+| 23 | Can't delete this distributor — it still has %(linked)s linked to it. Remove or reassign those first. | لا يمكن حذف هذا المورد — ما زالت مرتبطة به %(linked)s. أزِلها أو انقلها أولًا. |
+| 24 | Can’t open that folder: %(error)s | تعذّر فتح هذا المجلد: %(error)s |
+| 25 | Case status must be one of: %(choices)s. | يجب أن تكون حالة الزيارة أحد التالي: %(choices)s. |
+| 26 | Category must be one of: %(choices)s. | يجب أن تكون الفئة أحد التالي: %(choices)s. |
+| 27 | Choose a backup file to restore from. | اختر ملف نسخة احتياطية للاستعادة منه. |
+| 28 | Choose a valid backup file to restore from. | اختر ملف نسخة احتياطية صالحًا للاستعادة منه. |
+| 29 | Cost Price is required and must be a valid number to flag an item as Consignment. | سعر التكلفة مطلوب ويجب أن يكون رقمًا صالحًا لتحديد الصنف كأمانة. |
+| 30 | Could not find this account's Startup folder (the APPDATA setting is missing). | تعذّر العثور على مجلد بدء التشغيل لهذا الحساب (إعداد APPDATA مفقود). |
+| 31 | Could not find “Start VetClinicSystem.bat” at %(path)s — can't set up automatic startup. | تعذّر العثور على “Start VetClinicSystem.bat” في %(path)s — لا يمكن إعداد التشغيل التلقائي. |
+| 32 | Could not find “Start VetClinicSystem.command” at %(path)s — can't set up automatic startup. | تعذّر العثور على “Start VetClinicSystem.command” في %(path)s — لا يمكن إعداد التشغيل التلقائي. |
+| 33 | Could not register automatic startup: %(error)s | تعذّر تسجيل التشغيل التلقائي: %(error)s |
+| 34 | Could not remove automatic startup: %(error)s | تعذّر إلغاء التشغيل التلقائي: %(error)s |
+| 35 | Could not remove the startup task — it may need Administrator. %(error)s | تعذّر حذف مهمة بدء التشغيل — قد يتطلب ذلك صلاحيات المسؤول (Administrator). %(error)s |
+| 36 | Could not set up automatic startup: %(error)s | تعذّر إعداد التشغيل التلقائي: %(error)s |
+| 37 | Couldn't check for updates — GitHub could not be reached. | تعذّر التحقق من التحديثات — تعذّر الوصول إلى GitHub. |
+| 38 | Couldn't download %(tag)s — update aborted, nothing was changed. | تعذّر تنزيل %(tag)s — أُلغي التحديث ولم يتغير شيء. |
+| 39 | Couldn't reach GitHub — this computer appears to be offline. | تعذّر الوصول إلى GitHub — يبدو أن هذا الجهاز غير متصل بالإنترنت. |
+| 40 | Couldn't remove the file from disk (%(error)s) — the attachment was not deleted. | تعذّر حذف الملف من القرص (%(error)s) — لم يُحذف المرفق. |
+| 41 | Couldn't save the file to disk: %(error)s | تعذّر حفظ الملف على القرص: %(error)s |
+| 42 | Couldn’t create that folder: %(error)s | تعذّر إنشاء هذا المجلد: %(error)s |
+| 43 | Downloaded release failed validation: %(reason)s | فشل الإصدار الذي تم تنزيله في التحقق: %(reason)s |
+| 44 | Downloaded release has no VERSION file. | الإصدار الذي تم تنزيله لا يحتوي على ملف VERSION. |
+| 45 | Downloaded release is missing %(file)s. | الإصدار الذي تم تنزيله ينقصه %(file)s. |
+| 46 | Enter a barcode. | أدخل باركودًا. |
+| 47 | Enter a plain folder name (no slashes). | أدخل اسم مجلد بسيطًا (دون شرطات مائلة). |
+| 48 | File uploaded. | تم رفع الملف. |
+| 49 | GitHub has no published release to compare against, or the configured repository name is wrong. | لا يوجد على GitHub إصدار منشور للمقارنة به، أو أن اسم المستودع المُعَدّ غير صحيح. |
+| 50 | GitHub rejected the access token for this install — it may have expired or been revoked. | رفض GitHub رمز الوصول الخاص بهذا التثبيت — ربما انتهت صلاحيته أو أُلغي. |
+| 51 | GitHub returned an error (HTTP %(status)s) when asked for the latest release. | أعاد GitHub خطأ (HTTP %(status)s) عند طلب أحدث إصدار. |
+| 52 | GitHub's hourly limit for this network has been reached — try again after %(time)s. Nothing is wrong with this computer or the internet connection. | بلغت هذه الشبكة الحد الأقصى لطلبات GitHub في الساعة — حاول مرة أخرى بعد %(time)s. لا توجد مشكلة في هذا الجهاز أو في الاتصال بالإنترنت. |
+| 53 | GitHub's hourly limit for this network has been reached. Nothing is wrong with this computer or the internet connection. | بلغت هذه الشبكة الحد الأقصى لطلبات GitHub في الساعة. لا توجد مشكلة في هذا الجهاز أو في الاتصال بالإنترنت. |
+| 54 | Heads up: %(n)s upcoming appointment(s) were booked against this person — they won't show on the Appointments grid anymore. Check Appointments for the "need attention" list to reschedule them. | تنبيه: %(n)s موعد قادم محجوز باسم هذا الشخص — لن يظهر في جدول المواعيد بعد الآن. راجع قائمة "بحاجة إلى انتباه" في المواعيد لإعادة جدولتها. |
+| 55 | Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) just moved off a vet-eligible role won't show on the Appointments grid anymore. Check Appointments for the "need attention" list to reschedule them. | تنبيه: %(total)s موعد قادم لدى %(staff)s موظف نُقلوا للتو من دور مؤهل للطبيب البيطري لن تظهر في جدول المواعيد بعد الآن. راجع قائمة "بحاجة إلى انتباه" في المواعيد لإعادة جدولتها. |
+| 56 | Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) on this role won't show on the Appointments grid anymore. Check Appointments for the "need attention" list to reschedule them. | تنبيه: %(total)s موعد قادم لدى %(staff)s موظف في هذا الدور لن تظهر في جدول المواعيد بعد الآن. راجع قائمة "بحاجة إلى انتباه" في المواعيد لإعادة جدولتها. |
+| 57 | Heads up: changing the scheduling hours/slot length just made %(n)s upcoming appointment(s) stop matching a slot on the grid. They're still booked — check Appointments for the "need attention" list to reschedule them. | تنبيه: تغيير ساعات العمل أو مدة الموعد جعل %(n)s موعد قادم لا يطابق أي فترة في الجدول. ما زالت محجوزة — راجع قائمة "بحاجة إلى انتباه" في المواعيد لإعادة جدولتها. |
+| 58 | Item deactivated. | تم إلغاء تفعيل الصنف. |
+| 59 | Item reactivated. | تمت إعادة تفعيل الصنف. |
+| 60 | Name is required. | الاسم مطلوب. |
+| 61 | No backup folder configured yet — set one above, then Save Settings, before backing up. | لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا أعلاه ثم احفظ الإعدادات قبل النسخ الاحتياطي. |
+| 62 | No backup folder configured yet — set one on the Settings page. | لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا من صفحة الإعدادات. |
+| 63 | No backup folder is configured yet — set one on the Settings page. | لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا من صفحة الإعدادات. |
+| 64 | No previous release available to roll back to. | لا يوجد إصدار سابق متاح للرجوع إليه. |
+| 65 | No sale with that ID. | لا توجد عملية بيع بهذا الرقم. |
+| 66 | Only PDF and JPG/JPEG files are allowed. | يُسمح فقط بملفات PDF وJPG/JPEG. |
+| 67 | Only letters, numbers, spaces, and . - _ are allowed. | يُسمح فقط بالأحرف والأرقام والمسافات و . - _ |
+| 68 | Password can't contain the username. | لا يمكن أن تحتوي كلمة المرور على اسم المستخدم. |
+| 69 | Password must be at least %(n)s characters. | يجب ألا تقل كلمة المرور عن %(n)s حرفًا. |
+| 70 | Pick a distributor to flag this item as Consignment. | اختر موردًا لتحديد هذا الصنف كأمانة. |
+| 71 | Resource type must be one of: %(choices)s. | يجب أن يكون نوع المورد المحجوز أحد التالي: %(choices)s. |
+| 72 | Restore failed: %(error)s | فشلت الاستعادة: %(error)s |
+| 73 | Restore failed: %(error)s — nothing was changed; the database is as it was before the restore started. | فشلت الاستعادة: %(error)s — لم يتغير شيء؛ قاعدة البيانات كما كانت قبل بدء الاستعادة. |
+| 74 | Restore succeeded, but bringing the restored database up to this app version's schema failed: %(error)s. The data is restored, but some newer features may not work until this is resolved. | نجحت الاستعادة، لكن تعذّر تحديث بنية قاعدة البيانات المستعادة لتوافق هذا الإصدار: %(error)s. البيانات مستعادة، لكن قد لا تعمل بعض الميزات الأحدث حتى تُحل هذه المشكلة. |
+| 75 | Restored from %(path)s | تمت الاستعادة من %(path)s |
+| 76 | Restoring database (%(done)s/%(total)s objects) | جارٍ استعادة قاعدة البيانات (%(done)s/%(total)s عنصر) |
+| 77 | Rolling back to %(tag)s. This page will reconnect in a few seconds. | جارٍ الرجوع إلى %(tag)s. ستُعاد هذه الصفحة الاتصال خلال ثوانٍ. |
+| 78 | That barcode is already used by "%(name)s". | هذا الباركود مستخدم بالفعل للصنف "%(name)s". |
+| 79 | That barcode was just claimed by another item — try again. | استُخدم هذا الباركود للتو لصنف آخر — حاول مرة أخرى. |
+| 80 | That code was just claimed by another item — try again. | استُخدم هذا الرمز للتو لصنف آخر — حاول مرة أخرى. |
+| 81 | That doesn't look like a VetClinicSystem backup file (expected a %(suffix)s file). | لا يبدو هذا ملف نسخة احتياطية من VetClinicSystem (المتوقع ملف %(suffix)s). |
+| 82 | That file isn't in this app's own backup history — restore is only allowed for backups VetClinicSystem itself created (see Recent Backups on the Settings page). | هذا الملف ليس ضمن سجل النسخ الاحتياطية لهذا التطبيق — لا يُسمح بالاستعادة إلا من نسخ أنشأها VetClinicSystem نفسه (انظر النسخ الاحتياطية الأخيرة في صفحة الإعدادات). |
+| 83 | That file isn't inside the configured backup folder. | هذا الملف ليس داخل مجلد النسخ الاحتياطي المُعَدّ. |
+| 84 | That folder is outside the areas this app can browse (%(where)s). | هذا المجلد خارج المواقع التي يمكن لهذا التطبيق تصفحها (%(where)s). |
+| 85 | That inventory item is already linked to %(row)s — an item can only be linked from one active row at a time. | هذا الصنف مرتبط بالفعل بـ %(row)s — يمكن ربط الصنف من صف نشط واحد فقط في كل مرة. |
+| 86 | That parent folder no longer exists. | المجلد الأصلي لم يعد موجودًا. |
+| 87 | That password is one of the most commonly guessed ones — please choose another. | كلمة المرور هذه من أكثر كلمات المرور تخمينًا — يرجى اختيار غيرها. |
+| 88 | That's too long to be a real barcode — check what you entered. | هذا أطول من أن يكون باركودًا حقيقيًا — تحقق مما أدخلته. |
+| 89 | The backup folder is gone. Backups were being written there, so this looks like a drive or synced folder that is no longer connected — reconnect it, or set a new folder on the Settings page. Nothing was written, deliberately: a backup saved somewhere unexpected is worse than one that failed loudly. | مجلد النسخ الاحتياطي غير موجود. كانت النسخ الاحتياطية تُحفظ فيه، لذا يبدو أنه قرص أو مجلد متزامن لم يعد متصلًا — أعد توصيله، أو عيّن مجلدًا جديدًا من صفحة الإعدادات. لم يُكتب شيء عن قصد: نسخة احتياطية محفوظة في مكان غير متوقع أسوأ من نسخة فشلت بشكل واضح. |
+| 90 | The new release didn't pass its health check within %(seconds)s seconds. | لم يجتز الإصدار الجديد فحص السلامة خلال %(seconds)s ثانية. |
+| 91 | The new release's process exited before it became healthy. | توقفت عملية الإصدار الجديد قبل أن تصبح سليمة. |
+| 92 | The system is busy right now — try again in a moment. | النظام مشغول الآن — حاول مرة أخرى بعد قليل. |
+| 93 | This file's contents don't match a PDF or JPEG (it may have been renamed). | محتوى هذا الملف لا يطابق ملف PDF أو JPEG (ربما تمت إعادة تسميته). |
+| 94 | Updated to %(tag)s. Restarting now — this page will reconnect in a few seconds. | تم التحديث إلى %(tag)s. جارٍ إعادة التشغيل الآن — ستُعاد هذه الصفحة الاتصال خلال ثوانٍ. |
+| 95 | Updates aren't set up on this install yet — see setup.py --enable-updates. | التحديثات غير مُعَدّة على هذا التثبيت بعد — راجع setup.py --enable-updates. |
+| 96 | Updates aren't set up on this install yet. | التحديثات غير مُعَدّة على هذا التثبيت بعد. |
+| 97 | VERSION file says %(version)s, but the release tag is %(tag)s. | ملف VERSION يذكر %(version)s، لكن وسم الإصدار هو %(tag)s. |
+| 98 | VetClinicSystem will now start automatically when this computer starts up, even before anyone signs in. | سيعمل VetClinicSystem الآن تلقائيًا عند بدء تشغيل هذا الجهاز، حتى قبل أن يسجّل أي شخص الدخول. |
+| 99 | VetClinicSystem will now start automatically when you log in. | سيعمل VetClinicSystem الآن تلقائيًا عند تسجيل دخولك. |
+| 100 | VetClinicSystem will now start automatically when you sign in. It could not be set to start at boot as well, which needs Administrator — so if this computer restarts overnight, the app won't run (and no backup will be taken) until someone signs in. To fix that, run this app as an administrator once and turn this setting on again. | سيعمل VetClinicSystem الآن تلقائيًا عند تسجيل دخولك. تعذّر ضبطه ليعمل عند إقلاع الجهاز أيضًا، إذ يتطلب ذلك صلاحيات المسؤول (Administrator) — لذا إذا أُعيد تشغيل هذا الجهاز ليلًا فلن يعمل التطبيق (ولن تُؤخذ نسخة احتياطية) حتى يسجّل أحد الدخول. لإصلاح ذلك، شغّل هذا التطبيق كمسؤول مرة واحدة ثم فعّل هذا الإعداد مرة أخرى. |
+| 101 | consignment receipt(s) | عمليات استلام أمانة |
+| 102 | consignment return(s) | مرتجعات أمانة |
+| 103 | consignment settlement(s) | تسويات أمانة |
+| 104 | consignment shrinkage entry/entries | قيود هالك أمانة |
+| 105 | distributor bill(s) | فواتير مورد |
+| 106 | inventory item(s) | أصناف مخزون |
+| 107 | launcher not found | لم يُعثر على ملف التشغيل |
+| 108 | the backup folder | مجلد النسخ الاحتياطي |
+| 109 | “%(path)s” isn’t a folder VetClinicSystem can see on this computer. | “%(path)s” ليس مجلدًا يمكن لـ VetClinicSystem رؤيته على هذا الجهاز. |

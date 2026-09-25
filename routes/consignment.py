@@ -19,10 +19,10 @@ import pdf_export
 
 from flask_babel import gettext as _
 from flask import (
-    Blueprint, flash, jsonify, redirect, render_template, request, send_file, session, url_for
+    Blueprint, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, _render_with_progress, clean_payment_method, payment_method_message, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
+from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, _render_with_progress, clean_payment_method, list_join, payment_method_message, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
 import clock
 
 bp = Blueprint("consignment", __name__)
@@ -160,15 +160,15 @@ def distributor_delete(dist_id):
     # ORPHANED_RECORDS_AUDIT.md F-08.
     still_linked = []
     for label, table in [
-        ("inventory item(s)", "inventory_list"), ("distributor bill(s)", "distributor_bills"),
-        ("consignment receipt(s)", "consignment_receipts"), ("consignment shrinkage entry/entries", "consignment_shrinkage"),
-        ("consignment return(s)", "consignment_returns"), ("consignment settlement(s)", "consignment_settlements"),
+        (_("inventory item(s)"), "inventory_list"), (_("distributor bill(s)"), "distributor_bills"),
+        (_("consignment receipt(s)"), "consignment_receipts"), (_("consignment shrinkage entry/entries"), "consignment_shrinkage"),
+        (_("consignment return(s)"), "consignment_returns"), (_("consignment settlement(s)"), "consignment_settlements"),
     ]:
         if db.execute(f"SELECT 1 FROM {table} WHERE distributor_id=? LIMIT 1", (dist_id,)).fetchone():
             still_linked.append(label)
     if still_linked:
-        flash("Can't delete this distributor — it still has " + ", ".join(still_linked) +
-              " linked to it. Remove or reassign those first.", "error")
+        flash(_("Can't delete this distributor — it still has %(linked)s linked to it. "
+                "Remove or reassign those first.", linked=list_join(still_linked)), "error")
         return redirect(url_for("consignment.distributors_list"))
     db.execute("DELETE FROM distributors WHERE id=?", (dist_id,))
     auth.log_change(db, "distributors", dist_id, "delete")
@@ -458,7 +458,7 @@ def consignment_items_bulk_edit():
         fields = item.get("fields") or {}
         old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
         if not old or old["category"] != "Retail":
-            errors[key] = "Item not found."
+            errors[key] = _("Item not found.")
             continue
         if logic.consignment_item_locked(db, item_id):
             continue
@@ -466,15 +466,15 @@ def consignment_items_bulk_edit():
         if want_consignment:
             distributor_id = parse_id(fields.get("distributor_id"))
             if not distributor_id:
-                errors[key] = "Pick a distributor to flag this item as Consignment."
+                errors[key] = _("Pick a distributor to flag this item as Consignment.")
                 continue
             try:
                 cost_price = parse_money(fields.get("cost_price"), required=True)
             except BadNumber:
-                errors[key] = "Cost Price is required and must be a valid number to flag an item as Consignment."
+                errors[key] = _("Cost Price is required and must be a valid number to flag an item as Consignment.")
                 continue
             if cost_price < 0:
-                errors[key] = "Cost Price can't be negative."
+                errors[key] = _("Cost Price can't be negative.")
                 continue
             consignment_since = (
                 old["consignment_since"] if old["ownership_type"] == "Consignment"

@@ -21,7 +21,7 @@ from datetime import datetime
 
 from flask_babel import gettext as _
 from flask import (
-    Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
+    Blueprint, g, jsonify, redirect, render_template, request, session, url_for
 )
 
 import auth
@@ -30,7 +30,7 @@ import jobs
 import logic
 import clock
 import money
-from core import money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
+from core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
 
@@ -75,8 +75,8 @@ def _within_roots(path, roots):
 
 
 def _outside_roots_error(roots):
-    where = ", ".join(roots) if roots else "the backup folder"
-    return jsonify({"error": f"That folder is outside the areas this app can browse ({where})."}), 400
+    where = list_join(roots) if roots else _("the backup folder")
+    return jsonify({"error": _("That folder is outside the areas this app can browse (%(where)s).", where=where)}), 400
 
 
 @bp.route("/api/browse-folder")
@@ -102,7 +102,7 @@ def api_browse_folder():
         path = os.path.abspath(configured) if configured and os.path.isdir(configured) else os.path.expanduser("~")
 
     if not os.path.isdir(path):
-        return jsonify({"error": f"“{path}” isn’t a folder VetClinicSystem can see on this computer."}), 400
+        return jsonify({"error": _("“%(path)s” isn’t a folder VetClinicSystem can see on this computer.", path=path)}), 400
 
     roots = _browse_roots(db)
     if not _within_roots(path, roots):
@@ -111,7 +111,7 @@ def api_browse_folder():
     try:
         entries = os.listdir(path)
     except OSError as e:
-        return jsonify({"error": f"Can’t open that folder: {e.strerror or e}"}), 400
+        return jsonify({"error": _("Can’t open that folder: %(error)s", error=e.strerror or str(e))}), 400
 
     folders, files = [], []
     for name in entries:
@@ -143,9 +143,9 @@ def api_browse_folder_new():
     parent = os.path.abspath((data.get("path") or "").strip())
     name = (data.get("name") or "").strip()
     if not name or "/" in name or "\\" in name:
-        return jsonify({"error": "Enter a plain folder name (no slashes)."}), 400
+        return jsonify({"error": _("Enter a plain folder name (no slashes).")}), 400
     if not os.path.isdir(parent):
-        return jsonify({"error": "That parent folder no longer exists."}), 400
+        return jsonify({"error": _("That parent folder no longer exists.")}), 400
     roots = _browse_roots(get_db())
     if not _within_roots(parent, roots):
         return _outside_roots_error(roots)
@@ -153,7 +153,7 @@ def api_browse_folder_new():
     try:
         os.makedirs(new_path, exist_ok=True)
     except OSError as e:
-        return jsonify({"error": f"Couldn’t create that folder: {e.strerror or e}"}), 400
+        return jsonify({"error": _("Couldn’t create that folder: %(error)s", error=e.strerror or str(e))}), 400
     return jsonify({"ok": True, "path": new_path})
 
 
@@ -413,9 +413,10 @@ def settings_page():
         flash(_("Settings saved."), "success")
         newly_orphaned = len(logic.orphaned_appointments(db)) - orphaned_before
         if newly_orphaned > 0:
-            flash(f"Heads up: changing the scheduling hours/slot length just made {newly_orphaned} upcoming "
-                  f"appointment(s) stop matching a slot on the grid. They're still booked — check "
-                  f"Appointments for the \"need attention\" list to reschedule them.", "error")
+            flash(_("Heads up: changing the scheduling hours/slot length just made %(n)s upcoming "
+                    "appointment(s) stop matching a slot on the grid. They're still booked — check "
+                    "Appointments for the \"need attention\" list to reschedule them.",
+                    n=display_number(newly_orphaned)), "error")
         return redirect(url_for("settings.settings_page"))
     rows = db.execute("SELECT * FROM settings").fetchall()
     settings = {r["key"]: r["value"] for r in rows}
@@ -452,8 +453,8 @@ def settings_backup_now():
     # which reads as "the backup broke" rather than "you haven't set this up
     # yet". Nothing to do here is not an error worth a job.
     if not logic.get_setting(get_db(), "backup_dir"):
-        return jsonify({"error": "No backup folder configured yet — set one above, "
-                                 "then Save Settings, before backing up."}), 400
+        return jsonify({"error": _("No backup folder configured yet — set one above, "
+                                 "then Save Settings, before backing up.")}), 400
 
     def task(update):
         # Runs in a background thread — needs its own DB connection,
@@ -492,7 +493,7 @@ def settings_restore_now():
     # never gets anywhere near pg_restore.
     ok, resolved_source, message = backup_mod.resolve_restorable_backup(get_db(), source_file)
     if not ok:
-        flash(message, "error")
+        flash(shown(message), "error")
         return redirect(url_for("settings.settings_page"))
 
     # pg_restore --clean issues DROP TABLE (and similar) against every
@@ -538,7 +539,10 @@ def settings_job_status():
         return jsonify({"status": "not_found"}), 404
     payload = {
         "status": state["status"],
-        "steps": state["steps"],
+        # Step labels and the result are translated HERE, for the person
+        # looking: the job ran in a thread with no request, and its messages
+        # are messages.Msg (audit F1).
+        "steps": [shown(step) for step in state["steps"]],
         "current": state["current"],
         "fraction": state.get("fraction"),
         "started_at": state["started_at"],
@@ -546,7 +550,7 @@ def settings_job_status():
     if state["status"] == "done":
         result = state.get("result") or {}
         payload["ok"] = result.get("ok")
-        payload["message"] = result.get("message")
+        payload["message"] = shown(result.get("message"))
         if kind == "restore" and result.get("ok"):
             # The restore just replaced every row in the database,
             # including `users` — force a fresh login on this browser
@@ -564,7 +568,7 @@ def settings_autostart():
     import autostart
     enable = request.form.get("autostart_enabled") == "on"
     ok, message = autostart.enable() if enable else autostart.disable()
-    flash(message, "success" if ok else "error")
+    flash(shown(message), "success" if ok else "error")
     return redirect(url_for("settings.settings_page"))
 
 
@@ -605,7 +609,7 @@ def settings_updates_check():
         available, latest = updater.is_update_available()
     except Exception as exc:
         return jsonify({"configured": True, "current_version": updater.current_version(),
-                         "error": updater.describe_check_failure(exc)}), 502
+                         "error": shown(updater.describe_check_failure(exc))}), 502
     return jsonify({
         "configured": True,
         "current_version": updater.current_version(),
@@ -620,13 +624,13 @@ def settings_updates_check():
 def settings_updates_apply():
     import updater
     if not updater.is_configured():
-        return jsonify({"error": "Updates aren't set up on this install yet."}), 400
+        return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
     try:
         available, latest = updater.is_update_available()
     except Exception as exc:
-        return jsonify({"error": updater.describe_check_failure(exc)}), 502
+        return jsonify({"error": shown(updater.describe_check_failure(exc))}), 502
     if not available:
-        return jsonify({"error": "Already on the latest version."}), 400
+        return jsonify({"error": _("Already on the latest version.")}), 400
     tag_name, tarball_url = latest.get("tag_name"), latest.get("tarball_url")
 
     def task(update):
@@ -647,10 +651,10 @@ def settings_updates_apply():
 def settings_updates_rollback():
     import updater
     if not updater.is_configured():
-        return jsonify({"error": "Updates aren't set up on this install yet."}), 400
+        return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
     candidates = [n for n in updater.list_releases() if n != updater.active_release_name()]
     if not candidates:
-        return jsonify({"error": "No previous release available to roll back to."}), 400
+        return jsonify({"error": _("No previous release available to roll back to.")}), 400
 
     def task(update):
         update(0)

@@ -21,10 +21,10 @@ import uuid
 
 from flask_babel import gettext as _
 from flask import (
-    Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
+    Blueprint, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import display_number, display_quantity
+from core import flash, display_number, display_quantity
 from core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
 import clock
 
@@ -51,7 +51,7 @@ def _money_setting_gate():
 def api_sale_refundable_items(sale_id):
     sale, lines = logic.refundable_sale_items(get_db(), sale_id)
     if not sale:
-        return jsonify({"error": "No sale with that ID."}), 404
+        return jsonify({"error": _("No sale with that ID.")}), 404
     return jsonify({
         "sale_id": sale["id"],
         "sold_at": logic.fmt_datetime(sale["sold_at"]),

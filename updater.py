@@ -32,6 +32,9 @@ import urllib.error
 
 import requests
 
+import clock
+from messages import Msg, N_
+
 DATA_DIR = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
 RELEASES_DIR = os.environ.get("VETCLINICSYSTEM_RELEASES_DIR")
 GITHUB_REPO = os.environ.get("GITHUB_REPO")
@@ -191,34 +194,40 @@ def describe_check_failure(exc):
             # with 403/429; remaining == 0 is what separates a cap from a
             # permissions problem sharing the same status code.
             if status in (403, 429) and str(headers.get("x-ratelimit-remaining", "")).strip() == "0":
-                return ("GitHub's hourly limit for this network has been reached"
-                        f"{_reset_clause(headers)}. Nothing is wrong with this "
-                        "computer or the internet connection.")
+                reset = _reset_time(headers)
+                if reset:
+                    return Msg(N_("GitHub's hourly limit for this network has been reached — try again "
+                                  "after %(time)s. Nothing is wrong with this computer or the internet "
+                                  "connection."), time=reset)
+                return Msg(N_("GitHub's hourly limit for this network has been reached. Nothing is "
+                              "wrong with this computer or the internet connection."))
             if status == 401:
-                return ("GitHub rejected the access token for this install — it may "
-                        "have expired or been revoked.")
+                return Msg(N_("GitHub rejected the access token for this install — it may "
+                              "have expired or been revoked."))
             if status == 404:
-                return ("GitHub has no published release to compare against, or the "
-                        "configured repository name is wrong.")
+                return Msg(N_("GitHub has no published release to compare against, or the "
+                              "configured repository name is wrong."))
             if status:
-                return f"GitHub returned an error (HTTP {status}) when asked for the latest release."
+                return Msg(N_("GitHub returned an error (HTTP %(status)s) when asked for the latest release."),
+                           status=status)
         if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
-            return "Couldn't reach GitHub — this computer appears to be offline."
+            return Msg(N_("Couldn't reach GitHub — this computer appears to be offline."))
     except Exception:
         pass
-    return "Couldn't check for updates — GitHub could not be reached."
+    return Msg(N_("Couldn't check for updates — GitHub could not be reached."))
 
 
-def _reset_clause(headers):
-    """' — try again after 14:05', when GitHub tells us when the cap lifts."""
+def _reset_time(headers):
+    """'14:05' in the clinic's time zone, when GitHub says when the cap
+    lifts; '' when it does not."""
     raw = headers.get("x-ratelimit-reset")
     if not raw:
         return ""
     try:
-        when = datetime.fromtimestamp(int(raw))
+        when = datetime.fromtimestamp(int(raw), tz=clock.zone())
     except (TypeError, ValueError, OSError, OverflowError):
         return ""
-    return f" — try again after {when.strftime('%H:%M')}"
+    return when.strftime("%H:%M")
 
 
 def _run_backup():
@@ -278,14 +287,14 @@ def _validate_release(path, tag_name):
     to boot is actually present. Returns (ok, reason)."""
     version_path = os.path.join(path, "VERSION")
     if not os.path.isfile(version_path):
-        return False, "Downloaded release has no VERSION file."
+        return False, Msg(N_("Downloaded release has no VERSION file."))
     version = open(version_path).read().strip()
     if f"v{version}" != tag_name:
-        return False, f"VERSION file says {version}, but the release tag is {tag_name}."
+        return False, Msg(N_("VERSION file says %(version)s, but the release tag is %(tag)s."), version=version, tag=tag_name)
     for required in ("app.py", "requirements.txt", "schema.py",
                      os.path.join("migrations", "0001_baseline.sql")):
         if not os.path.isfile(os.path.join(path, required)):
-            return False, f"Downloaded release is missing {required}."
+            return False, Msg(N_("Downloaded release is missing %(file)s."), file=required)
     return True, None
 
 
@@ -364,9 +373,9 @@ def _probe_health(release_path, timeout=20):
             except (urllib.error.URLError, ConnectionError, OSError, ValueError):
                 pass
             if proc.poll() is not None:
-                return False, "The new release's process exited before it became healthy."
+                return False, Msg(N_("The new release's process exited before it became healthy."))
             time.sleep(0.5)
-        return False, f"The new release didn't pass its health check within {timeout}s."
+        return False, Msg(N_("The new release didn't pass its health check within %(seconds)s seconds."), seconds=timeout)
     finally:
         proc.terminate()
         try:
@@ -435,7 +444,7 @@ def apply_update(tag_name, tarball_url, on_progress=None):
     """
     import backup as backup_mod
     if not backup_mod.maintenance_lock.acquire(blocking=False):
-        return False, "A backup, restore, or another update is already running — try again once it finishes."
+        return False, Msg(N_("A backup, restore, or another update is already running — try again once it finishes."))
     try:
         return _apply_update_locked(tag_name, tarball_url, on_progress)
     finally:
@@ -448,32 +457,32 @@ def _apply_update_locked(tag_name, tarball_url, on_progress=None):
             on_progress(i, label)
 
     if not is_configured():
-        return False, "Updates aren't set up on this install yet — see setup.py --enable-updates."
+        return False, Msg(N_("Updates aren't set up on this install yet — see setup.py --enable-updates."))
 
     new_folder_name = f"app_{tag_name}"
     new_path = os.path.join(RELEASES_DIR, new_folder_name)
     if os.path.isdir(new_path):
         shutil.rmtree(new_path, ignore_errors=True)
 
-    step(0, "Backing up database")
+    step(0, Msg(N_("Backing up database")))
     backup_result = _run_backup()
     if backup_result is None:
-        return False, "Backup failed — update aborted, nothing was changed."
+        return False, Msg(N_("Backup failed — update aborted, nothing was changed."))
 
-    step(1, "Downloading release")
+    step(1, Msg(N_("Downloading release")))
     try:
         _download_and_extract(tarball_url, new_path)
     except (requests.RequestException, RuntimeError, OSError) as e:
         shutil.rmtree(new_path, ignore_errors=True)
         _log(f"download failed for {tag_name}: {e}")
-        return False, f"Couldn't download {tag_name} — update aborted, nothing was changed."
+        return False, Msg(N_("Couldn't download %(tag)s — update aborted, nothing was changed."), tag=tag_name)
 
-    step(2, "Validating release")
+    step(2, Msg(N_("Validating release")))
     ok, reason = _validate_release(new_path, tag_name)
     if not ok:
         shutil.rmtree(new_path, ignore_errors=True)
         _log(f"validation failed for {tag_name}: {reason}")
-        return False, f"Downloaded release failed validation: {reason}"
+        return False, Msg(N_("Downloaded release failed validation: %(reason)s"), reason=reason)
 
     try:
         _create_venv_and_install(new_path)
@@ -481,30 +490,30 @@ def _apply_update_locked(tag_name, tarball_url, on_progress=None):
     except subprocess.CalledProcessError as e:
         shutil.rmtree(new_path, ignore_errors=True)
         _log(f"install/import failed for {tag_name}: {e.stderr}")
-        return False, f"{tag_name} failed to install or boot: {(e.stderr or '').strip()[-500:]}"
+        return False, Msg(N_("%(tag)s failed to install or boot: %(error)s"), tag=tag_name, error=(e.stderr or '').strip()[-500:])
 
-    step(3, "Applying database changes")
+    step(3, Msg(N_("Applying database changes")))
     try:
         _run_schema_sync(new_path)
     except subprocess.CalledProcessError as e:
         shutil.rmtree(new_path, ignore_errors=True)
         _log(f"schema sync failed for {tag_name}: {e.stderr}")
-        return False, f"{tag_name}'s database changes failed to apply: {(e.stderr or '').strip()[-500:]}"
+        return False, Msg(N_("%(tag)s's database changes failed to apply: %(error)s"), tag=tag_name, error=(e.stderr or '').strip()[-500:])
 
-    step(4, "Verifying the new version")
+    step(4, Msg(N_("Verifying the new version")))
     healthy, reason = _probe_health(new_path)
     if not healthy:
         shutil.rmtree(new_path, ignore_errors=True)
         _log(f"health probe failed for {tag_name}: {reason}")
-        return False, f"{tag_name} failed its health check and was never switched to: {reason}"
+        return False, Msg(N_("%(tag)s failed its health check and was never switched to: %(reason)s"), tag=tag_name, reason=reason)
 
-    step(5, "Switching to the new version")
+    step(5, Msg(N_("Switching to the new version")))
     old_release = active_release_name()
     _write_pointer(new_folder_name)
     _log(f"promoted {new_folder_name} (was {old_release})")
     _prune_old_releases(keep={new_folder_name, old_release})
     _request_restart()
-    return True, f"Updated to {tag_name}. Restarting now — this page will reconnect in a few seconds."
+    return True, Msg(N_("Updated to %(tag)s. Restarting now — this page will reconnect in a few seconds."), tag=tag_name)
 
 
 def rollback_to_previous():
@@ -521,7 +530,7 @@ def rollback_to_previous():
     result."""
     import backup as backup_mod
     if not backup_mod.maintenance_lock.acquire(blocking=False):
-        return False, "A backup, restore, or update is already running — try again once it finishes."
+        return False, Msg(N_("Another backup, restore, or update is already running — try again once it finishes."))
     try:
         return _rollback_to_previous_locked()
     finally:
@@ -530,13 +539,13 @@ def rollback_to_previous():
 
 def _rollback_to_previous_locked():
     if not is_configured():
-        return False, "Updates aren't set up on this install yet."
+        return False, Msg(N_("Updates aren't set up on this install yet."))
     current = active_release_name()
     candidates = [n for n in list_releases() if n != current]
     if not candidates:
-        return False, "No previous release available to roll back to."
+        return False, Msg(N_("No previous release available to roll back to."))
     target = candidates[0]
     _write_pointer(target)
     _log(f"manual rollback: {current} -> {target}")
     _request_restart()
-    return True, f"Rolling back to {target.replace('app_', '')}. This page will reconnect in a few seconds."
+    return True, Msg(N_("Rolling back to %(tag)s. This page will reconnect in a few seconds."), tag=target.replace('app_', ''))
