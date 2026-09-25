@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Served with a 503 while a backup is being restored (app.py
+     _hold_requests_during_restore, audit S3). A static file, not a template:
+     rendering a template reads the clinic's name and language from tables
+     that are being dropped and reloaded. So it carries both languages, and
+     reloads itself until the app is back. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="15">
+<title>Restoring a backup</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="restoring">
+  <h1>Restoring a backup</h1>
+  <p>The clinic's data is being restored from a backup. Nothing can be saved until it is finished.
+     This page reloads by itself, and will be back where you were in a minute or two.</p>
+  <div lang="ar" dir="rtl">
+    <h1>جارٍ استعادة نسخة احتياطية</h1>
+    <p>تُستعاد بيانات العيادة الآن من نسخة احتياطية، ولا يمكن حفظ أي شيء حتى تنتهي.
+       ستُعاد تحميل هذه الصفحة تلقائيًا، وستعود إلى ما كنت عليه خلال دقيقة أو دقيقتين.</p>
+  </div>
+</main>
+</body>
+</html>

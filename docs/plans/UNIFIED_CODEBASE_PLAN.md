@@ -913,3 +913,16 @@ result under each money setting.
   `created_at` with the sale term's bounds. `refund_items.sale_item_id` is
   NOT NULL. This closes every audit finding in §1 (B1–B19).
   **Suite:** IQ **1357 passed, 4 skipped**; JO **1357 passed, 4 skipped**.
+- **2026-09-25 — Audit S3 and S4.**
+  - **S3.** While a backup is restored, every request but the restoring
+    admin's progress poll gets a self-reloading 503 page that reads no
+    table. `pg_restore` runs as one transaction, so a failed restore changes
+    nothing.
+  - **S4.** Dev mode's debugger listens on loopback only.
+  - **Test change.** The saved-page guard in `test_frontend.py` allows
+    exactly one deliberate static page, which it still checks for a token or
+    an address.
+
+  **Suite:** IQ **1369 passed, 4 skipped, 1 failed** and JO the same. The
+  failure was that guard meeting `restoring.html`. After the allowance,
+  `test_frontend.py` passes (27), and a planted saved page is still caught.

@@ -196,3 +196,17 @@ from Consignment Receiving, and says so. Built from the reviewed
 | # | English | Arabic (as shipped) |
 |---|---|---|
 | 1 | Includes %(qty)s from Consignment Receiving | يشمل %(qty)s من استلام الأمانة |
+
+## 14. The "restoring a backup" page (2)
+
+Audit S3 (2026-09-25). `static/restoring.html` is shown to every workstation
+while a backup is restored. It is a static file, not a template, because
+rendering a template reads the clinic's language from a table that is being
+reloaded. So it carries both languages, and **its Arabic is edited in that
+file, not the catalogue**. Built from استعادة (restore) and نسخة احتياطية
+(backup), as in the Settings page.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Restoring a backup | جارٍ استعادة نسخة احتياطية |
+| 2 | The clinic's data is being restored from a backup. Nothing can be saved until it is finished. This page reloads by itself, and will be back where you were in a minute or two. | تُستعاد بيانات العيادة الآن من نسخة احتياطية، ولا يمكن حفظ أي شيء حتى تنتهي. ستُعاد تحميل هذه الصفحة تلقائيًا، وستعود إلى ما كنت عليه خلال دقيقة أو دقيقتين. |

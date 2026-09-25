@@ -986,6 +986,11 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
   margin-bottom: var(--space-5);
 }
 
+/* static/restoring.html: the page every workstation sees while a backup is
+   restored (no template, no sidebar -- it cannot read the database). */
+.restoring { max-width: 640px; margin: 12vh auto 0; padding: 0 var(--space-6); }
+.restoring [dir="rtl"] { margin-top: var(--space-6); }
+
 /* The edit-conflict panel (templates/_edit_conflict.html): spans the whole
    row when the edit form is itself a grid (the boarding row editor). */
 .form-grid > .edit-conflict { grid-column: 1 / -1; }

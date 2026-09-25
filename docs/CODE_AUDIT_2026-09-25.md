@@ -64,7 +64,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | **Fixed** — phase 1 (`money.audit_status`), pinned by `test_money_routes.py::test_b7_*` |
 | **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | **Fixed** — JO's rendering, inherited by the merged tree; now pinned by `test_exports.py` |
 | **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Fixed** — P&L (phase 3) and the consignment credit both reverse the sale line; `sale_item_id` NOT NULL; `test_consignment_restock.py` |
-| **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
+| **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | **Fixed** — a 503 gate that reads no table; `--single-transaction`; `test_restore_gate.py` |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
@@ -77,7 +77,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B17** | Low | JO | A failed appointment booking re-renders the grid for *today*, not the day being booked | **Fixed** — `test_appointment_redisplay.py` |
 | **B18** | Low | both | Audit-derived usage ignores stock recorded through Consignment Receiving | **Fixed** — pre-filled on the audit sheet; `test_audit_receiving.py` |
 | **B19** | Low | both | Wellness "due" never expires; the two apps sort it in opposite orders | **Fixed** — owner decision D-16; `test_wellness_reminders.py` |
-| **S4** | Low | JO | Dev mode runs the Werkzeug debugger on `0.0.0.0` | Confirmed by code |
+| **S4** | Low | JO | Dev mode runs the Werkzeug debugger on `0.0.0.0` | **Fixed** — `listen_host()`: dev mode is loopback only |
 | **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | **Fixed** — phase 3: the route was the Rebuild button's, and it is gone |
 | **P1–P20** | — | — | Parity gaps, non-money | see §4 |
 | **D1–D12** | — | — | Design that could be simplified | see §5 |
@@ -749,7 +749,7 @@ mutation fails exactly the tests for its route. The guard tests for disabling
 or demoting an Admin keep a second active Admin present, so the "last active
 Admin" rule cannot be what refuses them.
 
-## S3 — Restore runs with the app still serving — **Confirmed by code**
+## S3 — Restore runs with the app still serving — **Fixed**
 
 **Severity: Medium · both apps**
 
@@ -763,7 +763,23 @@ is not run with `--single-transaction`. A POS sale during that window either
 progress") while a restore holds the lock, and consider
 `--single-transaction`.
 
-## S4 — JO dev mode exposes the Werkzeug debugger on the LAN — **Confirmed by code**
+**Fixed (merge).**
+
+- **The gate.** `backup.restore_in_progress` is set for the whole of a
+  restore. A `before_request` registered ahead of every hook that reads the
+  database answers 503 with `static/restoring.html`, which reloads itself,
+  names no install and is in both languages. It lets through only static
+  files and the restoring admin's own progress poll, which is answered from
+  the session and the in-memory job.
+- **One transaction.** `pg_restore` runs with `--single-transaction`, locally
+  and through Docker. A failed restore now changes nothing, and its message
+  says so.
+
+`tests/test_restore_gate.py` turns any database access into an error for the
+duration, so a page that reached for a table cannot pass. Mutation-checked
+four ways.
+
+## S4 — JO dev mode exposes the Werkzeug debugger on the LAN — **Fixed**
 
 **Severity: Low · JO only**
 
@@ -772,6 +788,10 @@ defaulting to `0.0.0.0`. IQ pins dev mode to `127.0.0.1` with a comment
 explaining why (the debugger console is PIN-protected but otherwise
 unauthenticated). Port IQ's line. (IQ's dev mode, conversely, hard-codes port
 5050 and ignores `BIND_PORT` — `app.py:1522`.)
+
+**Fixed (merge).** `app.listen_host(dev)` puts dev mode on 127.0.0.1 whatever
+`VETCLINICSYSTEM_HOST` says. The clinic's server still listens where it is
+told, on `BIND_PORT`. Pinned, with a control, in `tests/test_restore_gate.py`.
 
 ## S5 — JO `/reports/rebuild` redirects to an unvalidated `return_to` — **Confirmed by code**
 

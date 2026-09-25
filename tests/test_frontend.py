@@ -308,6 +308,12 @@ def test_toast_js_still_only_sweeps_flash_elements():
     )
 
 
+# HTML documents that belong in static/: served by app.py without a template,
+# because a template reads the database. restoring.html is the page shown
+# while a backup is restored (audit S3), when the tables are being reloaded.
+DELIBERATE_STATIC_PAGES = {"restoring.html"}
+
+
 def test_no_saved_page_has_been_committed_into_static():
     """static/ holds assets. It must not hold rendered pages.
 
@@ -334,6 +340,12 @@ def test_no_saved_page_has_been_committed_into_static():
         except OSError:
             continue
         if head.startswith("<!doctype html") or head.startswith("<html"):
+            if path.name in DELIBERATE_STATIC_PAGES:
+                # Written by hand, served by app.py; it must still carry
+                # nothing a saved page would (a token, an address).
+                body = path.read_text(encoding="utf-8").lower()
+                assert "csrf" not in body and not re.search(r"\b\d{1,3}(\.\d{1,3}){3}\b", body), path.name
+                continue
             offenders.append(path.name)
     assert not offenders, (
         "saved rendered page(s) committed into static/, where they are served "

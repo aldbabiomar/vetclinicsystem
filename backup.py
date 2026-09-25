@@ -94,6 +94,14 @@ def ensure_no_restore_marker():
 # first step; a plain Lock would fail to re-acquire itself there.
 maintenance_lock = threading.RLock()
 
+# Set for the whole of a restore (audit S3). pg_restore drops and reloads
+# every table, and the app went on serving the other workstations from them
+# meanwhile: a POS sale in that window either failed or wrote a row the
+# restore then collided with. While this is set, app.py answers every
+# request -- except the restoring admin's progress poll -- with a "restoring,
+# back in a moment" page that touches no table.
+restore_in_progress = threading.Event()
+
 
 def _pg_conn_parts():
     """Pull user/password/db/host/port out of DATABASE_URL for pg_dump and
@@ -290,7 +298,7 @@ def _run_pg_restore(dump_path, on_count=None):
     if shutil.which("pg_restore"):
         total = _pg_restore_toc_count(["pg_restore", "--list", dump_path])
         cmd = ["pg_restore", "-w", "-h", host, "-p", port, "-U", user, "-d", dbname,
-               "--clean", "--if-exists", "--verbose", dump_path]
+               "--clean", "--if-exists", "--single-transaction", "--verbose", dump_path]
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
                                  stderr=subprocess.PIPE, text=True)
         stderr_text = _stream_restore_progress(proc, total, on_count)
@@ -310,7 +318,7 @@ def _run_pg_restore(dump_path, on_count=None):
             cmd = ["docker", "exec", "-e", "PGOPTIONS=-c lock_timeout=30000",
                    "-e", "PGPASSWORD",  # value forwarded from env, not argv
                    container, "pg_restore", "-w", "-U", user, "-d", dbname,
-                   "--clean", "--if-exists", "--verbose", container_path]
+                   "--clean", "--if-exists", "--single-transaction", "--verbose", container_path]
             proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.PIPE, text=True)
             stderr_text = _stream_restore_progress(proc, total, on_count)
@@ -334,9 +342,11 @@ def run_restore(get_fresh_db, dump_path, triggered_by=None, on_progress=None):
     restore/update is already in progress."""
     if not maintenance_lock.acquire(blocking=False):
         return False, "Another backup, restore, or update is already running — try again once it finishes."
+    restore_in_progress.set()
     try:
         return _run_restore_locked(get_fresh_db, dump_path, triggered_by, on_progress)
     finally:
+        restore_in_progress.clear()
         maintenance_lock.release()
 
 
@@ -385,8 +395,11 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
         err = (e.stderr or "").strip() or str(e)
         _write_restore_marker("failed", dump_path, started)
         _try_log_restore(get_fresh_db, "failed", dump_path, err, started, triggered_by)
-        return False, (f"Restore failed: {err} — the database may be in a partially restored "
-                        f"state. Check it carefully before continuing to use the app.")
+        # --single-transaction (audit S3): all of the restore, or none of it.
+        # It used to be able to stop half way, leaving a mix of old and
+        # restored tables.
+        return False, (f"Restore failed: {err} — nothing was changed; the database is as it was "
+                        f"before the restore started.")
     except Exception as e:
         _write_restore_marker("failed", dump_path, started)
         _try_log_restore(get_fresh_db, "failed", dump_path, str(e), started, triggered_by)

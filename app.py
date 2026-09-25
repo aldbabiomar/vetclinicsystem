@@ -45,6 +45,7 @@ import jobs
 import pdf_export
 import clock
 import money
+import backup
 
 # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
 # live in core.py so the route blueprints under routes/ can reach them
@@ -276,6 +277,31 @@ def _reject_null_bytes():
     return None
 
 
+# What a restore lets through (audit S3): static files, and the progress poll
+# of the admin who started it -- answered from the session and the in-memory
+# job, never from a table.
+RESTORE_PASSTHROUGH = {"static", "favicon_ico", "settings.settings_job_status"}
+
+
+@app.before_request
+def _hold_requests_during_restore():
+    """While a backup is being restored, answer 503 with a page that reloads
+    itself, and touch no table. pg_restore is dropping and reloading every
+    one of them, and the app used to go on serving the other workstations
+    from them (audit S3). Registered before every hook that reads the
+    database."""
+    if not backup.restore_in_progress.is_set():
+        return None
+    if request.endpoint in RESTORE_PASSTHROUGH:
+        g.restore_passthrough = True
+        return None
+    resp = send_from_directory(app.static_folder, "restoring.html", mimetype="text/html", max_age=0)
+    resp.status_code = 503
+    resp.headers["Retry-After"] = "15"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.before_request
 def _load_money_setting():
     """Make the clinic's money setting (IQ / JO) active for this request —
@@ -284,7 +310,7 @@ def _load_money_setting():
     Settings applies on the very next request. A database that cannot be
     reached leaves it unset rather than failing here: the route (or the error
     page) is the right place for that error to surface."""
-    if request.endpoint == "static":
+    if request.endpoint == "static" or g.get("restore_passthrough"):
         return None
     zone = None
     try:
@@ -777,6 +803,9 @@ def _warn_if_submission_will_be_lost():
 def require_login():
     if request.endpoint in OPEN_ENDPOINTS or request.endpoint is None:
         return
+    if g.get("restore_passthrough"):
+        # During a restore: the session alone, no table (see above).
+        return None if session.get("user_id") else ("", 401)
     if not session.get("user_id"):
         _warn_if_submission_will_be_lost()
         return redirect(url_for("login", next=request.path))
@@ -1078,6 +1107,17 @@ def handle_unexpected_error(e):
         exc_message=redact_sensitive(str(e)),
         traceback_text=redact_sensitive(tb_text),
     ), 500
+
+
+def listen_host(dev):
+    """The address the server listens on. The clinic's server: every
+    interface by default (VETCLINICSYSTEM_HOST overrides), so the other
+    workstations can reach it. Dev mode: this computer only, always (audit
+    S4) — it runs Werkzeug's debugger, whose console executes Python for
+    anyone who gets past its PIN, and on 0.0.0.0 that was anyone on the LAN."""
+    if dev:
+        return "127.0.0.1"
+    return os.environ.get("VETCLINICSYSTEM_HOST", "0.0.0.0")
 
 
 # ---------------------------------------------------------------------------
@@ -1584,10 +1624,11 @@ if __name__ == "__main__":
     # unchanged (0.0.0.0:5050). BEHIND_TLS_PROXY above is how this app
     # supports HTTPS: via a reverse proxy in front, not by binding
     # Waitress directly to a different scheme.
-    bind_host = os.environ.get("VETCLINICSYSTEM_HOST", "0.0.0.0")
+    dev = os.environ.get("VETCLINICSYSTEM_DEV") == "1"
+    bind_host = listen_host(dev)
     scheme = "https" if BEHIND_TLS_PROXY else "http"
 
-    if os.environ.get("VETCLINICSYSTEM_DEV") == "1":
+    if dev:
         # Flask's dev server — convenient for local debugging only; not used
         # for normal clinic operation.
         app.run(debug=True, host=bind_host, port=BIND_PORT)
