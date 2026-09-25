@@ -18,6 +18,7 @@ passing assertion means something:
 Nothing here talks to a real receiver. The live ping against a real
 healthchecks.io check is a separate, manual verification step (plan §6.1).
 """
+import clock
 import json
 import logging
 from datetime import datetime, timedelta
@@ -56,7 +57,7 @@ def hb(db):
         _set(db, k, v)
 
 
-OK_RESULT = {"status": "ok", "ran_at": datetime.now().isoformat(timespec="seconds"),
+OK_RESULT = {"status": "ok", "ran_at": clock.now().isoformat(timespec="seconds"),
              "findings": [], "disk_free_bytes": 5 * 1024 ** 3}
 
 
@@ -91,7 +92,7 @@ def test_a_configured_url_actually_sends(hb, monkeypatch):
     monkeypatch.setattr(requests, "post", fake_post)
     _set(hb, "heartbeat_url", SECRET_URL)
 
-    ok, msg = heartbeat.send(hb, {"sent_at": datetime.now().isoformat(timespec="seconds")})
+    ok, msg = heartbeat.send(hb, {"sent_at": clock.now().isoformat(timespec="seconds")})
     assert ok is True
     assert len(calls) == 1
     assert calls[0][0] == SECRET_URL
@@ -168,7 +169,7 @@ def test_payload_stays_under_4kb_with_200_findings(hb, db):
     import heartbeat
     noisy = {
         "status": "fail",
-        "ran_at": datetime.now().isoformat(timespec="seconds"),
+        "ran_at": clock.now().isoformat(timespec="seconds"),
         "findings": [{"code": f"c{i}", "severity": "warn",
                       "message": "x" * 200} for i in range(200)],
         "disk_free_bytes": 1,
@@ -185,7 +186,7 @@ def test_the_worst_findings_are_the_ones_kept(hb, db):
     import heartbeat
     mixed = {
         "status": "fail",
-        "ran_at": datetime.now().isoformat(timespec="seconds"),
+        "ran_at": clock.now().isoformat(timespec="seconds"),
         "findings": ([{"code": f"w{i}", "severity": "warn", "message": "w"} for i in range(15)]
                      + [{"code": "the_fail", "severity": "fail", "message": "f"}]),
         "disk_free_bytes": 1,

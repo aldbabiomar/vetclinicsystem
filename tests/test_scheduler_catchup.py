@@ -25,6 +25,7 @@ with the wrong misfire setting, or trusting a frozen timer, looks identical
 to a correct one until a machine sleeps — which is exactly the condition no
 test suite naturally reproduces.
 """
+import clock
 from datetime import datetime, timedelta
 
 import pytest
@@ -121,7 +122,8 @@ def test_the_startup_job_is_the_catchup(monkeypatch):
 
     startup = [(f, k) for f, k in captured if k.get("id") == "startup_catchup"]
     assert len(startup) == 1, "there must be exactly one startup job"
-    assert startup[0][0] is scheduler._do_startup_catchup
+    # Registered inside the clinic-context wrapper (scheduler._clinic_job).
+    assert startup[0][0].__wrapped__ is scheduler._do_startup_catchup
 
 
 # --- OFF: the startup catch-up -------------------------------------------
@@ -158,7 +160,7 @@ def blog(db):
 def test_catchup_is_due_when_todays_backup_was_missed(blog):
     """The machine was off over 02:00 and booted afterwards."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(days=2))
@@ -169,7 +171,7 @@ def test_catchup_is_not_due_when_todays_backup_already_ran(blog):
     """The control. Without it, 'due when missed' and 'always due' are the
     same result, and every boot would take a redundant backup."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(minutes=1))
@@ -180,13 +182,13 @@ def test_catchup_is_not_due_before_todays_scheduled_time(blog):
     """Booting at 08:00 with a 23:00 backup time must not trigger a catch-up:
     tonight's run has not been missed, it simply has not happened yet."""
     import scheduler
-    _log_backup(blog, datetime.now() - timedelta(days=1))
+    _log_backup(blog, clock.now() - timedelta(days=1))
     assert scheduler._backup_catchup_due(blog, 23, 59) is False
 
 
 def test_catchup_is_due_when_no_backup_has_ever_run(blog):
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     assert scheduler._backup_catchup_due(blog, 0, 30) is True
@@ -206,7 +208,7 @@ def test_a_failed_backup_does_not_count_as_todays_run(blog):
     checks. The throttle itself is covered by
     test_a_failed_backup_is_not_retried_on_the_very_next_tick."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     older_than_the_bound = now - timedelta(minutes=scheduler.BACKUP_RETRY_MIN_MINUTES + 5)
@@ -263,7 +265,7 @@ def test_the_tick_is_registered_with_the_scheduler(monkeypatch):
 
     ticks = [(f, k) for f, k in captured if k.get("id") == "tick"]
     assert len(ticks) == 1, f"no tick job: {[k.get('id') for _, k in captured]}"
-    assert ticks[0][0] is scheduler._do_tick
+    assert ticks[0][0].__wrapped__ is scheduler._do_tick
     trigger = ticks[0][1]["trigger"]
     assert "interval" in repr(trigger).lower(), (
         "the tick must be an interval trigger — a cron trigger has the same "
@@ -274,7 +276,7 @@ def test_the_tick_is_registered_with_the_scheduler(monkeypatch):
 def test_self_check_due_uses_the_wall_clock(blog, db):
     """The tick's decision for the self-check half."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     db.execute("DELETE FROM self_check_log")
@@ -296,7 +298,7 @@ def test_self_check_not_due_before_its_time(blog, db):
     db.execute("DELETE FROM self_check_log")
     db.execute(
         "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"), "ok", "[]"),
+        (clock.now().isoformat(timespec="seconds"), "ok", "[]"),
     )
     db.commit()
     assert scheduler._self_check_due(db, 23, 59) is False
@@ -318,7 +320,7 @@ def test_the_tick_takes_an_overdue_backup(blog, monkeypatch):
     """End to end: the machine woke, the backup never happened, the tick
     notices by wall clock and runs it."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(days=2))
@@ -338,7 +340,7 @@ def test_the_tick_does_nothing_when_everything_is_current(blog, monkeypatch):
     """The control. A tick that always acted would take a backup every five
     minutes forever."""
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(minutes=1))
@@ -402,7 +404,7 @@ def test_two_paths_firing_together_produce_exactly_one_backup(blog, monkeypatch)
     """
     import threading
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(days=2))
@@ -416,7 +418,7 @@ def test_two_paths_firing_together_produce_exactly_one_backup(blog, monkeypatch)
         # Long enough that a genuinely concurrent caller would overlap.
         import time as _t
         _t.sleep(0.25)
-        _log_backup(db, datetime.now())
+        _log_backup(db, clock.now())
         return True, "ok"
 
     monkeypatch.setattr(backup_mod, "run_backup", fake_backup)
@@ -442,7 +444,7 @@ def test_two_paths_firing_together_produce_exactly_one_self_check(blog, db, monk
     """Same race, the self-check half — a duplicate here pings twice."""
     import threading
     import scheduler
-    now = datetime.now()
+    now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     db.execute("DELETE FROM self_check_log")
@@ -458,7 +460,7 @@ def test_two_paths_firing_together_produce_exactly_one_self_check(blog, db, monk
         _t.sleep(0.25)
         db.execute(
             "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
-            (datetime.now().isoformat(timespec="seconds"), "ok", "[]"),
+            (clock.now().isoformat(timespec="seconds"), "ok", "[]"),
         )
         db.commit()
 
@@ -490,8 +492,8 @@ def test_a_failed_backup_is_not_retried_on_the_very_next_tick(blog, db):
     db.execute("DELETE FROM backup_log")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "failed", "folder gone"),
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "failed", "folder gone"),
     )
     db.commit()
 
@@ -506,7 +508,7 @@ def test_a_failure_older_than_the_bound_is_retried(blog, db):
     destination that comes back stays un-backed-up until tomorrow."""
     import scheduler
     db.execute("DELETE FROM backup_log")
-    stale = (datetime.now() - timedelta(minutes=scheduler.BACKUP_RETRY_MIN_MINUTES + 5))
+    stale = (clock.now() - timedelta(minutes=scheduler.BACKUP_RETRY_MIN_MINUTES + 5))
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
         (stale.isoformat(timespec="seconds"), stale.isoformat(timespec="seconds"),
@@ -524,7 +526,7 @@ def test_the_bound_does_not_delay_the_first_attempt_of_the_day(blog, db):
     early-morning schedule; it must not throttle today's first run."""
     import scheduler
     db.execute("DELETE FROM backup_log")
-    yesterday = datetime.now() - timedelta(days=1)
+    yesterday = clock.now() - timedelta(days=1)
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
         (yesterday.isoformat(timespec="seconds"), yesterday.isoformat(timespec="seconds"),
@@ -535,3 +537,83 @@ def test_the_bound_does_not_delay_the_first_attempt_of_the_day(blog, db):
     assert scheduler._backup_catchup_due(db, 0, 1) is True, (
         "today's backup was throttled by yesterday's successful one"
     )
+
+
+# --- Every scheduled job runs in the clinic's time zone -------------------
+
+def _registered_jobs(monkeypatch, zone_row="Asia/Tokyo"):
+    """Start the scheduler against a fake database whose Time Zone setting is
+    `zone_row`, and return what was registered and the scheduler's kwargs."""
+    import scheduler
+    captured, sched_kwargs = [], {}
+
+    class FakeSched:
+        def add_job(self, func, **kw):
+            captured.append((func, kw))
+
+        def start(self):
+            pass
+
+    class FakeDB:
+        """Answers every settings read with "02:00" — the backup time. The
+        zone comes from clock.load, patched below."""
+        def execute(self, *a, **k):
+            return self
+
+        def fetchone(self):
+            return {"value": "02:00"}
+
+        def close(self):
+            pass
+
+    import clock
+    monkeypatch.setattr(clock, "load", lambda db, money_setting: zone_row)
+    monkeypatch.setattr(scheduler, "_scheduler", None)
+    monkeypatch.setattr(scheduler, "BackgroundScheduler",
+                        lambda **kw: (sched_kwargs.update(kw), FakeSched())[1])
+    scheduler.start(lambda: FakeDB(), lambda c: None)
+    monkeypatch.setattr(scheduler, "_scheduler", None)
+    return captured, sched_kwargs
+
+
+def test_every_scheduled_job_runs_inside_the_clinic_context(monkeypatch):
+    """GUARD. A scheduler thread inherits no request context: without the
+    wrapper, clock.now() in a job reads the computer's zone while every page
+    reads the Time Zone setting."""
+    captured, _ = _registered_jobs(monkeypatch)
+    assert captured, "nothing was registered"
+    unwrapped = [k.get("id") for f, k in captured if not hasattr(f, "__wrapped__")]
+    assert not unwrapped, f"jobs registered without the clinic context: {unwrapped}"
+
+
+def test_the_cron_jobs_fire_in_the_clinic_zone_not_the_computers(monkeypatch):
+    """GUARD. APScheduler 3's CronTrigger takes the computer's zone unless
+    given one — the scheduler's own zone does not reach it."""
+    captured, sched_kwargs = _registered_jobs(monkeypatch, zone_row="Asia/Tokyo")
+    assert str(sched_kwargs.get("timezone")) == "Asia/Tokyo"
+    crons = [k["trigger"] for f, k in captured if "cron" in repr(k.get("trigger")).lower()]
+    assert len(crons) == 3, f"expected the backup, self-check and verify crons: {crons}"
+    assert all(str(t.timezone) == "Asia/Tokyo" for t in crons), [str(t.timezone) for t in crons]
+
+
+def test_a_job_sees_the_clinic_zone_while_it_runs(monkeypatch):
+    """The wrapper, run: inside it clock and money are the clinic's; after
+    it, whatever they were before."""
+    import clock
+    import scheduler
+    monkeypatch.setattr(clock, "load", lambda db, money_setting: "Asia/Tokyo")
+    seen = []
+    job = scheduler._clinic_job(lambda get_db, close_db: seen.append(clock.zone_name()))
+
+    class FakeDB:
+        def execute(self, *a, **k):
+            return self
+
+        def fetchone(self):
+            return None
+
+    before = clock.zone_name()
+    job(lambda: FakeDB(), lambda c: None)
+    assert seen == ["Asia/Tokyo"]
+    assert clock.zone_name() == before
+

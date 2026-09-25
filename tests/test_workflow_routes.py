@@ -9,6 +9,7 @@ the user form is what decides who can apply a discount.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import clock
 import money
 import uuid
 from datetime import date, datetime, timedelta
@@ -104,7 +105,7 @@ def a_visit(db):
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
                (p_id, o_id, f"WF Pet {p_id}"))
     db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
-               (v_id, p_id, date.today().isoformat(), "Ongoing"))
+               (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     db.commit()
     yield {"visit_id": v_id, "patient_id": p_id, "owner_id": o_id}
     for sql in ("DELETE FROM payments WHERE visit_id=?",
@@ -131,7 +132,7 @@ def _edit_visit(client, visit_id, db=None, **data):
     # visit_type is not optional — the route rejects anything that is not
     # Outpatient or Inpatient, before it reaches the validation this helper
     # exists to exercise.
-    payload = {"date": date.today().isoformat(), "case_status": "Ongoing",
+    payload = {"date": clock.today().isoformat(), "case_status": "Ongoing",
                "visit_type": "Outpatient", "doctor": "", "complaint": "",
                "history": "", "exam": "", "treatment": ""}
     if db is not None:
@@ -243,9 +244,9 @@ def test_a_confirmed_audit_is_what_gives_an_item_a_stock_figure(client, db, cata
 
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     sid = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (sid, row["id"], Decimal("25.000"), Decimal(0)))
@@ -330,7 +331,7 @@ def test_a_stale_edit_is_refused_rather_than_overwriting(client, db, a_visit):
     assert saved["complaint"] == "First edit wins"
 
     resp = client.post(f"/visits/{a_visit['visit_id']}/edit", data={
-        "date": date.today().isoformat(), "case_status": "Ongoing",
+        "date": clock.today().isoformat(), "case_status": "Ongoing",
         "visit_type": "Outpatient", "doctor": "", "complaint": "Second edit clobbers",
         "history": "", "exam": "", "treatment": "",
         "expected_updated_at": stale}, follow_redirects=False)
@@ -403,7 +404,7 @@ def test_an_inpatient_admission_cannot_record_a_negative_weight(client, db, a_vi
     before = db.execute("SELECT count(*) AS c FROM inpatient_cases").fetchone()["c"]
     resp = client.post("/inpatient/new", data={
         "patient_id": a_visit["patient_id"],
-        "admission_date": date.today().isoformat(),
+        "admission_date": clock.today().isoformat(),
         "weight_kg": "-8", "bcs": "5", "complaint": "neg weight"},
         follow_redirects=False)
     assert resp.status_code != 500

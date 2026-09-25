@@ -14,6 +14,7 @@ from datetime import datetime, date
 
 import pytest
 
+import clock
 import logic
 import money
 
@@ -53,9 +54,9 @@ def sellable(db):
                (pl_id, f"Route Test Item {inv_id}", "Retail", 1000.0, 5000.0, True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (session_id, inv_id, 100.0, 0.0))
@@ -275,7 +276,7 @@ def visit(db):
     # 'Ongoing', not 'Open' — visits_case_status_check allows only the seven
     # statuses the app's own dropdown offers.
     db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
-               (v_id, p_id, date.today().isoformat(), "Ongoing"))
+               (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     db.commit()
     yield {"visit_id": v_id, "patient_id": p_id, "owner_id": o_id}
     for sql, args in (
@@ -348,7 +349,7 @@ def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
     invisible — not refunded, not flagged, just gone from every view."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 10000.0, "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="1000")
     assert resp.status_code == 200
@@ -379,7 +380,7 @@ def boarding(db, visit):
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
-        (visit["patient_id"], date.today().isoformat(), False, False, 0.0, 0.0, False, 20000.0))
+        (visit["patient_id"], clock.today().isoformat(), False, False, 0.0, 0.0, False, 20000.0))
     bid = cur.fetchone()["id"]
     db.commit()
     yield {"id": bid, "total": 20000.0, "patient_id": visit["patient_id"]}
@@ -636,7 +637,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
     visit — otherwise it is a way to pay money out against nothing."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     resp = client.post("/refunds/service", data={
         "visit_id": visit["visit_id"], "amount": "9000",
@@ -649,7 +650,7 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
 def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     try:
         resp = client.post("/refunds/service", data={
@@ -667,7 +668,7 @@ def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
 def _paid_visit(client, db, visit, paid):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], Decimal(paid), "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], Decimal(paid), "Cash", clock.today().isoformat(), "U001"))
     db.commit()
 
 
@@ -751,7 +752,7 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
     reads."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 5000.0, "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 5000.0, "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     try:
         for bad in ("", "Bitcoin", "cash"):
@@ -860,7 +861,7 @@ def inpatient_case(client, db, visit):
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, discount_percent, "
         "total, cleanup_amount) VALUES (?,?,?,?,?,?) RETURNING id",
-        (visit["patient_id"], date.today().isoformat(), False, 0.0, 0.0, 0.0))
+        (visit["patient_id"], clock.today().isoformat(), False, 0.0, 0.0, 0.0))
     case_id = cur.fetchone()["id"]
     db.commit()
     yield {"id": case_id, "patient_id": visit["patient_id"]}
@@ -971,7 +972,7 @@ def test_inpatient_summary_agrees_with_the_shared_arithmetic(client, db, inpatie
 def test_boarding_stay_can_be_created(client, db, visit):
     resp = client.post("/boarding/new", data={
         "patient_id": visit["patient_id"],
-        "entry_date": date.today().isoformat(),
+        "entry_date": clock.today().isoformat(),
         "price_per_day": "5000", "room": "R1",
         "special_needs": "", "total": ""}, follow_redirects=False)
     row = db.execute("SELECT * FROM boarding_sessions WHERE patient_id=? ORDER BY id DESC LIMIT 1",
@@ -992,7 +993,7 @@ def test_boarding_rejects_a_negative_daily_rate(client, db, visit):
     before = db.execute("SELECT count(*) AS c FROM boarding_sessions").fetchone()["c"]
     resp = client.post("/boarding/new", data={
         "patient_id": visit["patient_id"],
-        "entry_date": date.today().isoformat(),
+        "entry_date": clock.today().isoformat(),
         "price_per_day": "-5000", "room": "R1"}, follow_redirects=False)
     assert resp.status_code == 200
     assert db.execute("SELECT count(*) AS c FROM boarding_sessions").fetchone()["c"] == before
@@ -1045,7 +1046,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     route guards, on a different entry point."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10000")
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (visit["visit_id"], 10000.0, "Cash", date.today().isoformat(), "U001"))
+               (visit["visit_id"], 10000.0, "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "50"}, follow_redirects=False)
@@ -1059,7 +1060,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
 # ---------------------------------------------------------------------------
 
 def _payout(client, **data):
-    payload = {"day": date.today().isoformat(), "amount": "5000", "reason": "route test"}
+    payload = {"day": clock.today().isoformat(), "amount": "5000", "reason": "route test"}
     payload.update(data)
     return client.post("/cash-register/payout", data=payload, follow_redirects=False)
 

@@ -14,6 +14,7 @@ currently locked out, so a retention window shorter than its lookback would
 silently disarm the lockout. That relationship is asserted here rather than
 left to a comment.
 """
+import clock
 import uuid
 from datetime import datetime, timedelta
 
@@ -30,8 +31,8 @@ pytestmark = needs_db
 def aged_rows(db):
     """One clearly-old and one clearly-recent row in each of the four tables."""
     tag = uuid.uuid4().hex[:8].upper()
-    old = (datetime.now() - timedelta(days=5000)).isoformat(timespec="seconds")
-    new = datetime.now().isoformat(timespec="seconds")
+    old = (clock.now() - timedelta(days=5000)).isoformat(timespec="seconds")
+    new = clock.now().isoformat(timespec="seconds")
     for ts in (old, new):
         db.execute("INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id) "
                    "VALUES (?,?,?,?,?,?)", (None, f"probe{tag}", ts, "update", "owners", tag))
@@ -106,7 +107,7 @@ def test_a_setting_below_the_floor_is_clamped(db):
             db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
                        "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (bad,))
             db.commit()
-            recent = datetime.now() - timedelta(days=30)
+            recent = clock.now() - timedelta(days=30)
             # Nothing 30 days old may be deleted at any of these settings.
             tag = uuid.uuid4().hex[:8].upper()
             db.execute("INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id) "

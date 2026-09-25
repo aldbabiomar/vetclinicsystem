@@ -20,6 +20,7 @@ and thread B failed" would not be.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import clock
 import threading
 import uuid
 from decimal import Decimal as D
@@ -77,9 +78,9 @@ def sellable(db):
                (pl_id, f"Race Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     sid = cur.fetchone()["id"]
     # Exactly 5 in stock: two concurrent sales of 3 cannot both be legitimate.
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
@@ -172,7 +173,7 @@ def test_two_simultaneous_payments_cannot_overpay_one_visit(flask_app, db):
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
                (p_id, o_id, f"Race Pet {p_id}"))
     db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
-               (v_id, p_id, date.today().isoformat(), "Ongoing"))
+               (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     db.commit()
     admin = _fresh_client(flask_app)
     admin.post(f"/visits/{v_id}/billing",

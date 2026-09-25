@@ -586,7 +586,7 @@ where most bugs in the audit live.
 | D-5 | Inpatient billing with a blocked item | Refuse the whole submission |
 | D-6 | IQ's ChamPet palette | Kept |
 | D-7 | Badge style | `nowrap` — an Arabic word is never broken |
-| D-8 | Time zone | stored `timestamptz`, rendered in the money setting's zone |
+| D-8 | Time zone | stored `timestamptz`; a **Time Zone setting** in Settings, changeable at any time, whose "Automatic" default follows the money setting's zone (the computer's zone until one is chosen). Asked again during phase 2c and answered by the owner, 2026-09-25, over "follow the computer's clock" and "follow the money setting only" |
 | D-9 | How the money setting is chosen | **Settings dropdown**, changeable until the first money is recorded, then locked; it also sets the phone format |
 | D-10 | Before it is chosen | Money screens locked until an admin chooses; phone fields international-only |
 | D-11 | Logo | **A new neutral SVG mark**, tinted by the active palette; the dog illustrations stay on error pages, also tinted |
@@ -737,4 +737,19 @@ result under each money setting.
   rebuilds just the database after an in-place baseline edit.
   **Suite:** IQ **1094 passed, 4 skipped**; JO **1094 passed, 4 skipped**; no
   database 473 passed.
+- **2026-09-25 — Phase 2c-i: the clinic's clock.** `clock.py` decides what
+  "now" and "today" mean: the new **Time Zone** setting (D-8, the owner's
+  choice), else the money setting's zone, else the computer's. All 118 clock
+  reads in the application and 181 in the tests go through it, and a scan fails
+  on any new `datetime.now()` / `date.today()`. A request applies the zone to
+  its pooled connection (committed at once, so a later rollback cannot undo
+  it), `db.connect()` does the same for jobs, and every scheduled job runs
+  inside the clinic context — APScheduler's cron triggers now get the zone
+  explicitly, because they take the computer's otherwise. Stored timestamps
+  parsed back from text are made aware in one helper (`clock.parse`), fixing
+  the naive/aware comparisons in the login lockout, heartbeat, scheduler,
+  self-check, self-verify and the attachment reconciler. `tzdata` joins the
+  requirements (Windows Python has no zone database). Columns are still text:
+  phase 2c-ii changes their type.
+  **Suite:** IQ **1111 passed, 4 skipped**; JO **1111 passed, 4 skipped**.
 

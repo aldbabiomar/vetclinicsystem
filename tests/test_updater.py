@@ -14,6 +14,7 @@ someone to look in the wrong place. COMPARISON.md §46.
 Pure: no database, no network, no app import. Every case below builds the
 exception itself.
 """
+import clock
 import pathlib
 from datetime import datetime, timedelta
 
@@ -47,7 +48,7 @@ def _rate_limited(remaining="0", reset=None):
 # --- the case that actually reached a clinic -------------------------------
 
 def test_a_rate_limit_says_so_and_does_not_blame_the_connection():
-    reset = int((datetime.now() + timedelta(minutes=11)).timestamp())
+    reset = int((clock.now() + timedelta(minutes=11)).timestamp())
     msg = updater.describe_check_failure(_rate_limited(reset=reset))
     assert "limit" in msg.lower(), msg
     assert "offline" not in msg.lower(), (
@@ -123,7 +124,7 @@ def test_every_cause_produces_a_DIFFERENT_sentence():
     if the function returned one generic sentence containing every keyword,
     which is exactly the failure being fixed."""
     import requests
-    reset = int(datetime.now().timestamp()) + 600
+    reset = int(clock.now().timestamp()) + 600
     messages = [
         updater.describe_check_failure(_rate_limited(reset=reset)),
         updater.describe_check_failure(_http_error(404)),

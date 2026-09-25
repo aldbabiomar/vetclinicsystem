@@ -26,6 +26,7 @@ from flask import (
 
 from core import display_number, display_quantity
 from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity
+import clock
 
 bp = Blueprint("sales", __name__)
 
@@ -98,12 +99,12 @@ def _cash_register_page_context(day):
 @bp.route("/cash-register")
 @auth.permission_required("manage_cash_register")
 def cash_register_page():
-    day = request.args.get("date", "").strip() or date.today().isoformat()
+    day = request.args.get("date", "").strip() or clock.today().isoformat()
     try:
         logic.parse_date(day)
     except ValueError:
         flash(_("That date wasn't valid — showing today instead."), "error")
-        day = date.today().isoformat()
+        day = clock.today().isoformat()
     return render_template("cash_register.html", **_cash_register_page_context(day))
 
 
@@ -119,10 +120,10 @@ def cash_register_payout_new():
         return render_template("cash_register.html", **ctx)
 
     try:
-        day = clean_date(f.get("day"), field="day") or date.today().isoformat()
+        day = clean_date(f.get("day"), field="day") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
-        return redisplay(date.today().isoformat())
+        return redisplay(clock.today().isoformat())
     try:
         amount = parse_money(f.get("amount"), required=True)
     except BadNumber:
@@ -145,7 +146,7 @@ def cash_register_payout_new():
     cur = db.execute(
         "INSERT INTO cash_register_payouts (payout_date, amount, reason, logged_by, created_at) "
         "VALUES (?,?,?,?,?) RETURNING id",
-        (day, amount, reason, session["user_id"], datetime.now().isoformat(timespec="seconds")),
+        (day, amount, reason, session["user_id"], clock.now().isoformat(timespec="seconds")),
     )
     payout_id = cur.fetchone()["id"]
     auth.log_change(db, "cash_register_payouts", str(payout_id), "create")
@@ -167,10 +168,10 @@ def cash_register_audit_new():
         return render_template("cash_register.html", **ctx)
 
     try:
-        day = clean_date(f.get("day"), field="day") or date.today().isoformat()
+        day = clean_date(f.get("day"), field="day") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
-        return redisplay(date.today().isoformat())
+        return redisplay(clock.today().isoformat())
     try:
         counted_cash = parse_money(f.get("counted_cash"), required=True)
     except BadNumber:
@@ -193,7 +194,7 @@ def cash_register_audit_new():
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, "
         "counted_cash, difference, status, notes, performed_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
         (day, totals["Cash"], totals["Card"], totals["Transfer"], counted_cash, difference, status,
-         (f.get("notes") or "").strip() or None, session["user_id"], datetime.now().isoformat(timespec="seconds")),
+         (f.get("notes") or "").strip() or None, session["user_id"], clock.now().isoformat(timespec="seconds")),
     )
     audit_id = cur.fetchone()["id"]
     auth.log_change(db, "cash_register_audits", str(audit_id), "create")
@@ -539,7 +540,7 @@ def pos_checkout():
     # confirmed_at write; a sale timestamped in the same second as an audit
     # confirmation would otherwise tie under the strict '>' stock-since-audit
     # comparison and get silently excluded from inventory_status()'s total.
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = clock.now().isoformat(timespec="microseconds")
     try:
         sale_id = _record_sale(
             db, lines, subtotal=subtotal, discount_percent=discount_percent, total=total,
@@ -608,7 +609,7 @@ def _refunds_page_context():
     count_params = [date_filter] if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM refunds{count_where}", count_params).fetchone()["c"]
     refunds = logic.recent_refunds(db, limit=PER_PAGE, offset=page_offset(page), date_filter=date_filter)
-    return dict(refunds=refunds, today=date.today().isoformat(), date_filter=date_filter,
+    return dict(refunds=refunds, today=clock.today().isoformat(), date_filter=date_filter,
                 page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -662,7 +663,7 @@ def refund_retail_save():
         return redisplay()
     reason = (f.get("reason") or "").strip()
     try:
-        refund_date = clean_date(f.get("refund_date"), field="refund_date") or date.today().isoformat()
+        refund_date = clean_date(f.get("refund_date"), field="refund_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -721,7 +722,7 @@ def refund_retail_save():
 
     # Microsecond precision — same reasoning as pos_checkout()'s `now`
     # (restocking here writes an inventory_transactions row too).
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = clock.now().isoformat(timespec="microseconds")
     # Aggregate cap — see CLEANUP_FEATURE_PLAN.md §3.7/§4.5. Per-line
     # pricing above is untouched; this only stops the SUM of every retail
     # refund against this sale from exceeding what the sale actually
@@ -802,7 +803,7 @@ def refund_service_save():
         flash(_("Pick how this refund was actually paid out: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS)), "error")
         return redisplay()
     try:
-        refund_date = clean_date(f.get("refund_date"), field="refund_date") or date.today().isoformat()
+        refund_date = clean_date(f.get("refund_date"), field="refund_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -888,7 +889,7 @@ def refund_service_save():
                 "paid out is %(unit)s %(currency)s.", unit=display_money(money.require().cash_unit),
                 currency=currency_label()), "error")
         return redisplay()
-    now = datetime.now().isoformat(timespec="seconds")
+    now = clock.now().isoformat(timespec="seconds")
     # Snapshot, not a live lookup — see CLEANUP_FEATURE_PLAN.md §3.7/§4.5.
     # No cap change here: the paid-minus-already-refunded caps above
     # already correctly exclude any Clean Up amount, since Clean Up is

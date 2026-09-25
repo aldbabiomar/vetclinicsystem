@@ -44,6 +44,7 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Docs | Everything lives in this repo; the IQ/JO-era documents are in `docs/archive/` |
 | Repo | Public (the in-app updater downloads releases without credentials) |
 | First release | `1.0.0` |
+| Time zone | A **Time Zone** setting; "Automatic" follows the money setting's zone. Every clock read goes through `clock.py` — never `datetime.now()` / `date.today()` (a test scans for them) |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
 
 **If something comes up that needs a decision, ask the owner with options.**

@@ -20,6 +20,7 @@ from flask import (
 )
 
 from core import date_filter_arg, get_db
+import clock
 
 bp = Blueprint("admin", __name__)
 
@@ -51,7 +52,7 @@ def _future_appt_count(db, user_id):
     (F-25) so all four share one implementation."""
     return db.execute(
         "SELECT COUNT(*) c FROM appointments WHERE resource_type='vet' AND resource_id=? AND appt_date >= ?",
-        (user_id, date.today().isoformat()),
+        (user_id, clock.today().isoformat()),
     ).fetchone()["c"]
 
 
@@ -130,7 +131,7 @@ def admin_user_new():
         "INSERT INTO users (id,username,password_hash,full_name,role_id,custom_discount_cap,active,must_change_password,created_at) "
         "VALUES (?,?,?,?,?,?,true,true,?)",
         (uid, username, auth.hash_password(password), full_name, role_id, custom_cap,
-         datetime.now().isoformat(timespec="seconds")),
+         clock.now().isoformat(timespec="seconds")),
     )
     auth.log_change(db, "users", uid, "create")
     db.commit()
@@ -230,7 +231,7 @@ def admin_role_new():
     db.execute(
         "INSERT INTO roles (id,name,description,is_system,discount_cap,is_vet_role,created_at) "
         "VALUES (?,?,?,false,?,?,?)",
-        (role_id, name, description, cap, is_vet_role, datetime.now().isoformat(timespec="seconds")),
+        (role_id, name, description, cap, is_vet_role, clock.now().isoformat(timespec="seconds")),
     )
     for p in perms:
         db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, p))
@@ -373,7 +374,7 @@ def admin_user_reset_password(user_id):
     # compromised account) is that it takes effect now, not up to 12 hours
     # from now once that session's cookie happens to expire on its own.
     db.execute("UPDATE users SET password_hash=?, must_change_password=true, password_changed_at=? WHERE id=?",
-               (auth.hash_password(new_pw), datetime.now().isoformat(timespec="seconds"), user_id))
+               (auth.hash_password(new_pw), clock.now().isoformat(timespec="seconds"), user_id))
     auth.log_change(db, "users", user_id, "update", {"password": ("(hidden)", "(reset by admin)")})
     db.commit()
     flash(_("Password reset. The user will be asked to set a new one on next login."), "success")
@@ -396,7 +397,7 @@ def admin_logs():
     # day", on the one screen whose whole job is showing what happened. See
     # SEAM_RULES.md.
     day = date_filter_arg("date", "That date wasn't valid — showing today instead.") \
-        or date.today().isoformat()
+        or clock.today().isoformat()
     changes = logic.changes_on_date(db, day)
     logins = logic.logins_on_date(db, day)
-    return render_template("admin_logs.html", day=day, today=date.today().isoformat(), changes=changes, logins=logins)
+    return render_template("admin_logs.html", day=day, today=clock.today().isoformat(), changes=changes, logins=logins)

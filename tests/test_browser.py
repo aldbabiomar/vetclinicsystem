@@ -47,6 +47,7 @@ property worth keeping.
 Run with:
     APP_URL=http://127.0.0.1:5091 venv/bin/python -m pytest tests/test_browser.py -q
 """
+import clock
 import os
 
 import pytest
@@ -651,7 +652,7 @@ def _seed_member_cart(db, sale_price):
     """
     owner_id = _rid("O")
     db.execute("INSERT INTO owners (id, name, is_member, member_since) VALUES (?,?,?,?)",
-               (owner_id, f"Rewards Browser {owner_id}", True, _date.today().isoformat()))
+               (owner_id, f"Rewards Browser {owner_id}", True, clock.today().isoformat()))
     db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                ("member_discount_percent", "10"))
@@ -668,9 +669,9 @@ def _seed_member_cart(db, sale_price):
                    (pl_id, name, "Retail", 0, Decimal(sale_price), True, inv_id, can_discount))
         cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                          "VALUES (?,?,?,?,?) RETURNING id",
-                         (_date.today().isoformat(), "U001", "Confirmed",
-                          _datetime.now().isoformat(timespec="seconds"),
-                          _datetime.now().isoformat(timespec="microseconds")))
+                         (clock.today().isoformat(), "U001", "Confirmed",
+                          clock.now().isoformat(timespec="seconds"),
+                          clock.now().isoformat(timespec="microseconds")))
         sid = cur.fetchone()["id"]
         audit_ids.append(sid)
         db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "

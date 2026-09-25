@@ -8,6 +8,7 @@ complains, because the person out of pocket is the clinic.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import clock
 import uuid
 from datetime import date, datetime
 
@@ -52,7 +53,7 @@ def distributor(client, db):
 def a_bill(client, db, distributor):
     client.post(f"/distributors/{distributor['id']}/bills/new", data={
         "bill_reference": f"REF{uuid.uuid4().hex[:6]}",
-        "bill_date": date.today().isoformat(),
+        "bill_date": clock.today().isoformat(),
         "total_amount": "500.000", "notes": ""}, follow_redirects=False)
     row = db.execute("SELECT * FROM distributor_bills WHERE distributor_id=? ORDER BY id DESC LIMIT 1",
                      (distributor["id"],)).fetchone()
@@ -73,7 +74,7 @@ def test_a_distributor_bill_rejects_a_negative_total(client, db, distributor):
     before = db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=?",
                         (distributor["id"],)).fetchone()["c"]
     resp = client.post(f"/distributors/{distributor['id']}/bills/new", data={
-        "bill_reference": "NEG", "bill_date": date.today().isoformat(),
+        "bill_reference": "NEG", "bill_date": clock.today().isoformat(),
         "total_amount": "-500.000"}, follow_redirects=False)
     assert resp.status_code != 500
     assert db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=?",
@@ -138,7 +139,7 @@ def consignment_item(client, db, distributor):
                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                (inv_id, f"Consign {inv_id}", "Retail", "unit", False, D("2.000"),
                 distributor["id"], "Consignment",
-                datetime.now().isoformat(timespec="seconds"), True))
+                clock.now().isoformat(timespec="seconds"), True))
     # Writing off consignment stock requires the item to have been through a
     # confirmed audit — the same fail-closed rule POS applies before selling
     # anything with an unknown stock figure. Without this every shrinkage
@@ -146,9 +147,9 @@ def consignment_item(client, db, distributor):
     # is exactly what a mutation check caught them doing.
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     audit_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                # Decimal, not float — JO's money and quantity columns are
@@ -177,7 +178,7 @@ def test_a_consignment_delivery_is_recorded(client, db, consignment_item):
     before = _receipts(db, consignment_item["id"])
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "10", "unit_cost": "2.000",
-        "received_date": date.today().isoformat(),
+        "received_date": clock.today().isoformat(),
         "delivery_reference": "DEL1", "notes": ""}, follow_redirects=False)
     assert _receipts(db, consignment_item["id"]) == before + 1
 
@@ -188,7 +189,7 @@ def test_a_consignment_delivery_rejects_a_negative_unit_cost(client, db, consign
     before = _receipts(db, consignment_item["id"])
     resp = client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "10", "unit_cost": "-2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     assert resp.status_code != 500
     assert _receipts(db, consignment_item["id"]) == before
 
@@ -198,7 +199,7 @@ def test_a_consignment_delivery_rejects_zero_quantity(client, db, consignment_it
     for bad in ("0", "-5"):
         resp = client.post("/consignment/receiving/new", data={
             "item_id": consignment_item["id"], "quantity": bad, "unit_cost": "2.000",
-            "received_date": date.today().isoformat()}, follow_redirects=False)
+            "received_date": clock.today().isoformat()}, follow_redirects=False)
         assert resp.status_code != 500
     assert _receipts(db, consignment_item["id"]) == before
 
@@ -218,7 +219,7 @@ def test_shrinkage_cannot_exceed_what_was_received(client, db, consignment_item)
     clinic against goods it never held."""
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
                         (consignment_item["id"],)).fetchone()["c"]
     resp = client.post("/consignment/shrinkage/new", data={
@@ -238,7 +239,7 @@ def test_a_valid_shrinkage_write_off_is_recorded(client, db, consignment_item):
     exercising nothing."""
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
                         (consignment_item["id"],)).fetchone()["c"]
     resp = client.post("/consignment/shrinkage/new", data={
@@ -254,7 +255,7 @@ def test_a_valid_shrinkage_write_off_is_recorded(client, db, consignment_item):
 def test_shrinkage_rejects_zero_and_negative(client, db, consignment_item):
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
                         (consignment_item["id"],)).fetchone()["c"]
     for bad in ("0", "-5"):
@@ -272,7 +273,7 @@ def test_shrinkage_rejects_an_unknown_reason_or_liable_party(client, db, consign
     whichever side of the reconciliation it was meant to be on."""
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
                         (consignment_item["id"],)).fetchone()["c"]
     for reason, liable in (("Vanished", "Clinic"), ("Damaged", "The Weather")):
@@ -297,12 +298,12 @@ def test_an_unaudited_item_cannot_be_written_off(client, db, distributor):
                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, D("2.000"),
                 distributor["id"], "Consignment",
-                datetime.now().isoformat(timespec="seconds"), True))
+                clock.now().isoformat(timespec="seconds"), True))
     db.commit()
     try:
         client.post("/consignment/receiving/new", data={
             "item_id": inv_id, "quantity": "5", "unit_cost": "2.000",
-            "received_date": date.today().isoformat()}, follow_redirects=False)
+            "received_date": clock.today().isoformat()}, follow_redirects=False)
         before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
                             (inv_id,)).fetchone()["c"]
         resp = client.post("/consignment/shrinkage/new", data={
@@ -326,7 +327,7 @@ def test_the_consignment_balance_reflects_what_was_received(client, db, consignm
     settlement is calculated against."""
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "8", "unit_cost": "2.000",
-        "received_date": date.today().isoformat()}, follow_redirects=False)
+        "received_date": clock.today().isoformat()}, follow_redirects=False)
     bal = logic.consignment_balance(db, consignment_item["distributor_id"])
     assert bal is not None, "a distributor with deliveries must have a balance"
 
@@ -352,7 +353,7 @@ def _audits(db):
 def test_an_end_of_day_count_is_recorded(client, db):
     before = _audits(db)
     resp = client.post("/cash-register/audit", data={
-        "day": date.today().isoformat(), "counted_cash": "120.000", "notes": "evening count"},
+        "day": clock.today().isoformat(), "counted_cash": "120.000", "notes": "evening count"},
         follow_redirects=False)
     assert resp.status_code != 500
     assert _audits(db) == before + 1
@@ -363,7 +364,7 @@ def test_a_cash_count_rejects_a_negative_figure(client, db):
     a typo that would show as a phantom shortfall."""
     before = _audits(db)
     resp = client.post("/cash-register/audit", data={
-        "day": date.today().isoformat(), "counted_cash": "-5.000"}, follow_redirects=False)
+        "day": clock.today().isoformat(), "counted_cash": "-5.000"}, follow_redirects=False)
     assert resp.status_code != 500
     assert _audits(db) == before
 
@@ -371,7 +372,7 @@ def test_a_cash_count_rejects_a_negative_figure(client, db):
 def test_a_cash_count_rejects_a_non_numeric_figure(client, db):
     before = _audits(db)
     resp = client.post("/cash-register/audit", data={
-        "day": date.today().isoformat(), "counted_cash": "loads"}, follow_redirects=False)
+        "day": clock.today().isoformat(), "counted_cash": "loads"}, follow_redirects=False)
     assert resp.status_code != 500
     assert _audits(db) == before
 
@@ -542,8 +543,8 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
                      "VALUES (?,?,?,?) RETURNING id",
                      # 'Draft', not 'Open' — audit_sessions_status_check
                      # allows only Draft and Confirmed.
-                     (date.today().isoformat(), "U001", "Draft",
-                      datetime.now().isoformat(timespec="seconds")))
+                     (clock.today().isoformat(), "U001", "Draft",
+                      clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (sid, inv_id, D("30.000"), D(0)))

@@ -9,6 +9,7 @@ from functools import wraps
 from flask import session, redirect, url_for, request, abort
 from flask_babel import gettext as _
 from werkzeug.security import generate_password_hash, check_password_hash
+import clock
 
 # ---------------------------------------------------------------------------
 # Permissions — the app's fixed vocabulary of what *can* be gated. This list
@@ -268,7 +269,7 @@ def seed_default_roles_and_permissions(db):
         db.execute(
             "INSERT INTO roles (id,name,description,is_system,discount_cap,is_vet_role,created_at) "
             "VALUES (?,?,?,?,?,?,?)",
-            (role_id, name, desc, is_system, cap, is_vet_role, datetime.now().isoformat(timespec="seconds")),
+            (role_id, name, desc, is_system, cap, is_vet_role, clock.now().isoformat(timespec="seconds")),
         )
         for perm in perms:
             db.execute(
@@ -347,7 +348,7 @@ def log_login(db, user_id, username, success):
     ip = request.remote_addr
     db.execute(
         "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (?,?,?,?,?,?)",
-        (user_id, username, 1 if success else 0, datetime.now().isoformat(timespec="seconds"), ip, ua),
+        (user_id, username, 1 if success else 0, clock.now().isoformat(timespec="seconds"), ip, ua),
     )
     db.commit()
 
@@ -412,7 +413,7 @@ def login_lock_status(db, username):
     """
     if not username:
         return False, None, None
-    lookback_cutoff = (datetime.now() - timedelta(hours=LOCKOUT_LOOKBACK_HOURS)).isoformat(timespec="seconds")
+    lookback_cutoff = (clock.now() - timedelta(hours=LOCKOUT_LOOKBACK_HOURS)).isoformat(timespec="seconds")
     last_success = db.execute(
         "SELECT MAX(timestamp) AS t FROM login_log WHERE username=? AND success=1 AND timestamp >= ?",
         (username, lookback_cutoff),
@@ -424,7 +425,7 @@ def login_lock_status(db, username):
     ).fetchall()
     if not rows:
         return False, None, None
-    timestamps = [datetime.fromisoformat(r["timestamp"]) for r in rows]
+    timestamps = [clock.parse(r["timestamp"]) for r in rows]
 
     bursts = [[timestamps[0]]]
     for t in timestamps[1:]:
@@ -448,7 +449,7 @@ def login_lock_status(db, username):
 
     duration_minutes = min(LOCKOUT_BASE_MINUTES * (2 ** (steps - 1)), LOCKOUT_MAX_MINUTES)
     unlock_at = trigger_at + timedelta(minutes=duration_minutes)
-    remaining = unlock_at - datetime.now()
+    remaining = unlock_at - clock.now()
     if remaining.total_seconds() <= 0:
         return False, None, None
     return True, max(1, int(remaining.total_seconds() // 60) + 1), unlock_at
@@ -523,7 +524,7 @@ def log_change(db, table_name, record_id, action, changes=None):
     """
     uid = session.get("user_id")
     uname = session.get("username", "system")
-    ts = datetime.now().isoformat(timespec="seconds")
+    ts = clock.now().isoformat(timespec="seconds")
 
     if action == "update" and changes:
         for field, (old, new) in changes.items():

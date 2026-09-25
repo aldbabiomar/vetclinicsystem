@@ -43,6 +43,7 @@ import barcode as barcode_mod
 import attachments as attach_mod
 import jobs
 import pdf_export
+import clock
 import money
 
 # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
@@ -91,7 +92,7 @@ from core import (
 # Read by heartbeat.py for the payload's uptime figure. Set here rather than in
 # heartbeat itself because that module is imported lazily inside a scheduler
 # job, which would make "uptime" mean "time since the first heartbeat".
-APP_STARTED_AT = datetime.now()
+APP_STARTED_AT = clock.now()
 
 
 class _DecimalJSONProvider(DefaultJSONProvider):
@@ -283,11 +284,23 @@ def _load_money_setting():
     page) is the right place for that error to surface."""
     if request.endpoint == "static":
         return None
+    zone = None
     try:
-        setting = money.load(get_db())
+        db = get_db()
+        setting = money.load(db)
+        zone = clock.load(db, setting)
+        # The session's zone decides what `::date` means in SQL, and which
+        # zone psycopg attaches to timestamps it reads. Applied first thing
+        # and committed at once — nothing else is in this transaction yet —
+        # so a rollback later in the request cannot undo it. Only when the
+        # pooled connection is in a different zone, to save a round trip.
+        if getattr(db.info.timezone, "key", None) != zone:
+            clock.apply_to(db, zone)
+            db.commit()
     except Exception:
         setting = None
     g.money_token = money.set_current(setting)
+    g.clock_token = clock.set_current(zone)
     return None
 
 
@@ -296,6 +309,9 @@ def _unload_money_setting(exc):
     token = g.pop("money_token", None)
     if token is not None:
         money.reset_current(token)
+    token = g.pop("clock_token", None)
+    if token is not None:
+        clock.reset_current(token)
 
 
 def _has_null(value):
@@ -757,7 +773,7 @@ def inject_globals():
         db = get_db()
         clinic_name = logic.get_setting(db, "clinic_name", "VetClinicSystem")
         clinic_location = logic.get_setting(db, "clinic_location", "Amman, Jordan")
-        ctx = dict(clinic_name=clinic_name, clinic_location=clinic_location, today=date.today().isoformat(),
+        ctx = dict(clinic_name=clinic_name, clinic_location=clinic_location, today=clock.today().isoformat(),
                    current_role=session.get("role"), current_username=session.get("username"),
                    session_user_id=session.get("user_id"))
         if session.get("user_id"):
@@ -778,7 +794,7 @@ def inject_globals():
         )
         return dict(
             clinic_name="VetClinicSystem", clinic_location="",
-            today=date.today().isoformat(),
+            today=clock.today().isoformat(),
             current_role=session.get("role"), current_username=session.get("username"),
             alert_count=0, session_user_id=session.get("user_id"),
         )
@@ -980,7 +996,7 @@ def handle_unexpected_error(e):
         return e
 
     error_id = uuid.uuid4().hex[:8].upper()
-    when = datetime.now()
+    when = clock.now()
     tb_text = traceback.format_exc()
 
     error_logger.error(
@@ -1081,7 +1097,7 @@ def change_password():
         elif new != confirm:
             flash(_("New password and confirmation don't match."), "error")
         else:
-            changed_at = datetime.now().isoformat(timespec="seconds")
+            changed_at = clock.now().isoformat(timespec="seconds")
             db.execute("UPDATE users SET password_hash=?, must_change_password=false, password_changed_at=? WHERE id=?",
                        (auth.hash_password(new), changed_at, user["id"]))
             auth.log_change(db, "users", user["id"], "update", {"password": ("(hidden)", "(self-service change)")})

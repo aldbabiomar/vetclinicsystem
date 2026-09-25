@@ -24,6 +24,7 @@ from flask import (
 )
 
 from core import BadNumber, PER_PAGE, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, quantity_json
+import clock
 
 bp = Blueprint("inventory", __name__)
 
@@ -774,7 +775,7 @@ def audit_history_list():
 @auth.permission_required("manage_audit_history")
 def audit_session_start():
     db = get_db()
-    session_id = logic.get_or_create_draft_session(db, date.today().isoformat(), session["user_id"])
+    session_id = logic.get_or_create_draft_session(db, clock.today().isoformat(), session["user_id"])
     return redirect(url_for("inventory.audit_session_view", session_id=session_id))
 
 
@@ -958,7 +959,7 @@ def audit_session_confirm(session_id):
     # row: pos_checkout(), refund restocking, and the consignment
     # receipt/shrinkage/return helpers in logic.py).
     db.execute("UPDATE audit_sessions SET status='Confirmed', confirmed_at=? WHERE id=?",
-              (datetime.now().isoformat(timespec="microseconds"), session_id))
+              (clock.now().isoformat(timespec="microseconds"), session_id))
     auth.log_change(db, "audit_sessions", str(session_id), "update", {"status": ("Draft", "Confirmed")})
     db.commit()
     flash(_("Audit confirmed and locked. Inventory Status and Ordering Sheet now reflect these counts."), "success")

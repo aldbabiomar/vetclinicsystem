@@ -45,6 +45,7 @@ from datetime import datetime
 import requests
 
 import logic
+import clock
 
 APP = "jo"
 
@@ -99,7 +100,7 @@ def _uptime_hours():
         started = getattr(app_module, "APP_STARTED_AT", None)
         if started is None:
             return None
-        return round((datetime.now() - started).total_seconds() / 3600.0, 1)
+        return round((clock.now() - started).total_seconds() / 3600.0, 1)
     except Exception:
         return None
 
@@ -117,7 +118,7 @@ def _backup_section(db):
             out["last_success_at"] = row["started_at"]
             out["last_size_bytes"] = row["filesize_bytes"]
             try:
-                delta = datetime.now() - datetime.fromisoformat(str(row["started_at"]))
+                delta = clock.now() - clock.parse(row["started_at"])
                 out["age_hours"] = round(delta.total_seconds() / 3600.0, 1)
             except (TypeError, ValueError):
                 pass
@@ -188,7 +189,7 @@ def build_payload(db, self_check_result):
         "install_id": install_id(db),
         "app": APP,
         "version": version,
-        "sent_at": datetime.now().isoformat(timespec="seconds"),
+        "sent_at": clock.now().isoformat(timespec="seconds"),
         "status": self_check_result.get("status", "ok"),
         "findings": findings,
         "backup": _backup_section(db),
@@ -255,7 +256,7 @@ def _mark_reported(db, sent_at):
         db.execute(
             "UPDATE self_check_log SET reported_at=? WHERE id = "
             "(SELECT id FROM self_check_log ORDER BY id DESC LIMIT 1)",
-            (sent_at or datetime.now().isoformat(timespec="seconds"),),
+            (sent_at or clock.now().isoformat(timespec="seconds"),),
         )
         db.commit()
     except Exception:

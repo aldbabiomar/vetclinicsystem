@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime
 
 import auth
+import clock
 
 # On the versioned-release layout (VETCLINICSYSTEM_DATA_DIR set by the
 # launcher script — see updater.py / setup.py --enable-updates), uploads
@@ -57,7 +58,7 @@ def validate_file(file_storage):
 
 def _safe_name(filename):
     base = re.sub(r"[^A-Za-z0-9_.-]", "_", filename)
-    return f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}_{base}"
+    return f"{clock.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}_{base}"
 
 
 def save_attachment(db, patient_id, record_type, record_id, file_storage, uploaded_by):
@@ -93,7 +94,7 @@ def save_attachment(db, patient_id, record_type, record_id, file_storage, upload
         "INSERT INTO attachments (patient_id, visit_id, inpatient_case_id, relative_path, original_name, uploaded_at, uploaded_by) "
         "VALUES (?,?,?,?,?,?,?) RETURNING id",
         (patient_id, visit_id, case_id, relative_path, file_storage.filename,
-         datetime.now().isoformat(timespec="seconds"), uploaded_by),
+         clock.now().isoformat(timespec="seconds"), uploaded_by),
     )
     attachment_id = cur.fetchone()["id"]
     auth.log_change(db, "attachments", str(attachment_id), "create")

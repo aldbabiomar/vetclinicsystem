@@ -55,6 +55,7 @@ import psycopg
 
 import backup as backup_mod
 import logic
+import clock
 
 RESTORE_TIMEOUT_SECONDS = 600
 SETTING_KEY = "last_verified_restore"
@@ -232,7 +233,7 @@ def verify_latest_backup(db):
 
     Never raises.
     """
-    at = datetime.now().isoformat(timespec="seconds")
+    at = clock.now().isoformat(timespec="seconds")
 
     def out(result, detail, checks=None):
         return {"at": at, "result": result, "detail": detail, "checks": checks or []}
@@ -365,7 +366,7 @@ def is_due(db, max_age_days=VERIFY_INTERVAL_DAYS):
         return True
     try:
         data = json.loads(raw)
-        when = datetime.fromisoformat(str(data.get("at")))
+        when = clock.parse(data.get("at"))
     except (TypeError, ValueError):
         return True
     if data.get("result") != "pass":
@@ -375,8 +376,8 @@ def is_due(db, max_age_days=VERIFY_INTERVAL_DAYS):
         # selfcheck.RESTORE_VERIFY_MAX_AGE_DAYS (45) with the clinic warned
         # the whole time. Bounded to once a day so a persistently broken
         # backup is not re-restored every tick.
-        return (datetime.now() - when).days >= 1
-    return (datetime.now() - when).days >= max_age_days
+        return (clock.now() - when).days >= 1
+    return (clock.now() - when).days >= max_age_days
 
 
 def run_and_record(db):

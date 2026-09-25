@@ -78,6 +78,11 @@ def connect():
     short-lived connections exactly as before.
     """
     conn = Connection.connect(database_url(), row_factory=dict_row, autocommit=False)
+    # In the clinic's time zone, and committed at once, so a later rollback
+    # by the caller cannot undo it (clock.apply_to).
+    import clock
+    clock.apply_to(conn)
+    conn.commit()
     return conn
 
 

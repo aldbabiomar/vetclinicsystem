@@ -101,3 +101,15 @@ Shown in English before (audit F1). Built from the reviewed consignment terms:
 | 2 | Only %(stock)s unit(s) on the shelf — can't return %(quantity)s. | على الرف %(stock)s وحدة فقط — لا يمكن إعادة %(quantity)s. |
 | 3 | This item hasn't been through an inventory audit yet — run an audit before writing off stock. | هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل شطب المخزون. |
 | 4 | This item hasn't been through an inventory audit yet — run an audit before returning stock. | هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل إعادة المخزون. |
+
+## 6. The Time Zone setting (4)
+
+A new setting chosen by the owner on 2026-09-25. The zone names themselves
+(Asia/Baghdad, …) are IANA identifiers and stay in Latin script, like IQ/JO.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Not a valid time zone. | المنطقة الزمنية غير صالحة. |
+| 2 | Time Zone | المنطقة الزمنية |
+| 3 | Automatic — %(zone)s | تلقائي — %(zone)s |
+| 4 | What "today" and every time in the app mean. Automatic follows the money setting (IQ: Asia/Baghdad, JO: Asia/Amman), or this computer until one is chosen. | ما يعنيه "اليوم" وكل وقت في التطبيق. الخيار التلقائي يتبع إعداد العملة (IQ: Asia/Baghdad، JO: Asia/Amman)، أو هذا الحاسوب إلى أن يُختار. |

@@ -19,6 +19,7 @@ import auth
 import db as dbmod
 import logic
 import schema
+import clock
 
 BASE_DIR = os.path.dirname(__file__)
 SEED_PATH = os.path.join(BASE_DIR, "seed_data.json")
@@ -84,7 +85,7 @@ def main():
         "INSERT INTO users (id,username,password_hash,full_name,role_id,active,must_change_password,created_at) "
         "VALUES (?,?,?,?,?,true,true,?)",
         (admin_id, "admin", auth.hash_password("admin123"), "Clinic Admin", admin_role_id,
-         datetime.now().isoformat(timespec="seconds")),
+         clock.now().isoformat(timespec="seconds")),
     )
     print("Seeded admin account -> username: admin / password: admin123 (must be changed on first login)")
 
@@ -244,7 +245,7 @@ def main():
         if not item_id:
             continue
         if audit_date not in sessions_by_date:
-            now_ts = datetime.now().isoformat(timespec="seconds")
+            now_ts = clock.now().isoformat(timespec="seconds")
             sessions_by_date[audit_date] = cur.execute(
                 "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                 "VALUES (?,?,'Confirmed',?,?) RETURNING id",

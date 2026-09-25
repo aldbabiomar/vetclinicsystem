@@ -172,7 +172,13 @@ def money_setting(request):
     setting = _money.SETTINGS[code]
     _store_money_setting(code)
     token = _money.set_current(setting)
+    # The clinic's clock follows the money setting's zone here (no test sets
+    # the Time Zone setting unless it says so), exactly as a request would
+    # resolve it. The `db` fixture connects after this, in the same zone.
+    import clock as _clock
+    clock_token = _clock.set_current(setting.timezone)
     try:
         yield setting
     finally:
+        _clock.reset_current(clock_token)
         _money.reset_current(token)

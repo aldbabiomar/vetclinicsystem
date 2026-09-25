@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-25 12:08+0300\n"
-"PO-Revision-Date: 2026-09-25 12:08+0300\n"
+"POT-Creation-Date: 2026-09-25 12:29+0300\n"
+"PO-Revision-Date: 2026-09-25 12:29+0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ar\n"
 "Language-Team: ar <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: app.py:702
+#: app.py:718
 msgid ""
 "You were signed out before that could be saved, so nothing was stored. "
 "Please sign in and enter it again."
@@ -27,16 +27,16 @@ msgstr ""
 "تم تسجيل خروجك قبل أن يُحفظ ذلك، فلم يُخزَّن شيء. يرجى تسجيل الدخول "
 "وإدخاله مرة أخرى."
 
-#: app.py:728
+#: app.py:744
 msgid "Your password was changed — please log in again."
 msgstr "تم تغيير كلمة المرور — يرجى تسجيل الدخول مرة أخرى."
 
-#: app.py:804
+#: app.py:820
 #, python-format
 msgid "That file is too large — the limit is %(MAX_UPLOAD_MB)s MB per upload."
 msgstr "الملف كبير جدًا — الحد الأقصى %(MAX_UPLOAD_MB)s ميجابايت لكل رفع."
 
-#: app.py:841
+#: app.py:857
 msgid ""
 "One of the number fields on that form wasn't valid. Please check the "
 "amounts and try again."
@@ -44,11 +44,11 @@ msgstr ""
 "أحد الحقول الرقمية في ذلك النموذج غير صالح. يرجى التحقق من المبالغ "
 "والمحاولة مرة أخرى."
 
-#: app.py:849
+#: app.py:865
 msgid "That phone number doesn't look valid. Please check it and try again."
 msgstr "رقم الهاتف لا يبدو صحيحًا. يرجى التحقق منه والمحاولة مرة أخرى."
 
-#: app.py:885
+#: app.py:901
 msgid ""
 "This page had been open too long to submit safely, so nothing was saved. "
 "Please check what you entered and submit it again."
@@ -56,7 +56,7 @@ msgstr ""
 "بقيت هذه الصفحة مفتوحة مدة أطول من أن تُرسَل بأمان، فلم يُحفظ شيء. يرجى "
 "مراجعة ما أدخلته وإرساله مرة أخرى."
 
-#: app.py:888
+#: app.py:904
 msgid ""
 "You were signed out while this page was open. Please sign in again — you "
 "may need to re-enter what you were working on."
@@ -64,7 +64,7 @@ msgstr ""
 "تم تسجيل خروجك بينما كانت هذه الصفحة مفتوحة. يرجى تسجيل الدخول مرة أخرى —"
 " قد تحتاج إلى إعادة إدخال ما كنت تعمل عليه."
 
-#: app.py:892
+#: app.py:908
 msgid ""
 "That form was missing something the server needed. Please reload the page"
 " and try again."
@@ -72,11 +72,11 @@ msgstr ""
 "النموذج ينقصه شيء يحتاجه الخادم. يرجى إعادة تحميل الصفحة والمحاولة مرة "
 "أخرى."
 
-#: app.py:905
+#: app.py:921
 msgid "That number is too large to be a valid value here."
 msgstr "هذا الرقم كبير جدًا ليكون قيمة صالحة هنا."
 
-#: app.py:1021
+#: app.py:1037
 msgid ""
 "Too many login attempts from this network. Please wait a few minutes and "
 "try again."
@@ -84,7 +84,7 @@ msgstr ""
 "محاولات تسجيل دخول كثيرة من هذه الشبكة. يرجى الانتظار بضع دقائق دون "
 "محاولة، ثم إعادة المحاولة."
 
-#: app.py:1028
+#: app.py:1044
 #, python-format
 msgid ""
 "Too many failed attempts for that account. Try again in about "
@@ -93,84 +93,84 @@ msgstr ""
 "محاولات فاشلة كثيرة على هذا الحساب. حاول مرة أخرى بعد نحو "
 "%(minutes_left)s دقيقة (حوالي %(strftime)s)."
 
-#: app.py:1040
+#: app.py:1056
 msgid "Incorrect username or password, or account is disabled."
 msgstr "اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب معطّل."
 
-#: app.py:1078
+#: app.py:1094
 msgid "Current password is incorrect."
 msgstr "كلمة المرور الحالية غير صحيحة."
 
-#: app.py:1082
+#: app.py:1098
 msgid "New password and confirmation don't match."
 msgstr "كلمة المرور الجديدة والتأكيد غير متطابقين."
 
-#: app.py:1093
+#: app.py:1109
 msgid "Password updated."
 msgstr "تم تحديث كلمة المرور."
 
-#: app.py:1226
+#: app.py:1242
 msgid "Report data rebuilt from current billing, sales, and cost data."
 msgstr "تمت إعادة بناء بيانات التقارير من الفوترة والمبيعات والتكاليف الحالية."
 
-#: app.py:1296
+#: app.py:1312
 msgid "Revenue by category"
 msgstr "الإيرادات حسب الفئة"
 
-#: app.py:1296
+#: app.py:1312
 msgid "Vet performance"
 msgstr "أداء الأطباء"
 
-#: app.py:1296
+#: app.py:1312
 msgid "Client value"
 msgstr "قيمة العملاء"
 
-#: app.py:1297
+#: app.py:1313
 msgid "Weekday appointment load"
 msgstr "حِمل المواعيد حسب أيام الأسبوع"
 
-#: app.py:1297
+#: app.py:1313
 msgid "Inpatient/boarding occupancy"
 msgstr "إشغال الإقامة المرضية والفندقية"
 
-#: app.py:1298
+#: app.py:1314
 msgid "Payment mix"
 msgstr "توزيع طرق الدفع"
 
-#: app.py:1298
+#: app.py:1314
 msgid "Cash Register health"
 msgstr "سلامة صندوق النقد"
 
-#: app.py:1328
+#: app.py:1344
 msgid "Computing cohort retention grid"
 msgstr "جارٍ حساب جدول الاحتفاظ بالعملاء"
 
-#: app.py:1347
+#: app.py:1363
 msgid "Pick a month first."
 msgstr "اختر الشهر أولًا."
 
-#: app.py:1350
+#: app.py:1366
 msgid "That's not a valid month."
 msgstr "هذا ليس شهرًا صالحًا."
 
-#: app.py:1359
+#: app.py:1375
 msgid "Operating costs must be valid numbers."
 msgstr "يجب أن تكون التكاليف التشغيلية أرقامًا صالحة."
 
-#: app.py:1367
+#: app.py:1383
 msgid "Operating costs can't be negative."
 msgstr "لا يمكن أن تكون التكاليف التشغيلية سالبة."
 
-#: app.py:1377
+#: app.py:1393
 #, python-format
 msgid "Operating costs saved for %(month)s."
 msgstr "تم حفظ التكاليف التشغيلية لشهر %(month)s."
 
-#: auth.py:480
+#: auth.py:481
 msgid "Unknown OS"
 msgstr "نظام غير معروف"
 
-#: auth.py:495
+#: auth.py:496
 msgid "Unknown browser"
 msgstr "متصفح غير معروف"
 
@@ -908,7 +908,7 @@ msgstr "رسالة نصية"
 msgid "Message"
 msgstr "الرسالة"
 
-#: logic.py:312
+#: logic.py:313
 msgid ""
 "No database backup has ever run yet — set a backup folder on the Settings"
 " page."
@@ -916,50 +916,50 @@ msgstr ""
 "لم تُشغَّل أي نسخة احتياطية لقاعدة البيانات بعد — عيّن مجلدًا للنسخ "
 "الاحتياطي من صفحة الإعدادات."
 
-#: logic.py:315
+#: logic.py:316
 #, python-format
 msgid "The last database backup failed: %(error)s."
 msgstr "فشلت آخر نسخة احتياطية لقاعدة البيانات: %(error)s."
 
-#: logic.py:330
+#: logic.py:331
 msgid "The last backup started but never finished — check the Settings page."
 msgstr "بدأت آخر نسخة احتياطية ولم تكتمل — راجع صفحة الإعدادات."
 
-#: logic.py:335
+#: logic.py:336
 msgid "The database hasn't been backed up in 2+ days — check the Settings page."
 msgstr "لم تُنسخ قاعدة البيانات احتياطيًا منذ يومين أو أكثر — راجع صفحة الإعدادات."
 
-#: logic.py:1855
+#: logic.py:1856
 msgid ""
 "This item hasn't been through an inventory audit yet — run an audit "
 "before writing off stock."
 msgstr "هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل شطب المخزون."
 
-#: logic.py:1859
+#: logic.py:1860
 #, python-format
 msgid "Only %(stock)s unit(s) on the shelf — can't write off %(quantity)s."
 msgstr "على الرف %(stock)s وحدة فقط — لا يمكن شطب %(quantity)s."
 
-#: logic.py:1899
+#: logic.py:1900
 msgid ""
 "This item hasn't been through an inventory audit yet — run an audit "
 "before returning stock."
 msgstr "هذا الصنف لم يُجرد بعد — أجرِ جردًا قبل إعادة المخزون."
 
-#: logic.py:1903
+#: logic.py:1904
 #, python-format
 msgid "Only %(stock)s unit(s) on the shelf — can't return %(quantity)s."
 msgstr "على الرف %(stock)s وحدة فقط — لا يمكن إعادة %(quantity)s."
 
-#: selfcheck.py:122
+#: selfcheck.py:123
 msgid "No database backup has ever run on this install."
 msgstr "لم تُشغَّل أي نسخة احتياطية لقاعدة البيانات على هذا التثبيت قط."
 
-#: selfcheck.py:137
+#: selfcheck.py:138
 msgid "No backup has ever completed successfully."
 msgstr "لم تكتمل أي نسخة احتياطية بنجاح قط."
 
-#: selfcheck.py:143
+#: selfcheck.py:144
 msgid ""
 "The last successful backup has an unreadable timestamp, so its age cannot"
 " be judged."
@@ -967,32 +967,32 @@ msgstr ""
 "آخر نسخة احتياطية ناجحة تحمل ختمًا زمنيًا غير مقروء، لذا لا يمكن تحديد "
 "عمرها."
 
-#: selfcheck.py:150
+#: selfcheck.py:151
 msgid "No successful backup for 1 day."
 msgstr "لا توجد نسخة احتياطية ناجحة منذ يوم واحد."
 
-#: selfcheck.py:151
+#: selfcheck.py:152
 #, python-format
 msgid "No successful backup for %(days)s days."
 msgstr "لا توجد نسخة احتياطية ناجحة منذ %(days)s يومًا."
 
-#: selfcheck.py:162
+#: selfcheck.py:163
 #, python-format
 msgid "The last 3 backup attempts all failed: %(error)s"
 msgstr "فشلت محاولات النسخ الاحتياطي الثلاث الأخيرة جميعها: %(error)s"
 
-#: selfcheck.py:178
+#: selfcheck.py:179
 #, python-format
 msgid ""
 "A backup started but never finished — it has been running for over "
 "%(hours)s hours."
 msgstr "بدأت نسخة احتياطية ولم تكتمل — وهي قيد التشغيل منذ أكثر من %(hours)s ساعة."
 
-#: selfcheck.py:193
+#: selfcheck.py:194
 msgid "No backup folder is configured — set one on the Settings page."
 msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي — عيّن واحدًا من صفحة الإعدادات."
 
-#: selfcheck.py:207
+#: selfcheck.py:208
 msgid ""
 "The backup folder is gone. Backups were being written there, so this is a"
 " folder that disappeared rather than one not set up yet — check whether "
@@ -1003,32 +1003,32 @@ msgstr ""
 "مجلدًا لم يُهيَّأ بعد — تحقق من أن القرص أو المجلد المزامَن ما زال متصلًا"
 " قبل أن يكتب أي شيء مجلدًا جديدًا."
 
-#: selfcheck.py:217
+#: selfcheck.py:218
 #, python-format
 msgid "The backup folder does not exist and could not be created: %(error)s"
 msgstr "مجلد النسخ الاحتياطي غير موجود وتعذّر إنشاؤه: %(error)s"
 
-#: selfcheck.py:228
+#: selfcheck.py:229
 #, python-format
 msgid "The backup folder exists but cannot be written to: %(error)s"
 msgstr "مجلد النسخ الاحتياطي موجود لكن لا يمكن الكتابة فيه: %(error)s"
 
-#: selfcheck.py:242
+#: selfcheck.py:243
 #, python-format
 msgid "Free disk space could not be read: %(error)s"
 msgstr "تعذّرت قراءة المساحة الحرة على القرص: %(error)s"
 
-#: selfcheck.py:249
+#: selfcheck.py:250
 #, python-format
 msgid "Only %(gb)s GB free on the backup volume."
 msgstr "لم يتبقَّ سوى %(gb)s غيغابايت على قرص النسخ الاحتياطي."
 
-#: selfcheck.py:253
+#: selfcheck.py:254
 #, python-format
 msgid "%(gb)s GB free on the backup volume."
 msgstr "%(gb)s غيغابايت متاحة على قرص النسخ الاحتياطي."
 
-#: selfcheck.py:266
+#: selfcheck.py:267
 #, python-format
 msgid ""
 "The database is missing %(count)s schema update(s) this version needs "
@@ -1037,40 +1037,40 @@ msgstr ""
 "تنقص قاعدة البيانات %(count)s من التحديثات التي يحتاجها هذا الإصدار "
 "(%(files)s). شغّل الإعداد مرة أخرى."
 
-#: selfcheck.py:293
+#: selfcheck.py:294
 #, python-format
 msgid "The update log exists but could not be read: %(error)s"
 msgstr "سجل التحديثات موجود لكن تعذّرت قراءته: %(error)s"
 
-#: selfcheck.py:301
+#: selfcheck.py:302
 msgid ""
 "The most recent update was rolled back — this install is not running the "
 "version it tried to install."
 msgstr "تم التراجع عن آخر تحديث — هذا التثبيت لا يعمل بالإصدار الذي حاول تثبيته."
 
-#: selfcheck.py:316
+#: selfcheck.py:317
 msgid "No backup has ever been verified as restorable on this install."
 msgstr "لم يتم التحقق من قابلية استعادة أي نسخة احتياطية على هذا التثبيت قط."
 
-#: selfcheck.py:323
+#: selfcheck.py:324
 msgid "The last restore-verification result could not be read."
 msgstr "تعذّرت قراءة نتيجة آخر تحقق من الاستعادة."
 
-#: selfcheck.py:329
+#: selfcheck.py:330
 msgid "The last restore-verification result has no readable date."
 msgstr "نتيجة آخر تحقق من الاستعادة لا تحمل تاريخًا مقروءًا."
 
-#: selfcheck.py:334
+#: selfcheck.py:335
 #, python-format
 msgid "The most recent restore verification did not pass: %(detail)s"
 msgstr "لم يجتز آخر تحقق من الاستعادة: %(detail)s"
 
-#: selfcheck.py:341
+#: selfcheck.py:342
 #, python-format
 msgid "No backup has been verified as restorable for %(days)s days."
 msgstr "لم يتم التحقق من قابلية استعادة أي نسخة احتياطية منذ %(days)s يومًا."
 
-#: selfcheck.py:366
+#: selfcheck.py:367
 msgid ""
 "The most recent backup is recorded as successful but its file is no "
 "longer on disk. Something removed it, or the folder it was written to is "
@@ -1080,38 +1080,38 @@ msgstr ""
 "القرص. إما أن شيئًا ما حذفه، أو أن المجلد الذي كُتبت فيه لم يعد المجلد "
 "نفسه."
 
-#: selfcheck.py:467
+#: selfcheck.py:468
 #, python-format
 msgid "The database could not be queried: %(error)s"
 msgstr "تعذّر الاستعلام من قاعدة البيانات: %(error)s"
 
-#: selfcheck.py:478
+#: selfcheck.py:479
 #, python-format
 msgid "The database could not be read: %(error)s"
 msgstr "تعذّرت قراءة قاعدة البيانات: %(error)s"
 
-#: selfcheck.py:491
+#: selfcheck.py:492
 #, python-format
 msgid "This check could not complete: %(error)s"
 msgstr "تعذّر إكمال هذا الفحص: %(error)s"
 
-#: routes/admin.py:107
+#: routes/admin.py:108
 msgid "Fill in a username, full name, and role."
 msgstr "أدخل اسم المستخدم والاسم الكامل والدور."
 
-#: routes/admin.py:114
+#: routes/admin.py:115
 msgid "That username is already taken."
 msgstr "اسم المستخدم هذا مستخدم بالفعل."
 
-#: routes/admin.py:122
+#: routes/admin.py:123
 msgid "Custom discount override must be a whole number."
 msgstr "يجب أن يكون تجاوز الخصم المخصص رقمًا صحيحًا."
 
-#: routes/admin.py:125
+#: routes/admin.py:126
 msgid "Custom discount override must be between 0 and 100."
 msgstr "يجب أن يكون تجاوز الخصم المخصص بين ٠ و١٠٠."
 
-#: routes/admin.py:137
+#: routes/admin.py:138
 #, python-format
 msgid ""
 "User %(username)s created. They'll be asked to set a new password on "
@@ -1120,47 +1120,47 @@ msgstr ""
 "تم إنشاء المستخدم %(username)s. سيُطلب منه تعيين كلمة مرور جديدة عند أول "
 "تسجيل دخول."
 
-#: routes/admin.py:146
+#: routes/admin.py:147
 msgid "You can't disable your own account."
 msgstr "لا يمكنك تعطيل حسابك الخاص."
 
-#: routes/admin.py:153 routes/admin.py:184
+#: routes/admin.py:154 routes/admin.py:185
 msgid "User not found."
 msgstr "المستخدم غير موجود."
 
-#: routes/admin.py:157
+#: routes/admin.py:158
 msgid "Can't disable the last active Admin."
 msgstr "لا يمكن تعطيل آخر مدير نشط."
 
-#: routes/admin.py:163
+#: routes/admin.py:164
 msgid "User updated."
 msgstr "تم تحديث المستخدم."
 
-#: routes/admin.py:176
+#: routes/admin.py:177
 msgid "Not a valid role."
 msgstr "الدور غير صالح."
 
-#: routes/admin.py:187
+#: routes/admin.py:188
 msgid "Can't move the last active Admin out of the Admin role."
 msgstr "لا يمكن نقل آخر مدير نشط خارج دور المدير."
 
-#: routes/admin.py:193
+#: routes/admin.py:194
 msgid "Role updated."
 msgstr "تم تحديث الدور."
 
-#: routes/admin.py:213
+#: routes/admin.py:214
 msgid "Give the new role a name."
 msgstr "أعطِ الدور الجديد اسمًا."
 
-#: routes/admin.py:221 routes/admin.py:268
+#: routes/admin.py:222 routes/admin.py:269
 msgid "Max Discount must be a whole number."
 msgstr "يجب أن يكون الحد الأقصى للخصم رقمًا صحيحًا."
 
-#: routes/admin.py:224 routes/admin.py:271
+#: routes/admin.py:225 routes/admin.py:272
 msgid "Max Discount must be between 0 and 100."
 msgstr "يجب أن يكون الحد الأقصى للخصم بين ٠ و١٠٠."
 
-#: routes/admin.py:242 routes/admin.py:294 routes/admin.py:354
+#: routes/admin.py:243 routes/admin.py:295 routes/admin.py:355
 msgid ""
 "No role is currently marked \"Can be assigned as a vet\" — Appointments, "
 "New Visit, Grooming, and Inpatient vet pickers will show no options until"
@@ -1170,34 +1170,34 @@ msgstr ""
 "قوائم اختيار الطبيب في المواعيد والزيارة الجديدة والعناية والإقامة "
 "المرضية أي خيارات حتى يتم تفعيله لدور واحد على الأقل."
 
-#: routes/admin.py:254
+#: routes/admin.py:255
 msgid "The Admin role can't be edited."
 msgstr "لا يمكن تعديل دور المدير."
 
-#: routes/admin.py:260
+#: routes/admin.py:261
 msgid "A role needs a name."
 msgstr "الدور يحتاج إلى اسم."
 
-#: routes/admin.py:321
+#: routes/admin.py:322
 msgid "The Admin role can't be deleted."
 msgstr "لا يمكن حذف دور المدير."
 
-#: routes/admin.py:328
+#: routes/admin.py:329
 msgid "Pick a role to move the affected staff to before deleting this one."
 msgstr "اختر دورًا لنقل الموظفين المتأثرين إليه قبل حذف هذا الدور."
 
-#: routes/admin.py:379
+#: routes/admin.py:380
 msgid "Password reset. The user will be asked to set a new one on next login."
 msgstr ""
 "تمت إعادة تعيين كلمة المرور. سيُطلب من المستخدم تعيين كلمة جديدة عند "
 "تسجيل الدخول التالي."
 
-#: routes/clinical.py:211 routes/clinical.py:369 routes/consignment.py:66
-#: routes/consignment.py:114
+#: routes/clinical.py:212 routes/clinical.py:370 routes/consignment.py:67
+#: routes/consignment.py:115
 msgid "That phone number doesn't look valid — check the digits and try again."
 msgstr "رقم الهاتف لا يبدو صحيحًا — تحقق من الأرقام وحاول مرة أخرى."
 
-#: routes/clinical.py:220 routes/clinical.py:241
+#: routes/clinical.py:221 routes/clinical.py:242
 #, python-format
 msgid ""
 "Owner %(id)s already has this phone number on file — add the pet to them "
@@ -1206,67 +1206,67 @@ msgstr ""
 "المالك %(id)s مسجّل بهذا الرقم بالفعل — أضف الحيوان إليه بدلًا من إنشاء "
 "مالك جديد."
 
-#: routes/clinical.py:243
+#: routes/clinical.py:244
 msgid "That phone number is already on file for another owner."
 msgstr "رقم الهاتف هذا مسجّل بالفعل لمالك آخر."
 
-#: routes/clinical.py:245
+#: routes/clinical.py:246
 #, python-format
 msgid "Owner %(oid)s added."
 msgstr "تمت إضافة المالك %(oid)s."
 
-#: routes/clinical.py:256 routes/clinical.py:291 routes/clinical.py:344
-#: routes/clinical.py:362
+#: routes/clinical.py:257 routes/clinical.py:292 routes/clinical.py:345
+#: routes/clinical.py:363
 msgid "Owner not found."
 msgstr "المالك غير موجود."
 
-#: routes/clinical.py:323
+#: routes/clinical.py:324
 msgid "That card number is already issued to another owner."
 msgstr "رقم البطاقة هذا مُصدر بالفعل لمالك آخر."
 
-#: routes/clinical.py:325
+#: routes/clinical.py:326
 msgid "Rewards card issued."
 msgstr "تم إصدار بطاقة المكافآت."
 
-#: routes/clinical.py:352
+#: routes/clinical.py:353
 msgid "Rewards card revoked."
 msgstr "تم إلغاء بطاقة المكافآت."
 
-#: routes/clinical.py:380
+#: routes/clinical.py:381
 msgid "Owner updated."
 msgstr "تم تحديث المالك."
 
-#: routes/clinical.py:431 routes/clinical.py:450 routes/clinical.py:507
+#: routes/clinical.py:432 routes/clinical.py:451 routes/clinical.py:508
 msgid "Patient not found."
 msgstr "المريض غير موجود."
 
-#: routes/clinical.py:467 routes/clinical.py:635
+#: routes/clinical.py:468 routes/clinical.py:636
 msgid "That microchip number doesn't look valid — check the digits and try again."
 msgstr "رقم الشريحة لا يبدو صحيحًا — تحقق من الأرقام وحاول مرة أخرى."
 
-#: routes/clinical.py:490 routes/clinical.py:700
+#: routes/clinical.py:491 routes/clinical.py:701
 msgid "That microchip number is already on another patient's record."
 msgstr "رقم الشريحة هذا مسجّل بالفعل في سجل مريض آخر."
 
-#: routes/clinical.py:494
+#: routes/clinical.py:495
 msgid "Patient updated."
 msgstr "تم تحديث المريض."
 
-#: routes/clinical.py:580
+#: routes/clinical.py:581
 msgid "Pick a patient from the search results before logging a visit."
 msgstr "اختر مريضًا من نتائج البحث قبل تسجيل الزيارة."
 
-#: routes/clinical.py:608
+#: routes/clinical.py:609
 msgid ""
 "That owner phone number doesn't look valid — check the digits and try "
 "again."
 msgstr "رقم هاتف المالك لا يبدو صحيحًا — تحقق من الأرقام وحاول مرة أخرى."
 
-#: routes/clinical.py:616 routes/clinical.py:907 routes/clinical.py:1965
+#: routes/clinical.py:617 routes/clinical.py:908 routes/clinical.py:1966
 msgid "Weight and BCS must be valid numbers."
 msgstr "يجب أن يكون الوزن ودرجة الحالة الجسدية أرقامًا صالحة."
 
-#: routes/clinical.py:656 routes/clinical.py:683
+#: routes/clinical.py:657 routes/clinical.py:684
 #, python-format
 msgid ""
 "Owner %(oid)s already has this phone number on file — the new pet was "
@@ -1275,28 +1275,28 @@ msgstr ""
 "المالك %(oid)s مسجّل بهذا الرقم بالفعل — تمت إضافة الحيوان الجديد إلى "
 "ملفه الحالي."
 
-#: routes/clinical.py:679
+#: routes/clinical.py:680
 msgid ""
 "That owner couldn't be saved — check the name and phone number and try "
 "again."
 msgstr "تعذّر حفظ هذا المالك — تحقق من الاسم ورقم الهاتف وحاول مرة أخرى."
 
-#: routes/clinical.py:857 routes/clinical.py:868 routes/clinical.py:990
-#: routes/clinical.py:998 routes/clinical.py:1156 routes/clinical.py:1177
-#: routes/clinical.py:1302 routes/clinical.py:1311 routes/clinical.py:1366
-#: routes/clinical.py:1457 routes/clinical.py:1486 routes/clinical.py:1517
+#: routes/clinical.py:858 routes/clinical.py:869 routes/clinical.py:991
+#: routes/clinical.py:999 routes/clinical.py:1157 routes/clinical.py:1178
+#: routes/clinical.py:1303 routes/clinical.py:1312 routes/clinical.py:1367
+#: routes/clinical.py:1458 routes/clinical.py:1487 routes/clinical.py:1518
 msgid "Visit not found."
 msgstr "الزيارة غير موجودة."
 
-#: routes/clinical.py:891
+#: routes/clinical.py:892
 msgid "Visit type must be Outpatient or Inpatient."
 msgstr "يجب أن يكون نوع الزيارة عيادات خارجية أو إقامة مرضية."
 
-#: routes/clinical.py:910 routes/clinical.py:1973 routes/clinical.py:2052
+#: routes/clinical.py:911 routes/clinical.py:1974 routes/clinical.py:2053
 msgid "Weight can't be negative."
 msgstr "لا يمكن أن يكون الوزن سالبًا."
 
-#: routes/clinical.py:945
+#: routes/clinical.py:946
 #, python-format
 msgid ""
 "Inpatient case #%(id)s is still open for this visit — dismiss it there "
@@ -1305,19 +1305,19 @@ msgstr ""
 "حالة الإقامة المرضية رقم %(id)s ما زالت مفتوحة لهذه الزيارة — أغلقها من "
 "هناك أولًا، أو اترك الحالة كما هي: محوّل إلى الإقامة المرضية."
 
-#: routes/clinical.py:962
+#: routes/clinical.py:963
 msgid "An inpatient case was opened for this visit."
 msgstr "تم فتح حالة إقامة مرضية لهذه الزيارة."
 
-#: routes/clinical.py:964
+#: routes/clinical.py:965
 msgid "Visit updated."
 msgstr "تم تحديث الزيارة."
 
-#: routes/clinical.py:1035 templates/visit_detail.html:245
+#: routes/clinical.py:1036 templates/visit_detail.html:245
 msgid "Add at least one billed item."
 msgstr "أضف صنفًا واحدًا على الأقل إلى الفاتورة."
 
-#: routes/clinical.py:1054
+#: routes/clinical.py:1055
 #, python-format
 msgid ""
 "Can't save — this bill has a %(discount_percent)s%% discount applied, but"
@@ -1328,15 +1328,15 @@ msgstr ""
 "أصنافًا غير قابلة للخصم: %(join)s. أزل الخصم أولًا، أو استبعد هذه الأصناف"
 " من الفاتورة."
 
-#: routes/clinical.py:1059
+#: routes/clinical.py:1060
 msgid "Manual amount must be a valid number."
 msgstr "يجب أن يكون المبلغ اليدوي رقمًا صالحًا."
 
-#: routes/clinical.py:1062
+#: routes/clinical.py:1063
 msgid "Manual Entry requires a Billed Amount greater than 0."
 msgstr "الإدخال اليدوي يتطلب مبلغًا مفوترًا أكبر من ٠."
 
-#: routes/clinical.py:1097
+#: routes/clinical.py:1098
 #, python-format
 msgid ""
 "That change would leave %(fmt_money)s paid against a %(fmt_money2)s "
@@ -1345,24 +1345,24 @@ msgstr ""
 "هذا التغيير سيترك %(fmt_money)s مدفوعًا مقابل فاتورة بقيمة %(fmt_money2)s"
 " %(currency)s. نفّذ استرداد خدمة للفرق أولًا."
 
-#: routes/clinical.py:1139 routes/clinical.py:2195
+#: routes/clinical.py:1140 routes/clinical.py:2196
 msgid "Some quantities weren't valid numbers and were skipped."
 msgstr "بعض الكميات لم تكن أرقامًا صالحة وتم تجاهلها."
 
-#: routes/clinical.py:1141 routes/clinical.py:2197
+#: routes/clinical.py:1142 routes/clinical.py:2198
 msgid "Some selected items no longer exist in the Price List and were skipped."
 msgstr "بعض الأصناف المختارة لم تعد موجودة في قائمة الأسعار وتم تجاهلها."
 
-#: routes/clinical.py:1142
+#: routes/clinical.py:1143
 msgid "Billing saved."
 msgstr "تم حفظ الفاتورة."
 
-#: routes/clinical.py:1163 routes/clinical.py:1825 routes/clinical.py:2260
-#: routes/sales.py:459
+#: routes/clinical.py:1164 routes/clinical.py:1826 routes/clinical.py:2261
+#: routes/sales.py:460
 msgid "Discount must be a valid number."
 msgstr "يجب أن يكون الخصم رقمًا صالحًا."
 
-#: routes/clinical.py:1187 routes/clinical.py:1833 routes/clinical.py:2279
+#: routes/clinical.py:1188 routes/clinical.py:1834 routes/clinical.py:2280
 msgid ""
 "This bill carries a rewards-card discount. A staff discount can't be "
 "added on top of it, and can't replace it."
@@ -1370,44 +1370,44 @@ msgstr ""
 "تحتوي هذه الفاتورة على خصم بطاقة المكافآت. لا يمكن إضافة خصم الموظفين "
 "فوقه، ولا يمكنه استبداله."
 
-#: routes/clinical.py:1193 routes/clinical.py:2287
+#: routes/clinical.py:1194 routes/clinical.py:2288
 #, python-format
 msgid ""
 "Can't apply a discount — this bill includes item(s) marked as not "
 "discountable: %(join)s."
 msgstr "تعذّر تطبيق الخصم — تتضمن هذه الفاتورة أصنافًا غير قابلة للخصم: %(join)s."
 
-#: routes/clinical.py:1201
+#: routes/clinical.py:1202
 msgid "Save the bill first — a discount needs something to apply to."
 msgstr "احفظ الفاتورة أولًا — الخصم يحتاج إلى ما يُطبَّق عليه."
 
-#: routes/clinical.py:1212 routes/clinical.py:2296
+#: routes/clinical.py:1213 routes/clinical.py:2297
 #, python-format
 msgid "%(percent)s%% discount applied."
 msgstr "تم تطبيق خصم %(percent)s٪."
 
-#: routes/clinical.py:1261
+#: routes/clinical.py:1262
 msgid "That bill no longer exists."
 msgstr "هذه الفاتورة لم تعد موجودة."
 
-#: routes/clinical.py:1266
+#: routes/clinical.py:1267
 msgid "This bill doesn't carry a rewards-card discount."
 msgstr "لا تحتوي هذه الفاتورة على خصم بطاقة المكافآت."
 
-#: routes/clinical.py:1288
+#: routes/clinical.py:1289
 msgid "Rewards-card discount removed from this bill."
 msgstr "تم إزالة خصم بطاقة المكافآت من هذه الفاتورة."
 
-#: routes/clinical.py:1316 routes/clinical.py:1813 routes/clinical.py:2324
-#: routes/consignment.py:294
+#: routes/clinical.py:1317 routes/clinical.py:1814 routes/clinical.py:2325
+#: routes/consignment.py:295
 msgid "Payment amount must be a valid number."
 msgstr "يجب أن يكون مبلغ الدفعة رقمًا صالحًا."
 
-#: routes/clinical.py:1319 routes/clinical.py:1816 routes/clinical.py:2327
+#: routes/clinical.py:1320 routes/clinical.py:1817 routes/clinical.py:2328
 msgid "Payment amount must be greater than 0."
 msgstr "يجب أن يكون مبلغ الدفعة أكبر من ٠."
 
-#: routes/clinical.py:1324
+#: routes/clinical.py:1325
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1416,25 +1416,25 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الزيارة."
 
-#: routes/clinical.py:1329 routes/clinical.py:1845 routes/clinical.py:2337
-#: routes/sales.py:526
+#: routes/clinical.py:1330 routes/clinical.py:1846 routes/clinical.py:2338
+#: routes/sales.py:527
 msgid "Clean Up amount must be a valid number."
 msgstr "يجب أن تكون قيمة الإعفاء عن الفئات القليلة رقمًا صالحًا."
 
-#: routes/clinical.py:1355 routes/clinical.py:1891 routes/clinical.py:2363
-#: routes/consignment.py:326
+#: routes/clinical.py:1356 routes/clinical.py:1892 routes/clinical.py:2364
+#: routes/consignment.py:327
 msgid "Payment recorded."
 msgstr "تم تسجيل الدفعة."
 
-#: routes/clinical.py:1370 routes/clinical.py:2378
+#: routes/clinical.py:1371 routes/clinical.py:2379
 msgid "No file selected."
 msgstr "لم يتم اختيار أي ملف."
 
-#: routes/clinical.py:1383
+#: routes/clinical.py:1384
 msgid "File not found."
 msgstr "الملف غير موجود."
 
-#: routes/clinical.py:1392
+#: routes/clinical.py:1393
 msgid ""
 "This file's record exists but the file itself is missing from the uploads"
 " folder — it may not have been included in a backup/restore. Check with "
@@ -1444,57 +1444,57 @@ msgstr ""
 "مضمّنًا في نسخة احتياطية أو استعادة. راجع المسؤول عن النسخ الاحتياطي قبل "
 "إعادة الرفع."
 
-#: routes/clinical.py:1413 routes/clinical.py:1428
+#: routes/clinical.py:1414 routes/clinical.py:1429
 msgid "File not found — it may have already been deleted."
 msgstr "الملف غير موجود — ربما تم حذفه بالفعل."
 
-#: routes/clinical.py:1432
+#: routes/clinical.py:1433
 #, python-format
 msgid "Deleted %(original_name)s."
 msgstr "تم حذف %(original_name)s."
 
-#: routes/clinical.py:1462
+#: routes/clinical.py:1463
 msgid "Follow-up status updated."
 msgstr "تم تحديث حالة المتابعة."
 
-#: routes/clinical.py:1492
+#: routes/clinical.py:1493
 msgid "Wellness reminder updated."
 msgstr "تم تحديث تذكير الرعاية الوقائية."
 
-#: routes/clinical.py:1523
+#: routes/clinical.py:1524
 msgid "Grooming entry updated."
 msgstr "تم تحديث سجل العناية و تصفيف الحيوان."
 
-#: routes/clinical.py:1606 routes/clinical.py:1977
+#: routes/clinical.py:1607 routes/clinical.py:1978
 msgid "Pick a patient from the search results first."
 msgstr "اختر مريضًا من نتائج البحث أولًا."
 
-#: routes/clinical.py:1612 routes/clinical.py:1676
+#: routes/clinical.py:1613 routes/clinical.py:1677
 msgid "Price per Day and Total must be valid numbers."
 msgstr "يجب أن يكون السعر اليومي والإجمالي أرقامًا صالحة."
 
-#: routes/clinical.py:1615 routes/clinical.py:1679
+#: routes/clinical.py:1616 routes/clinical.py:1680
 msgid "Price per Day and Total can't be negative."
 msgstr "لا يمكن أن يكون السعر اليومي والإجمالي سالبين."
 
-#: routes/clinical.py:1645
+#: routes/clinical.py:1646
 msgid "Boarding session added."
 msgstr "تمت إضافة فترة الإقامة الفندقية."
 
-#: routes/clinical.py:1656 routes/clinical.py:1738 routes/clinical.py:1770
-#: routes/clinical.py:1808
+#: routes/clinical.py:1657 routes/clinical.py:1739 routes/clinical.py:1771
+#: routes/clinical.py:1809
 msgid "Boarding session not found."
 msgstr "فترة الإقامة الفندقية غير موجودة."
 
-#: routes/clinical.py:1692
+#: routes/clinical.py:1693
 msgid "A stay can't end before it starts — check the dates."
 msgstr "لا يمكن أن تنتهي الإقامة قبل أن تبدأ — تحقق من التواريخ."
 
-#: routes/clinical.py:1722
+#: routes/clinical.py:1723
 msgid "Boarding session updated."
 msgstr "تم تحديث فترة الإقامة الفندقية."
 
-#: routes/clinical.py:1724
+#: routes/clinical.py:1725
 msgid ""
 "This stay is already picked up, so dates/price/total stayed locked at the"
 " billed figure — only room, admitted items, and special needs were "
@@ -1504,19 +1504,19 @@ msgstr ""
 "والإجمالي مثبتة على القيمة المفوترة — لم يتغير سوى الغرفة والأغراض "
 "المستلمة والاحتياجات الخاصة."
 
-#: routes/clinical.py:1761
+#: routes/clinical.py:1762
 msgid "Marked as picked up."
 msgstr "تم وضع علامة الاستلام."
 
-#: routes/clinical.py:1775
+#: routes/clinical.py:1776
 msgid "Describe what's wrong before submitting."
 msgstr "صف المشكلة قبل الإرسال."
 
-#: routes/clinical.py:1787
+#: routes/clinical.py:1788
 msgid "Incident logged."
 msgstr "تم تسجيل الحادثة."
 
-#: routes/clinical.py:1865
+#: routes/clinical.py:1866
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1525,37 +1525,37 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الإقامة."
 
-#: routes/clinical.py:1987
+#: routes/clinical.py:1988
 msgid "Patient admitted."
 msgstr "تم إدخال المريض."
 
-#: routes/clinical.py:2020 routes/clinical.py:2034 routes/clinical.py:2135
-#: routes/clinical.py:2253 routes/clinical.py:2273 routes/clinical.py:2310
-#: routes/clinical.py:2319 routes/clinical.py:2374
+#: routes/clinical.py:2021 routes/clinical.py:2035 routes/clinical.py:2136
+#: routes/clinical.py:2254 routes/clinical.py:2274 routes/clinical.py:2311
+#: routes/clinical.py:2320 routes/clinical.py:2375
 msgid "Inpatient case not found."
 msgstr "حالة الإقامة المرضية غير موجودة."
 
-#: routes/clinical.py:2062
+#: routes/clinical.py:2063
 msgid "A case can't be discharged before it was admitted — check the dates."
 msgstr "لا يمكن إخراج الحالة قبل تاريخ إدخالها — تحقق من التواريخ."
 
-#: routes/clinical.py:2079
+#: routes/clinical.py:2080
 msgid "Case updated."
 msgstr "تم تحديث الحالة."
 
-#: routes/clinical.py:2093
+#: routes/clinical.py:2094
 msgid "Update logged."
 msgstr "تم تسجيل التحديث."
 
-#: routes/clinical.py:2107
+#: routes/clinical.py:2108
 msgid "Update edited."
 msgstr "تم تعديل التحديث."
 
-#: routes/clinical.py:2121
+#: routes/clinical.py:2122
 msgid "Contact attempt logged."
 msgstr "تم تسجيل محاولة التواصل."
 
-#: routes/clinical.py:2199
+#: routes/clinical.py:2200
 msgid ""
 "Some selected items are marked as not discountable and can't be added to "
 "a bill that already has a discount applied — remove the discount first, "
@@ -1564,16 +1564,16 @@ msgstr ""
 "بعض الأصناف المختارة غير قابلة للخصم ولا يمكن إضافتها إلى فاتورة عليها "
 "خصم بالفعل — أزل الخصم أولًا، أو استبعدها من هذه الفاتورة."
 
-#: routes/clinical.py:2202
+#: routes/clinical.py:2203
 #, python-format
 msgid "%(added)s procedure(s) added to the bill."
 msgstr "تمت إضافة %(added)s إجراء إلى الفاتورة."
 
-#: routes/clinical.py:2213
+#: routes/clinical.py:2214
 msgid "That billing line was already removed."
 msgstr "سطر الفاتورة هذا تمت إزالته بالفعل."
 
-#: routes/clinical.py:2231
+#: routes/clinical.py:2232
 #, python-format
 msgid ""
 "Removing this line would leave %(fmt_money)s paid against a "
@@ -1583,11 +1583,11 @@ msgstr ""
 "إزالة هذا السطر ستترك %(fmt_money)s مدفوعًا مقابل فاتورة بقيمة "
 "%(fmt_money2)s %(currency)s. نفّذ استرداد خدمة للفرق أولًا."
 
-#: routes/clinical.py:2239
+#: routes/clinical.py:2240
 msgid "Line removed."
 msgstr "تمت إزالة السطر."
 
-#: routes/clinical.py:2332
+#: routes/clinical.py:2333
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1596,101 +1596,101 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الحالة."
 
-#: routes/clinical.py:2409
+#: routes/clinical.py:2410
 msgid "That week link wasn't valid, showing the current week instead."
 msgstr "رابط الأسبوع غير صالح، يتم عرض الأسبوع الحالي بدلًا منه."
 
-#: routes/clinical.py:2417
+#: routes/clinical.py:2418
 msgid "That date wasn't valid, showing today instead."
 msgstr "التاريخ غير صالح، يتم عرض تاريخ اليوم بدلًا منه."
 
-#: routes/clinical.py:2453
+#: routes/clinical.py:2454
 msgid "Appointment date is required."
 msgstr "تاريخ الموعد مطلوب."
 
-#: routes/clinical.py:2476
+#: routes/clinical.py:2477
 msgid "Pick a valid, active vet for this appointment."
 msgstr "اختر طبيبًا بيطريًا نشطًا وصالحًا لهذا الموعد."
 
-#: routes/clinical.py:2479
+#: routes/clinical.py:2480
 msgid ""
 "That's not a valid time slot — the schedule may have changed. Reload and "
 "try again."
 msgstr "هذه ليست فترة زمنية صالحة — ربما تغيّر الجدول. أعد التحميل وحاول مرة أخرى."
 
-#: routes/clinical.py:2483 routes/clinical.py:2512
+#: routes/clinical.py:2484 routes/clinical.py:2513
 msgid "That slot is already booked for this vet/groomer."
 msgstr "هذه الفترة محجوزة بالفعل لهذا الطبيب أو مقدّم العناية."
 
-#: routes/clinical.py:2514
+#: routes/clinical.py:2515
 msgid "Appointment booked."
 msgstr "تم حجز الموعد."
 
-#: routes/clinical.py:2524
+#: routes/clinical.py:2525
 msgid "Appointment not found."
 msgstr "الموعد غير موجود."
 
-#: routes/clinical.py:2529
+#: routes/clinical.py:2530
 msgid "Appointment cancelled."
 msgstr "تم إلغاء الموعد."
 
-#: routes/consignment.py:71 routes/consignment.py:119
+#: routes/consignment.py:72 routes/consignment.py:120
 msgid "Lead Time (Days) must be a whole number."
 msgstr "يجب أن تكون مدة التوريد (بالأيام) رقمًا صحيحًا."
 
-#: routes/consignment.py:77 routes/consignment.py:125
+#: routes/consignment.py:78 routes/consignment.py:126
 msgid "Lead Time (Days) can't be negative."
 msgstr "لا يمكن أن تكون مدة التوريد (بالأيام) سالبة."
 
-#: routes/consignment.py:91
+#: routes/consignment.py:92
 #, python-format
 msgid "%(did)s added."
 msgstr "تمت إضافة %(did)s."
 
-#: routes/consignment.py:142
+#: routes/consignment.py:143
 msgid "Distributor updated."
 msgstr "تم تحديث المورد."
 
-#: routes/consignment.py:151 routes/consignment.py:203
-#: routes/consignment.py:357 routes/consignment.py:745
-#: routes/consignment.py:767
+#: routes/consignment.py:152 routes/consignment.py:204
+#: routes/consignment.py:358 routes/consignment.py:746
+#: routes/consignment.py:768
 msgid "Distributor not found."
 msgstr "المورد غير موجود."
 
-#: routes/consignment.py:175
+#: routes/consignment.py:176
 msgid "Distributor deleted."
 msgstr "تم حذف المورد."
 
-#: routes/consignment.py:224
+#: routes/consignment.py:225
 msgid "Total amount must be a valid number."
 msgstr "يجب أن يكون المبلغ الإجمالي رقمًا صالحًا."
 
-#: routes/consignment.py:227
+#: routes/consignment.py:228
 msgid "Total amount must be greater than zero."
 msgstr "يجب أن يكون المبلغ الإجمالي أكبر من صفر."
 
-#: routes/consignment.py:243
+#: routes/consignment.py:244
 #, python-format
 msgid "Bill %(bid)s logged."
 msgstr "تم تسجيل الفاتورة %(bid)s."
 
-#: routes/consignment.py:253 routes/consignment.py:289
+#: routes/consignment.py:254 routes/consignment.py:290
 msgid "Bill not found."
 msgstr "الفاتورة غير موجودة."
 
-#: routes/consignment.py:259
+#: routes/consignment.py:260
 msgid "Delete the payments on this bill first."
 msgstr "احذف الدفعات على هذه الفاتورة أولًا."
 
-#: routes/consignment.py:264
+#: routes/consignment.py:265
 msgid "Bill deleted."
 msgstr "تم حذف الفاتورة."
 
-#: routes/consignment.py:297
+#: routes/consignment.py:298
 msgid "Payment amount must be greater than zero."
 msgstr "يجب أن يكون مبلغ الدفعة أكبر من صفر."
 
-#: routes/consignment.py:310
+#: routes/consignment.py:311
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1699,81 +1699,81 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الفاتورة."
 
-#: routes/consignment.py:341
+#: routes/consignment.py:342
 msgid "Payment not found."
 msgstr "الدفعة غير موجودة."
 
-#: routes/consignment.py:346
+#: routes/consignment.py:347
 msgid "Payment deleted."
 msgstr "تم حذف الدفعة."
 
-#: routes/consignment.py:390
+#: routes/consignment.py:391
 msgid "Computing distributor balances"
 msgstr "جارٍ حساب أرصدة الموردين"
 
-#: routes/consignment.py:533 routes/consignment.py:596
-#: routes/consignment.py:668
+#: routes/consignment.py:534 routes/consignment.py:597
+#: routes/consignment.py:669
 msgid "Pick a Consignment item first."
 msgstr "اختر صنفًا بنظام الأمانة أولًا."
 
-#: routes/consignment.py:539
+#: routes/consignment.py:540
 msgid "Quantity and Unit Cost must be valid numbers."
 msgstr "يجب أن تكون الكمية وتكلفة الوحدة أرقامًا صالحة."
 
-#: routes/consignment.py:542 routes/consignment.py:604
-#: routes/consignment.py:676
+#: routes/consignment.py:543 routes/consignment.py:605
+#: routes/consignment.py:677
 msgid "Quantity must be greater than 0."
 msgstr "يجب أن تكون الكمية أكبر من ٠."
 
-#: routes/consignment.py:545
+#: routes/consignment.py:546
 msgid "Unit Cost can't be negative."
 msgstr "لا يمكن أن تكون تكلفة الوحدة سالبة."
 
-#: routes/consignment.py:556
+#: routes/consignment.py:557
 #, python-format
 msgid "Received %(quantity)s %(name)s."
 msgstr "تم استلام %(quantity)s %(name)s."
 
-#: routes/consignment.py:601 routes/consignment.py:673
+#: routes/consignment.py:602 routes/consignment.py:674
 msgid "Quantity must be a valid number."
 msgstr "يجب أن تكون الكمية رقمًا صالحًا."
 
-#: routes/consignment.py:608
+#: routes/consignment.py:609
 msgid "Reason must be Damaged, Expired, or Other."
 msgstr "يجب أن يكون السبب: تالف، أو منتهي الصلاحية، أو غير ذلك."
 
-#: routes/consignment.py:616
+#: routes/consignment.py:617
 msgid "Liable Party must be Distributor or Clinic."
 msgstr "يجب أن يكون الطرف المسؤول: المورد أو العيادة."
 
-#: routes/consignment.py:628
+#: routes/consignment.py:629
 #, python-format
 msgid "Logged %(quantity)s %(name)s as shrinkage (%(liable_party)s liable)."
 msgstr "تم تسجيل %(quantity)s %(name)s كهالك (المسؤولية على %(liable_party)s)."
 
-#: routes/consignment.py:691
+#: routes/consignment.py:692
 #, python-format
 msgid "Returned %(quantity)s %(name)s to %(distributor_id)s."
 msgstr "تمت إعادة %(quantity)s %(name)s إلى %(distributor_id)s."
 
-#: routes/consignment.py:787
+#: routes/consignment.py:788
 msgid "Amount Paid must be a valid number."
 msgstr "يجب أن يكون المبلغ المدفوع رقمًا صالحًا."
 
-#: routes/consignment.py:790
+#: routes/consignment.py:791
 msgid "Amount Paid can't be negative."
 msgstr "لا يمكن أن يكون المبلغ المدفوع سالبًا."
 
-#: routes/consignment.py:799
+#: routes/consignment.py:800
 msgid "There's nothing to settle for this distributor yet."
 msgstr "لا يوجد ما يستوجب التسوية مع هذا المورد حتى الآن."
 
-#: routes/consignment.py:802
+#: routes/consignment.py:803
 #, python-format
 msgid "That's more than the %(fmt_money)s %(currency)s owed this period."
 msgstr "هذا أكثر من المبلغ المستحق لهذه الفترة البالغ %(fmt_money)s %(currency)s."
 
-#: routes/consignment.py:821
+#: routes/consignment.py:822
 #, python-format
 msgid ""
 "Settlement recorded: %(fmt_money)s %(currency)s paid of %(fmt_money2)s "
@@ -1782,28 +1782,28 @@ msgstr ""
 "تم تسجيل التسوية: دُفع %(fmt_money)s %(currency)s من أصل %(fmt_money2)s "
 "%(currency)s مستحقة — يُرحَّل %(fmt_money3)s %(currency)s."
 
-#: routes/consignment.py:823
+#: routes/consignment.py:824
 #, python-format
 msgid "Settlement recorded: %(fmt_money)s %(currency)s paid, settled in full."
 msgstr "تم تسجيل التسوية: دُفع %(fmt_money)s %(currency)s، وتمت التسوية بالكامل."
 
-#: routes/consignment.py:834
+#: routes/consignment.py:835
 msgid "Settlement not found."
 msgstr "التسوية غير موجودة."
 
-#: routes/inventory.py:148 routes/inventory.py:204
+#: routes/inventory.py:149 routes/inventory.py:205
 msgid "Cost Price and Sale Price must be valid numbers."
 msgstr "يجب أن يكون سعر التكلفة وسعر البيع أرقامًا صالحة."
 
-#: routes/inventory.py:151 routes/inventory.py:207
+#: routes/inventory.py:152 routes/inventory.py:208
 msgid "Cost Price and Sale Price can't be negative."
 msgstr "لا يمكن أن يكون سعر التكلفة وسعر البيع سالبين."
 
-#: routes/inventory.py:159 routes/inventory.py:219
+#: routes/inventory.py:160 routes/inventory.py:220
 msgid "That inventory item no longer exists — reload the page and pick again."
 msgstr "هذا الصنف لم يعد موجودًا — أعد تحميل الصفحة واختر مرة أخرى."
 
-#: routes/inventory.py:171 routes/inventory.py:227
+#: routes/inventory.py:172 routes/inventory.py:228
 #, python-format
 msgid ""
 "That inventory item is already linked to %(id)s (%(name)s) — an item can "
@@ -1812,51 +1812,51 @@ msgstr ""
 "هذا الصنف مرتبط بالفعل بـ %(id)s (%(name)s) — لا يمكن ربط الصنف إلا من "
 "سطر واحد نشط في قائمة الأسعار في كل مرة."
 
-#: routes/inventory.py:185
+#: routes/inventory.py:186
 #, python-format
 msgid "%(pid)s added to price list."
 msgstr "تمت إضافة %(pid)s إلى قائمة الأسعار."
 
-#: routes/inventory.py:214
+#: routes/inventory.py:215
 msgid "Price list item not found."
 msgstr "صنف قائمة الأسعار غير موجود."
 
-#: routes/inventory.py:248
+#: routes/inventory.py:249
 msgid "Price updated."
 msgstr "تم تحديث السعر."
 
-#: routes/inventory.py:344
+#: routes/inventory.py:345
 msgid "Item removed from price list."
 msgstr "تمت إزالة الصنف من قائمة الأسعار."
 
-#: routes/inventory.py:399 routes/inventory.py:442
+#: routes/inventory.py:400 routes/inventory.py:443
 msgid "Cost Price must be a valid number."
 msgstr "يجب أن يكون سعر التكلفة رقمًا صالحًا."
 
-#: routes/inventory.py:404 routes/inventory.py:445
+#: routes/inventory.py:405 routes/inventory.py:446
 msgid "Cost Price can't be negative."
 msgstr "لا يمكن أن يكون سعر التكلفة سالبًا."
 
-#: routes/inventory.py:412 routes/inventory.py:461
+#: routes/inventory.py:413 routes/inventory.py:462
 msgid "That distributor no longer exists — reload the page and pick again."
 msgstr "هذا المورد لم يعد موجودًا — أعد تحميل الصفحة واختر مرة أخرى."
 
-#: routes/inventory.py:426
+#: routes/inventory.py:427
 #, python-format
 msgid "%(iid)s added to inventory catalog."
 msgstr "تمت إضافة %(iid)s إلى دليل الأصناف."
 
-#: routes/inventory.py:452
+#: routes/inventory.py:453
 msgid "Inventory item not found."
 msgstr "الصنف غير موجود."
 
-#: routes/inventory.py:456
+#: routes/inventory.py:457
 msgid ""
 "Set this item back to Owned on the Consignment Items page before changing"
 " its category."
 msgstr "أعد هذا الصنف إلى \"مملوك\" من صفحة أصناف الأمانة قبل تغيير فئته."
 
-#: routes/inventory.py:464
+#: routes/inventory.py:465
 msgid ""
 "This item has consignment activity against it — its distributor can't be "
 "changed here. Create a new inventory item for the new supply source."
@@ -1864,31 +1864,31 @@ msgstr ""
 "على هذا الصنف حركة أمانة — لا يمكن تغيير مورده من هنا. أنشئ صنفًا جديدًا "
 "لمصدر التوريد الجديد."
 
-#: routes/inventory.py:486
+#: routes/inventory.py:487
 msgid "Inventory item updated."
 msgstr "تم تحديث الصنف."
 
-#: routes/inventory.py:563
+#: routes/inventory.py:564
 msgid "Item not found."
 msgstr "الصنف غير موجود."
 
-#: routes/inventory.py:673
+#: routes/inventory.py:674
 msgid "This item doesn't have a barcode yet."
 msgstr "لا يوجد باركود لهذا الصنف بعد."
 
-#: routes/inventory.py:725
+#: routes/inventory.py:726
 msgid "No barcodes selected to print."
 msgstr "لم يتم اختيار أي باركود للطباعة."
 
-#: routes/inventory.py:815
+#: routes/inventory.py:816
 msgid "Audit session not found."
 msgstr "جلسة الجرد غير موجودة."
 
-#: routes/inventory.py:900
+#: routes/inventory.py:901
 msgid "This audit is confirmed and can no longer be edited."
 msgstr "تم تأكيد هذا الجرد ولم يعد بالإمكان تعديله."
 
-#: routes/inventory.py:912
+#: routes/inventory.py:913
 msgid ""
 "Audit counts must be valid numbers. The draft was not saved — please "
 "correct the highlighted value(s)."
@@ -1896,17 +1896,17 @@ msgstr ""
 "يجب أن تكون أعداد الجرد أرقامًا صالحة. لم تُحفظ المسودة — يرجى تصحيح "
 "القيم المميزة."
 
-#: routes/inventory.py:919
+#: routes/inventory.py:920
 msgid ""
 "Audit saved. You can come back and finish it later, or confirm it once "
 "it's complete."
 msgstr "تم حفظ الجرد. يمكنك العودة لإكماله لاحقًا، أو تأكيده عند اكتماله."
 
-#: routes/inventory.py:929
+#: routes/inventory.py:930
 msgid "This audit is already confirmed."
 msgstr "تم تأكيد هذا الجرد بالفعل."
 
-#: routes/inventory.py:935
+#: routes/inventory.py:936
 msgid ""
 "Audit counts must be valid numbers. Nothing was confirmed — please "
 "correct the highlighted value(s)."
@@ -1914,7 +1914,7 @@ msgstr ""
 "يجب أن تكون أعداد الجرد أرقامًا صالحة. لم يتم تأكيد شيء — يرجى تصحيح "
 "القيم المميزة."
 
-#: routes/inventory.py:948
+#: routes/inventory.py:949
 msgid ""
 "Nothing has been counted in this audit yet — fill in at least one item "
 "before confirming."
@@ -1922,37 +1922,37 @@ msgstr ""
 "لم يتم عدّ أي شيء في هذا الجرد بعد — أدخل صنفًا واحدًا على الأقل قبل "
 "التأكيد."
 
-#: routes/inventory.py:964
+#: routes/inventory.py:965
 msgid ""
 "Audit confirmed and locked. Inventory Status and Ordering Sheet now "
 "reflect these counts."
 msgstr "تم تأكيد الجرد وقفله. تعكس الآن حالة المخزون وكشف النواقص هذه الأعداد."
 
-#: routes/inventory.py:980
+#: routes/inventory.py:981
 msgid "Only a draft audit can be discarded."
 msgstr "يمكن تجاهل الجرد المسودة فقط."
 
-#: routes/inventory.py:986
+#: routes/inventory.py:987
 msgid "Draft audit discarded."
 msgstr "تم تجاهل الجرد المسودة."
 
-#: routes/sales.py:105
+#: routes/sales.py:106
 msgid "That date wasn't valid — showing today instead."
 msgstr "التاريخ غير صالح — يتم عرض تاريخ اليوم بدلًا منه."
 
-#: routes/sales.py:129
+#: routes/sales.py:130
 msgid "Amount must be a valid number."
 msgstr "يجب أن يكون المبلغ رقمًا صالحًا."
 
-#: routes/sales.py:132
+#: routes/sales.py:133
 msgid "Amount must be greater than 0."
 msgstr "يجب أن يكون المبلغ أكبر من ٠."
 
-#: routes/sales.py:136
+#: routes/sales.py:137
 msgid "Enter a reason for this payout."
 msgstr "أدخل سببًا لهذا الصرف."
 
-#: routes/sales.py:143
+#: routes/sales.py:144
 #, python-format
 msgid ""
 "That's more than the %(fmt_money)s %(currency)s currently expected in the"
@@ -1961,57 +1961,57 @@ msgstr ""
 "هذا أكثر من %(fmt_money)s %(currency)s المتوقعة حاليًا في الصندوق لهذا "
 "اليوم."
 
-#: routes/sales.py:153
+#: routes/sales.py:154
 #, python-format
 msgid "%(fmt_money)s %(currency)s logged out of the register."
 msgstr "تم تسجيل خروج %(fmt_money)s %(currency)s من الصندوق."
 
-#: routes/sales.py:177
+#: routes/sales.py:178
 msgid "Counted cash must be a valid number."
 msgstr "يجب أن يكون النقد المعدود رقمًا صالحًا."
 
-#: routes/sales.py:180
+#: routes/sales.py:181
 msgid "Counted cash can't be negative."
 msgstr "لا يمكن أن يكون النقد المعدود سالبًا."
 
-#: routes/sales.py:202
+#: routes/sales.py:203
 #, python-format
 msgid ""
 "Audit recorded for %(day)s: Perfect — counted cash matches the system "
 "exactly."
 msgstr "تم تسجيل الجرد ليوم %(day)s: مطابق — النقد المعدود يطابق النظام تمامًا."
 
-#: routes/sales.py:208
+#: routes/sales.py:209
 #, python-format
 msgid "Audit recorded for %(day)s: %(status)s of %(fmt_money)s %(currency)s."
 msgstr "تم تسجيل الجرد ليوم %(day)s: %(status)s بمقدار %(fmt_money)s %(currency)s."
 
-#: routes/sales.py:258
+#: routes/sales.py:259
 msgid "Cart quantities must be valid numbers."
 msgstr "يجب أن تكون كميات السلة أرقامًا صالحة."
 
-#: routes/sales.py:314
+#: routes/sales.py:315
 #, python-format
 msgid "Item %(iid)s has no sale price set in the Price List — skipped."
 msgstr "الصنف %(iid)s ليس له سعر بيع محدد في قائمة الأسعار — تم تجاهله."
 
-#: routes/sales.py:335
+#: routes/sales.py:336
 #, python-format
 msgid ""
 "%(name)s hasn't been through an inventory audit yet — run an audit before"
 " selling it."
 msgstr "%(name)s لم يُجرد بعد — أجرِ جردًا قبل بيعه."
 
-#: routes/sales.py:339
+#: routes/sales.py:340
 #, python-format
 msgid "Only %(stock)s %(unit)s of %(name)s in stock — sale blocked."
 msgstr "المتوفر في المخزون من %(name)s هو %(stock)s %(unit)s فقط — تم منع البيع."
 
-#: routes/sales.py:369
+#: routes/sales.py:370
 msgid "Cash Received must be a valid number."
 msgstr "يجب أن يكون النقد المستلم رقمًا صالحًا."
 
-#: routes/sales.py:373
+#: routes/sales.py:374
 #, python-format
 msgid ""
 "Cash received (%(received)s %(currency)s) is less than the total "
@@ -2021,11 +2021,11 @@ msgstr ""
 "النقد المستلم (%(received)s %(currency)s) أقل من الإجمالي (%(total)s "
 "%(currency)s) — حصّل المبلغ كاملًا قبل إتمام البيع."
 
-#: routes/sales.py:469
+#: routes/sales.py:470
 msgid "That customer no longer exists — search again."
 msgstr "هذا العميل لم يعد موجودًا — ابحث مرة أخرى."
 
-#: routes/sales.py:475
+#: routes/sales.py:476
 msgid ""
 "This customer's rewards card already discounts this sale — a staff "
 "discount can't be added on top of it."
@@ -2033,32 +2033,32 @@ msgstr ""
 "بطاقة المكافآت لهذا العميل تخصم من هذه العملية بالفعل — لا يمكن إضافة خصم"
 " الموظفين فوقها."
 
-#: routes/sales.py:485 templates/pos.html:17 templates/pos.html:140
+#: routes/sales.py:486 templates/pos.html:17 templates/pos.html:140
 #: templates/pos.html:203
 msgid "Cart is empty."
 msgstr "السلة فارغة."
 
-#: routes/sales.py:492
+#: routes/sales.py:493
 #, python-format
 msgid ""
 "Can't apply a discount — the cart includes item(s) marked as not "
 "discountable: %(names)s."
 msgstr "تعذّر تطبيق الخصم — تتضمن السلة أصنافًا غير قابلة للخصم: %(names)s."
 
-#: routes/sales.py:507
+#: routes/sales.py:508
 msgid "Nothing to sell."
 msgstr "لا يوجد ما يُباع."
 
-#: routes/sales.py:564
+#: routes/sales.py:565
 #, python-format
 msgid "Sale #%(sale_id)s completed — total %(fmt_money)s %(currency)s."
 msgstr "تم إتمام البيع رقم %(sale_id)s — الإجمالي %(fmt_money)s %(currency)s."
 
-#: routes/sales.py:574 routes/sales.py:689 templates/refunds.html:139
+#: routes/sales.py:575 routes/sales.py:690 templates/refunds.html:139
 msgid "Sale not found."
 msgstr "عملية البيع غير موجودة."
 
-#: routes/sales.py:650
+#: routes/sales.py:651
 msgid ""
 "Look up a sale first — a retail refund must be linked to the sale it's "
 "refunding."
@@ -2066,28 +2066,28 @@ msgstr ""
 "ابحث عن عملية البيع أولًا — يجب ربط استرداد التجزئة بعملية البيع التي "
 "يستردها."
 
-#: routes/sales.py:661 routes/sales.py:802
+#: routes/sales.py:662 routes/sales.py:803
 #, python-format
 msgid "Pick how this refund was actually paid out: %(methods)s."
 msgstr "اختر الطريقة التي صُرف بها هذا الاسترداد فعليًا: %(methods)s."
 
-#: routes/sales.py:671
+#: routes/sales.py:672
 msgid "No items selected — nothing to refund."
 msgstr "لم يتم اختيار أي صنف — لا يوجد ما يُسترد."
 
-#: routes/sales.py:676
+#: routes/sales.py:677
 msgid "Invalid item selection."
 msgstr "اختيار الصنف غير صالح."
 
-#: routes/sales.py:698
+#: routes/sales.py:699
 msgid "Refund quantities must be valid numbers."
 msgstr "يجب أن تكون كميات الاسترداد أرقامًا صالحة."
 
-#: routes/sales.py:708
+#: routes/sales.py:709
 msgid "One of the selected items isn't part of that sale."
 msgstr "أحد الأصناف المختارة ليس ضمن عملية البيع تلك."
 
-#: routes/sales.py:711
+#: routes/sales.py:712
 #, python-format
 msgid ""
 "Can't refund %(qty)s %(name)s — only %(remaining)s left refundable from "
@@ -2096,11 +2096,11 @@ msgstr ""
 "تعذّر استرداد %(qty)s %(name)s — لم يتبقَّ سوى %(remaining)s قابلة "
 "للاسترداد من هذه العملية."
 
-#: routes/sales.py:719
+#: routes/sales.py:720
 msgid "Nothing to refund."
 msgstr "لا يوجد ما يُسترد."
 
-#: routes/sales.py:740
+#: routes/sales.py:741
 #, python-format
 msgid ""
 "This sale has no refundable value left to pay out — the smallest amount "
@@ -2111,7 +2111,7 @@ msgstr ""
 "%(unit)s %(currency)s ولم يتبقَّ سوى %(left)s %(currency)s قابلة "
 "للاسترداد من هذه العملية."
 
-#: routes/sales.py:746
+#: routes/sales.py:747
 #, python-format
 msgid ""
 "That's more than this sale actually collected (%(fmt_money)s "
@@ -2122,25 +2122,25 @@ msgstr ""
 "أي إعفاء عن الفئات القليلة طُبِّق وقت البيع) مطروحًا منه ما تم استرداده "
 "بالفعل."
 
-#: routes/sales.py:773
+#: routes/sales.py:774
 #, python-format
 msgid "Refund of %(amount)s %(currency)s recorded and stock restored."
 msgstr "تم تسجيل استرداد بقيمة %(amount)s %(currency)s وإعادة المخزون."
 
-#: routes/sales.py:776
+#: routes/sales.py:777
 #, python-format
 msgid "Refund of %(amount)s %(currency)s recorded."
 msgstr "تم تسجيل استرداد بقيمة %(amount)s %(currency)s."
 
-#: routes/sales.py:795
+#: routes/sales.py:796
 msgid "Refund amount must be a valid number."
 msgstr "يجب أن يكون مبلغ الاسترداد رقمًا صالحًا."
 
-#: routes/sales.py:814
+#: routes/sales.py:815
 msgid "Refund amount must be greater than 0."
 msgstr "يجب أن يكون مبلغ الاسترداد أكبر من ٠."
 
-#: routes/sales.py:825
+#: routes/sales.py:826
 msgid ""
 "A service refund must be linked to exactly one visit, inpatient case, or "
 "boarding stay."
@@ -2148,12 +2148,12 @@ msgstr ""
 "يجب ربط استرداد الخدمة بزيارة واحدة فقط، أو حالة إقامة مرضية واحدة، أو "
 "إقامة فندقية واحدة."
 
-#: routes/sales.py:836
+#: routes/sales.py:837
 #, python-format
 msgid "Visit %(visit_id)s not found."
 msgstr "الزيارة %(visit_id)s غير موجودة."
 
-#: routes/sales.py:844
+#: routes/sales.py:845
 #, python-format
 msgid ""
 "That's more than what's left refundable on this visit (%(fmt_money)s "
@@ -2162,12 +2162,12 @@ msgstr ""
 "هذا أكثر من المبلغ المتبقي القابل للاسترداد على هذه الزيارة "
 "(%(fmt_money)s %(currency)s)."
 
-#: routes/sales.py:852
+#: routes/sales.py:853
 #, python-format
 msgid "Inpatient case %(case_id_raw)s not found."
 msgstr "حالة الإقامة المرضية %(case_id_raw)s غير موجودة."
 
-#: routes/sales.py:861
+#: routes/sales.py:862
 #, python-format
 msgid ""
 "That's more than what's left refundable on this case (%(fmt_money)s "
@@ -2176,12 +2176,12 @@ msgstr ""
 "هذا أكثر من المبلغ المتبقي القابل للاسترداد على هذه الحالة (%(fmt_money)s"
 " %(currency)s)."
 
-#: routes/sales.py:869
+#: routes/sales.py:870
 #, python-format
 msgid "Boarding stay %(boarding_id_raw)s not found."
 msgstr "الإقامة الفندقية %(boarding_id_raw)s غير موجودة."
 
-#: routes/sales.py:878
+#: routes/sales.py:879
 #, python-format
 msgid ""
 "That's more than what's left refundable on this stay (%(fmt_money)s "
@@ -2190,7 +2190,7 @@ msgstr ""
 "هذا أكثر من المبلغ المتبقي القابل للاسترداد على هذه الإقامة "
 "(%(fmt_money)s %(currency)s)."
 
-#: routes/sales.py:887
+#: routes/sales.py:888
 #, python-format
 msgid ""
 "This record has no refundable value left to pay out — the smallest amount"
@@ -2199,44 +2199,44 @@ msgstr ""
 "لم تعد لهذا السجل قيمة قابلة للاسترداد — أصغر مبلغ يمكن صرفه هو %(unit)s "
 "%(currency)s."
 
-#: routes/sales.py:917
+#: routes/sales.py:918
 #, python-format
 msgid "Service refund of %(amount)s %(currency)s recorded."
 msgstr "تم تسجيل استرداد خدمة بقيمة %(amount)s %(currency)s."
 
-#: routes/settings.py:202
+#: routes/settings.py:203
 #, python-format
 msgid "%(title)s must be a whole number."
 msgstr "يجب أن يكون %(title)s رقمًا صحيحًا."
 
-#: routes/settings.py:205
+#: routes/settings.py:206
 #, python-format
 msgid "%(title)s must be between %(lo)s and %(hi)s."
 msgstr "يجب أن يكون %(title)s بين %(lo)s و%(hi)s."
 
-#: routes/settings.py:228
+#: routes/settings.py:229
 msgid "Not a valid language."
 msgstr "ليست لغة صالحة."
 
-#: routes/settings.py:239
+#: routes/settings.py:240
 #, python-format
 msgid "%(title)s must be a valid time (HH:MM)."
 msgstr "يجب أن يكون %(title)s وقتًا صالحًا (ساعة:دقيقة)."
 
-#: routes/settings.py:252
+#: routes/settings.py:253
 msgid "Member discount must be a valid number."
 msgstr "يجب أن يكون خصم العضو رقماً صالحاً."
 
-#: routes/settings.py:255
+#: routes/settings.py:256
 #, python-format
 msgid "Member discount must be between 0%% and %(max)s%%."
 msgstr "يجب أن يكون خصم العضو بين 0%% و %(max)s%%."
 
-#: routes/settings.py:268
+#: routes/settings.py:269
 msgid "Not a valid money setting."
 msgstr "إعداد العملة غير صالح."
 
-#: routes/settings.py:273
+#: routes/settings.py:274
 #, python-format
 msgid ""
 "The money setting can't be changed once money has been recorded — every "
@@ -2245,15 +2245,19 @@ msgstr ""
 "لا يمكن تغيير إعداد العملة بعد تسجيل أي مبلغ — كل المبالغ المحفوظة بـ "
 "%(currency)s."
 
-#: routes/settings.py:282
+#: routes/settings.py:288
+msgid "Not a valid time zone."
+msgstr "المنطقة الزمنية غير صالحة."
+
+#: routes/settings.py:297
 msgid "Day Ends At must be after Day Starts At."
 msgstr "يجب أن يكون وقت نهاية اليوم بعد وقت بدايته."
 
-#: routes/settings.py:292
+#: routes/settings.py:307
 msgid "The monitoring ping URL must start with https://"
 msgstr "يجب أن يبدأ رابط المراقبة بـ https://"
 
-#: routes/settings.py:355
+#: routes/settings.py:378
 #, python-format
 msgid ""
 "Money setting saved: %(name)s. It locks itself once the first price or "
@@ -2262,67 +2266,67 @@ msgstr ""
 "تم حفظ إعداد العملة: %(name)s. سيُقفل تلقائيًا بمجرد تسجيل أول سعر أو "
 "مبلغ."
 
-#: routes/settings.py:360
+#: routes/settings.py:386
 msgid "Settings saved."
 msgstr "تم حفظ الإعدادات."
 
-#: routes/settings.py:419
+#: routes/settings.py:447
 msgid "Checking backup folder"
 msgstr "جارٍ فحص مجلد النسخ الاحتياطي"
 
-#: routes/settings.py:419
+#: routes/settings.py:447
 msgid "Dumping database"
 msgstr "جارٍ تفريغ قاعدة البيانات"
 
-#: routes/settings.py:420
+#: routes/settings.py:448
 msgid "Applying retention policy"
 msgstr "جارٍ تطبيق سياسة الاحتفاظ"
 
-#: routes/settings.py:420 routes/settings.py:468
+#: routes/settings.py:448 routes/settings.py:496
 msgid "Done"
 msgstr "تم"
 
-#: routes/settings.py:467
+#: routes/settings.py:495
 msgid "Checking backup file"
 msgstr "جارٍ فحص ملف النسخة الاحتياطية"
 
-#: routes/settings.py:467
+#: routes/settings.py:495
 msgid "Restoring database"
 msgstr "جارٍ استعادة قاعدة البيانات"
 
-#: routes/settings.py:467
+#: routes/settings.py:495
 msgid "Reconciling schema"
 msgstr "جارٍ مطابقة بنية قاعدة البيانات"
 
-#: routes/settings.py:468
+#: routes/settings.py:496
 msgid "Recording result"
 msgstr "جارٍ تسجيل النتيجة"
 
-#: routes/settings.py:582
+#: routes/settings.py:610
 msgid "Backing up database"
 msgstr "جارٍ أخذ نسخة احتياطية لقاعدة البيانات"
 
-#: routes/settings.py:582
+#: routes/settings.py:610
 msgid "Downloading release"
 msgstr "جارٍ تنزيل الإصدار"
 
-#: routes/settings.py:582
+#: routes/settings.py:610
 msgid "Validating release"
 msgstr "جارٍ التحقق من الإصدار"
 
-#: routes/settings.py:583
+#: routes/settings.py:611
 msgid "Applying database changes"
 msgstr "جارٍ تطبيق تغييرات قاعدة البيانات"
 
-#: routes/settings.py:583
+#: routes/settings.py:611
 msgid "Verifying the new version"
 msgstr "جارٍ التحقق من الإصدار الجديد"
 
-#: routes/settings.py:584
+#: routes/settings.py:612
 msgid "Switching to the new version"
 msgstr "جارٍ التحويل إلى الإصدار الجديد"
 
-#: routes/settings.py:605
+#: routes/settings.py:633
 msgid "Rolling back"
 msgstr "جارٍ التراجع"
 
@@ -2532,8 +2536,8 @@ msgstr "عنوان الشبكة"
 msgid "Device"
 msgstr "الجهاز"
 
-#: templates/admin_logs.html:43 templates/settings.html:163
-#: templates/settings.html:209
+#: templates/admin_logs.html:43 templates/settings.html:174
+#: templates/settings.html:220
 msgid "Success"
 msgstr "نجح"
 
@@ -2590,7 +2594,7 @@ msgstr "حد الخصم"
 #: templates/inpatient_list.html:15 templates/insights.html:158
 #: templates/owner_detail.html:19 templates/patient_detail.html:32
 #: templates/patient_detail.html:68 templates/patient_detail.html:85
-#: templates/settings.html:157 templates/settings.html:203
+#: templates/settings.html:168 templates/settings.html:214
 #: templates/visit_detail.html:65 templates/visit_detail.html:86
 #: templates/visit_form_edit.html:50 templates/visits_list.html:12
 #: templates/visits_list.html:26
@@ -2720,7 +2724,7 @@ msgstr "تغييرات غير محفوظة"
 #: templates/distributors.html:63 templates/inpatient_new.html:35
 #: templates/inventory_catalog.html:50 templates/inventory_catalog.html:116
 #: templates/owner_form.html:16 templates/patient_form_edit.html:28
-#: templates/price_list.html:51 templates/settings.html:514
+#: templates/price_list.html:51 templates/settings.html:525
 #: templates/visit_form_edit.html:61 templates/visit_new_existing.html:23
 #: templates/visit_new_patient.html:35
 msgid "Cancel"
@@ -2846,7 +2850,7 @@ msgid "Moving & deleting…"
 msgstr "جارٍ النقل والحذف…"
 
 #: templates/appointments.html:2 templates/appointments.html:5
-#: templates/base.html:74 templates/settings.html:60
+#: templates/base.html:74 templates/settings.html:71
 msgid "Appointments"
 msgstr "المواعيد"
 
@@ -5240,7 +5244,7 @@ msgstr ""
 "كل صنف له باركود. حدد عدد الملصقات التي يحتاجها كل صنف، وأزل ما لا تريده "
 "في هذه الطباعة، ثم اطبعها جميعًا معًا."
 
-#: templates/inventory_catalog.html:112 templates/settings.html:559
+#: templates/inventory_catalog.html:112 templates/settings.html:570
 msgid "Loading…"
 msgstr "جارٍ التحميل…"
 
@@ -5305,8 +5309,8 @@ msgstr "تعذّر تحميل الباركودات."
 
 #: templates/inventory_catalog.html:230 templates/inventory_catalog.html:283
 #: templates/inventory_catalog.html:350 templates/inventory_catalog.html:366
-#: templates/inventory_catalog.html:384 templates/settings.html:621
-#: templates/settings.html:650
+#: templates/inventory_catalog.html:384 templates/settings.html:632
+#: templates/settings.html:661
 msgid "Could not reach the server."
 msgstr "تعذّر الوصول إلى الخادم."
 
@@ -5454,7 +5458,7 @@ msgstr "تعديل المالك"
 msgid "Address"
 msgstr "العنوان"
 
-#: templates/owner_detail.html:16 templates/settings.html:51
+#: templates/owner_detail.html:16 templates/settings.html:62
 msgid "Rewards Card"
 msgstr "بطاقة المكافآت"
 
@@ -6245,7 +6249,7 @@ msgstr ""
 msgid "Cohort (First Visit)"
 msgstr "المجموعة (الزيارة الأولى)"
 
-#: templates/retention.html:24 templates/settings.html:157
+#: templates/retention.html:24 templates/settings.html:168
 msgid "Size"
 msgstr "الحجم"
 
@@ -6323,34 +6327,52 @@ msgstr ""
 "IQ: دنانير صحيحة، ويُقرَّب النقد إلى فئة ٢٥٠ دينارًا، وأرقام هواتف ‎+964."
 " JO: ثلاث خانات عشرية، دقيقة حتى الفلس، وأرقام هواتف ‎+962."
 
-#: templates/settings.html:45
+#: templates/settings.html:45 templates/settings.html:47
+msgid "Time Zone"
+msgstr "المنطقة الزمنية"
+
+#: templates/settings.html:49
+#, python-format
+msgid "Automatic — %(zone)s"
+msgstr "تلقائي — %(zone)s"
+
+#: templates/settings.html:52
+msgid ""
+"What \"today\" and every time in the app mean. Automatic follows the "
+"money setting (IQ: Asia/Baghdad, JO: Asia/Amman), or this computer until "
+"one is chosen."
+msgstr ""
+"ما يعنيه \"اليوم\" وكل وقت في التطبيق. الخيار التلقائي يتبع إعداد العملة "
+"(IQ: Asia/Baghdad، JO: Asia/Amman)، أو هذا الحاسوب إلى أن يُختار."
+
+#: templates/settings.html:56
 msgid "Inventory Alerts"
 msgstr "تنبيهات المخزون"
 
-#: templates/settings.html:47
+#: templates/settings.html:58
 msgid "Audit Overdue After (Days)"
 msgstr "يُعد الجرد متأخرًا بعد (أيام)"
 
-#: templates/settings.html:48
+#: templates/settings.html:59
 msgid "Expiry Warning Window (Days)"
 msgstr "مدة التنبيه قبل الانتهاء (أيام)"
 
-#: templates/settings.html:56
+#: templates/settings.html:67
 #, python-format
 msgid "Member Discount (%%)"
 msgstr "خصم العضو (%%)"
 
-#: templates/settings.html:56
+#: templates/settings.html:67
 msgid ""
 "0 switches the rewards programme off. Applies to eligible Price List "
 "items only."
 msgstr "0 يوقف تشغيل برنامج المكافآت. ينطبق على عناصر قائمة الأسعار المؤهلة فقط."
 
-#: templates/settings.html:57
+#: templates/settings.html:68
 msgid "Card Valid For (Months)"
 msgstr "البطاقة صالحة لمدة (بالأشهر)"
 
-#: templates/settings.html:57
+#: templates/settings.html:68
 msgid ""
 "Pre-fills the expiry date when a card is issued. Existing cards keep the "
 "date they were given."
@@ -6358,51 +6380,51 @@ msgstr ""
 "يعبئ تاريخ الانتهاء مسبقاً عند إصدار البطاقة. البطاقات الحالية تحتفظ "
 "بالتاريخ الذي أُعطيت فيه."
 
-#: templates/settings.html:62
+#: templates/settings.html:73
 msgid "Day Starts At"
 msgstr "يبدأ اليوم عند"
 
-#: templates/settings.html:63
+#: templates/settings.html:74
 msgid "Day Ends At"
 msgstr "ينتهي اليوم عند"
 
-#: templates/settings.html:64
+#: templates/settings.html:75
 msgid "Slot Length (Minutes)"
 msgstr "مدة الموعد (بالدقائق)"
 
-#: templates/settings.html:68
+#: templates/settings.html:79
 msgid "Backups"
 msgstr "النسخ الاحتياطي"
 
-#: templates/settings.html:70
+#: templates/settings.html:81
 msgid "Backup Folder (on this computer)"
 msgstr "مجلد النسخ الاحتياطي (على هذا الجهاز)"
 
-#: templates/settings.html:72
+#: templates/settings.html:83
 msgid "e.g. /Users/you/VetClinicSystemBackups or D:\\VetClinicSystemBackups"
 msgstr "مثال: /Users/you/VetClinicSystemBackups أو D:\\VetClinicSystemBackups"
 
-#: templates/settings.html:73 templates/settings.html:187
+#: templates/settings.html:84 templates/settings.html:198
 msgid "Browse…"
 msgstr "تصفح…"
 
-#: templates/settings.html:76
+#: templates/settings.html:87
 msgid "Nightly Backup Time"
 msgstr "وقت النسخ الاحتياطي الليلي"
 
-#: templates/settings.html:77
+#: templates/settings.html:88
 msgid "Keep Last N Backups"
 msgstr "الاحتفاظ بآخر عدد من النسخ"
 
-#: templates/settings.html:78
+#: templates/settings.html:89
 msgid "Keep Logs For (Days)"
 msgstr "الاحتفاظ بالسجلات لمدة (أيام)"
 
-#: templates/settings.html:83
+#: templates/settings.html:94
 msgid "Health Check"
 msgstr "فحص السلامة"
 
-#: templates/settings.html:85
+#: templates/settings.html:96
 msgid ""
 "Once a day, shortly after the nightly backup, this app checks itself — "
 "that backups are running and restorable, that the backup folder is "
@@ -6414,23 +6436,23 @@ msgstr ""
 "القرص ليس ممتلئًا — ويعرض تحذيرًا على لوحة التحكم إذا احتاج شيء إلى "
 "انتباه."
 
-#: templates/settings.html:89
+#: templates/settings.html:100
 msgid "Warn If No Backup For (Days)"
 msgstr "التنبيه إذا لم توجد نسخة خلال (أيام)"
 
-#: templates/settings.html:94
+#: templates/settings.html:105
 msgid "Daily Health Check"
 msgstr "فحص السلامة اليومي"
 
-#: templates/settings.html:102
+#: templates/settings.html:113
 msgid "Run the daily health check and show its warnings"
 msgstr "تشغيل فحص السلامة اليومي وإظهار تحذيراته"
 
-#: templates/settings.html:107
+#: templates/settings.html:118
 msgid "Remote Monitoring (optional)"
 msgstr "المراقبة عن بُعد (اختياري)"
 
-#: templates/settings.html:109
+#: templates/settings.html:120
 #, python-format
 msgid ""
 "Off unless you fill this in. When set, this clinic sends a short daily "
@@ -6445,19 +6467,19 @@ msgstr ""
 "الجهاز عن الإرسال، يُبلَّغ المسؤول عن صيانة النظام — وهو الشيء الوحيد "
 "الذي لا يستطيع التطبيق الإبلاغ عنه وهو مطفأ."
 
-#: templates/settings.html:109
+#: templates/settings.html:120
 msgid "missing"
 msgstr "الغائبة"
 
-#: templates/settings.html:113
+#: templates/settings.html:124
 msgid "Monitoring Ping URL"
 msgstr "رابط المراقبة"
 
-#: templates/settings.html:114
+#: templates/settings.html:125
 msgid "https://… (leave blank to disable)"
 msgstr "https://… (اتركه فارغًا للتعطيل)"
 
-#: templates/settings.html:117
+#: templates/settings.html:128
 #, python-format
 msgid ""
 "Must start with %(scheme)s. Use a different URL for each clinic, so an "
@@ -6468,37 +6490,37 @@ msgstr ""
 "التنبيه من تحديد أيها توقف. %(warning)s — فمن يحصل عليه يستطيع إرسال نبضة"
 " مزيفة ومنع تنبيه حقيقي من الوصول إليك."
 
-#: templates/settings.html:117
+#: templates/settings.html:128
 msgid "Treat it like a password"
 msgstr "تعامل معه كأنه كلمة مرور"
 
-#: templates/settings.html:122
+#: templates/settings.html:133
 msgid "This Install's ID"
 msgstr "معرّف هذا التثبيت"
 
-#: templates/settings.html:124
+#: templates/settings.html:135
 msgid ""
 "Included in every ping so one monitoring account can watch several "
 "clinics."
 msgstr "مضمّن في كل إشارة ليتمكن حساب مراقبة واحد من متابعة عدة عيادات."
 
-#: templates/settings.html:130
+#: templates/settings.html:141
 msgid "Saves the sections above."
 msgstr "يحفظ الأقسام أعلاه."
 
-#: templates/settings.html:131
+#: templates/settings.html:142
 msgid "Save Settings"
 msgstr "حفظ الإعدادات"
 
-#: templates/settings.html:140
+#: templates/settings.html:151
 msgid "Backups & Restore"
 msgstr "النسخ الاحتياطي والاستعادة"
 
-#: templates/settings.html:140 templates/settings.html:220
+#: templates/settings.html:151 templates/settings.html:231
 msgid "Runs when you click"
 msgstr "يعمل عند الضغط على"
 
-#: templates/settings.html:141
+#: templates/settings.html:152
 msgid ""
 "The backup history and the restore that reads it, beside the folder they "
 "use."
@@ -6506,44 +6528,44 @@ msgstr ""
 "سجل النسخ الاحتياطي والاستعادة التي تقرأ منه، إلى جانب المجلد الذي "
 "يستخدمانه."
 
-#: templates/settings.html:145
+#: templates/settings.html:156
 msgid "Back Up Now"
 msgstr "نسخ احتياطي الآن"
 
-#: templates/settings.html:147
+#: templates/settings.html:158
 msgid "Set a backup folder above and save, then you can back up."
 msgstr "حدد مجلد النسخ الاحتياطي أعلاه واحفظ، ثم يمكنك أخذ نسخة."
 
-#: templates/settings.html:154
+#: templates/settings.html:165
 msgid "Recent Backups"
 msgstr "النسخ الاحتياطية الأخيرة"
 
-#: templates/settings.html:157 templates/settings.html:203
+#: templates/settings.html:168 templates/settings.html:214
 msgid "Started"
 msgstr "بدأ"
 
-#: templates/settings.html:157 templates/settings.html:203
+#: templates/settings.html:168 templates/settings.html:214
 msgid "Triggered By"
 msgstr "بدأه"
 
-#: templates/settings.html:157
+#: templates/settings.html:168
 msgid "File"
 msgstr "الملف"
 
-#: templates/settings.html:163 templates/settings.html:209
+#: templates/settings.html:174 templates/settings.html:220
 #, python-format
 msgid "Failed — %(error)s"
 msgstr "فشل — %(error)s"
 
-#: templates/settings.html:163
+#: templates/settings.html:174
 msgid "Running"
 msgstr "قيد التشغيل"
 
-#: templates/settings.html:174
+#: templates/settings.html:185
 msgid "Restore From Backup"
 msgstr "الاستعادة من نسخة احتياطية"
 
-#: templates/settings.html:177
+#: templates/settings.html:188
 msgid ""
 "A restore may not have completed — the app was stopped or crashed partway"
 " through the last one. Check the database carefully before continuing to "
@@ -6552,7 +6574,7 @@ msgstr ""
 "قد تكون عملية استعادة لم تكتمل — توقف التطبيق أو انهار في منتصف آخر "
 "عملية. افحص قاعدة البيانات بعناية قبل متابعة استخدام التطبيق."
 
-#: templates/settings.html:181
+#: templates/settings.html:192
 #, python-format
 msgid ""
 "Replaces %(all)s current data in VetClinicSystem with the contents of a "
@@ -6570,72 +6592,72 @@ msgstr ""
 "النسخة التي تُستعاد سيحتاج إلى إعادة ربط — شغّل %(command)s من مجلد "
 "التطبيق بعد ذلك للعثور عليها وإعادة ربطها بأمان."
 
-#: templates/settings.html:181
+#: templates/settings.html:192
 msgid "all"
 msgstr "كل"
 
-#: templates/settings.html:181
+#: templates/settings.html:192
 msgid "after"
 msgstr "بعد"
 
-#: templates/settings.html:184
+#: templates/settings.html:195
 msgid "Backup File To Restore"
 msgstr "ملف النسخة المراد استعادتها"
 
-#: templates/settings.html:186
+#: templates/settings.html:197
 msgid "Browse to a .dump backup file"
 msgstr "تصفح للوصول إلى ملف نسخة .dump"
 
-#: templates/settings.html:194
+#: templates/settings.html:205
 msgid "Restore Now"
 msgstr "استعادة الآن"
 
-#: templates/settings.html:200
+#: templates/settings.html:211
 msgid "Recent Restores"
 msgstr "عمليات الاستعادة الأخيرة"
 
-#: templates/settings.html:203
+#: templates/settings.html:214
 msgid "Source File"
 msgstr "الملف المصدر"
 
-#: templates/settings.html:220 templates/settings.html:221
+#: templates/settings.html:231 templates/settings.html:232
 msgid "Updates"
 msgstr "التحديثات"
 
-#: templates/settings.html:223
+#: templates/settings.html:234
 msgid "Current Version"
 msgstr "الإصدار الحالي"
 
-#: templates/settings.html:223
+#: templates/settings.html:234
 #, python-format
 msgid "VetClinicSystem v%(app_version)s"
 msgstr "VetClinicSystem الإصدار %(app_version)s"
 
-#: templates/settings.html:225
+#: templates/settings.html:236
 msgid "Check for Updates"
 msgstr "التحقق من التحديثات"
 
-#: templates/settings.html:229
+#: templates/settings.html:240
 msgid "Version"
 msgstr "الإصدار"
 
-#: templates/settings.html:229
+#: templates/settings.html:240
 msgid "is available"
 msgstr "متاح"
 
-#: templates/settings.html:232
+#: templates/settings.html:243
 msgid "Update Now"
 msgstr "تحديث الآن"
 
-#: templates/settings.html:233
+#: templates/settings.html:244
 msgid "Not Now"
 msgstr "ليس الآن"
 
-#: templates/settings.html:238
+#: templates/settings.html:249
 msgid "Rollback to Previous Version"
 msgstr "الرجوع إلى الإصدار السابق"
 
-#: templates/settings.html:242
+#: templates/settings.html:253
 msgid ""
 "Automatic updates aren't set up on this install yet. An administrator can"
 " enable them by running"
@@ -6643,27 +6665,27 @@ msgstr ""
 "التحديثات التلقائية غير مُفعّلة على هذا التثبيت بعد. يمكن للمدير تفعيلها "
 "بتشغيل"
 
-#: templates/settings.html:243
+#: templates/settings.html:254
 msgid "python3 setup.py --enable-updates"
 msgstr "python3 setup.py --enable-updates"
 
-#: templates/settings.html:243
+#: templates/settings.html:254
 msgid "on the computer running VetClinicSystem."
 msgstr "على الجهاز الذي يشغّل VetClinicSystem."
 
-#: templates/settings.html:249 templates/settings.html:258
+#: templates/settings.html:260 templates/settings.html:269
 msgid "Startup & Shutdown"
 msgstr "التشغيل والإيقاف"
 
-#: templates/settings.html:249
+#: templates/settings.html:260
 msgid "Applies immediately"
 msgstr "يسري فورًا"
 
-#: templates/settings.html:268
+#: templates/settings.html:279
 msgid "Start VetClinicSystem automatically when this computer starts"
 msgstr "تشغيل VetClinicSystem تلقائيًا عند بدء تشغيل هذا الجهاز"
 
-#: templates/settings.html:272
+#: templates/settings.html:283
 msgid ""
 "On shutdown or restart, the app closes its database connections cleanly "
 "before the computer powers off, so nothing is left mid-write."
@@ -6671,7 +6693,7 @@ msgstr ""
 "عند الإيقاف أو إعادة التشغيل، يغلق التطبيق اتصالات قاعدة البيانات بشكل "
 "سليم قبل إطفاء الجهاز، فلا يبقى شيء في منتصف الكتابة."
 
-#: templates/settings.html:276
+#: templates/settings.html:287
 msgid ""
 "Not available on this operating system — start VetClinicSystem manually "
 "using the launcher."
@@ -6679,38 +6701,38 @@ msgstr ""
 "غير متاح على نظام التشغيل هذا — شغّل VetClinicSystem يدويًا باستخدام "
 "المشغّل."
 
-#: templates/settings.html:316
+#: templates/settings.html:327
 msgid "You're on the latest version."
 msgstr "أنت على أحدث إصدار."
 
-#: templates/settings.html:320
+#: templates/settings.html:331
 msgid "Couldn't check for updates."
 msgstr "تعذّر التحقق من التحديثات."
 
-#: templates/settings.html:330 templates/settings.html:346
+#: templates/settings.html:341 templates/settings.html:357
 msgid "Restarting VetClinicSystem"
 msgstr "جارٍ إعادة تشغيل VetClinicSystem"
 
-#: templates/settings.html:331
+#: templates/settings.html:342
 msgid "The app is restarting — this page will reconnect automatically."
 msgstr "التطبيق قيد إعادة التشغيل — ستُعاد هذه الصفحة تلقائيًا."
 
-#: templates/settings.html:339
+#: templates/settings.html:350
 msgid "Done — reloading."
 msgstr "تم — جارٍ إعادة التحميل."
 
-#: templates/settings.html:347
+#: templates/settings.html:358
 msgid ""
 "Taking longer than expected to come back — check with whoever manages "
 "this computer."
 msgstr "العودة تستغرق وقتًا أطول من المتوقع — راجع المسؤول عن هذا الجهاز."
 
-#: templates/settings.html:366 templates/settings.html:387
+#: templates/settings.html:377 templates/settings.html:398
 #, python-brace-format
 msgid "{job} failed to start."
 msgstr "تعذّر بدء {job}."
 
-#: templates/settings.html:391
+#: templates/settings.html:402
 msgid ""
 "This will restart VetClinicSystem for everyone for about 30 seconds. A "
 "backup will be taken first. Continue?"
@@ -6718,15 +6740,15 @@ msgstr ""
 "سيؤدي هذا إلى إعادة تشغيل VetClinicSystem للجميع لنحو ٣٠ ثانية. ستُؤخذ "
 "نسخة احتياطية أولًا. هل تريد المتابعة؟"
 
-#: templates/settings.html:394
+#: templates/settings.html:405
 msgid "Update"
 msgstr "تحديث"
 
-#: templates/settings.html:394
+#: templates/settings.html:405
 msgid "Update failed."
 msgstr "فشل التحديث."
 
-#: templates/settings.html:398
+#: templates/settings.html:409
 msgid ""
 "This will roll back to the previous version and restart VetClinicSystem "
 "for everyone for about 30 seconds. Continue?"
@@ -6734,44 +6756,44 @@ msgstr ""
 "سيؤدي هذا إلى التراجع إلى الإصدار السابق وإعادة تشغيل VetClinicSystem "
 "للجميع لنحو ٣٠ ثانية. هل تريد المتابعة؟"
 
-#: templates/settings.html:401
+#: templates/settings.html:412
 msgid "Rollback"
 msgstr "تراجع"
 
-#: templates/settings.html:401
+#: templates/settings.html:412
 msgid "Rollback failed."
 msgstr "فشل التراجع."
 
-#: templates/settings.html:430 templates/settings.html:447
+#: templates/settings.html:441 templates/settings.html:458
 msgid "Could not start the backup."
 msgstr "تعذّر بدء النسخ الاحتياطي."
 
-#: templates/settings.html:435
+#: templates/settings.html:446
 msgid "Backup complete."
 msgstr "اكتمل النسخ الاحتياطي."
 
-#: templates/settings.html:435 templates/settings.html:441
+#: templates/settings.html:446 templates/settings.html:452
 msgid "Backup failed."
 msgstr "فشل النسخ الاحتياطي."
 
-#: templates/settings.html:470 templates/settings.html:491
+#: templates/settings.html:481 templates/settings.html:502
 msgid "Could not start the restore."
 msgstr "تعذّر بدء الاستعادة."
 
-#: templates/settings.html:475
+#: templates/settings.html:486
 #, python-brace-format
 msgid "{message}. Please log in again."
 msgstr "{message}. يرجى تسجيل الدخول مرة أخرى."
 
-#: templates/settings.html:479 templates/settings.html:485
+#: templates/settings.html:490 templates/settings.html:496
 msgid "Restore failed."
 msgstr "فشلت الاستعادة."
 
-#: templates/settings.html:503 templates/settings.html:547
+#: templates/settings.html:514 templates/settings.html:558
 msgid "Choose Backup Folder"
 msgstr "اختيار مجلد النسخ الاحتياطي"
 
-#: templates/settings.html:504
+#: templates/settings.html:515
 msgid ""
 "Browsing this computer's folders — the one running VetClinicSystem, since"
 " that's where backups are actually read and written."
@@ -6779,35 +6801,35 @@ msgstr ""
 "تصفح مجلدات هذا الجهاز — الجهاز الذي يشغّل VetClinicSystem، لأنه المكان "
 "الذي تُقرأ منه النسخ الاحتياطية وتُكتب إليه فعليًا."
 
-#: templates/settings.html:510
+#: templates/settings.html:521
 msgid "New folder name"
 msgstr "اسم المجلد الجديد"
 
-#: templates/settings.html:511
+#: templates/settings.html:522
 msgid "+ New Folder"
 msgstr "+ مجلد جديد"
 
-#: templates/settings.html:515 templates/settings.html:539
+#: templates/settings.html:526 templates/settings.html:550
 msgid "Select This Folder"
 msgstr "اختيار هذا المجلد"
 
-#: templates/settings.html:547
+#: templates/settings.html:558
 msgid "Choose Backup File"
 msgstr "اختيار ملف النسخة الاحتياطية"
 
-#: templates/settings.html:569
+#: templates/settings.html:580
 msgid "Could not open that folder."
 msgstr "تعذّر فتح هذا المجلد."
 
-#: templates/settings.html:586
+#: templates/settings.html:597
 msgid "↑ .. (up one level)"
 msgstr "↑ .. (مستوى للأعلى)"
 
-#: templates/settings.html:596
+#: templates/settings.html:607
 msgid "backup files"
 msgstr "ملفات النسخ الاحتياطي"
 
-#: templates/settings.html:643
+#: templates/settings.html:654
 msgid "Could not create that folder."
 msgstr "تعذّر إنشاء هذا المجلد."
 

@@ -49,6 +49,7 @@ from datetime import datetime, timedelta
 
 import logic
 import schema
+import clock
 
 # Severity ordering, worst last — used to compute the overall status.
 _RANK = {"ok": 0, "warn": 1, "fail": 2}
@@ -104,7 +105,7 @@ def _parse_ts(value):
     """backup_log timestamps are TEXT. A malformed one must not take down
     the check that reads it."""
     try:
-        return datetime.fromisoformat(str(value))
+        return clock.parse(value)
     except (TypeError, ValueError):
         return None
 
@@ -143,7 +144,7 @@ def _check_backup_stale(ctx):
             N_("The last successful backup has an unreadable timestamp, so its "
             "age cannot be judged."),
         )
-    age_days = (datetime.now() - started).days
+    age_days = (clock.now() - started).days
     if age_days >= max_age:
         return _finding(
             "backup_stale", "fail",
@@ -172,7 +173,7 @@ def _check_backup_stranded(ctx):
         started = _parse_ts(row["started_at"])
         if started is None:
             continue
-        if (datetime.now() - started).total_seconds() > STRANDED_RUNNING_HOURS * 3600:
+        if (clock.now() - started).total_seconds() > STRANDED_RUNNING_HOURS * 3600:
             return _finding(
                 "backup_stranded", "warn",
                 N_("A backup started but never finished — it has been running "
@@ -334,8 +335,8 @@ def _check_restore_unverified(ctx):
             N_("The most recent restore verification did not pass: %(detail)s"),
             {"detail": data.get("detail") or "no detail recorded"},
         )
-    if datetime.now() - when > timedelta(days=RESTORE_VERIFY_MAX_AGE_DAYS):
-        days = (datetime.now() - when).days
+    if clock.now() - when > timedelta(days=RESTORE_VERIFY_MAX_AGE_DAYS):
+        days = (clock.now() - when).days
         return _finding(
             "restore_unverified", "warn",
             N_("No backup has been verified as restorable for %(days)s days."),
@@ -452,7 +453,7 @@ def run_self_check(db):
 
     Never raises — see the module docstring.
     """
-    ran_at = datetime.now().isoformat(timespec="seconds")
+    ran_at = clock.now().isoformat(timespec="seconds")
 
     # db_unreachable is checked first and on its own: if the database cannot
     # be read there is no point running checks that all read it, and their

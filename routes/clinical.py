@@ -26,6 +26,7 @@ from flask import (
 )
 
 from core import BadDate, BadNumber, BadPhone, PER_PAGE, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+import clock
 
 bp = Blueprint("clinical", __name__)
 
@@ -302,7 +303,7 @@ def owner_rewards_enroll(owner_id):
         flash(str(e), "error")
         return back
 
-    today = date.today().isoformat()
+    today = clock.today().isoformat()
     try:
         db.execute(
             "UPDATE owners SET is_member=true, member_card_number=?, member_since=?, "
@@ -726,7 +727,7 @@ def _parse_visit_fields(f):
     silently produced `vid = <a Response object>`, then
     `url_for('clinical.visit_detail', visit_id=vid)` on that. Both call sites now
     catch BadDate/BadNumber themselves instead."""
-    visit_date = clean_date(f.get("date"), field="date") or date.today().isoformat()
+    visit_date = clean_date(f.get("date"), field="date") or clock.today().isoformat()
     wellness_needed = f.get("wellness_needed", "N")
     grooming_needed = f.get("grooming_needed", "N")
     weight_kg = parse_quantity(f.get("weight_kg"))
@@ -783,7 +784,7 @@ def _create_inpatient_case(db, patient_id, visit_id, complaint, admission_date, 
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, visit_id, complaint, admission_date, weight_kg, bcs, dismissed, created_by, "
         "discount_percent, discount_source, discount_applied_by) VALUES (?,?,?,?,?,?,false,?,?,?,?) RETURNING id",
-        (patient_id, visit_id, complaint, admission_date or date.today().isoformat(), weight_kg, bcs, session.get("user_id"),
+        (patient_id, visit_id, complaint, admission_date or clock.today().isoformat(), weight_kg, bcs, session.get("user_id"),
          member_percent, member_source, session.get("user_id") if member_percent else None),
     )
     case_id = cur.fetchone()["id"]
@@ -892,7 +893,7 @@ def visit_edit(visit_id):
             return redisplay()
         status_changed_at = visit["case_status_changed_at"]
         if new_case_status != visit["case_status"]:
-            status_changed_at = date.today().isoformat()
+            status_changed_at = clock.today().isoformat()
 
         try:
             edited_date = clean_date(f.get("date"), field="date")
@@ -953,7 +954,7 @@ def visit_edit(visit_id):
                wellness_next_dose_date=?, wellness_contacted=?, wellness_contact_method=?, grooming_needed=?,
                grooming_services=?, grooming_notes=?, grooming_admitted_items=?, grooming_status=?,
                grooming_contacted=?, payment_status=?, updated_at=? WHERE id=?""",
-            (*new_vals.values(), datetime.now().isoformat(timespec="seconds"), visit_id),
+            (*new_vals.values(), clock.now().isoformat(timespec="seconds"), visit_id),
         )
         auth.log_change(db, "visits", visit_id, "update", changes)
         if now_admitted and not existing_case:
@@ -1074,7 +1075,7 @@ def visit_billing_save(visit_id):
         # (itself nullable) or today, same as the template's displayed
         # default. See ORPHANED_RECORDS_AUDIT.md F-06.
         visit_row = db.execute("SELECT date FROM visits WHERE id=?", (visit_id,)).fetchone()
-        date_billed = (visit_row["date"] if visit_row else None) or date.today().isoformat()
+        date_billed = (visit_row["date"] if visit_row else None) or clock.today().isoformat()
     notes = f.get("notes")
     existing = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
     # Re-saving this bill with a shorter cart (or a smaller Manual amount)
@@ -1333,7 +1334,7 @@ def visit_payment_add(visit_id):
         flash(error, "error")
         return redisplay()
     try:
-        payment_date = clean_date(f.get("date"), field="date") or date.today().isoformat()
+        payment_date = clean_date(f.get("date"), field="date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -1569,7 +1570,7 @@ def _boarding_page_context(show_all):
     for r in rows:
         r["billing"] = logic.boarding_billing_summary_from_fields(r, paid_by_id.get(r["id"], 0))
         r["incident_count"] = incidents_by_id.get(r["id"], 0)
-    return dict(sessions=rows, show_all=show_all, today=date.today().isoformat(),
+    return dict(sessions=rows, show_all=show_all, today=clock.today().isoformat(),
                 page=page, total_pages=page_count(total), total_count=total,
                 discount_cap=auth.discount_cap_for())
 
@@ -1615,7 +1616,7 @@ def boarding_new():
         flash(_("Price per Day and Total can't be negative."), "error")
         return redisplay()
     try:
-        entry_date = clean_date(f.get("entry_date"), field="entry_date") or date.today().isoformat()
+        entry_date = clean_date(f.get("entry_date"), field="entry_date") or clock.today().isoformat()
         dismissal_date = clean_date(f.get("dismissal_date"), field="dismissal_date")
     except BadDate as e:
         flash(str(e), "error")
@@ -1711,7 +1712,7 @@ def boarding_edit(boarding_id):
     db.execute(
         "UPDATE boarding_sessions SET entry_date=?, dismissal_date=?, admitted_items=?, special_needs=?, "
         "special_needs_notes=?, room=?, price_per_day=?, total=?, total_is_auto=?, updated_at=? WHERE id=?",
-        (*new_vals.values(), datetime.now().isoformat(timespec="seconds"), boarding_id),
+        (*new_vals.values(), clock.now().isoformat(timespec="seconds"), boarding_id),
     )
     logic.refresh_boarding_total(db, boarding_id)
     old_month = logic.month_key(old["entry_date"])
@@ -1737,7 +1738,7 @@ def boarding_dismiss(boarding_id):
     if not row:
         flash(_("Boarding session not found."), "error")
         return redirect(url_for("clinical.boarding_page"))
-    dismissal_date = row["dismissal_date"] or date.today().isoformat()
+    dismissal_date = row["dismissal_date"] or clock.today().isoformat()
     final_total = row["total"]
     if row["total_is_auto"] and row["price_per_day"]:
         # Lock in the final night count now that the stay is actually
@@ -1778,7 +1779,7 @@ def boarding_incident(boarding_id):
     cur = db.execute(
         "INSERT INTO boarding_incidents (boarding_id, timestamp, issue, contacted, contact_method, response, user_id) "
         "VALUES (?,?,?,?,?,?,?) RETURNING id",
-        (boarding_id, datetime.now().isoformat(timespec="seconds"), issue, contacted,
+        (boarding_id, clock.now().isoformat(timespec="seconds"), issue, contacted,
          f.get("contact_method") if contacted == "Y" else None, f.get("response"), session.get("user_id")),
     )
     incident_id = cur.fetchone()["id"]
@@ -1866,7 +1867,7 @@ def boarding_payment(boarding_id):
         return redisplay()
     cur = db.execute(
         "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
-        (boarding_id, amount, request.form.get("method"), date.today().isoformat(),
+        (boarding_id, amount, request.form.get("method"), clock.today().isoformat(),
          session.get("user_id"), request.form.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
@@ -2072,7 +2073,7 @@ def inpatient_edit(case_id):
     db.execute(
         "UPDATE inpatient_cases SET complaint=?, exam_findings=?, weight_kg=?, bcs=?, admitted_items=?, dismissed=?, dismissal_date=?, "
         "attending_vet_id=?, supervising_vet_id=?, updated_at=? WHERE id=?",
-        (*new_vals.values(), datetime.now().isoformat(timespec="seconds"), case_id),
+        (*new_vals.values(), clock.now().isoformat(timespec="seconds"), case_id),
     )
     auth.log_change(db, "inpatient_cases", str(case_id), "update", changes)
     db.commit()
@@ -2087,7 +2088,7 @@ def inpatient_update_add(case_id):
     note = request.form.get("note", "").strip()
     if note:
         db.execute("INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?)",
-                  (case_id, datetime.now().isoformat(timespec="seconds"), note, session["user_id"]))
+                  (case_id, clock.now().isoformat(timespec="seconds"), note, session["user_id"]))
         auth.log_change(db, "inpatient_updates", str(case_id), "create")
         db.commit()
         flash(_("Update logged."), "success")
@@ -2115,7 +2116,7 @@ def inpatient_contact_add(case_id):
     f = request.form
     picked_up = 1 if f.get("picked_up") == "yes" else 0
     db.execute("INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id, notes) VALUES (?,?,?,?,?)",
-              (case_id, datetime.now().isoformat(timespec="seconds"), picked_up, session["user_id"], f.get("notes")))
+              (case_id, clock.now().isoformat(timespec="seconds"), picked_up, session["user_id"], f.get("notes")))
     auth.log_change(db, "inpatient_contact_log", str(case_id), "create")
     db.commit()
     flash(_("Contact attempt logged."), "success")
@@ -2135,7 +2136,7 @@ def inpatient_billing_add(case_id):
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     price_ids = request.form.getlist("price_id")
-    now = datetime.now().isoformat(timespec="seconds")
+    now = clock.now().isoformat(timespec="seconds")
     added = 0
     had_bad_number = False
     had_bad_price = False
@@ -2341,7 +2342,7 @@ def inpatient_payment_add(case_id):
         flash(error, "error")
         return redisplay()
     try:
-        payment_date = clean_date(f.get("date"), field="date") or date.today().isoformat()
+        payment_date = clean_date(f.get("date"), field="date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -2392,7 +2393,7 @@ def _appointments_page_context():
     validation failure instead of discarding the submitted booking via
     redirect."""
     db = get_db()
-    today_iso = date.today().isoformat()
+    today_iso = clock.today().isoformat()
     # `or today_iso`, not a get() default: the default only applies when the
     # parameter is ABSENT. "?day=" (present but empty) left selected_day as
     # "", and parse_date("") RETURNS None rather than raising -- so the guard
@@ -2502,7 +2503,7 @@ def appointment_new():
             "INSERT INTO appointments (appt_date, slot_label, resource_type, resource_id, pet_name, owner_name, "
             "appointment_type, reason, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
             (appt_date, slot_label, resource_type, resource_id, pet_name, owner_name,
-             appointment_type, f.get("reason"), session["user_id"], datetime.now().isoformat(timespec="seconds")),
+             appointment_type, f.get("reason"), session["user_id"], clock.now().isoformat(timespec="seconds")),
         )
         appt_id = cur.fetchone()["id"]
         auth.log_change(db, "appointments", str(appt_id), "create")

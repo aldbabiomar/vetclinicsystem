@@ -9,6 +9,7 @@ fractional refund quantity truncated by |int). These pin the one formatter,
 the one wire format, the arithmetic that changes meaning on a Decimal, and
 the schema rule that no numeric column accepts NaN.
 """
+import clock
 import json
 import pathlib
 import uuid
@@ -144,7 +145,7 @@ def audited_three_times(db):
                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
                (inv_id, f"Ordering {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
     sessions = []
-    today = date.today()
+    today = clock.today()
     for days_ago, counted, target in ((20, "30", None), (10, "20", None), (0, "13", "31")):
         day = today - timedelta(days=days_ago)
         stamp = datetime.combine(day, datetime.min.time()).isoformat(timespec="microseconds")
@@ -218,8 +219,8 @@ def sold_two(client, db):
                "VALUES (?,?,?,?,?,?,?)", (pl_id, f"Receipt {inv_id}", "Retail", D("5.000"), True, inv_id, True))
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed", datetime.now().isoformat(),
-                      datetime.now().isoformat(timespec="microseconds"))).fetchone()["id"]
+                     (clock.today().isoformat(), "U001", "Confirmed", clock.now().isoformat(),
+                      clock.now().isoformat(timespec="microseconds"))).fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (sid, inv_id, D(10), D(0)))
     db.commit()

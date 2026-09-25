@@ -28,6 +28,7 @@ import auth
 import db as dbmod
 import jobs
 import logic
+import clock
 import money
 from core import money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
@@ -276,6 +277,20 @@ def settings_page():
                     return redirect(url_for("settings.settings_page"))
                 money_change = (current_code, money_val)
 
+        # The Time Zone (clock.py): an IANA name, or blank for automatic
+        # (the money setting's zone, else this computer's). Blank DELETES the
+        # key rather than storing "", so "automatic" has one representation.
+        tz_val = request.form.get(clock.SETTING_KEY)
+        tz_change = None
+        if tz_val is not None:
+            tz_val = tz_val.strip()
+            if tz_val and not clock.is_valid(tz_val):
+                flash(_("Not a valid time zone."), "error")
+                return redirect(url_for("settings.settings_page"))
+            old_tz = logic.get_setting(db, clock.SETTING_KEY) or ""
+            if tz_val != old_tz:
+                tz_change = (old_tz, tz_val)
+
         start = request.form.get("appt_start_time")
         end = request.form.get("appt_end_time")
         if start and end and start >= end:
@@ -350,13 +365,24 @@ def settings_page():
             )
             auth.log_change(db, "settings", money.SETTING_KEY, "update",
                             {money.SETTING_KEY: money_change})
+        if tz_change:
+            if tz_change[1]:
+                db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+                           "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                           (clock.SETTING_KEY, tz_change[1]))
+            else:
+                db.execute("DELETE FROM settings WHERE key=?", (clock.SETTING_KEY,))
+            auth.log_change(db, "settings", clock.SETTING_KEY, "update", {clock.SETTING_KEY: tz_change})
         db.commit()
         if money_change:
             flash(_("Money setting saved: %(name)s. It locks itself once the first price or amount is recorded.",
                     name=money_setting_label(money_change[1])), "success")
-        if request.form.get("backup_time"):
+        if request.form.get("backup_time") or tz_change or money_change:
+            # A new zone (chosen, or arriving with a money setting while on
+            # automatic) moves the nightly jobs to the clinic's 02:00.
             import scheduler
-            scheduler.reschedule(request.form.get("backup_time"))
+            scheduler.reschedule(logic.get_setting(db, "backup_time", "02:00") or "02:00",
+                                 zone=clock.load(db, money.load(db)))
         flash(_("Settings saved."), "success")
         newly_orphaned = len(logic.orphaned_appointments(db)) - orphaned_before
         if newly_orphaned > 0:
@@ -383,6 +409,8 @@ def settings_page():
         app_version=VERSION,
         money_settings=list(money.SETTINGS.values()),
         money_locked=money.is_locked(db),
+        time_zones=clock.all_zone_names(),
+        time_zone_automatic=clock.resolve(None, money.current()),
     )
 
 

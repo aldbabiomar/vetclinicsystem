@@ -16,6 +16,7 @@ contrast with test_money.py / test_money_routes.py, which assert
 deliberately OPPOSITE things in the two apps — nothing in the self-check
 touches money, so the reason those diverge does not apply here.
 """
+import clock
 import json
 import os
 from datetime import datetime, timedelta
@@ -74,7 +75,7 @@ def env(db, flask_app, tmp_path):
     _set(db, "backup_dir", str(backup_dir))
     _set(db, "selfcheck_backup_max_age_days", None)
     _set(db, "last_verified_restore", json.dumps({
-        "at": datetime.now().isoformat(timespec="seconds"),
+        "at": clock.now().isoformat(timespec="seconds"),
         "result": "pass",
         "detail": "test fixture",
     }))
@@ -103,7 +104,7 @@ def env(db, flask_app, tmp_path):
 
 
 def add_backup(db, status, hours_ago=1, error=None):
-    started = (datetime.now() - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
+    started = (clock.now() - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
         (started, started, status, error),
@@ -262,7 +263,7 @@ def test_restore_unverified_when_never_verified(env):
 def test_restore_unverified_when_stale(env):
     import selfcheck
     _set(env["db"], "last_verified_restore", json.dumps({
-        "at": (datetime.now() - timedelta(days=90)).isoformat(timespec="seconds"),
+        "at": (clock.now() - timedelta(days=90)).isoformat(timespec="seconds"),
         "result": "pass",
     }))
     result = selfcheck.run_self_check(env["db"])
@@ -355,7 +356,7 @@ def _stamp(days_ago, minute=0):
     test asserting "these are all the same day" passes in the afternoon and
     fails just after midnight. This is date arithmetic, so it is stable.
     """
-    day = (datetime.now() - timedelta(days=days_ago)).date()
+    day = (clock.now() - timedelta(days=days_ago)).date()
     return datetime.combine(day, datetime.min.time()).replace(
         hour=3, minute=minute).isoformat(timespec="seconds")
 
@@ -520,8 +521,8 @@ def test_a_folder_that_held_backups_is_not_silently_recreated(env, tmp_path):
     # a backup was written there, so this folder is an established destination
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success",
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),
     )
     db.commit()
@@ -559,8 +560,8 @@ def test_the_newest_backup_file_must_still_exist(env, tmp_path):
     db = env["db"]
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success",
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success",
          str(tmp_path / "deleted_by_someone.dump")),
     )
     db.commit()
@@ -577,8 +578,8 @@ def test_a_backup_file_that_is_there_is_not_reported(env, tmp_path):
     real.write_text("x")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success", str(real)),
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success", str(real)),
     )
     db.commit()
     result = selfcheck.run_self_check(db)
@@ -609,7 +610,7 @@ OLD_ALERT_TEXT = "The last database backup failed"
 def _record_check(db, *codes, status="fail"):
     db.execute(
         "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"), status,
+        (clock.now().isoformat(timespec="seconds"), status,
          json.dumps([{"code": c, "severity": "fail",
                       "message": f"finding {c} needs attention"} for c in codes])),
     )
@@ -699,8 +700,8 @@ def test_backup_failing_drops_its_quote_when_the_folder_finding_explains_it(env,
     # _check_backup_dir reports it as vanished rather than recreating it
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success",
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),
     )
     db.commit()
@@ -776,8 +777,8 @@ def test_a_flood_of_failures_does_not_bury_an_established_destination(env, db, t
     db.execute("DELETE FROM backup_log")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success",
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),
     )
     # bury it far deeper than any fixed lookback window

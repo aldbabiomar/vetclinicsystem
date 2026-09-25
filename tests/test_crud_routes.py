@@ -11,6 +11,7 @@ later.
 Like the money route tests, these need a throwaway Postgres and skip
 cleanly without one. See conftest.py.
 """
+import clock
 import money
 import uuid
 from datetime import date, timedelta
@@ -294,7 +295,7 @@ def _book(client, **data):
     anything is written. 'grooming' is used deliberately because the 'vet'
     path additionally requires a valid active vet id."""
     payload = {
-        "appt_date": (date.today() + timedelta(days=1)).isoformat(),
+        "appt_date": (clock.today() + timedelta(days=1)).isoformat(),
         "slot_label": "09:00",
         "resource_type": "grooming",
         "pet_name": "Rex",
@@ -319,7 +320,7 @@ def test_appointment_can_be_booked(client, db, appointment_cleanup):
 def test_two_appointments_cannot_take_the_same_slot(client, db, appointment_cleanup):
     """Double-booking one groomer at one time is a real-world scheduling
     error the grid cannot show, because both rows look valid on their own."""
-    slot, when = "10:30", (date.today() + timedelta(days=2)).isoformat()
+    slot, when = "10:30", (clock.today() + timedelta(days=2)).isoformat()
     first = f"Pet{uuid.uuid4().hex[:6]}"
     _book(client, pet_name=first, slot_label=slot, appt_date=when)
     row = db.execute("SELECT * FROM appointments WHERE pet_name=?", (first,)).fetchone()

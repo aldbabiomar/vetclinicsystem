@@ -21,6 +21,7 @@ lives.
 Routes are discovered, never listed by hand — a new page is covered the
 moment it is registered, with no test to remember to write.
 """
+import clock
 import uuid
 from datetime import datetime, date
 from decimal import Decimal
@@ -119,7 +120,7 @@ def seeded_ids(flask_app):
     con.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
                 (p_id, o_id, f"Smoke Pet {tag}"))
     con.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
-                (v_id, p_id, date.today().isoformat(), "Ongoing"))
+                (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     con.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                 "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
                 (inv_id, f"Smoke Item {tag}", "Retail", "unit", False, Decimal("2.000"), "Owned", True))
@@ -129,7 +130,7 @@ def seeded_ids(flask_app):
     cur = con.execute("INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, "
                       "total_is_auto, cleanup_amount, discount_percent, dismissed, total) "
                       "VALUES (?,?,?,?,?,?,?,?) RETURNING id",
-                      (p_id, date.today().isoformat(), False, False, Decimal(0), Decimal(0), False, Decimal("10.000")))
+                      (p_id, clock.today().isoformat(), False, False, Decimal(0), Decimal(0), False, Decimal("10.000")))
     boarding_id = cur.fetchone()["id"]
     con.commit()
 

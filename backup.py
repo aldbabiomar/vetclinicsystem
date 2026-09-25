@@ -20,6 +20,7 @@ import threading
 from datetime import datetime
 
 import logic
+import clock
 
 FILENAME_PREFIX = "vetclinicsystem_backup_"
 FILENAME_SUFFIX = ".dump"
@@ -50,7 +51,7 @@ def _write_restore_marker(status, dump_path=None, started=None):
                 "status": status,
                 "source_file": dump_path,
                 "started_at": started.isoformat(timespec="seconds") if started else None,
-                "recorded_at": datetime.now().isoformat(timespec="seconds"),
+                "recorded_at": clock.now().isoformat(timespec="seconds"),
             }, f)
             f.flush()
             os.fsync(f.fileno())
@@ -371,7 +372,7 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
     if not dump_path.endswith(FILENAME_SUFFIX):
         return False, f"That doesn't look like a VetClinicSystem backup file (expected a {FILENAME_SUFFIX} file)."
 
-    started = datetime.now()
+    started = clock.now()
     step(1, "Restoring database")
 
     def on_count(done, total):
@@ -436,7 +437,7 @@ def _try_log_restore(get_fresh_db, status, dump_path, error, started, triggered_
             db.execute(
                 "INSERT INTO restore_log (started_at, finished_at, status, source_file, error, triggered_by) "
                 "VALUES (?,?,?,?,?,?)",
-                (started.isoformat(timespec="seconds"), datetime.now().isoformat(timespec="seconds"),
+                (started.isoformat(timespec="seconds"), clock.now().isoformat(timespec="seconds"),
                  status, dump_path, error, triggered_by),
             )
             db.commit()
@@ -543,7 +544,7 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
         _log(db, "failed", None, None, msg, triggered_by=triggered_by)
         return False, msg
 
-    started = datetime.now()
+    started = clock.now()
     filename = f"{FILENAME_PREFIX}{started.strftime('%Y%m%d_%H%M%S')}{FILENAME_SUFFIX}"
     out_path = os.path.join(dest_dir, filename)
 
@@ -586,7 +587,7 @@ def _apply_retention(dest_dir, retention):
 
 
 def _log(db, status, filepath, size, error, started=None, triggered_by=None):
-    ts = (started or datetime.now()).isoformat(timespec="seconds")
+    ts = (started or clock.now()).isoformat(timespec="seconds")
     row = db.execute(
         "INSERT INTO backup_log (started_at, status, filepath, filesize_bytes, error, triggered_by) "
         "VALUES (?,?,?,?,?,?) RETURNING id",
@@ -599,7 +600,7 @@ def _log(db, status, filepath, size, error, started=None, triggered_by=None):
 def _finish_log(db, log_id, status, filepath, size, error):
     db.execute(
         "UPDATE backup_log SET status=?, finished_at=?, filepath=?, filesize_bytes=?, error=? WHERE id=?",
-        (status, datetime.now().isoformat(timespec="seconds"), filepath, size, error, log_id),
+        (status, clock.now().isoformat(timespec="seconds"), filepath, size, error, log_id),
     )
     db.commit()
 
@@ -618,7 +619,7 @@ def reap_stale_running(db):
         "error='Backup did not finish — the app was stopped or the machine shut down "
         "while it was running.' "
         "WHERE status='running' RETURNING id",
-        (datetime.now().isoformat(timespec="seconds"),),
+        (clock.now().isoformat(timespec="seconds"),),
     ).rowcount
     db.commit()
     return n

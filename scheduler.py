@@ -37,6 +37,7 @@ The tick is the one that does not depend on believing any timer. If you
 change anything in this module, keep that property: **decide what to run by
 comparing the wall clock against what the database says already happened.**
 """
+import functools
 import threading
 from datetime import datetime, timedelta
 
@@ -46,6 +47,8 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 import logic
+import money
+import clock
 
 _scheduler = None
 
@@ -143,6 +146,43 @@ def _log_failure(what, level="error"):
             f"scheduler: {what} failed\n" + traceback.format_exc())
     except Exception:
         pass
+
+# The clinic's time zone for every trigger (clock.py). APScheduler 3's
+# CronTrigger takes the COMPUTER's zone when constructed without one — not the
+# scheduler's — so every trigger is built through _cron(), never directly.
+_zone = None
+
+
+def _cron(hour, minute):
+    return CronTrigger(hour=hour, minute=minute, timezone=_zone or clock.zone_name())
+
+
+def _clinic_job(fn):
+    """Run a scheduled job with the clinic's money setting and time zone
+    active, as a request would have them. A scheduler thread inherits no
+    context, so without this clock.now() here would read the computer's zone
+    while every page reads the Time Zone setting."""
+    @functools.wraps(fn)
+    def job(get_db, close_db):
+        setting = zone = None
+        try:
+            db = get_db()
+            try:
+                setting = money.load(db)
+                zone = clock.load(db, setting)
+            finally:
+                close_db(db)
+        except Exception:
+            _log_failure("loading the clinic's settings for a scheduled job", level="warning")
+        money_token = money.set_current(setting)
+        clock_token = clock.set_current(zone)
+        try:
+            return fn(get_db, close_db)
+        finally:
+            clock.reset_current(clock_token)
+            money.reset_current(money_token)
+    return job
+
 
 def _run_backup_if_due(get_db, close_db):
     """Take tonight's backup, unless it has already been taken.
@@ -286,7 +326,7 @@ def _backup_catchup_due(db, hour, minute):
     over its backup time. The scheduler holds no state across a restart, so
     nothing else would ever notice that the 02:00 run never happened.
     """
-    now = datetime.now()
+    now = clock.now()
     scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if now < scheduled:
         return False  # today's run is still ahead of us; the cron will fire
@@ -301,7 +341,7 @@ def _backup_catchup_due(db, hour, minute):
         due = True
     else:
         try:
-            last = datetime.fromisoformat(str(row["started_at"]))
+            last = clock.parse(row["started_at"])
         except (TypeError, ValueError):
             due = True
         else:
@@ -333,7 +373,7 @@ def _backup_catchup_due(db, hour, minute):
         return False
     if recent is not None:
         try:
-            attempted = datetime.fromisoformat(str(recent["started_at"]))
+            attempted = clock.parse(recent["started_at"])
         except (TypeError, ValueError):
             attempted = None
         if attempted is not None and \
@@ -359,12 +399,12 @@ def _self_check_due(db, hour, minute):
     # until its first scheduled run, and looks dead to the receiver meanwhile.
     if row is None:
         return True
-    now = datetime.now()
+    now = clock.now()
     scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if now < scheduled:
         return False
     try:
-        last = datetime.fromisoformat(str(row["ran_at"]))
+        last = clock.parse(row["ran_at"])
     except (TypeError, ValueError):
         return True
     return last < scheduled
@@ -460,15 +500,17 @@ def start(get_db, close_db):
     if _scheduler is not None:
         return _scheduler
 
+    global _zone
     db = get_db()
     time_str = logic.get_setting(db, "backup_time", "02:00") or "02:00"
+    _zone = clock.load(db, money.load(db))
     close_db(db)
     hour, minute = _parse_hour_minute(time_str)
 
-    sched = BackgroundScheduler(daemon=True)
+    sched = BackgroundScheduler(daemon=True, timezone=_zone)
     sched.add_job(
-        _run_backup_if_due,
-        trigger=CronTrigger(hour=hour, minute=minute),
+        _clinic_job(_run_backup_if_due),
+        trigger=_cron(hour, minute),
         args=[get_db, close_db],
         id="nightly_backup",
         replace_existing=True,
@@ -477,8 +519,8 @@ def start(get_db, close_db):
     )
     sc_hour, sc_minute = _self_check_time(hour, minute)
     sched.add_job(
-        _run_self_check_if_due,
-        trigger=CronTrigger(hour=sc_hour, minute=sc_minute),
+        _clinic_job(_run_self_check_if_due),
+        trigger=_cron(sc_hour, sc_minute),
         args=[get_db, close_db],
         id="daily_self_check",
         replace_existing=True,
@@ -487,8 +529,8 @@ def start(get_db, close_db):
     )
     v_hour, v_minute = _verify_time(hour, minute)
     sched.add_job(
-        _do_verify_restore,
-        trigger=CronTrigger(hour=v_hour, minute=v_minute),
+        _clinic_job(_do_verify_restore),
+        trigger=_cron(v_hour, v_minute),
         args=[get_db, close_db],
         id="verify_restore",
         replace_existing=True,
@@ -496,7 +538,7 @@ def start(get_db, close_db):
         coalesce=True,
     )
     sched.add_job(
-        _do_tick,
+        _clinic_job(_do_tick),
         trigger=IntervalTrigger(minutes=TICK_MINUTES),
         args=[get_db, close_db],
         id="tick",
@@ -513,9 +555,9 @@ def start(get_db, close_db):
     # is due, so the startup ping is the ONLY ping it ever sends. Without it
     # every such clinic would look permanently dead to the receiver.
     sched.add_job(
-        _do_startup_catchup,
+        _clinic_job(_do_startup_catchup),
         trigger=DateTrigger(
-            run_date=datetime.now() + timedelta(seconds=SELF_CHECK_STARTUP_DELAY_SECONDS)
+            run_date=clock.now() + timedelta(seconds=SELF_CHECK_STARTUP_DELAY_SECONDS)
         ),
         args=[get_db, close_db],
         id="startup_catchup",
@@ -533,27 +575,32 @@ def start(get_db, close_db):
     return sched
 
 
-def reschedule(time_str):
-    """Called after Settings saves a new backup_time so it applies immediately.
+def reschedule(time_str, zone=None):
+    """Called after Settings saves a new backup_time or Time Zone so it
+    applies immediately.
 
     Moves BOTH scheduled jobs — the self-check is defined relative to the
     backup time, so moving only the backup would leave it judging a backup
-    that has not run yet.
+    that has not run yet. A new zone moves all three: 02:00 means the
+    clinic's 02:00.
     """
+    global _zone
+    if zone:
+        _zone = zone
     if _scheduler is None:
         return
     hour, minute = _parse_hour_minute(time_str)
     _scheduler.reschedule_job(
         "nightly_backup",
-        trigger=CronTrigger(hour=hour, minute=minute),
+        trigger=_cron(hour, minute),
     )
     sc_hour, sc_minute = _self_check_time(hour, minute)
     _scheduler.reschedule_job(
         "daily_self_check",
-        trigger=CronTrigger(hour=sc_hour, minute=sc_minute),
+        trigger=_cron(sc_hour, sc_minute),
     )
     v_hour, v_minute = _verify_time(hour, minute)
     _scheduler.reschedule_job(
         "verify_restore",
-        trigger=CronTrigger(hour=v_hour, minute=v_minute),
+        trigger=_cron(v_hour, v_minute),
     )

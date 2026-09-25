@@ -13,6 +13,7 @@ ever reads the app's own configured settings.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import clock
 import os
 import shutil
 import subprocess
@@ -362,8 +363,8 @@ def test_backup_refuses_to_recreate_a_destination_that_held_backups(db, tmp_path
     db.execute("DELETE FROM backup_log")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
-        (datetime.now().isoformat(timespec="seconds"),
-         datetime.now().isoformat(timespec="seconds"), "success",
+        (clock.now().isoformat(timespec="seconds"),
+         clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "old.dump")),
     )
     db.commit()

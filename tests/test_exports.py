@@ -12,6 +12,7 @@ first, so the export is exercised against real content on every run rather
 than by luck — and they check the response is actually a PDF, not an error
 page served with a 200.
 """
+import clock
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -50,7 +51,7 @@ def billed_visit(client, db):
     db.execute("INSERT INTO patients (id, owner_id, animal_name, species) VALUES (?,?,?,?)",
                (p_id, o_id, f"Export Pet {p_id}", "Dog"))
     db.execute("INSERT INTO visits (id, patient_id, date, case_status, complaint) VALUES (?,?,?,?,?)",
-               (v_id, p_id, date.today().isoformat(), "Ongoing", "Export test complaint"))
+               (v_id, p_id, clock.today().isoformat(), "Ongoing", "Export test complaint"))
     db.commit()
     client.post(f"/visits/{v_id}/billing",
                 data={"billing_type": "Manual", "manual_amount": "100.000"}, follow_redirects=False)
@@ -129,9 +130,9 @@ def completed_sale_for_receipt(client, db):
     from datetime import datetime
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (?,?,?,?)", (session_id, inv_id, 50.0, 0.0))
@@ -170,7 +171,7 @@ def test_boarding_export_produces_a_pdf(client, db, billed_visit):
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
-        (billed_visit["patient_id"], date.today().isoformat(), False, False, Decimal(0), Decimal(0), False, Decimal("200.000")))
+        (billed_visit["patient_id"], clock.today().isoformat(), False, False, Decimal(0), Decimal(0), False, Decimal("200.000")))
     bid = cur.fetchone()["id"]
     db.commit()
     try:

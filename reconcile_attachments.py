@@ -54,6 +54,7 @@ else:
 import db as dbmod
 import attachments as attach_mod
 import backup as backup_mod
+import clock
 
 # Matches attachments.py's _safe_name(): "<14-digit timestamp>_<6 hex>_<original name>".
 FILENAME_RE = re.compile(r"^(\d{14})_[0-9a-f]{6}_(.+)$")
@@ -67,7 +68,7 @@ LOG_PATH = os.path.join(LOG_DIR, "reconcile_attachments.log")
 def _log(line):
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now().isoformat(timespec='seconds')}  {line}\n")
+        f.write(f"{clock.now().isoformat(timespec='seconds')}  {line}\n")
 
 
 def parse_filename(name):
@@ -83,7 +84,7 @@ def parse_filename(name):
     if not m:
         return None
     try:
-        uploaded_at = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+        uploaded_at = clock.aware(datetime.strptime(m.group(1), "%Y%m%d%H%M%S"))
     except ValueError:
         return None
     return uploaded_at, m.group(2)
@@ -135,7 +136,7 @@ def _cutoff_from_restore_log(db):
     if not m:
         return None
     try:
-        return datetime.strptime(m.group(1), "%Y%m%d_%H%M%S")
+        return clock.aware(datetime.strptime(m.group(1), "%Y%m%d_%H%M%S"))
     except ValueError:
         return None
 
@@ -154,7 +155,7 @@ def _cutoff_from_marker_file():
     if not marker or marker.get("status") not in ("in_progress", "success"):
         return None
     try:
-        return datetime.fromisoformat(marker["started_at"]) if marker.get("started_at") else None
+        return clock.parse(marker.get("started_at"))
     except ValueError:
         return None
 
@@ -219,7 +220,9 @@ def main():
             # post-restore rather than assume it's safe.
             print("No restore cutoff could be determined. Every orphaned file will be flagged for\n"
                   "manual review rather than readopted.\n")
-            cutoff = datetime.min
+            # Earlier than any upload; aware, like every other cutoff here
+            # (datetime.min cannot be compared as an aware value).
+            cutoff = clock.aware(datetime(1970, 1, 1))
 
         if not os.path.isdir(attach_mod.UPLOAD_ROOT):
             print(f"No uploads folder at {attach_mod.UPLOAD_ROOT} — nothing to do.")

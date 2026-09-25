@@ -19,6 +19,7 @@ that would lose the entire clinic.
 Equally important, and easy to get wrong: a verification that could not RUN
 (no backup yet, no pg_restore) must report "warn" and never "pass".
 """
+import clock
 import json
 import os
 import shutil
@@ -38,7 +39,7 @@ pg_tools = pytest.mark.skipif(
 
 
 def _log_backup(db, path, status="success"):
-    now = datetime.now().isoformat(timespec="seconds")
+    now = clock.now().isoformat(timespec="seconds")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) "
         "VALUES (?,?,?,?)",
@@ -319,7 +320,7 @@ def test_record_writes_where_selfcheck_reads_it(clean_backup_log):
     import selfverify
     import selfcheck
     db = clean_backup_log
-    result = {"at": datetime.now().isoformat(timespec="seconds"),
+    result = {"at": clock.now().isoformat(timespec="seconds"),
               "result": "pass", "detail": "test", "checks": []}
     assert selfverify.record(db, result) is True
 
@@ -446,7 +447,7 @@ def test_a_failed_verification_is_recorded_and_reported_by_selfcheck(clean_backu
     import selfverify
     import selfcheck
     db = clean_backup_log
-    selfverify.record(db, {"at": datetime.now().isoformat(timespec="seconds"),
+    selfverify.record(db, {"at": clock.now().isoformat(timespec="seconds"),
                            "result": "fail", "detail": "core tables populated: 0 rows",
                            "checks": []})
     sc = selfcheck.run_self_check(db)

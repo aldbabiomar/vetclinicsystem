@@ -20,6 +20,7 @@ succeeds. Without one, "refused for the right reason" and "refused for any
 reason at all" are indistinguishable, and this codebase has shipped several
 of the latter (CLAUDE.md §7.3).
 """
+import clock
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -75,10 +76,10 @@ def _owner_chain(db, *, member, expires=None):
     o, p, v = _uid("O"), _uid("P"), _uid("V")
     db.execute("INSERT INTO owners (id, name, is_member, member_since, member_expires_on) "
                "VALUES (?,?,?,?,?)",
-               (o, f"Rewards Owner {o}", member, date.today().isoformat() if member else None, expires))
+               (o, f"Rewards Owner {o}", member, clock.today().isoformat() if member else None, expires))
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, f"Pet {p}"))
     db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
-               (v, p, date.today().isoformat(), "Ongoing"))
+               (v, p, clock.today().isoformat(), "Ongoing"))
     db.commit()
     return {"owner_id": o, "patient_id": p, "visit_id": v}
 
@@ -109,7 +110,7 @@ def non_member(db):
 
 
 def _bill(client, visit_id, items, which=("a", "b")):
-    data = {"billing_type": "Automatic", "date_billed": date.today().isoformat()}
+    data = {"billing_type": "Automatic", "date_billed": clock.today().isoformat()}
     data["price_id"] = [items[k] for k in which]
     for k in which:
         data[f"qty_{items[k]}"] = "1"
@@ -169,7 +170,7 @@ def test_a_manual_bill_is_discountable_in_full(client, db, rate_on, member):
     """A4 — no item lines to check, so the card applies to the whole figure."""
     client.post(f"/visits/{member['visit_id']}/billing",
                 data={"billing_type": "Manual", "manual_amount": "21.000",
-                      "date_billed": date.today().isoformat()}, follow_redirects=False)
+                      "date_billed": clock.today().isoformat()}, follow_redirects=False)
     s = logic.visit_billing_summary(db, member["visit_id"])
     assert s["discountable_subtotal"] == Decimal("21.000")
     assert s["total"] == Decimal("18.900")
@@ -274,7 +275,7 @@ def test_flipping_can_discount_after_billing_changes_nothing(client, db, rate_on
 def test_the_card_is_valid_through_its_expiry_date(db, offset, expected_source):
     """`>= today`, not `> today`. A card that dies a day early is not
     something anyone reports as a bug."""
-    expires = (date.today() + timedelta(days=offset)).isoformat()
+    expires = (clock.today() + timedelta(days=offset)).isoformat()
     chain = _owner_chain(db, member=True, expires=expires)
     try:
         _set_rate(db, RATE)
@@ -298,7 +299,7 @@ def test_a_null_expiry_never_lapses(db):
 def test_expiry_never_flips_is_member(db):
     """Lapsed and never-joined must stay distinguishable — the owner page and
     the ranking badge both need the difference."""
-    chain = _owner_chain(db, member=True, expires=(date.today() - timedelta(days=5)).isoformat())
+    chain = _owner_chain(db, member=True, expires=(clock.today() - timedelta(days=5)).isoformat())
     try:
         owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
         assert owner["is_member"] is True
@@ -353,7 +354,7 @@ def test_re_saving_a_bill_never_re_stamps_the_membership_snapshot(
     """
     _bill(client, non_member["visit_id"], items)
     db.execute("UPDATE owners SET is_member=true, member_since=? WHERE id=?",
-               (date.today().isoformat(), non_member["owner_id"]))
+               (clock.today().isoformat(), non_member["owner_id"]))
     db.commit()
     _bill(client, non_member["visit_id"], items)      # re-save
     s = logic.visit_billing_summary(db, non_member["visit_id"])
@@ -386,7 +387,7 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
     cur = db.execute(
         "INSERT INTO sales (sale_date, subtotal, discount_percent, discount_source, total, payment_method) "
         "VALUES (?,?,?,?,?,?) RETURNING id",
-        (date.today().isoformat(), Decimal("21.000"), RATE, "member", Decimal("19.950"), "Cash"))
+        (clock.today().isoformat(), Decimal("21.000"), RATE, "member", Decimal("19.950"), "Cash"))
     sale_id = cur.fetchone()["id"]
     for iid, ok in ((inv_a, True), (inv_b, False)):
         db.execute("INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, line_total, discountable) "
@@ -456,7 +457,7 @@ def test_a_low_cap_user_is_still_capped_on_an_ordinary_staff_discount(
 
 def _month_revenue(db):
     """This month's revenue as each of the three reports sees it."""
-    this_month = date.today().strftime("%Y-%m")
+    this_month = clock.today().strftime("%Y-%m")
     cat = logic.revenue_by_category(db, months_back=1)
     grid = cat["grid"].get(this_month, {})
     return {"total": sum(grid.values()), "by_cat": dict(grid), "month": this_month}
@@ -525,15 +526,15 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, created_by, "
         "discount_percent, discount_source) VALUES (?,?,?,?,?,?) RETURNING id",
-        (member["patient_id"], date.today().isoformat(), False, "U001", RATE, "member"))
+        (member["patient_id"], clock.today().isoformat(), False, "U001", RATE, "member"))
     case_id = cur.fetchone()["id"]
-    last_month_day = logic.add_months(date.today().replace(day=1), -1)
-    this_month = date.today().strftime("%Y-%m")
+    last_month_day = logic.add_months(clock.today().replace(day=1), -1)
+    this_month = clock.today().strftime("%Y-%m")
     last_month = last_month_day.strftime("%Y-%m")
     try:
         for price_id, discountable, when in (
                 (items["a"], True, last_month_day.isoformat() + "T10:00:00"),
-                (items["b"], False, date.today().isoformat() + "T10:00:00")):
+                (items["b"], False, clock.today().isoformat() + "T10:00:00")):
             db.execute(
                 "INSERT INTO inpatient_billing (case_id, price_id, quantity, unit_price, "
                 "unit_cost, discountable, logged_by, timestamp) VALUES (?,?,?,?,?,?,?,?)",

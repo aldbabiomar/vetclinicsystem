@@ -13,6 +13,7 @@ from collections import defaultdict
 
 import auth as authmod
 import money
+import clock
 
 MISSED_WINDOW_DAYS = 14   # 2 weeks — used for follow-ups, wellness, and Lost to Follow Up
 WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
@@ -101,7 +102,7 @@ def is_active_member(owner):
     `>=`, so the card works THROUGH its expiry date — an off-by-one here is a
     card that dies a day early, which nobody reports as a bug.
 
-    date.today() is naive on purpose, matching every other date site in this
+    clock.today() is naive on purpose, matching every other date site in this
     app: it runs on the clinic's own PC, so local time IS clinic time.
     """
     if owner is None:
@@ -119,7 +120,7 @@ def is_active_member(owner):
     expires = parse_date(expires)
     if not expires:
         return True
-    return expires >= date.today()
+    return expires >= clock.today()
 
 
 def member_discount_rate(db):
@@ -166,7 +167,7 @@ def add_months(d, months):
 
 def member_default_expiry(db, start=None):
     """What the enroll form pre-fills: today + the clinic's term."""
-    return add_months(start or date.today(), member_term_months(db))
+    return add_months(start or clock.today(), member_term_months(db))
 
 
 def member_expires_in_days(owner):
@@ -182,7 +183,7 @@ def member_expires_in_days(owner):
         return None
     if not expires:
         return None
-    return (expires - date.today()).days
+    return (expires - clock.today()).days
 
 
 def owner_for_patient(db, patient_id):
@@ -323,15 +324,15 @@ def backup_alert_message(last_backup_row):
         # below would otherwise report healthy backups for as long as it
         # sits there. See ORPHANED_RECORDS_AUDIT.md F-21.
         try:
-            started_dt = datetime.fromisoformat(last_backup_row["started_at"])
+            started_dt = clock.parse(last_backup_row["started_at"])
         except (TypeError, ValueError):
             started_dt = None
-        if started_dt and (datetime.now() - started_dt).total_seconds() > 6 * 3600:
+        if started_dt and (clock.now() - started_dt).total_seconds() > 6 * 3600:
             return _alert(N_("The last backup started but never finished — check "
                              "the Settings page."))
         return None
     started = parse_date(last_backup_row["started_at"])
-    if started and (date.today() - started).days >= 2:
+    if started and (clock.today() - started).days >= 2:
         return _alert(N_("The database hasn't been backed up in 2+ days — check "
                          "the Settings page."))
     return None
@@ -355,7 +356,7 @@ def get_or_create_draft_session(db, audit_date, user_id):
         return row["id"]
     cur = db.execute(
         "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) VALUES (?,?,'Draft',?) RETURNING id",
-        (audit_date, user_id, datetime.now().isoformat(timespec="seconds")),
+        (audit_date, user_id, clock.now().isoformat(timespec="seconds")),
     )
     new_id = cur.fetchone()["id"]
     authmod.log_change(db, "audit_sessions", str(new_id), "create")
@@ -468,7 +469,7 @@ def _txn_qty_since_batch(db, cutoffs):
 def inventory_status(db):
     audit_overdue_days = int_setting(db, "audit_overdue_days", 35)
     expiry_soon_days = int_setting(db, "expiry_soon_days", 60)
-    today = date.today()
+    today = clock.today()
 
     items = [dict(r) for r in db.execute("SELECT * FROM inventory_list WHERE active=true ORDER BY name").fetchall()]
     all_confirmed = confirmed_audit_rows_by_item(db)
@@ -715,7 +716,7 @@ def save_visit_billing_lines(db, visit_id, lines):
     this module).
     """
     db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
-    now_str = datetime.now().isoformat(timespec="seconds")
+    now_str = clock.now().isoformat(timespec="seconds")
     for l in lines:
         db.execute(
             "INSERT INTO visit_billing_lines (visit_id, price_id, name, category, quantity, unit_price, unit_cost, discountable, created_at) "
@@ -900,7 +901,7 @@ def refresh_inpatient_total(db, case_id):
 def boarding_nights(entry_date, dismissal_date):
     """Nights stayed so far (or planned), at least 1."""
     start = parse_date(entry_date)
-    end = parse_date(dismissal_date) if dismissal_date else date.today()
+    end = parse_date(dismissal_date) if dismissal_date else clock.today()
     if not start:
         return 1
     return max(1, (end - start).days)
@@ -1007,7 +1008,7 @@ def followups(db, only_pending=False):
     if only_pending:
         q += " AND v.followup_status = 'Pending'"
     rows = [dict(r) for r in db.execute(q).fetchall()]
-    today = date.today()
+    today = clock.today()
     out = [_annotate_followup(r, today) for r in rows]
     out.sort(key=lambda r: (r["followup_date"] or date.min), reverse=True)
     return out
@@ -1043,7 +1044,7 @@ def followups_page(db, only_pending=False, limit=20, offset=0):
     LIMIT ? OFFSET ?
     """
     rows = [dict(r) for r in db.execute(q, [limit, offset]).fetchall()]
-    today = date.today()
+    today = clock.today()
     rows = [_annotate_followup(r, today) for r in rows]
     return rows, total
 
@@ -1073,7 +1074,7 @@ def wellness_reminders(db, only_due=False):
     WHERE v.wellness_needed = 'Y' AND v.wellness_next_dose_date IS NOT NULL
     """
     rows = [dict(r) for r in db.execute(q).fetchall()]
-    today = date.today()
+    today = clock.today()
     out = []
     for r in rows:
         r = _annotate_wellness(r, today)
@@ -1115,7 +1116,7 @@ def wellness_reminders_page(db, limit=20, offset=0):
     LIMIT ? OFFSET ?
     """
     rows = [dict(r) for r in db.execute(q, [limit, offset]).fetchall()]
-    today = date.today()
+    today = clock.today()
     rows = [_annotate_wellness(r, today) for r in rows]
     return rows, total
 
@@ -1181,7 +1182,7 @@ def missed_items(db):
             out.append({"kind": "Wellness", "visit_id": w["visit_id"], "animal_name": w["animal_name"],
                         "deadline": w["wellness_next_dose_date"], "responsible": w["doctor"] or w["created_by"]})
 
-    today = date.today()
+    today = clock.today()
     rows = db.execute(
         "SELECT v.id, v.case_status_changed_at, v.doctor, v.created_by, p.animal_name FROM visits v "
         "JOIN patients p ON p.id=v.patient_id WHERE v.case_status='Lost to Follow Up'"
@@ -1208,7 +1209,7 @@ def missed_items(db):
 # Dashboard snapshot
 # ---------------------------------------------------------------------------
 def dashboard_snapshot(db):
-    today = date.today()
+    today = clock.today()
     tomorrow = today + timedelta(days=1)
 
     total_patients = db.execute("SELECT COUNT(*) c FROM patients").fetchone()["c"]
@@ -1238,7 +1239,7 @@ def dashboard_snapshot(db):
 
 def opex_reminder_due(db):
     """True in the last 3 days of the current month if that month's opex hasn't been entered."""
-    today = date.today()
+    today = clock.today()
     last_day = calendar.monthrange(today.year, today.month)[1]
     if last_day - today.day > 2:
         return False
@@ -1384,7 +1385,7 @@ def recompute_month_summary(db, month):
     revenue_by_month, cogs_by_month = _revenue_and_cogs_by_month(db, month=month)
     revenue = money.to_store(revenue_by_month.get(month, 0))
     cogs = money.to_store(cogs_by_month.get(month, 0))
-    now_str = datetime.now().isoformat(timespec="seconds")
+    now_str = clock.now().isoformat(timespec="seconds")
     db.execute(
         "INSERT INTO monthly_financial_summary (month, revenue, cogs, updated_at) VALUES (?,?,?,?) "
         "ON CONFLICT (month) DO UPDATE SET revenue=EXCLUDED.revenue, cogs=EXCLUDED.cogs, updated_at=EXCLUDED.updated_at",
@@ -1413,7 +1414,7 @@ def recompute_full_summary(db):
     """
     revenue_by_month, cogs_by_month = _revenue_and_cogs_by_month(db)
     months = set(revenue_by_month) | set(cogs_by_month)
-    now_str = datetime.now().isoformat(timespec="seconds")
+    now_str = clock.now().isoformat(timespec="seconds")
     db.execute("DELETE FROM monthly_financial_summary")
     for month in months:
         revenue = money.to_store(revenue_by_month.get(month, 0))
@@ -1456,7 +1457,7 @@ def _ensure_summary_populated(db):
 
 
 def monthly_pl(db, months_back=12):
-    today = date.today()
+    today = clock.today()
     months = []
     y, m = today.year, today.month
     for i in range(months_back - 1, -1, -1):
@@ -1814,7 +1815,7 @@ def record_consignment_receipt(db, item_id, distributor_id, quantity, unit_cost_
     # Microsecond precision — see the comment on audit_session_confirm()'s
     # confirmed_at write in app.py; this writes an inventory_transactions
     # row too, which that column gets compared against.
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_receipts (item_id, distributor_id, quantity, unit_cost_at_receipt, "
         "received_date, delivery_reference, notes, received_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -1863,7 +1864,7 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
     # Microsecond precision — see the comment on audit_session_confirm()'s
     # confirmed_at write in app.py; this writes an inventory_transactions
     # row too, which that column gets compared against.
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_shrinkage (item_id, distributor_id, quantity, reason, liable_party, "
         "liability_overridden, unit_cost, notes, logged_by, logged_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -1907,7 +1908,7 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
     # Microsecond precision — see the comment on audit_session_confirm()'s
     # confirmed_at write in app.py; this writes an inventory_transactions
     # row too, which that column gets compared against.
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_returns (item_id, distributor_id, quantity, unit_cost_at_return, "
         "return_date, reason, notes, returned_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
@@ -2005,7 +2006,7 @@ def consignment_balance(db, distributor_id):
     # it: with a seconds-precision bound, a sale in the same second as a
     # settlement ('…T10:00:00.3' > '…T10:00:00') was counted in that
     # settlement AND again in the next (CODE_AUDIT B13).
-    period_end = datetime.now().isoformat(timespec="microseconds")
+    period_end = clock.now().isoformat(timespec="microseconds")
 
     # si.distributor_id is a snapshot taken at checkout time (see
     # pos_checkout()) — this is what makes attribution historically stable:
@@ -2090,7 +2091,7 @@ def consignment_distributors_overview(db):
         "JOIN inventory_list i ON i.distributor_id = d.id "
         "WHERE i.ownership_type='Consignment' ORDER BY d.name"
     ).fetchall()
-    this_month = date.today().isoformat()[:7]
+    this_month = clock.today().isoformat()[:7]
     out = []
     for d in distributors:
         items = db.execute(
@@ -2287,7 +2288,7 @@ def cash_register_last_30_days(db):
     itself a documentation problem worth an admin's attention, same as a
     real Deficit."""
     out = []
-    today = date.today()
+    today = clock.today()
     for i in range(30):
         d = (today - timedelta(days=i)).isoformat()
         audit = cash_register_latest_audit(db, d)
@@ -2339,7 +2340,7 @@ def generate_slots(db):
 
 
 def week_dates(anchor_iso):
-    anchor = parse_date(anchor_iso) or date.today()
+    anchor = parse_date(anchor_iso) or clock.today()
     monday = anchor - timedelta(days=anchor.weekday())
     return [monday + timedelta(days=i) for i in range(7)]
 
@@ -2392,7 +2393,7 @@ def orphaned_appointments(db, include_past=False):
         "SELECT id FROM users WHERE role_id IN (SELECT id FROM roles WHERE is_vet_role=true) AND active=true"
     ).fetchall()}
     date_filter = "" if include_past else "WHERE a.appt_date >= ?"
-    params = () if include_past else (date.today().isoformat(),)
+    params = () if include_past else (clock.today().isoformat(),)
     rows = db.execute(
         "SELECT a.*, u.full_name AS vet_name FROM appointments a "
         "LEFT JOIN users u ON u.id = a.resource_id "
@@ -2454,7 +2455,7 @@ def weekday_is_weekend(db):
 
 def month_list(months_back):
     """Returns ['YYYY-MM', ...] for the last N months, oldest first (incl. current)."""
-    today = date.today()
+    today = clock.today()
     months = []
     y, m = today.year, today.month
     for i in range(months_back - 1, -1, -1):
@@ -2813,7 +2814,7 @@ def cohort_retention_grid(db, max_offset=11):
             retained = by_cohort[cm].get(offset)
             # Only show a cell once that much time has actually elapsed since the cohort started.
             months_elapsed = (
-                (date.today().year - int(cm[:4])) * 12 + (date.today().month - int(cm[5:7]))
+                (clock.today().year - int(cm[:4])) * 12 + (clock.today().month - int(cm[5:7]))
             )
             if offset > months_elapsed:
                 row["cells"].append(None)
@@ -2870,7 +2871,7 @@ def prune_old_logs(db, now=None):
     except (TypeError, ValueError):
         days = LOG_RETENTION_DEFAULT_DAYS
     days = max(LOG_RETENTION_MIN_DAYS, min(days, LOG_RETENTION_MAX_DAYS))
-    cutoff = ((now or datetime.now()) - timedelta(days=days)).isoformat(timespec="seconds")
+    cutoff = ((now or clock.now()) - timedelta(days=days)).isoformat(timespec="seconds")
 
     deleted = {}
     for table, column in RETENTION_TABLES:

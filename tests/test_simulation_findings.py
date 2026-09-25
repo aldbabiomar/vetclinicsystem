@@ -25,6 +25,7 @@ Every guard is paired with a control asserting the valid case still works
 (CLAUDE.md §7.3); each was also verified by reverting the fix and watching
 the test fail — see scripts/simulation/prove_guards.py.
 """
+import clock
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
@@ -60,9 +61,9 @@ def sellable(db):
                 inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, "
                      "confirmed_at) VALUES (?,?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Confirmed",
-                      datetime.now().isoformat(timespec="seconds"),
-                      datetime.now().isoformat(timespec="microseconds")))
+                     (clock.today().isoformat(), "U001", "Confirmed",
+                      clock.now().isoformat(timespec="seconds"),
+                      clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
                "received_since_prior) VALUES (?,?,?,?)", (session_id, inv_id, 1000.0, 0.0))
@@ -129,7 +130,7 @@ def test_a_small_refund_stays_exact(client, db, sellable):
                       (sale["id"],)).fetchone()
     client.post("/refunds/retail", data={
         "sale_id": str(sale["id"]), "sale_item_id": str(line["id"]), "quantity": "1",
-        "reason": "Returned unopened", "refund_date": date.today().isoformat(),
+        "reason": "Returned unopened", "refund_date": clock.today().isoformat(),
         "refund_method": "Cash", "restock": "on"}, follow_redirects=True)
     ref = db.execute("SELECT amount FROM refunds WHERE sale_id=? ORDER BY id DESC LIMIT 1",
                      (sale["id"],)).fetchone()
@@ -168,8 +169,8 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
     pass whether or not the guard exists."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Draft",
-                      datetime.now().isoformat(timespec="seconds")))
+                     (clock.today().isoformat(), "U001", "Draft",
+                      clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()
     try:
@@ -199,8 +200,8 @@ def test_a_valid_audit_count_still_saves(client, db, sellable):
     """CONTROL — the draft is not simply locked; good values go in."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Draft",
-                      datetime.now().isoformat(timespec="seconds")))
+                     (clock.today().isoformat(), "U001", "Draft",
+                      clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()
     try:
@@ -224,8 +225,8 @@ def test_the_database_itself_refuses_a_nan_count(db, sellable):
     Postgres NaN sorts above every value, so 'NaN' >= 0 is true."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                      "VALUES (?,?,?,?) RETURNING id",
-                     (date.today().isoformat(), "U001", "Draft",
-                      datetime.now().isoformat(timespec="seconds")))
+                     (clock.today().isoformat(), "U001", "Draft",
+                      clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.commit()
     try:
@@ -321,11 +322,11 @@ def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
     db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Date Owner {o_id}"))
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
                (p_id, o_id, f"Date Pet {p_id}"))
-    admitted = date.today().isoformat()
+    admitted = clock.today().isoformat()
     cur = db.execute("INSERT INTO inpatient_cases (patient_id, admission_date, complaint, "
                      "dismissed, updated_at) VALUES (?,?,?,?,?) RETURNING id",
                      (p_id, admitted, "obs", False,
-                      datetime.now().isoformat(timespec="seconds")))
+                      clock.now().isoformat(timespec="seconds")))
     case_id = cur.fetchone()["id"]
     db.commit()
     try:
@@ -337,7 +338,7 @@ def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
                 "dismissed": "on", "dismissal_date": dismissal_date,
                 "expected_updated_at": stamp}, follow_redirects=True)
 
-        edit((date.today() - timedelta(days=400)).isoformat())
+        edit((clock.today() - timedelta(days=400)).isoformat())
         row = db.execute("SELECT admission_date, dismissal_date FROM inpatient_cases WHERE id=?",
                          (case_id,)).fetchone()
         assert (row["dismissal_date"] is None
@@ -364,7 +365,7 @@ def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
 def test_a_cash_discrepancy_is_flashed_as_a_warning_not_an_error(client, db):
     """The audit saved. Flashing it in the same red as a failure reads as
     "that did not work" and invites staff to run the count again."""
-    day = date.today().isoformat()
+    day = clock.today().isoformat()
     resp = client.post("/cash-register/audit",
                        data={"day": day, "counted_cash": "7777.000", "notes": "regression"},
                        follow_redirects=True)
@@ -377,7 +378,7 @@ def test_a_cash_discrepancy_is_flashed_as_a_warning_not_an_error(client, db):
 @needs_db
 def test_a_perfect_cash_count_is_still_a_success(client, db):
     """CONTROL — the success path must not have been turned into a warning."""
-    day = date.today().isoformat()
+    day = clock.today().isoformat()
     totals = logic.cash_register_totals(db, day)
     resp = client.post("/cash-register/audit",
                        data={"day": day, "counted_cash": str(totals["Cash"]), "notes": "control"},

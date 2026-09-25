@@ -16,6 +16,7 @@ uses whole-IQD multiples of 250 because a service refund there is passed
 through money.round_to_denomination() — the two files assert the same
 behaviours against each app's own money model and must not be merged.
 """
+import clock
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -43,10 +44,10 @@ def paid_stay(db):
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total, price_per_day) "
         "VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
-        (p_id, date.today().isoformat(), False, False, 0.0, 0.0, True, Decimal("20.000"), Decimal("5.000")))
+        (p_id, clock.today().isoformat(), False, False, 0.0, 0.0, True, Decimal("20.000"), Decimal("5.000")))
     bid = cur.fetchone()["id"]
     db.execute("INSERT INTO payments (boarding_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (bid, Decimal("20.000"), "Cash", date.today().isoformat(), "U001"))
+               (bid, Decimal("20.000"), "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     yield {"id": bid, "patient_id": p_id, "owner_id": o_id, "paid": Decimal("20.000")}
     db.execute("DELETE FROM refunds WHERE boarding_id=?", (bid,))
@@ -58,7 +59,7 @@ def paid_stay(db):
 
 
 def _refund(client, **data):
-    payload = {"amount": "5.000", "refund_date": date.today().isoformat(),
+    payload = {"amount": "5.000", "refund_date": clock.today().isoformat(),
                "refund_method": "Cash", "reason": "test",
                "visit_id": "", "inpatient_case_id": "", "boarding_id": ""}
     payload.update(data)
@@ -166,7 +167,7 @@ def test_the_database_itself_refuses_a_two_anchor_service_refund(db, paid_stay):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, boarding_id, "
             "processed_by, created_at) VALUES ('service',?,?,?,?,?,?)",
-            (date.today().isoformat(), Decimal("1.000"), "V001", paid_stay["id"], "U001", "2026-01-01T00:00:00"))
+            (clock.today().isoformat(), Decimal("1.000"), "V001", paid_stay["id"], "U001", "2026-01-01T00:00:00"))
     db.rollback()
 
 
@@ -176,7 +177,7 @@ def test_the_database_refuses_a_service_refund_with_no_anchor(db):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, processed_by, created_at) "
             "VALUES ('service',?,?,?,?)",
-            (date.today().isoformat(), Decimal("1.000"), "U001", "2026-01-01T00:00:00"))
+            (clock.today().isoformat(), Decimal("1.000"), "U001", "2026-01-01T00:00:00"))
     db.rollback()
 
 
@@ -188,7 +189,7 @@ def test_a_boarding_refund_reduces_the_boarding_category(client, db, paid_stay):
     """GUARD. revenue_by_category's refund arm mapped everything non-retail to
     'Service'. Boarding revenue has its own column, so a boarding refund landing
     in Service would push the two columns apart and make neither correct."""
-    month = date.today().strftime("%Y-%m")
+    month = clock.today().strftime("%Y-%m")
     before = logic.revenue_by_category(db)["grid"].get(month, {})
     b_before = before.get("Boarding", 0)
     s_before = before.get("Service", 0)
@@ -213,7 +214,7 @@ def paid_visit(db):
     db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
                (p_id, o_id, f"V Pet {p_id}"))
     db.execute("INSERT INTO visits (id, patient_id, date, visit_type) VALUES (?,?,?,?)",
-               (v_id, p_id, date.today().isoformat(), "Consultation"))
+               (v_id, p_id, clock.today().isoformat(), "Consultation"))
     # JO needs the billing row, IQ does not: JO's refund cap reads
     # logic.visit_billing_summary()["paid"], which returns 0 for a visit with
     # no bill even when payments exist, whereas IQ sums the payments table
@@ -223,9 +224,9 @@ def paid_visit(db):
     # the code actually reads, or the control fails for the wrong reason.
     db.execute("INSERT INTO billing (visit_id, billing_type, manual_amount, total, date_billed) "
                "VALUES (?,?,?,?,?)",
-               (v_id, "Manual", Decimal("10.000"), Decimal("10.000"), date.today().isoformat()))
+               (v_id, "Manual", Decimal("10.000"), Decimal("10.000"), clock.today().isoformat()))
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
-               (v_id, Decimal("10.000"), "Cash", date.today().isoformat(), "U001"))
+               (v_id, Decimal("10.000"), "Cash", clock.today().isoformat(), "U001"))
     db.commit()
     yield {"id": v_id}
     db.execute("DELETE FROM refunds WHERE visit_id=?", (v_id,))
@@ -255,7 +256,7 @@ def test_a_visit_refund_is_still_capped(client, paid_visit):
 def test_a_visit_refund_still_nets_against_service(client, db, paid_visit):
     """CONTROL for the category change: non-boarding service refunds must
     still land in Service."""
-    month = date.today().strftime("%Y-%m")
+    month = clock.today().strftime("%Y-%m")
     before = logic.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)
     _refund(client, visit_id=paid_visit["id"], amount="5.000")
     after = logic.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)

@@ -28,6 +28,7 @@ pure given its two queries, and that keeps this in the pure tier. One
 database-tier test at the bottom exercises the real SQL, so a change to the
 queries cannot pass while the stub keeps agreeing with itself.
 """
+import clock
 from datetime import datetime, timedelta
 
 import pytest
@@ -68,7 +69,7 @@ class StubDB:
 
 def _rapid(n, end_offset_seconds=10):
     """n failures ten seconds apart, ending just now."""
-    now = datetime.now()
+    now = clock.now()
     return [now - timedelta(seconds=(n - i) * end_offset_seconds) for i in range(n)]
 
 
@@ -100,7 +101,7 @@ def test_fifteen_rapid_failures_escalate_to_the_third_step():
 def test_pausing_is_not_rewarded():
     """GUARD, stated as the property rather than the number. Continuous and
     batched attacks of the same size must cost the same."""
-    now = datetime.now()
+    now = clock.now()
     continuous = _rapid(15)
     batched = ([now - timedelta(minutes=70) + timedelta(seconds=i * 10) for i in range(5)]
                + [now - timedelta(minutes=35) + timedelta(seconds=i * 10) for i in range(5)]
@@ -126,7 +127,7 @@ def test_stray_old_failures_do_not_shorten_a_real_lock():
     the anchors are then seconds rather than tens of minutes apart, which is
     why the earlier version of this test passed against both implementations.
     """
-    now = datetime.now()
+    now = clock.now()
     strays = [now - timedelta(hours=h) for h in (12, 9, 6, 3)]
     recent = [now - timedelta(minutes=40) + timedelta(minutes=10 * i) for i in range(5)]
     locked, mins = _minutes(strays + recent)
@@ -148,7 +149,7 @@ def test_five_rapid_failures_still_lock_for_the_base_window():
 
 def test_three_spaced_bursts_still_reach_the_third_step():
     """CONTROL. Both old implementations agreed here too."""
-    now = datetime.now()
+    now = clock.now()
     failures = ([now - timedelta(minutes=70) + timedelta(seconds=i * 10) for i in range(5)]
                 + [now - timedelta(minutes=35) + timedelta(seconds=i * 10) for i in range(5)]
                 + [now - timedelta(minutes=2) + timedelta(seconds=i * 10) for i in range(5)])
@@ -175,7 +176,7 @@ def test_stray_failures_that_never_reach_the_threshold_do_not_lock():
     hours back instead lets the lock expire on its own and the test passes
     against a burst-less implementation too, proving nothing.
     """
-    now = datetime.now()
+    now = clock.now()
     failures = [now - timedelta(hours=h) for h in (12, 9, 6, 3)] + [now - timedelta(minutes=1)]
     locked, _ = _minutes(failures)
     assert not locked, (
@@ -186,7 +187,7 @@ def test_stray_failures_that_never_reach_the_threshold_do_not_lock():
 def test_a_successful_login_clears_the_slate():
     """CONTROL. Getting in must reset the count, or a user who eventually
     remembers their password stays locked out anyway."""
-    now = datetime.now()
+    now = clock.now()
     failures = _rapid(10)
     just_after = (now + timedelta(seconds=1)).isoformat(timespec="seconds")
     locked, _, _ = auth.login_lock_status(StubDB(failures, last_success=just_after), "victim")
@@ -195,7 +196,7 @@ def test_a_successful_login_clears_the_slate():
 
 def test_an_expired_lock_reports_unlocked():
     """CONTROL. The window has to actually end."""
-    old = [datetime.now() - timedelta(hours=3) + timedelta(seconds=i * 10) for i in range(5)]
+    old = [clock.now() - timedelta(hours=3) + timedelta(seconds=i * 10) for i in range(5)]
     locked, _ = _minutes(old)
     assert not locked
 
@@ -225,7 +226,7 @@ def test_a_real_burst_of_failures_locks_the_account(db):
     rows."""
     import uuid
     username = f"lockvictim{uuid.uuid4().hex[:6]}"
-    now = datetime.now()
+    now = clock.now()
     try:
         for i in range(auth.LOCKOUT_THRESHOLD):
             db.execute(
@@ -249,7 +250,7 @@ def test_a_real_successful_login_unlocks_it(db):
     """CONTROL against the real queries."""
     import uuid
     username = f"lockvictim{uuid.uuid4().hex[:6]}"
-    now = datetime.now()
+    now = clock.now()
     try:
         for i in range(auth.LOCKOUT_THRESHOLD):
             db.execute(

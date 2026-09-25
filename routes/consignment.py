@@ -23,6 +23,7 @@ from flask import (
 )
 
 from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field
+import clock
 
 bp = Blueprint("consignment", __name__)
 
@@ -227,7 +228,7 @@ def distributor_bill_new(dist_id):
         flash(_("Total amount must be greater than zero."), "error")
         return redisplay()
     try:
-        bill_date = clean_date(f.get("bill_date"), field="bill_date") or date.today().isoformat()
+        bill_date = clean_date(f.get("bill_date"), field="bill_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -236,7 +237,7 @@ def distributor_bill_new(dist_id):
         "INSERT INTO distributor_bills (id,distributor_id,bill_date,bill_reference,total_amount,notes,created_at,created_by) "
         "VALUES (?,?,?,?,?,?,?,?)",
         (bid, dist_id, bill_date, f.get("bill_reference"), total_amount, f.get("notes"),
-         datetime.now().isoformat(timespec="seconds"), session.get("user_id")),
+         clock.now().isoformat(timespec="seconds"), session.get("user_id")),
     )
     auth.log_change(db, "distributor_bills", bid, "create")
     db.commit()
@@ -310,7 +311,7 @@ def distributor_payment_new(dist_id, bill_id):
         flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this bill.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
     try:
-        payment_date = clean_date(f.get("payment_date"), field="payment_date") or date.today().isoformat()
+        payment_date = clean_date(f.get("payment_date"), field="payment_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -318,7 +319,7 @@ def distributor_payment_new(dist_id, bill_id):
         "INSERT INTO distributor_bill_payments (bill_id,amount,payment_date,method,notes,created_at,created_by) "
         "VALUES (?,?,?,?,?,?,?) RETURNING id",
         (bill_id, amount, payment_date, f.get("method"), f.get("notes"),
-         datetime.now().isoformat(timespec="seconds"), session.get("user_id")),
+         clock.now().isoformat(timespec="seconds"), session.get("user_id")),
     )
     pid = cur.fetchone()["id"]
     auth.log_change(db, "distributor_bill_payments", str(pid), "create")
@@ -459,7 +460,7 @@ def consignment_items_bulk_edit():
                 continue
             consignment_since = (
                 old["consignment_since"] if old["ownership_type"] == "Consignment"
-                else datetime.now().isoformat(timespec="seconds")
+                else clock.now().isoformat(timespec="seconds")
             )
             new_vals = {
                 "ownership_type": "Consignment", "distributor_id": distributor_id,
@@ -545,7 +546,7 @@ def consignment_receiving_new():
         flash(_("Unit Cost can't be negative."), "error")
         return redisplay()
     try:
-        received_date = clean_date(f.get("received_date"), field="received_date") or date.today().isoformat()
+        received_date = clean_date(f.get("received_date"), field="received_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -676,7 +677,7 @@ def consignment_returns_new():
         flash(_("Quantity must be greater than 0."), "error")
         return redisplay()
     try:
-        return_date = clean_date(f.get("return_date"), field="return_date") or date.today().isoformat()
+        return_date = clean_date(f.get("return_date"), field="return_date") or clock.today().isoformat()
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
@@ -811,7 +812,7 @@ def consignment_settlement_new(distributor_id):
         "payment_method, notes, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
         (distributor_id, balance["period_start"], balance["period_end"], balance["amount_owed"], amount_paid,
          request.form.get("payment_method"), request.form.get("notes"), session["user_id"],
-         datetime.now().isoformat(timespec="seconds")),
+         clock.now().isoformat(timespec="seconds")),
     )
     settlement_id = cur.fetchone()["id"]
     auth.log_change(db, "consignment_settlements", str(settlement_id), "create")

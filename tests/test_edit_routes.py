@@ -9,6 +9,7 @@ not, a case marked dismissed with its bill still open.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import clock
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -50,7 +51,7 @@ def stay(db, patient):
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total, price_per_day) "
         "VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
-        (patient["patient_id"], date.today().isoformat(), False, True, D(0), D(0), False,
+        (patient["patient_id"], clock.today().isoformat(), False, True, D(0), D(0), False,
          D("200.000"), D("50.000")))
     bid = cur.fetchone()["id"]
     db.commit()
@@ -66,7 +67,7 @@ def _stamp(db, table, row_id):
 
 
 def _edit_stay(client, db, bid, **data):
-    payload = {"entry_date": date.today().isoformat(), "dismissal_date": "",
+    payload = {"entry_date": clock.today().isoformat(), "dismissal_date": "",
                "price_per_day": "50.000", "total": "", "room": "R1",
                "special_needs": "", "special_needs_notes": "", "admitted_items": "",
                "expected_updated_at": _stamp(db, "boarding_sessions", bid)}
@@ -89,7 +90,7 @@ def test_a_stay_rejects_a_negative_daily_rate(client, db, stay):
 def test_a_stay_rejects_a_dismissal_before_the_entry_date(client, db, stay):
     """A stay that ends before it began produces a negative night count, and
     the nightly total calculated from it goes the same way."""
-    yesterday = (date.today() - timedelta(days=5)).isoformat()
+    yesterday = (clock.today() - timedelta(days=5)).isoformat()
     _edit_stay(client, db, stay["id"], dismissal_date=yesterday)
     row = db.execute("SELECT * FROM boarding_sessions WHERE id=?", (stay["id"],)).fetchone()
     assert row["dismissal_date"] is None or str(row["dismissal_date"]) >= str(row["entry_date"]), (
@@ -114,7 +115,7 @@ def test_a_stale_stay_edit_is_refused(client, db, stay):
     assert db.execute("SELECT price_per_day FROM boarding_sessions WHERE id=?",
                       (stay["id"],)).fetchone()["price_per_day"] == D("70.000")
     resp = client.post(f"/boarding/{stay['id']}/edit", data={
-        "entry_date": date.today().isoformat(), "dismissal_date": "",
+        "entry_date": clock.today().isoformat(), "dismissal_date": "",
         "price_per_day": "99.000", "total": "", "room": "R1",
         "expected_updated_at": stale}, follow_redirects=False)
     assert resp.status_code != 500
@@ -132,7 +133,7 @@ def case(db, patient):
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, discount_percent, "
         "total, cleanup_amount) VALUES (?,?,?,?,?,?) RETURNING id",
-        (patient["patient_id"], date.today().isoformat(), False, D(0), D(0), D(0)))
+        (patient["patient_id"], clock.today().isoformat(), False, D(0), D(0), D(0)))
     cid = cur.fetchone()["id"]
     db.commit()
     yield {"id": cid, "patient_id": patient["patient_id"]}
@@ -148,7 +149,7 @@ def case(db, patient):
 
 
 def _edit_case(client, db, cid, **data):
-    payload = {"admission_date": date.today().isoformat(), "dismissal_date": "",
+    payload = {"admission_date": clock.today().isoformat(), "dismissal_date": "",
                "weight_kg": "10", "bcs": "5", "complaint": "", "exam_findings": "",
                "admitted_items": "", "dismissed": "",
                "expected_updated_at": _stamp(db, "inpatient_cases", cid)}
@@ -177,7 +178,7 @@ def test_a_case_rejects_an_out_of_range_bcs(client, db, case):
 
 
 def test_a_case_rejects_a_dismissal_before_admission(client, db, case):
-    before = (date.today() - timedelta(days=5)).isoformat()
+    before = (clock.today() - timedelta(days=5)).isoformat()
     _edit_case(client, db, case["id"], dismissal_date=before)
     row = db.execute("SELECT * FROM inpatient_cases WHERE id=?", (case["id"],)).fetchone()
     assert row["dismissal_date"] is None or str(row["dismissal_date"]) >= str(row["admission_date"])
@@ -219,7 +220,7 @@ def priced_service_for_case(db):
 
 @pytest.fixture
 def opex_snapshot(db):
-    month = date.today().strftime("%Y-%m")
+    month = clock.today().strftime("%Y-%m")
     rows = db.execute("SELECT * FROM monthly_opex WHERE month=?", (month,)).fetchall()
     original = [dict(r) for r in rows]
     yield month
