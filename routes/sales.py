@@ -25,7 +25,7 @@ from flask import (
 )
 
 from core import display_number, display_quantity
-from core import BadDate, BadNumber, PAYMENT_METHODS, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
+from core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
 import clock
 
 bp = Blueprint("sales", __name__)
@@ -362,7 +362,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     return subtotal, lines, notices, None
 
 
-def _cash_payment_for(f, total):
+def _cash_payment_for(f, payment_method, total):
     """Resolve cash received and change due. Returns (received, change, error).
 
     Non-cash payments resolve to (None, None, None) — the columns stay null
@@ -373,7 +373,7 @@ def _cash_payment_for(f, total):
     and any remainder is absorbed by the clinic; under JO it is the fils, so
     change is exact.
     """
-    if f.get("payment_method") != "Cash":
+    if payment_method != "Cash":
         return None, None, None
     try:
         cash_received = parse_money(f.get("cash_received"))
@@ -465,6 +465,10 @@ def pos_checkout():
     item_ids = request.form.getlist("item_id")
     quantities = request.form.getlist("quantity")
     try:
+        payment_method = clean_payment_method(f.get("payment_method"))
+    except BadPaymentMethod:
+        return refuse(payment_method_message())
+    try:
         discount_percent = parse_percent(f.get("discount_percent")) or 0
     except BadNumber:
         return refuse(_("Discount must be a valid number."))
@@ -543,7 +547,7 @@ def pos_checkout():
         return refuse(error)
     total = money.to_store(max(total - cleanup_amount, 0))
 
-    cash_received, change_given, error = _cash_payment_for(f, total)
+    cash_received, change_given, error = _cash_payment_for(f, payment_method, total)
     if error:
         return refuse(error)
 
@@ -555,7 +559,7 @@ def pos_checkout():
     try:
         sale_id = _record_sale(
             db, lines, subtotal=subtotal, discount_percent=discount_percent, total=total,
-            cleanup_amount=cleanup_amount, payment_method=f.get("payment_method"),
+            cleanup_amount=cleanup_amount, payment_method=payment_method,
             cash_received=cash_received, change_given=change_given,
             idempotency_key=idempotency_key, now=now,
             owner_id=owner_id, discount_source=discount_source)
@@ -668,8 +672,9 @@ def refund_retail_save():
     # the clinic is not -- which is precisely what cash reconciliation reads.
     # The dropdown's default option is empty, so this was reachable straight
     # from the UI, not just from a crafted POST. IQ has always validated it.
-    refund_method = f.get("refund_method")
-    if refund_method not in PAYMENT_METHODS:
+    try:
+        refund_method = clean_payment_method(f.get("refund_method"))
+    except BadPaymentMethod:
         flash(_("Pick how this refund was actually paid out: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS)), "error")
         return redisplay()
     reason = (f.get("reason") or "").strip()
@@ -808,8 +813,9 @@ def refund_service_save():
     reason = (f.get("reason") or "").strip()
     # Same reasoning as the retail refund above: a recorded refund with no
     # payout method leaves no trace of how the money left the clinic.
-    refund_method = f.get("refund_method")
-    if refund_method not in PAYMENT_METHODS:
+    try:
+        refund_method = clean_payment_method(f.get("refund_method"))
+    except BadPaymentMethod:
         flash(_("Pick how this refund was actually paid out: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS)), "error")
         return redisplay()
     try:

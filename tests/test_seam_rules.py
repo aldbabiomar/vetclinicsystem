@@ -168,6 +168,38 @@ def test_the_request_layer_never_parses_a_date_leniently():
     assert not offenders, "a lenient date parse in the request layer:\n  " + "\n  ".join(offenders)
 
 
+
+# ---------------------------------------------------------------------------
+# Rule 10 — how money changed hands is checked wherever it is read (audit B10)
+#
+# Only the refund routes checked the payment method; the POS, three payment
+# routes and two supplier routes stored anything, and the Cash Register then
+# had money in no drawer bucket. Every read of a method field from the request
+# must be the argument of core.clean_payment_method().
+# ---------------------------------------------------------------------------
+
+PAYMENT_METHOD_FIELDS = {"method", "payment_method", "refund_method"}
+
+
+def test_every_payment_method_read_goes_through_the_one_check():
+    reads, unchecked = 0, []
+    for path in _route_modules():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("get", "__getitem__") and node.args
+                    and isinstance(node.args[0], ast.Constant) and node.args[0].value in PAYMENT_METHOD_FIELDS):
+                continue
+            reads += 1
+            up = parent.get(node)
+            name = getattr(getattr(up, "func", None), "id", None) or getattr(getattr(up, "func", None), "attr", None)
+            if not (isinstance(up, ast.Call) and name == "clean_payment_method" and up.args and up.args[0] is node):
+                unchecked.append(f"{path.name}:{node.lineno}")
+    assert reads >= 8, f"found only {reads} payment-method reads — the pattern has drifted"
+    assert not unchecked, ("a payment method read from the request without core.clean_payment_method():\n  "
+                           + "\n  ".join(unchecked))
+
 # ---------------------------------------------------------------------------
 # Rule 3 — form input is never parsed with a bare float().
 #

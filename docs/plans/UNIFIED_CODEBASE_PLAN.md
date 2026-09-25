@@ -869,3 +869,13 @@ result under each money setting.
   `ARABIC_REVIEW.md` §8–10.
   **Suite:** IQ **1281 passed, 4 skipped**; JO **1281 passed, 4 skipped** (the
   B8 test was added after that run; it passes on its own).
+- **2026-09-25 — Audit B10: every payment names how it was paid.**
+  - `core.clean_payment_method()` is required on the clinic's own payments
+    and optional on supplier payments. It is called on all eight reads.
+  - There is a CHECK on the five method columns.
+  - Seam rule 10 holds every future read to the check.
+  - Found on the way: B12 reproduced. The database refusing a bad method
+    produced a 500 page that then failed to render its globals on the
+    aborted transaction. Still open, next in line.
+
+  **Suite:** IQ **1322 passed, 4 skipped**; JO **1322 passed, 4 skipped**.

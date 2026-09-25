@@ -225,7 +225,7 @@ CREATE TABLE distributor_bill_payments (
     bill_id INTEGER NOT NULL,
     amount NUMERIC(15,3) NOT NULL CHECK (amount > 0),
     payment_date DATE NOT NULL,
-    method TEXT,                         -- free text: 'Cash', 'Transfer', etc.
+    method TEXT CHECK (method IN ('Cash','Card','Transfer')),   -- core.PAYMENT_METHODS; blank = not recorded
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL,
     created_by INTEGER,
@@ -455,7 +455,7 @@ CREATE TABLE consignment_settlements (
     period_end TIMESTAMPTZ NOT NULL,
     amount_owed NUMERIC(15,3) NOT NULL,
     amount_paid NUMERIC(15,3) NOT NULL,
-    payment_method TEXT,
+    payment_method TEXT CHECK (payment_method IN ('Cash','Card','Transfer')),
     notes TEXT,
     settled_by INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
@@ -741,7 +741,7 @@ CREATE TABLE payments (
     inpatient_case_id INTEGER,
     boarding_id INTEGER,
     amount NUMERIC(15,3) NOT NULL,
-    method TEXT,
+    method TEXT CHECK (method IN ('Cash','Card','Transfer')),
     date DATE NOT NULL,
     user_id INTEGER,
     notes TEXT,
@@ -873,7 +873,7 @@ CREATE TABLE sales (
     -- selecting a customer is opt-in and nothing prompts for it.
     owner_id INTEGER REFERENCES owners(id) ON DELETE RESTRICT,
     total NUMERIC(15,3) NOT NULL,
-    payment_method TEXT,
+    payment_method TEXT CHECK (payment_method IN ('Cash','Card','Transfer')),
     -- Cash payment method only — what the customer actually handed over
     -- and what was handed back, for the cashier's own reconciliation.
     -- Optional: NULL for non-cash sales, and NULL for cash too if the
@@ -985,7 +985,7 @@ CREATE TABLE refunds (
     -- 'Transfer' (same vocabulary as sales.payment_method). Not
     -- necessarily the same method the original sale/payment used; Cash
     -- Register needs this to know which bucket to subtract a refund from.
-    refund_method TEXT,
+    refund_method TEXT CHECK (refund_method IN ('Cash','Card','Transfer')),
     processed_by INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
     -- Snapshot of the originating sale's/bill's cleanup_amount at the

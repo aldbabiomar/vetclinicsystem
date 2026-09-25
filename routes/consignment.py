@@ -22,7 +22,7 @@ from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, _render_with_progress, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
+from core import BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, _render_with_progress, clean_payment_method, payment_method_message, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
 import clock
 
 bp = Blueprint("consignment", __name__)
@@ -315,10 +315,15 @@ def distributor_payment_new(dist_id, bill_id):
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
+    try:
+        method = clean_payment_method(f.get("method"), required=False)
+    except BadPaymentMethod:
+        flash(payment_method_message(), "error")
+        return redisplay()
     cur = db.execute(
         "INSERT INTO distributor_bill_payments (bill_id,amount,payment_date,method,notes,created_at,created_by) "
         "VALUES (?,?,?,?,?,?,?) RETURNING id",
-        (bill_id, amount, payment_date, f.get("method"), f.get("notes"),
+        (bill_id, amount, payment_date, method, f.get("notes"),
          clock.now().isoformat(timespec="seconds"), session.get("user_id")),
     )
     pid = cur.fetchone()["id"]
@@ -803,6 +808,11 @@ def consignment_settlement_new(distributor_id):
     if amount_paid > balance["amount_owed"]:
         flash(_("That's more than the %(fmt_money)s %(currency)s owed this period.", fmt_money=display_money(balance['amount_owed']), currency=currency_label()), "error")
         return redisplay()
+    try:
+        payment_method = clean_payment_method(request.form.get("payment_method"), required=False)
+    except BadPaymentMethod:
+        flash(payment_method_message(), "error")
+        return redisplay()
     # Recorded exactly as entered (parse_money already rounded it to the money
     # setting's precision, before the check above). The predecessor IQ app
     # rounded it to the nearest 250-dinar note AFTER the check, so a payment
@@ -812,7 +822,7 @@ def consignment_settlement_new(distributor_id):
         "INSERT INTO consignment_settlements (distributor_id, period_start, period_end, amount_owed, amount_paid, "
         "payment_method, notes, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
         (distributor_id, balance["period_start"], balance["period_end"], balance["amount_owed"], amount_paid,
-         request.form.get("payment_method"), request.form.get("notes"), session["user_id"],
+         payment_method, request.form.get("notes"), session["user_id"],
          clock.now().isoformat(timespec="seconds")),
     )
     settlement_id = cur.fetchone()["id"]

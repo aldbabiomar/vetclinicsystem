@@ -392,10 +392,38 @@ def required_field(f, key, label):
     return val
 
 
-# The payout methods a refund may record. Mirrors IQ, and matches exactly
-# what refunds.html already offers in its dropdown -- the list was only ever
-# in the template here, so the server accepted anything (including nothing).
+# How money can change hands, as stored. Every form that records a payment,
+# a sale, a refund or a supplier payment offers exactly these, and the
+# database refuses anything else (CHECK constraints in the baseline).
 PAYMENT_METHODS = ["Cash", "Card", "Transfer"]
+
+
+class BadPaymentMethod(ValueError):
+    """Raised by clean_payment_method()."""
+
+
+def clean_payment_method(v, required=True):
+    """The one check on how money changed hands (audit B10): one of
+    PAYMENT_METHODS, or None for a blank one when the field is optional (a
+    supplier payment may leave it unrecorded). Anything else raises
+    BadPaymentMethod.
+
+    Only the refund routes used to check it; the POS, the three bill payment
+    routes and the two supplier payment routes stored whatever was posted,
+    including nothing. The Cash Register sums the drawer by method, so a
+    value outside the list was money in no bucket: the day's cash total was
+    wrong with nothing on screen to say so."""
+    v = clean(v) if isinstance(v, str) or v is None else v
+    if v is None and not required:
+        return None
+    if v not in PAYMENT_METHODS:
+        raise BadPaymentMethod(v)
+    return v
+
+
+def payment_method_message():
+    """The refusal for a payment without a valid method."""
+    return _("Pick how this was paid: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS))
 
 
 def discount_percent_error(percent, cap):

@@ -7098,3 +7098,7 @@ msgstr "نسختك ما زالت في النموذج. أعد تحميل الصف
 #: templates/_edit_conflict.html
 msgid "Save my version over their changes"
 msgstr "احفظ نسختي فوق تغييراته"
+
+#: core.py
+msgid "Pick how this was paid: %(methods)s."
+msgstr "اختر طريقة الدفع: %(methods)s."

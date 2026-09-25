@@ -25,7 +25,7 @@ from flask import (
     Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import BadDate, BadNumber, BadPhone, PER_PAGE, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, payment_method_message, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 import clock
 
 bp = Blueprint("clinical", __name__)
@@ -1393,9 +1393,14 @@ def visit_payment_add(visit_id):
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
+    try:
+        method = clean_payment_method(f.get("method"))
+    except BadPaymentMethod:
+        flash(payment_method_message(), "error")
+        return redisplay()
     cur = db.execute(
         "INSERT INTO payments (visit_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
-        (visit_id, amount, f.get("method"), payment_date, session["user_id"], f.get("notes")),
+        (visit_id, amount, method, payment_date, session["user_id"], f.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")
@@ -1931,9 +1936,14 @@ def boarding_payment(boarding_id):
     if amount > balance:
         flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this stay.", fmt_money=display_money(balance), currency=currency_label()), "error")
         return redisplay()
+    try:
+        method = clean_payment_method(request.form.get("method"))
+    except BadPaymentMethod:
+        flash(payment_method_message(), "error")
+        return redisplay()
     cur = db.execute(
         "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
-        (boarding_id, amount, request.form.get("method"), clock.today().isoformat(),
+        (boarding_id, amount, method, clock.today().isoformat(),
          session.get("user_id"), request.form.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
@@ -2422,9 +2432,14 @@ def inpatient_payment_add(case_id):
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
+    try:
+        method = clean_payment_method(f.get("method"))
+    except BadPaymentMethod:
+        flash(payment_method_message(), "error")
+        return redisplay()
     cur = db.execute(
         "INSERT INTO payments (inpatient_case_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
-        (case_id, amount, f.get("method"), payment_date, session["user_id"], f.get("notes")),
+        (case_id, amount, method, payment_date, session["user_id"], f.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")

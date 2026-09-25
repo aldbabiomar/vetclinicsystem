@@ -67,7 +67,7 @@ Prior audits were read first so closed findings are not re-reported
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
-| **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | Confirmed by code |
+| **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | Verified live |
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | Verified (logs) |
 | **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
@@ -373,7 +373,7 @@ The comments are stale and the limitation is gone.
 `unit_cost` and `distributor_id` (falling back to current values only for rows
 with a NULL link). Compare refunds at timestamp precision (`created_at`).
 
-## B10 — Payment method is validated only on refunds — **Confirmed by code**
+## B10 — Payment method is validated only on refunds — **Fixed**
 
 **Severity: Low–Medium · both apps**
 
@@ -387,6 +387,21 @@ This is `SEAM_RULES` S5's rule applied on one surface and not its siblings.
 
 **Fix.** One `clean_payment_method()` in `core.py`, called by all seven, and
 a seam-rule test that every `INSERT INTO payments/sales/...` path calls it.
+
+**Fixed (merge).** `core.clean_payment_method()` is the one check. It is
+required on the clinic's own payments (POS, visit, boarding, inpatient,
+refunds) and optional on the two supplier payments, whose forms offer a blank
+"not recorded" — optional, but never anything outside the three. The
+database refuses any other value too: a CHECK on each of the five method
+columns. Seam rule 10 (`test_seam_rules.py`) walks the AST and requires
+every read of a method field in `app.py` and `routes/` to be the argument of
+`clean_payment_method()`; there are eight, and a floor asserts it sees them.
+
+`tests/test_payment_methods.py` covers all seven routes with bad values
+(unknown, wrong case, blank, missing) and has controls. Mutation-checked:
+with the check accepting anything, 25 tests fail; with one route bypassing
+it, that route's tests and the seam rule fail; making the settlement's method
+required fails its control.
 
 ## B11 — POST routes that 500 on a missing parent — **Verified live**
 

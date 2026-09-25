@@ -166,3 +166,13 @@ native speaker should confirm that it reads naturally.
 | 4 | Saved by someone else since you opened this form: | ما حفظه شخص آخر منذ أن فتحت هذا النموذج: |
 | 5 | Your version is still in the form. Reload the page to start again from theirs, or save yours over it: | نسختك ما زالت في النموذج. أعد تحميل الصفحة لتبدأ من نسخته، أو احفظ نسختك فوقها: |
 | 6 | Save my version over their changes | احفظ نسختي فوق تغييراته |
+
+## 11. Payment method refusal (1)
+
+Audit B10 (2026-09-25): every payment now needs a valid method, not only
+refunds. Built from the reviewed "اختر الطريقة التي صُرف بها هذا الاسترداد
+فعليًا" and طريقة الدفع (Payment Method).
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Pick how this was paid: %(methods)s. | اختر طريقة الدفع: %(methods)s. |

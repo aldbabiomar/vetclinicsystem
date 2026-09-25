@@ -1047,6 +1047,7 @@
    "consignment_settlements_amount_owed_check": "CHECK (((amount_owed > (0)::numeric) AND (amount_owed <> 'NaN'::numeric)))",
    "consignment_settlements_amount_paid_check": "CHECK (((amount_paid >= (0)::numeric) AND (amount_paid <> 'NaN'::numeric)))",
    "consignment_settlements_distributor_id_fkey": "FOREIGN KEY (distributor_id) REFERENCES distributors(id)",
+   "consignment_settlements_payment_method_check": "CHECK ((payment_method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "consignment_settlements_pkey": "PRIMARY KEY (id)",
    "consignment_settlements_settled_by_fkey": "FOREIGN KEY (settled_by) REFERENCES users(id)",
    "settlements_paid_within_owed_ck": "CHECK ((amount_paid <= amount_owed))"
@@ -1197,6 +1198,7 @@
    "distributor_bill_payments_amount_check1": "CHECK ((amount <> 'NaN'::numeric))",
    "distributor_bill_payments_bill_id_fkey": "FOREIGN KEY (bill_id) REFERENCES distributor_bills(id)",
    "distributor_bill_payments_created_by_fkey": "FOREIGN KEY (created_by) REFERENCES users(id)",
+   "distributor_bill_payments_method_check": "CHECK ((method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "distributor_bill_payments_pkey": "PRIMARY KEY (id)"
   },
   "indexes": {
@@ -2108,6 +2110,7 @@
    "payments_amount_check": "CHECK (((amount > (0)::numeric) AND (amount <> 'NaN'::numeric)))",
    "payments_boarding_id_fkey": "FOREIGN KEY (boarding_id) REFERENCES boarding_sessions(id)",
    "payments_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
+   "payments_method_check": "CHECK ((method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "payments_one_anchor_ck": "CHECK ((((((visit_id IS NOT NULL))::integer + ((inpatient_case_id IS NOT NULL))::integer) + ((boarding_id IS NOT NULL))::integer) = 1))",
    "payments_pkey": "PRIMARY KEY (id)",
    "payments_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
@@ -2378,6 +2381,7 @@
    "refunds_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
    "refunds_pkey": "PRIMARY KEY (id)",
    "refunds_processed_by_fkey": "FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE RESTRICT",
+   "refunds_refund_method_check": "CHECK ((refund_method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "refunds_refund_type_check": "CHECK ((refund_type = ANY (ARRAY['retail'::text, 'service'::text])))",
    "refunds_sale_id_fkey": "FOREIGN KEY (sale_id) REFERENCES sales(id)",
    "refunds_visit_id_fkey": "FOREIGN KEY (visit_id) REFERENCES visits(id)"
@@ -2700,6 +2704,7 @@
    "sales_discount_percent_check": "CHECK (((discount_percent >= (0)::numeric) AND (discount_percent <= (100)::numeric)))",
    "sales_discount_source_check": "CHECK ((discount_source = ANY (ARRAY['staff'::text, 'member'::text])))",
    "sales_owner_id_fkey": "FOREIGN KEY (owner_id) REFERENCES owners(id) ON DELETE RESTRICT",
+   "sales_payment_method_check": "CHECK ((payment_method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "sales_pkey": "PRIMARY KEY (id)",
    "sales_subtotal_check": "CHECK (((subtotal >= (0)::numeric) AND (subtotal <> 'NaN'::numeric)))",
    "sales_total_check": "CHECK (((total >= (0)::numeric) AND (total <> 'NaN'::numeric)))"
