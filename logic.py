@@ -1892,13 +1892,15 @@ def consignment_balance(db, distributor_id):
     directly, not you. Returns never appear here — no money changes
     hands on a return.
 
-    The restock-reversal term is the one place this can't use a
-    per-line snapshot: refund_items doesn't link back to the specific
-    sale_items row it came from (only item_id + quantity), so it values
-    the reversal at *current* inventory_list.cost_price rather than the
-    original sale's cost. In practice this only matters if that item's
-    cost_price changed between the original sale and the refund, which
-    is a narrow window for something a clinic would return.
+    A restocked refund is reversed exactly as its sale was counted
+    (audit B9): through refund_items.sale_item_id, at the sale line's
+    snapshotted unit_cost and against its snapshotted distributor. It used
+    to take the item's CURRENT cost and CURRENT distributor, so a later
+    re-point moved the refund's credit to another distributor, and it
+    compared the refund's DATE with a timestamp, so a restock on the same
+    day as the previous settlement fell out of every period (B13). Refunds
+    are now placed by the moment they were recorded (created_at), with the
+    same bounds as sales.
 
     period_start/period_end are exclusive/inclusive bounds matching
     consignment_settlements' own column semantics — a caller recording a
@@ -1980,22 +1982,17 @@ def consignment_balance(db, distributor_id):
     sold_cost = sold_row["cost"] or 0
     units_sold = sold_row["units"] or 0
 
-    # refund_date is a DATE column (day precision only) while
-    # period_start/consignment_since are full timestamps — comparing at
-    # day granularity is the best this data actually supports; see the
-    # docstring above.
-    cost_by_item = {r["id"]: r["cost_price"] or 0 for r in db.execute("SELECT id, cost_price FROM inventory_list").fetchall()}
-    restock_where = (
-        "WHERE i.ownership_type='Consignment' AND i.distributor_id=? AND r.restocked=true "
-        "AND r.refund_date > COALESCE(GREATEST(?::timestamptz::date, i.consignment_since::date), '-infinity'::date)"
-    )
-    restock_params = [distributor_id, period_start]
-    restocked_rows = db.execute(
-        "SELECT ri.item_id, ri.quantity FROM refund_items ri JOIN refunds r ON r.id=ri.refund_id "
-        "JOIN inventory_list i ON i.id = ri.item_id " + restock_where,
-        restock_params,
-    ).fetchall()
-    restocked_cost = sum(rr["quantity"] * cost_by_item.get(rr["item_id"], 0) for rr in restocked_rows)
+    # The mirror of the sold term: the same line's cost and distributor, the
+    # same bounds, placed by when the refund was recorded (see the docstring).
+    restocked_cost = db.execute(
+        "SELECT COALESCE(SUM(ri.quantity * COALESCE(si.unit_cost, 0)), 0) AS cost "
+        "FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id "
+        "JOIN sale_items si ON si.id = ri.sale_item_id JOIN inventory_list i ON i.id = ri.item_id "
+        "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=? AND r.restocked=true "
+        "AND r.created_at > COALESCE(GREATEST(?::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
+        "AND r.created_at <= ?",
+        [distributor_id, period_start, period_end],
+    ).fetchone()["cost"] or 0
 
     shrink_where = "WHERE distributor_id=? AND liable_party='Clinic' AND logged_at <= ?"
     shrink_params = [distributor_id, period_end]

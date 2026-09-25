@@ -907,3 +907,9 @@ result under each money setting.
   - **Arabic.** Four new strings, flagged in `ARABIC_REVIEW.md` §12–13.
 
   **Suite:** IQ **1353 passed, 4 skipped**; JO **1353 passed, 4 skipped**.
+- **2026-09-25 — Audit B9 (consignment half) and B13 (restock term).** A
+  restocked refund is credited to the distributor exactly as its sale was
+  charged: the sale line's cost and snapshotted distributor, placed by
+  `created_at` with the sale term's bounds. `refund_items.sale_item_id` is
+  NOT NULL. This closes every audit finding in §1 (B1–B19).
+  **Suite:** IQ **1357 passed, 4 skipped**; JO **1357 passed, 4 skipped**.

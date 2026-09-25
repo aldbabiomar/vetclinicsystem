@@ -1033,7 +1033,9 @@ CREATE TABLE refund_items (
     -- refund_retail_save() price from what was actually charged (not
     -- today's Price List price) and sum prior refunds against this exact
     -- line to enforce a refund can never exceed what was actually sold.
-    sale_item_id INTEGER,
+    -- Never NULL: the P&L and consignment_balance() reverse a restock at
+    -- the cost and distributor the SALE LINE carried (audit B9).
+    sale_item_id INTEGER NOT NULL,
     FOREIGN KEY (refund_id) REFERENCES refunds(id),
     FOREIGN KEY (item_id) REFERENCES inventory_list(id),
     FOREIGN KEY (sale_item_id) REFERENCES sale_items(id),

@@ -25,8 +25,8 @@ Revenue is always the STORED total a person was charged, never re-derived:
 
 Cost of goods comes from the costs snapshotted on each line when it was
 billed; a restocked retail refund reverses the cost of the SALE LINE it
-refunds (audit B9), falling back to today's cost only for a refund recorded
-before sale lines were linked.
+refunds (audit B9) -- every refund line names one (NOT NULL), and is valued
+exactly as that line's sale was.
 
 Months and days are the clinic's (clock.py): the connection's TimeZone is
 the clinic zone, so `to_char` below names the clinic's month.
@@ -119,7 +119,7 @@ refund_rev AS (
            -(ri.quantity * COALESCE(si.unit_cost, i.cost_price, 0))
     FROM refund_items ri
     JOIN refunds r ON r.id = ri.refund_id
-    LEFT JOIN sale_items si ON si.id = ri.sale_item_id
+    JOIN sale_items si ON si.id = ri.sale_item_id
     LEFT JOIN inventory_list i ON i.id = ri.item_id
     WHERE r.refund_type = 'retail' AND r.restocked
 ),

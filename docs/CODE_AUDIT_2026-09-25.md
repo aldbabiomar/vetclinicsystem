@@ -63,14 +63,14 @@ Prior audits were read first so closed findings are not re-reported
 | **B6** | Medium | JO | JOD amounts with >3 decimals are validated unrounded and rounded by Postgres → 500 on a 0.0004 payment, 0.000 bills accepted | **Fixed** — phase 1 (`money.parse`), pinned by `test_money_routes.py::test_b6_*` |
 | **B7** | Medium | JO | Cash-register audit calls any discrepancy under **1 JOD** "Perfect" | **Fixed** — phase 1 (`money.audit_status`), pinned by `test_money_routes.py::test_b7_*` |
 | **B8** | Medium | IQ | Visit and patient-billing PDFs print the unit price and drop the quantity | **Fixed** — JO's rendering, inherited by the merged tree; now pinned by `test_exports.py` |
-| **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Partly fixed** — phase 3: the P&L's restock reversal uses the sale line's cost. The consignment restock credit is still open |
+| **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Fixed** — P&L (phase 3) and the consignment credit both reverse the sale line; `sale_item_id` NOT NULL; `test_consignment_restock.py` |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | Confirmed by code |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | Confirmed by code + scan · *partly fixed in phase 1: POS checkout and refund messages* |
 | **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | **Fixed** — existence checks; the audit's sweep kept as `test_error_pages.py` |
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | **Fixed** — `mark_transaction_failed()` rolls back; `test_error_pages.py` |
-| **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Partly fixed** — phase 1: microsecond `period_end`, sales and shrinkage bounded by it (pinned by `test_supplier_routes.py::test_control_settling_exactly_what_is_owed_is_recorded`). The restock term is still day-granular until `timestamptz` (phase 2) |
+| **B13** | Low | both | Consignment settlement boundary: seconds-truncated `period_end` vs microsecond `sale_date`, no upper bound | **Fixed** — microsecond `period_end` (phase 1); refunds placed by `created_at` with the same bounds as sales; `test_consignment_restock.py` |
 | **B14** | Low | both | "Rebuild Report Data" can erase a sale committed during the rebuild | **Fixed** — phase 3: no summary table, no Rebuild |
 | **B15** | Low | both | Two caps checked without the lock that makes them caps (cash payout; retail refund aggregate) | **Fixed** — a per-day advisory lock; the sale row locked first; `test_locked_caps.py` plays the race |
 | **B16** | Low | both | Refund and payment dates are free-form: a refund can be booked before its sale or in a future month | **Fixed** — refunds between the origin and today; payments today; `test_refund_dates.py` |
@@ -349,7 +349,7 @@ now captures the tables each PDF is built from and checks the line for
 2 × 12: "× 2" and 24. Reintroducing IQ's rendering fails it, in each
 document separately.
 
-## B9 — Restock reversals use current cost and current distributor — **Confirmed by code**
+## B9 — Restock reversals use current cost and current distributor — **Fixed**
 
 **Severity: Medium · both apps**
 
@@ -372,6 +372,17 @@ The comments are stale and the limitation is gone.
 **Fix.** Join `refund_items.sale_item_id → sale_items` and use its
 `unit_cost` and `distributor_id` (falling back to current values only for rows
 with a NULL link). Compare refunds at timestamp precision (`created_at`).
+
+**Fixed (merge).** Both halves are fixed. The P&L half landed in phase 3.
+In `consignment_balance()`, a restocked refund is now reversed exactly as its
+sale was counted: through `refund_items.sale_item_id`, at the sale line's
+`unit_cost` and against its snapshotted distributor. The refund is placed by
+`created_at`, with the same bounds as sales. `refund_items.sale_item_id` is
+NOT NULL (both writers always set it), so there is no fallback to current
+values left anywhere. `tests/test_consignment_restock.py` covers a re-pointed
+item (the credit stays with A), a changed cost (credited 2.000, not 5.000)
+and a restock on the day of a settlement (the next period's credit). The old
+term fails all three.
 
 ## B10 — Payment method is validated only on refunds — **Fixed**
 
@@ -460,7 +471,7 @@ set to Arabic under a distinctive name, and asserts the 500 page carries
 both; the control is the same clinic's normal page. Without the rollback
 it fails, and the second traceback reappears in the log.
 
-## B13 — Consignment settlement period boundary — **Confirmed by code**
+## B13 — Consignment settlement period boundary — **Fixed**
 
 **Severity: Low · both apps**
 
@@ -474,6 +485,10 @@ the balance read is counted in neither.
 
 **Fix.** Use microsecond precision for `period_end` and bound the queries with
 `<= period_end`.
+
+**Fixed (merge).** Sales and shrinkage were fixed in phase 1. The restock
+term, which compared a refund's DATE with the settlement's timestamp, now
+uses `created_at` with the same bounds (see B9).
 
 ## B14 — "Rebuild Report Data" can erase a concurrent sale from the P&L — **Inferred**
 

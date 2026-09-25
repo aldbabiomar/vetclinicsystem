@@ -2261,7 +2261,7 @@
    "sale_item_id": {
     "default": null,
     "identity": null,
-    "null": true,
+    "null": false,
     "type": "integer"
    },
    "unit_price": {
