@@ -94,13 +94,13 @@ def apply(con, log=print):
     from vcs.db import pool as dbmod
     from vcs import auth
     with con.transaction():
-        con.execute("SELECT pg_advisory_xact_lock(?)", (_LOCK_KEY,))
+        con.execute("SELECT pg_advisory_xact_lock(%s)", (_LOCK_KEY,))
         _ensure_table(con)
     applied = []
     for version, name, path in migration_files():
         with con.transaction():
-            con.execute("SELECT pg_advisory_xact_lock(?)", (_LOCK_KEY,))
-            if con.execute("SELECT 1 FROM schema_migrations WHERE version=?", (version,)).fetchone():
+            con.execute("SELECT pg_advisory_xact_lock(%s)", (_LOCK_KEY,))
+            if con.execute("SELECT 1 FROM schema_migrations WHERE version=%s", (version,)).fetchone():
                 continue
             with open(path, encoding="utf-8") as f:
                 sql_text = f.read()
@@ -109,7 +109,7 @@ def apply(con, log=print):
                     dbmod.run_script(con, sql_text)
             except Exception as e:
                 raise MigrationFailed(version, name, e) from e
-            con.execute("INSERT INTO schema_migrations (version, filename) VALUES (?, ?)",
+            con.execute("INSERT INTO schema_migrations (version, filename) VALUES (%s, %s)",
                         (version, name))
         applied.append(name)
         log(f"  applied {name}")

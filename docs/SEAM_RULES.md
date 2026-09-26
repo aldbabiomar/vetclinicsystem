@@ -105,7 +105,7 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 ## 3. What is enforced automatically
 
-`tests/test_seam_rules.py`. **Nine** rules, each one derived from a defect
+`tests/test_seam_rules.py`. **Twelve** rules, each one derived from a defect
 above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 
 | Rule | Asserts | From |
@@ -119,6 +119,9 @@ above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 | 7 | every function writing a request-supplied `discount_percent` also reads `discount_source` | rewards card |
 | 8 | discount-percentage arithmetic appears only at the allow-listed sites | rewards card |
 | 9 | the request layer (`vcs/web/` and its blueprints) never calls `as_date`, `parse_date` or `fromisoformat` — request dates go through `core.strict_date` | audit B1 |
+| 10 | every read of a payment-method field from the request is the argument of `core.clean_payment_method()` | audit B10 |
+| 11 | who is a vet is decided in one place, `appointments.vet_users()` | audit P19 |
+| 12 | every function writing a bill's lines, manual amount, discount or Clean Up calls `billing.bill_changed()`, which stores the new total the reports read | audit D2, B2 |
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already

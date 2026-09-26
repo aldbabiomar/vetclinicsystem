@@ -56,7 +56,7 @@ bp = Blueprint("consignment", __name__)
 def _distributors_list_context(term):
     db = get_db()
     if term:
-        rows = db.execute("SELECT * FROM distributors WHERE name ILIKE ? ORDER BY name", (search.like_pattern(term),)).fetchall()
+        rows = db.execute("SELECT * FROM distributors WHERE name ILIKE %s ORDER BY name", (search.like_pattern(term),)).fetchall()
     else:
         rows = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
     outstanding = distributors.distributor_outstanding_totals(db)
@@ -105,7 +105,7 @@ def distributor_new():
     did = dbmod.next_row_id(db, "distributors")
     db.execute(
         "INSERT INTO distributors (id,name,contact_person,phone,email,catalog_link,lead_time_days,payment_terms,notes) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (did, name, f.get("contact_person"), phone, f.get("email"), f.get("catalog_link"),
          lead_time_days, f.get("payment_terms"), f.get("notes")),
     )
@@ -147,7 +147,7 @@ def distributor_edit(dist_id):
     if lead_time_days is not None and lead_time_days < 0:
         flash(_("Lead Time (Days) can't be negative."), "error")
         return redisplay()
-    old = db.execute("SELECT * FROM distributors WHERE id=?", (dist_id,)).fetchone()
+    old = db.execute("SELECT * FROM distributors WHERE id=%s", (dist_id,)).fetchone()
     name = required_field(f, "name", "Name")
     if name is None:
         return redisplay()
@@ -157,7 +157,7 @@ def distributor_edit(dist_id):
                 "notes": f.get("notes")}
     changes = auth.diff_dict(old, new_vals)
     db.execute(
-        "UPDATE distributors SET name=?, contact_person=?, phone=?, email=?, catalog_link=?, lead_time_days=?, payment_terms=?, notes=? WHERE id=?",
+        "UPDATE distributors SET name=%s, contact_person=%s, phone=%s, email=%s, catalog_link=%s, lead_time_days=%s, payment_terms=%s, notes=%s WHERE id=%s",
         (*new_vals.values(), dist_id),
     )
     auth.log_change(db, "distributors", dist_id, "update", changes)
@@ -170,7 +170,7 @@ def distributor_edit(dist_id):
 @auth.permission_required("manage_distributors")
 def distributor_delete(dist_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM distributors WHERE id=?", (dist_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM distributors WHERE id=%s", (dist_id,)).fetchone():
         flash(_("Distributor not found."), "error")
         return redirect(url_for("consignment.distributors_list"))
     # A distributor can be referenced from six tables (inventory items,
@@ -186,13 +186,13 @@ def distributor_delete(dist_id):
         (_("consignment receipt(s)"), "consignment_receipts"), (_("consignment shrinkage entry/entries"), "consignment_shrinkage"),
         (_("consignment return(s)"), "consignment_returns"), (_("consignment settlement(s)"), "consignment_settlements"),
     ]:
-        if db.execute(f"SELECT 1 FROM {table} WHERE distributor_id=? LIMIT 1", (dist_id,)).fetchone():
+        if db.execute(f"SELECT 1 FROM {table} WHERE distributor_id=%s LIMIT 1", (dist_id,)).fetchone():
             still_linked.append(label)
     if still_linked:
         flash(_("Can't delete this distributor — it still has %(linked)s linked to it. "
                 "Remove or reassign those first.", linked=list_join(still_linked)), "error")
         return redirect(url_for("consignment.distributors_list"))
-    db.execute("DELETE FROM distributors WHERE id=?", (dist_id,))
+    db.execute("DELETE FROM distributors WHERE id=%s", (dist_id,))
     auth.log_change(db, "distributors", dist_id, "delete")
     db.commit()
     flash(_("Distributor deleted."), "success")
@@ -211,7 +211,7 @@ def _distributor_detail_context(dist_id):
     validation failure instead of discarding the submitted data via
     redirect."""
     db = get_db()
-    dist = db.execute("SELECT * FROM distributors WHERE id=?", (dist_id,)).fetchone()
+    dist = db.execute("SELECT * FROM distributors WHERE id=%s", (dist_id,)).fetchone()
     if not dist:
         return None
     ledger = distributors.distributor_ledger(db, dist_id)
@@ -237,7 +237,7 @@ def distributor_bill_new(dist_id):
     # A distributor can be deleted while its page is open in another tab: the
     # bill then reached the foreign key as a 500 (audit B11). Locked, so a
     # delete cannot land between this check and the insert.
-    if not db.execute("SELECT 1 FROM distributors WHERE id=? FOR UPDATE", (dist_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM distributors WHERE id=%s FOR UPDATE", (dist_id,)).fetchone():
         flash(_("Distributor not found."), "error")
         return redirect(url_for("consignment.distributors_list"))
 
@@ -266,7 +266,7 @@ def distributor_bill_new(dist_id):
     bid = dbmod.next_row_id(db, "distributor_bills")
     db.execute(
         "INSERT INTO distributor_bills (id,distributor_id,bill_date,bill_reference,total_amount,notes,created_at,created_by) "
-        "VALUES (?,?,?,?,?,?,?,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
         (bid, dist_id, bill_date, f.get("bill_reference"), total_amount, f.get("notes"),
          clock.now().isoformat(timespec="seconds"), session.get("user_id")),
     )
@@ -281,16 +281,16 @@ def distributor_bill_new(dist_id):
 @requires_money_setting
 def distributor_bill_delete(dist_id, bill_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM distributor_bills WHERE id=? AND distributor_id=?", (bill_id, dist_id)).fetchone():
+    if not db.execute("SELECT 1 FROM distributor_bills WHERE id=%s AND distributor_id=%s", (bill_id, dist_id)).fetchone():
         flash(_("Bill not found."), "error")
         return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
     has_payments = db.execute(
-        "SELECT 1 FROM distributor_bill_payments WHERE bill_id=? LIMIT 1", (bill_id,)
+        "SELECT 1 FROM distributor_bill_payments WHERE bill_id=%s LIMIT 1", (bill_id,)
     ).fetchone()
     if has_payments:
         flash(_("Delete the payments on this bill first."), "error")
         return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
-    db.execute("DELETE FROM distributor_bills WHERE id=? AND distributor_id=?", (bill_id, dist_id))
+    db.execute("DELETE FROM distributor_bills WHERE id=%s AND distributor_id=%s", (bill_id, dist_id))
     auth.log_change(db, "distributor_bills", bill_id, "delete")
     db.commit()
     flash(_("Bill deleted."), "success")
@@ -318,7 +318,7 @@ def distributor_payment_new(dist_id, bill_id):
     # individually within the balance shown at page-load could both pass
     # the check below and both insert, together overpaying the bill.
     bill = db.execute(
-        "SELECT * FROM distributor_bills WHERE id=? AND distributor_id=? FOR UPDATE", (bill_id, dist_id)
+        "SELECT * FROM distributor_bills WHERE id=%s AND distributor_id=%s FOR UPDATE", (bill_id, dist_id)
     ).fetchone()
     if not bill:
         flash(_("Bill not found."), "error")
@@ -332,7 +332,7 @@ def distributor_payment_new(dist_id, bill_id):
         flash(_("Payment amount must be greater than zero."), "error")
         return redisplay()
     paid_so_far = db.execute(
-        "SELECT COALESCE(SUM(amount),0) s FROM distributor_bill_payments WHERE bill_id=?", (bill_id,)
+        "SELECT COALESCE(SUM(amount),0) s FROM distributor_bill_payments WHERE bill_id=%s", (bill_id,)
     ).fetchone()["s"]
     balance = bill["total_amount"] - paid_so_far
     # The HTML max= on the amount field already stops this in the normal
@@ -356,7 +356,7 @@ def distributor_payment_new(dist_id, bill_id):
         return redisplay()
     cur = db.execute(
         "INSERT INTO distributor_bill_payments (bill_id,amount,payment_date,method,notes,created_at,created_by) "
-        "VALUES (?,?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (bill_id, amount, payment_date, method, f.get("notes"),
          clock.now().isoformat(timespec="seconds"), session.get("user_id")),
     )
@@ -374,13 +374,13 @@ def distributor_payment_delete(dist_id, payment_id):
     db = get_db()
     owned = db.execute(
         "SELECT 1 FROM distributor_bill_payments p JOIN distributor_bills b ON b.id = p.bill_id "
-        "WHERE p.id=? AND b.distributor_id=?",
+        "WHERE p.id=%s AND b.distributor_id=%s",
         (payment_id, dist_id),
     ).fetchone()
     if not owned:
         flash(_("Payment not found."), "error")
         return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
-    db.execute("DELETE FROM distributor_bill_payments WHERE id=?", (payment_id,))
+    db.execute("DELETE FROM distributor_bill_payments WHERE id=%s", (payment_id,))
     auth.log_change(db, "distributor_bill_payments", str(payment_id), "delete")
     db.commit()
     flash(_("Payment deleted."), "success")
@@ -392,7 +392,7 @@ def distributor_payment_delete(dist_id, payment_id):
 @requires_money_setting
 def distributor_export_pdf(dist_id):
     db = get_db()
-    dist = db.execute("SELECT id FROM distributors WHERE id=?", (dist_id,)).fetchone()
+    dist = db.execute("SELECT id FROM distributors WHERE id=%s", (dist_id,)).fetchone()
     if not dist:
         flash(_("Distributor not found."), "error")
         return redirect(url_for("consignment.distributors_list"))
@@ -444,7 +444,7 @@ def consignment_items():
     rows = db.execute(
         "SELECT i.*, d.name AS distributor_name FROM inventory_list i "
         "LEFT JOIN distributors d ON d.id = i.distributor_id "
-        "WHERE i.category='Retail' AND i.active=true ORDER BY i.ownership_type DESC, i.name LIMIT ? OFFSET ?",
+        "WHERE i.category='Retail' AND i.active=true ORDER BY i.ownership_type DESC, i.name LIMIT %s OFFSET %s",
         (PER_PAGE, page_offset(page)),
     ).fetchall()
     distributor_rows = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
@@ -478,7 +478,7 @@ def consignment_items_bulk_edit():
         key = str(item.get("id", ""))   # the row's own id, echoed back in errors
         item_id = parse_id(key)
         fields = item.get("fields") or {}
-        old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+        old = db.execute("SELECT * FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
         if not old or old["category"] != "Retail":
             errors[key] = _("Item not found.")
             continue
@@ -515,7 +515,7 @@ def consignment_items_bulk_edit():
         if not changes:
             continue
         db.execute(
-            "UPDATE inventory_list SET ownership_type=?, distributor_id=?, cost_price=?, consignment_since=? WHERE id=?",
+            "UPDATE inventory_list SET ownership_type=%s, distributor_id=%s, cost_price=%s, consignment_since=%s WHERE id=%s",
             (new_vals["ownership_type"], new_vals["distributor_id"], new_vals["cost_price"],
              new_vals["consignment_since"], item_id),
         )
@@ -542,7 +542,7 @@ def _consignment_receiving_page_context():
     rows = db.execute(
         "SELECT cr.*, i.name AS item_name, d.name AS distributor_name FROM consignment_receipts cr "
         "JOIN inventory_list i ON i.id=cr.item_id JOIN distributors d ON d.id=cr.distributor_id "
-        "ORDER BY cr.created_at DESC LIMIT ? OFFSET ?", (PER_PAGE, page_offset(page)),
+        "ORDER BY cr.created_at DESC LIMIT %s OFFSET %s", (PER_PAGE, page_offset(page)),
     ).fetchall()
     return dict(receipts=rows, items=_consignment_item_choices(db),
                 page=page, total_pages=page_count(total), total_count=total)
@@ -569,7 +569,7 @@ def consignment_receiving_new():
         return render_template("consignment_receiving.html", **ctx)
 
     item_id = parse_id(f.get("item_id"))
-    item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
+    item = db.execute("SELECT * FROM inventory_list WHERE id=%s AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
@@ -605,7 +605,7 @@ def _consignment_shrinkage_page_context():
     rows = db.execute(
         "SELECT cs.*, i.name AS item_name, d.name AS distributor_name FROM consignment_shrinkage cs "
         "JOIN inventory_list i ON i.id=cs.item_id JOIN distributors d ON d.id=cs.distributor_id "
-        "ORDER BY cs.logged_at DESC LIMIT ? OFFSET ?", (PER_PAGE, page_offset(page)),
+        "ORDER BY cs.logged_at DESC LIMIT %s OFFSET %s", (PER_PAGE, page_offset(page)),
     ).fetchall()
     return dict(lines=rows, items=_consignment_item_choices(db),
                 page=page, total_pages=page_count(total), total_count=total)
@@ -632,7 +632,7 @@ def consignment_shrinkage_new():
         return render_template("consignment_shrinkage.html", **ctx)
 
     item_id = parse_id(f.get("item_id"))
-    item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
+    item = db.execute("SELECT * FROM inventory_list WHERE id=%s AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
@@ -677,7 +677,7 @@ def _consignment_returns_page_context():
     rows = db.execute(
         "SELECT cr.*, i.name AS item_name, d.name AS distributor_name FROM consignment_returns cr "
         "JOIN inventory_list i ON i.id=cr.item_id JOIN distributors d ON d.id=cr.distributor_id "
-        "ORDER BY cr.created_at DESC LIMIT ? OFFSET ?", (PER_PAGE, page_offset(page)),
+        "ORDER BY cr.created_at DESC LIMIT %s OFFSET %s", (PER_PAGE, page_offset(page)),
     ).fetchall()
     return dict(returns=rows, items=_consignment_item_choices(db),
                 page=page, total_pages=page_count(total), total_count=total)
@@ -704,7 +704,7 @@ def consignment_returns_new():
         return render_template("consignment_returns.html", **ctx)
 
     item_id = parse_id(f.get("item_id"))
-    item = db.execute("SELECT * FROM inventory_list WHERE id=? AND ownership_type='Consignment'", (item_id,)).fetchone()
+    item = db.execute("SELECT * FROM inventory_list WHERE id=%s AND ownership_type='Consignment'", (item_id,)).fetchone()
     if not item:
         flash(_("Pick a Consignment item first."), "error")
         return redisplay()
@@ -765,13 +765,13 @@ def _consignment_settlements_page_context(distributor_id):
     re-render the same page (with `form` layered on top) on a validation
     failure instead of discarding the submitted data via redirect."""
     db = get_db()
-    distributor = db.execute("SELECT * FROM distributors WHERE id=?", (distributor_id,)).fetchone()
+    distributor = db.execute("SELECT * FROM distributors WHERE id=%s", (distributor_id,)).fetchone()
     if not distributor:
         return None
     balance = consignment.consignment_balance(db, distributor_id)
     history = db.execute(
         "SELECT s.*, u.full_name AS settled_by_name FROM consignment_settlements s "
-        "LEFT JOIN users u ON u.id=s.settled_by WHERE s.distributor_id=? ORDER BY s.created_at DESC",
+        "LEFT JOIN users u ON u.id=s.settled_by WHERE s.distributor_id=%s ORDER BY s.created_at DESC",
         (distributor_id,),
     ).fetchall()
     return dict(distributor=distributor, balance=balance, history=history)
@@ -803,7 +803,7 @@ def consignment_settlement_new(distributor_id):
     # is purely a mutex here (nothing about the distributor row itself
     # changes); same technique record_consignment_shrinkage() and
     # record_consignment_return() already use on inventory_list rows.
-    distributor = db.execute("SELECT * FROM distributors WHERE id=? FOR UPDATE", (distributor_id,)).fetchone()
+    distributor = db.execute("SELECT * FROM distributors WHERE id=%s FOR UPDATE", (distributor_id,)).fetchone()
     if not distributor:
         flash(_("Distributor not found."), "error")
         return redirect(url_for("consignment.consignment_overview"))
@@ -816,7 +816,7 @@ def consignment_settlement_new(distributor_id):
     def redisplay():
         history = db.execute(
             "SELECT s.*, u.full_name AS settled_by_name FROM consignment_settlements s "
-            "LEFT JOIN users u ON u.id=s.settled_by WHERE s.distributor_id=? ORDER BY s.created_at DESC",
+            "LEFT JOIN users u ON u.id=s.settled_by WHERE s.distributor_id=%s ORDER BY s.created_at DESC",
             (distributor_id,),
         ).fetchall()
         return render_template("consignment_settlements.html", distributor=distributor, balance=balance,
@@ -854,7 +854,7 @@ def consignment_settlement_new(distributor_id):
     # was actually transferred.
     cur = db.execute(
         "INSERT INTO consignment_settlements (distributor_id, period_start, period_end, amount_owed, amount_paid, "
-        "payment_method, notes, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "payment_method, notes, settled_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (distributor_id, balance["period_start"], balance["period_end"], balance["amount_owed"], amount_paid,
          payment_method, request.form.get("notes"), session["user_id"],
          clock.now().isoformat(timespec="seconds")),
@@ -875,7 +875,7 @@ def consignment_settlement_new(distributor_id):
 @requires_money_setting
 def consignment_settlement_export(settlement_id):
     db = get_db()
-    settlement = db.execute("SELECT id FROM consignment_settlements WHERE id=?", (settlement_id,)).fetchone()
+    settlement = db.execute("SELECT id FROM consignment_settlements WHERE id=%s", (settlement_id,)).fetchone()
     if not settlement:
         flash(_("Settlement not found."), "error")
         return redirect(url_for("consignment.consignment_overview"))

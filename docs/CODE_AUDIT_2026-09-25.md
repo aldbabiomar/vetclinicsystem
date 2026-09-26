@@ -943,7 +943,7 @@ generate them from one source.
 
 ## D2 — Denormalised totals kept in sync by hand at ~30 call sites
 
-**Status:** partly done. The P&L summary table and its ~16 hand-kept call sites are gone (phase 3). The bills' own stored totals are still refreshed by per-bill helpers, and folding them into one `bill_changed()` entry point is part of the `vcs/` restructure (owner decision D-15).
+**Status:** done. The P&L summary table and its ~16 hand-kept call sites are gone (phase 3). The bills' stored totals have one entry point, `billing.bill_changed(db, kind, id)` (restructure R4). Seam rule 12 fails on any function that writes a bill's inputs without calling it. See `decisions/0005`.
 
 `billing.total`, `inpatient_cases.total`, `boarding_sessions.billed_total` and
 `monthly_financial_summary` are caches. They are refreshed by explicit calls:
@@ -958,7 +958,7 @@ affected month together.
 
 ## D3 — The whole dashboard is computed on every page
 
-**Status:** open. To be done in the `vcs/` restructure: the sidebar badge from `COUNT(*)` queries.
+**Status:** done (restructure R4). The snapshot reads only what it shows: a `COUNT` for active cases, today's and tomorrow's follow-ups, the wellness doses that can be due, and each item's latest audit worked out in SQL. The Python that decides stays the one definition, and a parity test checks the result against the old unbounded reads. See `decisions/0007`.
 
 `inject_globals()` (IQ `app.py:718`) calls `dashboard_snapshot()` on every
 rendered page for the sidebar badge. That function fetches **every visit row**
@@ -970,7 +970,7 @@ all confirmed audit lines). It grows with history on every click. Use
 
 ## D4 — `inventory_status_by_id()` recomputes the catalogue to answer for one item
 
-**Status:** partly done. The POS search, the checkout and the audit confirm compute stock once. `inventory_status_by_id()` itself is still catalogue-wide, and is left to the restructure.
+**Status:** done. `inventory_status(db, item_ids)` answers for the items asked about. `inventory_status_by_id()`, the POS search, the checkout and the consignment shortfall check use it (restructure R4).
 
 It runs `inventory_status()` (every active item, every confirmed audit line,
 one transaction aggregate) and scans the result. POS checkout calls it once
@@ -1009,7 +1009,7 @@ would make range filters indexable and B13 impossible.
 
 ## D7 — A SQLite-era placeholder translator
 
-**Status:** open. It goes with the restructure's `db/pool.py` (native `%s`).
+**Status:** done (restructure R4). Every query uses `%s`, and the translator is gone. `tests/test_sql_placeholders.py` refuses a `?` placeholder, a bare `%` in a parameterised query, and a placeholder list joined from a multiplied string. See `decisions/0004`.
 
 `db.Connection.execute()` rewrites every `?` to `%s` with a regex that is not
 quote-aware (its own comment says so). psycopg supports `%s` natively; a
@@ -1056,7 +1056,7 @@ table and not the others. In JO, NUMERIC scale and Python validation disagree
 
 ## D11 — Helpers that commit
 
-**Status:** partly done. `get_or_create_draft_session()` no longer commits (B20). The rest goes into the restructure's services-own-the-rules layout.
+**Status:** done. `get_or_create_draft_session()` no longer commits (B20), and `_ensure_summary_populated()` went with the summary table. The helpers that still commit do so on purpose and say so. `tests/test_no_hidden_commits.py` lists them, with the reasons, and fails on any other. See `decisions/0003`.
 
 `get_or_create_draft_session()` and `_ensure_summary_populated()` call
 `db.commit()` from inside `logic.py`, whose own convention (and
@@ -1065,7 +1065,7 @@ splits a request into two transactions without its caller knowing.
 
 ## D12 — Comment volume, and comments that are now wrong
 
-**Status:** ongoing. Wrong comments are corrected where code is touched, and the "why" documents move to `docs/decisions/` in the restructure.
+**Status:** structure in place. `docs/decisions/` holds the engineering decisions, each with the test that holds it. Wrong comments are corrected where code is touched, and the history in a comment moves to a decision record when its code next changes.
 
 Comments and docstrings are **29%** of non-blank Python lines in both apps.
 Much of that is history ("this used to…", finding numbers, dates) that belongs

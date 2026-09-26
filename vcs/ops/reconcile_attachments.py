@@ -259,7 +259,7 @@ def main():
                     uploaded_at, reconstructed_name = parsed
 
                     existing = db.execute(
-                        "SELECT id FROM attachments WHERE relative_path=?", (relative_path,)
+                        "SELECT id FROM attachments WHERE relative_path=%s", (relative_path,)
                     ).fetchone()
                     if existing:
                         already_fine.append(relative_path)
@@ -267,11 +267,11 @@ def main():
 
                     if record_type == "visit":
                         record = db.execute(
-                            "SELECT id FROM visits WHERE id=? AND patient_id=?", (record_id, patient_id)
+                            "SELECT id FROM visits WHERE id=%s AND patient_id=%s", (record_id, patient_id)
                         ).fetchone()
                     else:
                         record = db.execute(
-                            "SELECT id FROM inpatient_cases WHERE id=? AND patient_id=?", (record_id, patient_id)
+                            "SELECT id FROM inpatient_cases WHERE id=%s AND patient_id=%s", (record_id, patient_id)
                         ).fetchone()
 
                     if not record:
@@ -299,7 +299,7 @@ def main():
                     if apply:
                         db.execute(
                             "INSERT INTO attachments (patient_id, visit_id, inpatient_case_id, relative_path, "
-                            "original_name, uploaded_at, uploaded_by) VALUES (?,?,?,?,?,?,?)",
+                            "original_name, uploaded_at, uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                             (patient_id, record_id if record_type == "visit" else None,
                              record_id if record_type == "inpatient" else None,
                              relative_path, reconstructed_name, uploaded_at.isoformat(timespec="seconds"), None),

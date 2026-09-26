@@ -45,9 +45,9 @@ def scratch_db():
 
 
 def _connect(url):
+    import psycopg
     from psycopg.rows import dict_row
-    from vcs.db import pool as dbmod
-    return dbmod.Connection.connect(url, row_factory=dict_row, autocommit=False)
+    return psycopg.connect(url, row_factory=dict_row, autocommit=False)
 
 
 def _setup_apply_schema(url):

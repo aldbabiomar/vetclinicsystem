@@ -20,11 +20,11 @@ pytestmark = needs_db
 def medicine(db):
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (pl_id, f"Ward Medicine {pl_id}", "Medicine", D("1.000"), D("4.000"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Ward Medicine {pl_id}", "Medicine", D("1.000"), D("4.000"), True, True))
     db.commit()
     yield {"id": pl_id, "name": f"Ward Medicine {pl_id}"}
-    db.execute("DELETE FROM inpatient_billing WHERE price_id=?", (pl_id,))
-    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.execute("DELETE FROM inpatient_billing WHERE price_id=%s", (pl_id,))
+    db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
     db.commit()
 
 
@@ -45,6 +45,6 @@ def test_a_medicine_is_billed_to_the_case(client, db, inpatient_case, medicine):
     resp = client.post(f"/inpatient/{inpatient_case['id']}/billing",
                        data={"price_id": medicine["id"], f"qty_{medicine['id']}": "2"})
     assert resp.status_code == 302
-    row = db.execute("SELECT quantity, unit_price FROM inpatient_billing WHERE case_id=? AND price_id=?",
+    row = db.execute("SELECT quantity, unit_price FROM inpatient_billing WHERE case_id=%s AND price_id=%s",
                      (inpatient_case["id"], medicine["id"])).fetchone()
     assert row and row["quantity"] == 2 and row["unit_price"] == D("4.000")

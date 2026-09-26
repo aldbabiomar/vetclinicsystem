@@ -81,7 +81,7 @@ def insights():
             ("occupancy", lambda c: analytics.inpatient_boarding_occupancy(c, months_back=months_back)),
             ("payment_mix", lambda c: [dict(r) for r in c.execute(
                 "SELECT method, COUNT(*) c, COALESCE(SUM(amount),0) total FROM payments "
-                "WHERE date >= ? GROUP BY method ORDER BY total DESC",
+                "WHERE date >= %s GROUP BY method ORDER BY total DESC",
                 (cutoff,),
             ).fetchall()]),
             ("cash_register_health", lambda c: cash_register.cash_register_last_30_days(c)),
@@ -192,7 +192,7 @@ def opex_save():
         flash(_("Operating costs can't be negative."), "error")
         return redisplay()
     db.execute(
-        """INSERT INTO monthly_opex (month, rent, salaries, utilities, marketing, other) VALUES (?,?,?,?,?,?)
+        """INSERT INTO monthly_opex (month, rent, salaries, utilities, marketing, other) VALUES (%s,%s,%s,%s,%s,%s)
            ON CONFLICT(month) DO UPDATE SET rent=excluded.rent, salaries=excluded.salaries,
            utilities=excluded.utilities, marketing=excluded.marketing, other=excluded.other""",
         (month, rent, salaries, utilities, marketing, other),

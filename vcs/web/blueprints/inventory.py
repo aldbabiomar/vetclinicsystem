@@ -44,7 +44,7 @@ def api_inventory_lookup():
     barcode_val = request.args.get("barcode", "").strip()
     q = request.args.get("q", "").strip()
     if barcode_val:
-        row = db.execute("SELECT id, name, barcode FROM inventory_list WHERE barcode=? AND active=true", (barcode_val,)).fetchone()
+        row = db.execute("SELECT id, name, barcode FROM inventory_list WHERE barcode=%s AND active=true", (barcode_val,)).fetchone()
         if not row:
             return jsonify(None)
         price = inventory.item_sale_price(db, row["id"])
@@ -57,14 +57,11 @@ def api_inventory_lookup():
                         "stock": status["current_stock"] if status else None,
                         "discountable": discountable})
     if q:
-        rows = db.execute("SELECT id, name FROM inventory_list WHERE active=true AND category='Retail' AND name ILIKE ? LIMIT 10",
+        rows = db.execute("SELECT id, name FROM inventory_list WHERE active=true AND category='Retail' AND name ILIKE %s LIMIT 10",
                           (search.like_pattern(q),)).fetchall()
-        # inventory_status_by_id() re-runs the whole catalog-wide status
-        # computation and linear-scans for one item — fine called once, not
-        # once per matched row here (up to 10x per autocomplete keystroke
-        # otherwise). Computed once up front and looked up by item_id
-        # instead.
-        status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
+        # The matched items' stock in one call, not one per row (up to 10x per
+        # autocomplete keystroke otherwise), and not the whole catalogue's (D4).
+        status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db, [r["id"] for r in rows])}
         # Batched the same way status_by_item is: one query for the page of
         # results rather than one per row (audit P13).
         discountable_by_item = billing.discountable_by_item_ids(db, [r["id"] for r in rows])
@@ -92,10 +89,10 @@ def api_price_list_lookup():
     categories = [c for c in request.args.getlist("category") if c]
     if len(q) < 2 or not categories:
         return jsonify([])
-    placeholders = ",".join("?" * len(categories))
+    placeholders = ",".join(["%s"] * len(categories))
     sql = (f"SELECT id, name, category, sale_price FROM price_list "
            f"WHERE active=true AND sale_price IS NOT NULL AND category IN ({placeholders}) "
-           f"AND (id = ? OR name ILIKE ?) ORDER BY name LIMIT 15")
+           f"AND (id = %s OR name ILIKE %s) ORDER BY name LIMIT 15")
     params = [*categories, parse_id(q, "PL"), search.like_pattern(q)]
     rows = db.execute(sql, params).fetchall()
     return jsonify([{"id": r["id"], "name": r["name"], "category": r["category"], "price": r["sale_price"]} for r in rows])
@@ -114,14 +111,14 @@ def _price_list_context(db):
     where = ["active=true"]
     params = []
     if cat:
-        where.append("category=?")
+        where.append("category=%s")
         params.append(cat)
     if term:
-        where.append("name ILIKE ?")
+        where.append("name ILIKE %s")
         params.append(search.like_pattern(term))
     where_sql = " WHERE " + " AND ".join(where)
     total = db.execute(f"SELECT COUNT(*) c FROM price_list{where_sql}", params).fetchone()["c"]
-    q = f"SELECT * FROM price_list{where_sql} ORDER BY category, name LIMIT ? OFFSET ?"
+    q = f"SELECT * FROM price_list{where_sql} ORDER BY category, name LIMIT %s OFFSET %s"
     rows = db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()
     inv_items = db.execute("SELECT id, name, cost_price FROM inventory_list WHERE active=true AND category='Retail' ORDER BY name").fetchall()
     flagged_price, _unused = billing.retail_consistency_flags(db)
@@ -162,7 +159,7 @@ def price_list_new():
         return redisplay()
     given, linked_item_id = _picked_id(f.get("linked_item_id"))
     if given and (linked_item_id is None or not db.execute(
-            "SELECT 1 FROM inventory_list WHERE id=?", (linked_item_id,)).fetchone()):
+            "SELECT 1 FROM inventory_list WHERE id=%s", (linked_item_id,)).fetchone()):
         flash(_("That inventory item no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if linked_item_id:
@@ -172,7 +169,7 @@ def price_list_new():
         # so the same product could ring up at two different prices with
         # no error or warning telling staff the catalog is inconsistent.
         existing_link = db.execute(
-            "SELECT id, name FROM price_list WHERE linked_item_id=? AND active=true", (linked_item_id,)
+            "SELECT id, name FROM price_list WHERE linked_item_id=%s AND active=true", (linked_item_id,)
         ).fetchone()
         if existing_link:
             flash(_("That inventory item is already linked to %(id)s (%(name)s) — an item can only be linked from one active Price List row at a time.", id=codes.code('PL', existing_link['id']), name=existing_link['name']), "error")
@@ -183,7 +180,7 @@ def price_list_new():
     pid = dbmod.next_row_id(db, "price_list")
     can_discount = f.get("can_discount") == "on"
     db.execute(
-        "INSERT INTO price_list (id,name,category,cost_price,sale_price,notes,active,linked_item_id,can_discount) VALUES (?,?,?,?,?,?,true,?,?)",
+        "INSERT INTO price_list (id,name,category,cost_price,sale_price,notes,active,linked_item_id,can_discount) VALUES (%s,%s,%s,%s,%s,%s,true,%s,%s)",
         (pid, name, f["category"], cost_price, sale_price,
          f.get("notes"), linked_item_id, can_discount),
     )
@@ -216,19 +213,19 @@ def price_list_edit(item_id):
     if f.get("category") not in PRICE_CATEGORIES:
         flash(_("Category must be one of: %(choices)s.", choices=list_join(_(c) for c in PRICE_CATEGORIES)), "error")
         return redisplay()
-    old = db.execute("SELECT * FROM price_list WHERE id=?", (item_id,)).fetchone()
+    old = db.execute("SELECT * FROM price_list WHERE id=%s", (item_id,)).fetchone()
     if not old:
         flash(_("Price list item not found."), "error")
         return redirect(url_for("inventory.price_list"))
     given, new_linked_item_id = (_picked_id(f.get("linked_item_id")) if "linked_item_id" in f
                                  else (bool(old["linked_item_id"]), old["linked_item_id"]))
     if given and (new_linked_item_id is None or not db.execute(
-            "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone()):
+            "SELECT 1 FROM inventory_list WHERE id=%s", (new_linked_item_id,)).fetchone()):
         flash(_("That inventory item no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if new_linked_item_id and new_linked_item_id != old["linked_item_id"]:
         dup = db.execute(
-            "SELECT id, name FROM price_list WHERE linked_item_id=? AND active=true AND id != ?",
+            "SELECT id, name FROM price_list WHERE linked_item_id=%s AND active=true AND id != %s",
             (new_linked_item_id, item_id),
         ).fetchone()
         if dup:
@@ -242,7 +239,7 @@ def price_list_edit(item_id):
                 "linked_item_id": new_linked_item_id,
                 "can_discount": f.get("can_discount") == "on"}
     changes = auth.diff_dict(old, new_vals)
-    db.execute("UPDATE price_list SET name=?, category=?, cost_price=?, sale_price=?, notes=?, linked_item_id=?, can_discount=? WHERE id=?",
+    db.execute("UPDATE price_list SET name=%s, category=%s, cost_price=%s, sale_price=%s, notes=%s, linked_item_id=%s, can_discount=%s WHERE id=%s",
               (*new_vals.values(), item_id))
     auth.log_change(db, "price_list", item_id, "update", changes)
     db.commit()
@@ -280,7 +277,7 @@ def price_list_bulk_edit():
         if has_negative(cost_price, sale_price):
             errors[key] = _("Cost Price and Sale Price can't be negative.")
             continue
-        old = db.execute("SELECT * FROM price_list WHERE id=?", (item_id,)).fetchone()
+        old = db.execute("SELECT * FROM price_list WHERE id=%s", (item_id,)).fetchone()
         if not old:
             errors[key] = _("Item not found.")
             continue
@@ -295,7 +292,7 @@ def price_list_bulk_edit():
         given, new_linked_item_id = (_picked_id(fields.get("linked_item_id")) if "linked_item_id" in fields
                                      else (bool(old["linked_item_id"]), old["linked_item_id"]))
         if given and (new_linked_item_id is None or not db.execute(
-                "SELECT 1 FROM inventory_list WHERE id=?", (new_linked_item_id,)).fetchone()):
+                "SELECT 1 FROM inventory_list WHERE id=%s", (new_linked_item_id,)).fetchone()):
             errors[key] = _("That inventory item no longer exists — reload the page and pick again.")
             continue
         if new_linked_item_id:
@@ -303,7 +300,7 @@ def price_list_bulk_edit():
             # this batch) and what this same batch has already claimed (two
             # rows in one bulk save both trying to link the same item).
             dup = db.execute(
-                "SELECT id FROM price_list WHERE linked_item_id=? AND active=true AND id != ?",
+                "SELECT id FROM price_list WHERE linked_item_id=%s AND active=true AND id != %s",
                 (new_linked_item_id, item_id),
             ).fetchone()
             dup_id = dup["id"] if dup else claimed_in_batch.get(new_linked_item_id)
@@ -318,7 +315,7 @@ def price_list_bulk_edit():
                     "can_discount": fields.get("can_discount") == "on"}
         changes = auth.diff_dict(old, new_vals)
         db.execute(
-            "UPDATE price_list SET name=?, category=?, cost_price=?, sale_price=?, notes=?, linked_item_id=?, can_discount=? WHERE id=?",
+            "UPDATE price_list SET name=%s, category=%s, cost_price=%s, sale_price=%s, notes=%s, linked_item_id=%s, can_discount=%s WHERE id=%s",
             (*new_vals.values(), item_id),
         )
         auth.log_change(db, "price_list", item_id, "update", changes)
@@ -332,7 +329,7 @@ def price_list_bulk_edit():
 @requires_money_setting
 def price_list_delete(item_id):
     db = get_db()
-    db.execute("UPDATE price_list SET active=false WHERE id=?", (item_id,))
+    db.execute("UPDATE price_list SET active=false WHERE id=%s", (item_id,))
     auth.log_change(db, "price_list", item_id, "delete")
     db.commit()
     flash(_("Item removed from price list."), "success")
@@ -353,12 +350,12 @@ def _inventory_catalog_context(db):
     if not show_inactive:
         where.append("i.active=true")
     if term:
-        where.append("i.name ILIKE ?")
+        where.append("i.name ILIKE %s")
         params.append(search.like_pattern(term))
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
     total = db.execute(f"SELECT COUNT(*) c FROM inventory_list i{where_sql}", params).fetchone()["c"]
     q = ("SELECT i.*, d.name as distributor_name FROM inventory_list i LEFT JOIN distributors d ON d.id=i.distributor_id"
-         + where_sql + " ORDER BY i.category, i.name LIMIT ? OFFSET ?")
+         + where_sql + " ORDER BY i.category, i.name LIMIT %s OFFSET %s")
     rows = db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()
     distributors = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
     _unused, flagged_inventory = billing.retail_consistency_flags(db)
@@ -402,7 +399,7 @@ def inventory_catalog_new():
         return redisplay()
     given, distributor_id = _picked_id(f.get("distributor_id"))
     if given and (distributor_id is None or not db.execute(
-            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
+            "SELECT 1 FROM distributors WHERE id=%s", (distributor_id,)).fetchone()):
         flash(_("That distributor no longer exists — reload the page and pick again."), "error")
         return redisplay()
     name = required_field(f, "name", "Name")
@@ -411,7 +408,7 @@ def inventory_catalog_new():
     iid = dbmod.next_row_id(db, "inventory_list")
     db.execute(
         "INSERT INTO inventory_list (id,name,category,unit,track_expiry,cost_price,distributor_id,active,notes) "
-        "VALUES (?,?,?,?,?,?,?,true,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,true,%s)",
         (iid, name, f.get("category", "Medical"), f.get("unit"), f.get("track_expiry") == "on",
          cost_price, distributor_id, f.get("notes")),
     )
@@ -441,7 +438,7 @@ def inventory_catalog_edit(item_id):
     if f.get("category", "Medical") not in INVENTORY_CATEGORIES:
         flash(_("Category must be one of: %(choices)s.", choices=list_join(_(c) for c in INVENTORY_CATEGORIES)), "error")
         return redisplay()
-    old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    old = db.execute("SELECT * FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not old:
         flash(_("Inventory item not found."), "error")
         return redirect(url_for("inventory.inventory_catalog"))
@@ -451,7 +448,7 @@ def inventory_catalog_edit(item_id):
         return redisplay()
     given, distributor_id = _picked_id(f.get("distributor_id"))
     if given and (distributor_id is None or not db.execute(
-            "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
+            "SELECT 1 FROM distributors WHERE id=%s", (distributor_id,)).fetchone()):
         flash(_("That distributor no longer exists — reload the page and pick again."), "error")
         return redisplay()
     if distributor_id != old["distributor_id"] and consignment.consignment_item_locked(db, item_id):
@@ -467,7 +464,7 @@ def inventory_catalog_edit(item_id):
                 "notes": f.get("notes", old["notes"]), "active": old["active"]}
     changes = auth.diff_dict(old, new_vals)
     db.execute(
-        "UPDATE inventory_list SET name=?, category=?, unit=?, track_expiry=?, cost_price=?, distributor_id=?, notes=?, active=? WHERE id=?",
+        "UPDATE inventory_list SET name=%s, category=%s, unit=%s, track_expiry=%s, cost_price=%s, distributor_id=%s, notes=%s, active=%s WHERE id=%s",
         (*new_vals.values(), item_id),
     )
     auth.log_change(db, "inventory_list", item_id, "update", changes)
@@ -500,7 +497,7 @@ def inventory_catalog_bulk_edit():
         if has_negative(cost_price):
             errors[key] = _("Cost Price can't be negative.")
             continue
-        old = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+        old = db.execute("SELECT * FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
         if not old:
             errors[key] = _("Item not found.")
             continue
@@ -517,7 +514,7 @@ def inventory_catalog_bulk_edit():
             continue
         given, distributor_id = _picked_id(fields.get("distributor_id"))
         if given and (distributor_id is None or not db.execute(
-                "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
+                "SELECT 1 FROM distributors WHERE id=%s", (distributor_id,)).fetchone()):
             errors[key] = _("That distributor no longer exists — reload the page and pick again.")
             continue
         if distributor_id != old["distributor_id"] and consignment.consignment_item_locked(db, item_id):
@@ -530,7 +527,7 @@ def inventory_catalog_bulk_edit():
                     "notes": fields.get("notes", old["notes"]), "active": old["active"]}
         changes = auth.diff_dict(old, new_vals)
         db.execute(
-            "UPDATE inventory_list SET name=?, category=?, unit=?, track_expiry=?, cost_price=?, distributor_id=?, notes=?, active=? WHERE id=?",
+            "UPDATE inventory_list SET name=%s, category=%s, unit=%s, track_expiry=%s, cost_price=%s, distributor_id=%s, notes=%s, active=%s WHERE id=%s",
             (*new_vals.values(), item_id),
         )
         auth.log_change(db, "inventory_list", item_id, "update", changes)
@@ -543,12 +540,12 @@ def inventory_catalog_bulk_edit():
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_toggle(item_id):
     db = get_db()
-    row = db.execute("SELECT active FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    row = db.execute("SELECT active FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if row is None:
         flash(_("Item not found."), "error")
         return redirect(url_for("inventory.inventory_catalog"))
     new_val = not row["active"]
-    db.execute("UPDATE inventory_list SET active=? WHERE id=?", (new_val, item_id))
+    db.execute("UPDATE inventory_list SET active=%s WHERE id=%s", (new_val, item_id))
     auth.log_change(db, "inventory_list", item_id, "update", {"active": (row["active"], new_val)})
     db.commit()
     flash(_("Item reactivated.") if new_val else _("Item deactivated."), "success")
@@ -559,7 +556,7 @@ def inventory_catalog_toggle(item_id):
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_generate(item_id):
     db = get_db()
-    item = db.execute("SELECT barcode FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT barcode FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not item:
         return jsonify({"error": _("Item not found.")}), 404
     if item["barcode"]:
@@ -577,7 +574,7 @@ def inventory_catalog_barcode_generate(item_id):
     # of a friendly error; inventory_list.barcode is DB-UNIQUE, so the loser
     # raises instead of corrupting anything.
     try:
-        db.execute("UPDATE inventory_list SET barcode=?, barcode_source='generated' WHERE id=?", (code, item_id))
+        db.execute("UPDATE inventory_list SET barcode=%s, barcode_source='generated' WHERE id=%s", (code, item_id))
     except dbmod.IntegrityError:
         db.rollback()
         return jsonify({"error": _("That code was just claimed by another item — try again.")}), 400
@@ -591,7 +588,7 @@ def inventory_catalog_barcode_generate(item_id):
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_manual(item_id):
     db = get_db()
-    item = db.execute("SELECT barcode, barcode_source FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT barcode, barcode_source FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not item:
         return jsonify({"error": _("Item not found.")}), 404
     data = request.get_json(silent=True) or {}
@@ -606,12 +603,12 @@ def inventory_catalog_barcode_manual(item_id):
         return jsonify({"error": _("A barcode already exists for this item.")}), 400
     if raw != item["barcode"]:
         dupe = db.execute(
-            "SELECT name FROM inventory_list WHERE barcode=? AND id!=?", (raw, item_id)
+            "SELECT name FROM inventory_list WHERE barcode=%s AND id!=%s", (raw, item_id)
         ).fetchone()
         if dupe:
             return jsonify({"error": _('That barcode is already used by "%(name)s".', name=dupe["name"])}), 400
     try:
-        db.execute("UPDATE inventory_list SET barcode=?, barcode_source='manual' WHERE id=?", (raw, item_id))
+        db.execute("UPDATE inventory_list SET barcode=%s, barcode_source='manual' WHERE id=%s", (raw, item_id))
     except dbmod.IntegrityError:
         db.rollback()
         return jsonify({"error": _("That barcode was just claimed by another item — try again.")}), 400
@@ -624,12 +621,12 @@ def inventory_catalog_barcode_manual(item_id):
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_remove(item_id):
     db = get_db()
-    item = db.execute("SELECT barcode FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT barcode FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not item:
         return jsonify({"error": _("Item not found.")}), 404
     if not item["barcode"]:
         return jsonify({"ok": True, "removed": False})
-    db.execute("UPDATE inventory_list SET barcode=NULL, barcode_source=NULL WHERE id=?", (item_id,))
+    db.execute("UPDATE inventory_list SET barcode=NULL, barcode_source=NULL WHERE id=%s", (item_id,))
     auth.log_change(db, "inventory_list", item_id, "update", {"barcode": (item["barcode"], None)})
     db.commit()
     return jsonify({"ok": True, "removed": True})
@@ -639,7 +636,7 @@ def inventory_catalog_barcode_remove(item_id):
 @auth.permission_required("manage_inventory_catalog")
 def inventory_catalog_barcode_status(item_id):
     db = get_db()
-    item = db.execute("SELECT barcode, barcode_source FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT barcode, barcode_source FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not item:
         return jsonify({"error": _("Item not found.")}), 404
     return jsonify({
@@ -653,7 +650,7 @@ def inventory_catalog_barcode_status(item_id):
 @auth.permission_required("manage_inventory_catalog")
 def inventory_barcode_label(item_id):
     db = get_db()
-    item = db.execute("SELECT * FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT * FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if not item or not item["barcode"]:
         flash(_("This item doesn't have a barcode yet."), "error")
         return redirect(url_for("inventory.inventory_catalog"))
@@ -701,7 +698,7 @@ def inventory_catalog_barcodes_bulk_print():
         # barcode can end up on the printed sheet, no matter what the
         # client sent (matches the picker's own filter above).
         item = db.execute(
-            "SELECT id, name, barcode FROM inventory_list WHERE id=? AND barcode_source='generated'",
+            "SELECT id, name, barcode FROM inventory_list WHERE id=%s AND barcode_source='generated'",
             (item_id,),
         ).fetchone()
         if item and item["barcode"]:
@@ -766,7 +763,7 @@ def audit_session_start():
 
 def _audit_session_context(db, session_id):
     sess = db.execute("SELECT s.*, u.full_name as performed_by_name FROM audit_sessions s "
-                      "LEFT JOIN users u ON u.id=s.performed_by WHERE s.id=?", (session_id,)).fetchone()
+                      "LEFT JOIN users u ON u.id=s.performed_by WHERE s.id=%s", (session_id,)).fetchone()
     if not sess:
         return None
     # A line saved for an item that's since been deactivated must stay
@@ -776,12 +773,12 @@ def _audit_session_context(db, session_id):
     # F-11.
     items = db.execute(
         "SELECT i.* FROM inventory_list i WHERE i.active = true "
-        "OR EXISTS (SELECT 1 FROM audit_session_lines l WHERE l.session_id=? AND l.item_id=i.id) "
+        "OR EXISTS (SELECT 1 FROM audit_session_lines l WHERE l.session_id=%s AND l.item_id=i.id) "
         "ORDER BY i.category, i.name",
         (session_id,),
     ).fetchall()
     existing_lines = {r["item_id"]: dict(r) for r in db.execute(
-        "SELECT * FROM audit_session_lines WHERE session_id=?", (session_id,)).fetchall()}
+        "SELECT * FROM audit_session_lines WHERE session_id=%s", (session_id,)).fetchall()}
     # Effective (carried-forward) values from the last CONFIRMED audit, for placeholder display
     confirmed_rows = inventory.confirmed_audit_rows_by_item(db)
     latest_confirmed = {}
@@ -815,7 +812,7 @@ def _save_audit_lines(db, session_id):
     # ORPHANED_RECORDS_AUDIT.md F-11.
     items = db.execute(
         "SELECT id FROM inventory_list i WHERE i.active = true "
-        "OR EXISTS (SELECT 1 FROM audit_session_lines l WHERE l.session_id=? AND l.item_id=i.id)",
+        "OR EXISTS (SELECT 1 FROM audit_session_lines l WHERE l.session_id=%s AND l.item_id=i.id)",
         (session_id,),
     ).fetchall()
     for it in items:
@@ -876,7 +873,7 @@ def _save_audit_lines(db, session_id):
         # (session_id, item_id) UNIQUE constraint.
         db.execute(
             "INSERT INTO audit_session_lines (session_id,item_id,stock_counted,received_since_prior,"
-            "reorder_threshold,critical_item,target_coverage_days,nearest_expiry_date,notes) VALUES (?,?,?,?,?,?,?,?,?) "
+            "reorder_threshold,critical_item,target_coverage_days,nearest_expiry_date,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) "
             "ON CONFLICT (session_id, item_id) DO UPDATE SET stock_counted=excluded.stock_counted, "
             "received_since_prior=excluded.received_since_prior, reorder_threshold=excluded.reorder_threshold, "
             "critical_item=excluded.critical_item, target_coverage_days=excluded.target_coverage_days, "
@@ -889,7 +886,7 @@ def _save_audit_lines(db, session_id):
 @auth.permission_required("manage_audit_history")
 def audit_session_save(session_id):
     db = get_db()
-    sess = db.execute("SELECT * FROM audit_sessions WHERE id=?", (session_id,)).fetchone()
+    sess = db.execute("SELECT * FROM audit_sessions WHERE id=%s", (session_id,)).fetchone()
     if not sess or sess["status"] != "Draft":
         flash(_("This audit is confirmed and can no longer be edited."), "error")
         return redirect(url_for("inventory.audit_history_list"))
@@ -921,7 +918,7 @@ def audit_session_save(session_id):
 @auth.permission_required("manage_audit_history")
 def audit_session_confirm(session_id):
     db = get_db()
-    sess = db.execute("SELECT * FROM audit_sessions WHERE id=?", (session_id,)).fetchone()
+    sess = db.execute("SELECT * FROM audit_sessions WHERE id=%s", (session_id,)).fetchone()
     if not sess or sess["status"] != "Draft":
         flash(_("This audit is already confirmed."), "error")
         return redirect(url_for("inventory.audit_history_list"))
@@ -942,7 +939,7 @@ def audit_session_confirm(session_id):
     # zero lines — permanent noise in Audit History with nothing to show
     # for it. See ORPHANED_RECORDS_AUDIT.md F-15.
     filled = db.execute(
-        "SELECT COUNT(*) c FROM audit_session_lines WHERE session_id=? AND stock_counted IS NOT NULL",
+        "SELECT COUNT(*) c FROM audit_session_lines WHERE session_id=%s AND stock_counted IS NOT NULL",
         (session_id,)).fetchone()["c"]
     if not filled:
         flash(_("Nothing has been counted in this audit yet — fill in at least one item "
@@ -958,7 +955,7 @@ def audit_session_confirm(session_id):
     # the `now` timestamps written alongside every inventory_transactions
     # row: pos_checkout(), refund restocking, and the consignment
     # receipt/shrinkage/return helpers in vcs/domain/consignment.py).
-    db.execute("UPDATE audit_sessions SET status='Confirmed', confirmed_at=? WHERE id=?",
+    db.execute("UPDATE audit_sessions SET status='Confirmed', confirmed_at=%s WHERE id=%s",
               (clock.now().isoformat(timespec="microseconds"), session_id))
     auth.log_change(db, "audit_sessions", str(session_id), "update", {"status": ("Draft", "Confirmed")})
     db.commit()
@@ -981,10 +978,10 @@ def _consignment_shortfalls(db, session_id):
         "JOIN distributors d ON d.id = i.distributor_id WHERE i.ownership_type='Consignment'").fetchall()}
     if not consigned:
         return []
-    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
+    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db, list(consigned))}
     out = []
     for line in db.execute("SELECT item_id, stock_counted FROM audit_session_lines "
-                           "WHERE session_id=? AND stock_counted IS NOT NULL ORDER BY item_id", (session_id,)).fetchall():
+                           "WHERE session_id=%s AND stock_counted IS NOT NULL ORDER BY item_id", (session_id,)).fetchall():
         item = consigned.get(line["item_id"])
         if not item:
             continue
@@ -1007,12 +1004,12 @@ def audit_session_delete(session_id):
     forever. Confirmed sessions are immutable history, not deletable here.
     See ORPHANED_RECORDS_AUDIT.md F-15."""
     db = get_db()
-    sess = db.execute("SELECT status FROM audit_sessions WHERE id=?", (session_id,)).fetchone()
+    sess = db.execute("SELECT status FROM audit_sessions WHERE id=%s", (session_id,)).fetchone()
     if not sess or sess["status"] != "Draft":
         flash(_("Only a draft audit can be discarded."), "error")
         return redirect(url_for("inventory.audit_history_list"))
-    db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (session_id,))
-    db.execute("DELETE FROM audit_sessions WHERE id=?", (session_id,))
+    db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (session_id,))
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (session_id,))
     auth.log_change(db, "audit_sessions", str(session_id), "delete")
     db.commit()
     flash(_("Draft audit discarded."), "success")

@@ -125,20 +125,20 @@ def seeded_ids(flask_app):
     tag = uuid.uuid4().hex[:8].upper()
     o_id, p_id, v_id = new_id(), new_id(), new_id()
     inv_id, pl_id = new_id(), new_id()
-    con.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Smoke Owner {tag}"))
-    con.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    con.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Smoke Owner {tag}"))
+    con.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                 (p_id, o_id, f"Smoke Pet {tag}"))
-    con.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    con.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                 (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     con.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+                "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                 (inv_id, f"Smoke Item {tag}", "Retail", "unit", False, Decimal("2.000"), "Owned", True))
     con.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, "
-                "linked_item_id, can_discount) VALUES (?,?,?,?,?,?,?,?)",
+                "linked_item_id, can_discount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                 (pl_id, f"Smoke Item {tag}", "Retail", Decimal("2.000"), Decimal("10.000"), True, inv_id, True))
     cur = con.execute("INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, "
                       "total_is_auto, cleanup_amount, discount_percent, dismissed, total) "
-                      "VALUES (?,?,?,?,?,?,?,?) RETURNING id",
+                      "VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                       (p_id, clock.today().isoformat(), False, False, Decimal(0), Decimal(0), False, Decimal("10.000")))
     boarding_id = cur.fetchone()["id"]
     con.commit()
@@ -162,12 +162,12 @@ def seeded_ids(flask_app):
             ids[key] = row["id"]
     yield ids
     for sql, args in (
-        ("DELETE FROM boarding_sessions WHERE id=?", (boarding_id,)),
-        ("DELETE FROM price_list WHERE id=?", (pl_id,)),
-        ("DELETE FROM inventory_list WHERE id=?", (inv_id,)),
-        ("DELETE FROM visits WHERE id=?", (v_id,)),
-        ("DELETE FROM patients WHERE id=?", (p_id,)),
-        ("DELETE FROM owners WHERE id=?", (o_id,)),
+        ("DELETE FROM boarding_sessions WHERE id=%s", (boarding_id,)),
+        ("DELETE FROM price_list WHERE id=%s", (pl_id,)),
+        ("DELETE FROM inventory_list WHERE id=%s", (inv_id,)),
+        ("DELETE FROM visits WHERE id=%s", (v_id,)),
+        ("DELETE FROM patients WHERE id=%s", (p_id,)),
+        ("DELETE FROM owners WHERE id=%s", (o_id,)),
     ):
         con.execute(sql, args)
     con.commit()

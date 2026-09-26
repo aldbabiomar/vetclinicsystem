@@ -72,7 +72,7 @@ def _save(client, **fields):
 
 
 def _stored(db):
-    row = db.execute("SELECT value FROM settings WHERE key=?", (clock.SETTING_KEY,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (clock.SETTING_KEY,)).fetchone()
     return row["value"] if row else None
 
 
@@ -81,9 +81,9 @@ def time_zone_left_as_found(db):
     before = _stored(db)
     yield
     if before is None:
-        db.execute("DELETE FROM settings WHERE key=?", (clock.SETTING_KEY,))
+        db.execute("DELETE FROM settings WHERE key=%s", (clock.SETTING_KEY,))
     else:
-        db.execute("UPDATE settings SET value=? WHERE key=?", (before, clock.SETTING_KEY))
+        db.execute("UPDATE settings SET value=%s WHERE key=%s", (before, clock.SETTING_KEY))
     db.commit()
 
 

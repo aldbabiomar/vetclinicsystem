@@ -47,11 +47,11 @@ def test_a_clean_up_taken_at_payment_lowers_the_months_revenue_at_once(client, d
 def test_a_boarding_discount_at_payment_is_booked_at_the_discounted_total(client, db, boarding):
     """GUARD (B3). The stay's revenue is what it was billed after the
     discount — billed_total — not the pre-discount subtotal."""
-    db.execute("UPDATE boarding_sessions SET entry_date=? WHERE id=?", (date(2001, 2, 10), boarding["id"]))
+    db.execute("UPDATE boarding_sessions SET entry_date=%s WHERE id=%s", (date(2001, 2, 10), boarding["id"]))
     db.commit()
     resp = _pay(client, boarding["id"], amount="10.000", discount_percent="10", method="Cash")
     assert resp.status_code == 302, "the discounted payment was refused — the test would prove nothing"
-    billed = db.execute("SELECT billed_total FROM boarding_sessions WHERE id=?", (boarding["id"],)).fetchone()["billed_total"]
+    billed = db.execute("SELECT billed_total FROM boarding_sessions WHERE id=%s", (boarding["id"],)).fetchone()["billed_total"]
     assert billed == D("180.000")
     assert _month(db, "2001-02")[0] == D("180.000")
 
@@ -62,12 +62,12 @@ def test_an_inpatient_clean_up_lowers_the_cases_revenue(client, db, inpatient_ca
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
                 data={"price_id": priced_service["id"], f"qty_{priced_service['id']}": "1"},
                 follow_redirects=False)
-    db.execute("UPDATE inpatient_billing SET timestamp=? WHERE case_id=?",
+    db.execute("UPDATE inpatient_billing SET timestamp=%s WHERE case_id=%s",
                ("2001-03-10T10:00:00+03:00", inpatient_case["id"]))
     db.commit()
     client.post(f"/inpatient/{inpatient_case['id']}/payment",
                 data={"amount": "11.000", "method": "Cash", "cleanup_amount": "1.000"}, follow_redirects=False)
-    total = db.execute("SELECT total FROM inpatient_cases WHERE id=?", (inpatient_case["id"],)).fetchone()["total"]
+    total = db.execute("SELECT total FROM inpatient_cases WHERE id=%s", (inpatient_case["id"],)).fetchone()["total"]
     assert total == D("11.000"), "the Clean Up was not applied — the test would prove nothing"
     assert _month(db, "2001-03")[0] == D("11.000")
 
@@ -76,7 +76,7 @@ def test_insights_categories_add_up_to_the_pnl_for_every_month(client, db, visit
     """GUARD (B3). Two reports, one set of lines: for each month, the
     categories Insights shows sum exactly to the P&L's revenue."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="40.000", date_billed="2001-05-03")
-    db.execute("UPDATE boarding_sessions SET entry_date=? WHERE id=?", (date(2001, 5, 4), boarding["id"]))
+    db.execute("UPDATE boarding_sessions SET entry_date=%s WHERE id=%s", (date(2001, 5, 4), boarding["id"]))
     db.commit()
     _pay(client, boarding["id"], amount="10.000", discount_percent="5", method="Cash")
     by_cat = reports.by_month_and_category(db, since_month="2001-05")
@@ -99,9 +99,9 @@ def test_a_restocked_refund_reverses_the_sale_lines_cost_not_todays(client, db, 
     5.000 — the cost of goods for the month of the refund falls by 2."""
     assert _checkout(client, sellable["inv_id"], qty=1, payment_method="Card").status_code == 302
     sale = _latest_sale(db)
-    line = db.execute("SELECT id FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
-    db.execute("UPDATE sales SET sold_at=? WHERE id=?", ("2001-06-05T10:00:00+03:00", sale["id"]))
-    db.execute("UPDATE inventory_list SET cost_price=? WHERE id=?", (D("5.000"), sellable["inv_id"]))
+    line = db.execute("SELECT id FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
+    db.execute("UPDATE sales SET sold_at=%s WHERE id=%s", ("2001-06-05T10:00:00+03:00", sale["id"]))
+    db.execute("UPDATE inventory_list SET cost_price=%s WHERE id=%s", (D("5.000"), sellable["inv_id"]))
     db.commit()
     try:
         resp = _refund_retail(client, sale["id"], line["id"], 1, restock="on", refund_date="2001-06-20")
@@ -109,10 +109,10 @@ def test_a_restocked_refund_reverses_the_sale_lines_cost_not_todays(client, db, 
         revenue, cogs = _month(db, "2001-06")
         assert cogs == D("0.000"), f"sold at 2.000 cost and returned: net cost {cogs}, expected 0"
     finally:
-        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)", (sale["id"],))
-        db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
-        db.execute("DELETE FROM sale_items WHERE sale_id=?", (sale["id"],))
-        db.execute("DELETE FROM sales WHERE id=?", (sale["id"],))
+        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)", (sale["id"],))
+        db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale["id"],))
+        db.execute("DELETE FROM sale_items WHERE sale_id=%s", (sale["id"],))
+        db.execute("DELETE FROM sales WHERE id=%s", (sale["id"],))
         db.commit()
 
 
@@ -132,11 +132,11 @@ def medicine(db):
     from test_money_routes import _uid
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (pl_id, f"Report Medicine {pl_id}", "Medicine", D("3.000"), D("8.000"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Report Medicine {pl_id}", "Medicine", D("3.000"), D("8.000"), True, True))
     db.commit()
     yield {"id": pl_id}
-    db.execute("DELETE FROM visit_billing_lines WHERE price_id=?", (pl_id,))
-    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.execute("DELETE FROM visit_billing_lines WHERE price_id=%s", (pl_id,))
+    db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
     db.commit()
 
 

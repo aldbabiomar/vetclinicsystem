@@ -48,7 +48,7 @@ def clean_backup_log(db):
     yield
     after = {r["id"] for r in db.execute("SELECT id FROM backup_log").fetchall()}
     for bid in after - before:
-        db.execute("DELETE FROM backup_log WHERE id=?", (bid,))
+        db.execute("DELETE FROM backup_log WHERE id=%s", (bid,))
     db.commit()
 
 
@@ -339,7 +339,7 @@ def test_a_stale_running_backup_is_reaped(db, backup_dir, clean_backup_log):
     that none has actually completed."""
     from vcs.ops import backup
     db.execute("INSERT INTO backup_log (started_at, status, filepath, filesize_bytes, error, triggered_by) "
-               "VALUES (?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s)",
                ("2020-01-01T00:00:00", "running", None, None, None, "test"))
     db.commit()
     backup.reap_stale_running(db)
@@ -363,7 +363,7 @@ def test_backup_refuses_to_recreate_a_destination_that_held_backups(db, tmp_path
     gone.mkdir()
     db.execute("DELETE FROM backup_log")
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "old.dump")),

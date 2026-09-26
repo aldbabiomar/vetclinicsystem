@@ -108,12 +108,12 @@ def restricted(flask_app):
     assert held in ALL_PERMISSIONS, "the permission this fixture holds must gate real routes"
 
     role_id = con.execute("INSERT INTO roles (name, description, is_system, discount_cap, is_vet_role, created_at) "
-                          "VALUES (?,?,?,?,?,?) RETURNING id",
+                          "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
                           (f"Restricted {tag}", "permission test", False, 0, False,
                            "2026-01-01T00:00:00+03:00")).fetchone()["id"]
-    con.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, held))
+    con.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (%s,%s)", (role_id, held))
     user_id = con.execute("INSERT INTO users (username, password_hash, full_name, role_id, active, "
-                          "must_change_password, created_at) VALUES (?,?,?,?,?,?,?) RETURNING id",
+                          "must_change_password, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                           (username, auth.hash_password(password), "Restricted User",
                            role_id, True, False, "2026-01-01T00:00:00+03:00")).fetchone()["id"]
     con.commit()
@@ -131,10 +131,10 @@ def restricted(flask_app):
     yield {"client": client, "held": held, "user_id": user_id, "role_id": role_id, "username": username,
            "role_name": f"Restricted {tag}"}
 
-    con.execute("DELETE FROM login_log WHERE user_id=?", (user_id,))
-    con.execute("DELETE FROM users WHERE id=?", (user_id,))
-    con.execute("DELETE FROM role_permissions WHERE role_id=?", (role_id,))
-    con.execute("DELETE FROM roles WHERE id=?", (role_id,))
+    con.execute("DELETE FROM login_log WHERE user_id=%s", (user_id,))
+    con.execute("DELETE FROM users WHERE id=%s", (user_id,))
+    con.execute("DELETE FROM role_permissions WHERE role_id=%s", (role_id,))
+    con.execute("DELETE FROM roles WHERE id=%s", (role_id,))
     con.commit()
     con.close()
 
@@ -278,14 +278,14 @@ def test_deactivating_an_account_stops_it_working_immediately(restricted):
     assert client.get(open_route).status_code != 403, "should start with access"
 
     con = dbmod.connect()
-    con.execute("UPDATE users SET active=false WHERE id=?", (restricted["user_id"],))
+    con.execute("UPDATE users SET active=false WHERE id=%s", (restricted["user_id"],))
     con.commit()
     try:
         resp = client.get(open_route)
         assert resp.status_code != 200, (
             "a deactivated account was still served a page it used to have access to")
     finally:
-        con.execute("UPDATE users SET active=true WHERE id=?", (restricted["user_id"],))
+        con.execute("UPDATE users SET active=true WHERE id=%s", (restricted["user_id"],))
         con.commit()
         con.close()
         client.post("/login", data={"username": restricted["username"],

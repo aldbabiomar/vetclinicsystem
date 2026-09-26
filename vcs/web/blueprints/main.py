@@ -119,7 +119,7 @@ def login():
         if locked:
             flash(_("Too many failed attempts for that account. Try again in about %(minutes_left)s minute(s) (around %(strftime)s).", minutes_left=minutes_left, strftime=unlock_at.strftime('%H:%M')), "error")
             return render_template("login.html", lockout_unlock_at=unlock_at.isoformat(timespec="seconds"))
-        row = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        row = db.execute("SELECT * FROM users WHERE username=%s", (username,)).fetchone()
         # verify_password() runs unconditionally, even for a username that
         # doesn't exist — against a dummy hash in that case (see
         # auth._DUMMY_PASSWORD_HASH's own comment) — so a nonexistent/
@@ -165,7 +165,7 @@ def change_password():
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "")
         confirm = request.form.get("confirm_password", "")
-        user = db.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],)).fetchone()
         if not auth.verify_password(user["password_hash"], current):
             flash(_("Current password is incorrect."), "error")
         elif auth.password_error(new, user["username"]):
@@ -174,7 +174,7 @@ def change_password():
             flash(_("New password and confirmation don't match."), "error")
         else:
             changed_at = clock.now().isoformat(timespec="seconds")
-            db.execute("UPDATE users SET password_hash=?, must_change_password=false, password_changed_at=? WHERE id=?",
+            db.execute("UPDATE users SET password_hash=%s, must_change_password=false, password_changed_at=%s WHERE id=%s",
                        (auth.hash_password(new), changed_at, user["id"]))
             auth.log_change(db, "users", user["id"], "update", {"password": ("(hidden)", "(self-service change)")})
             db.commit()

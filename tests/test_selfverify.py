@@ -42,7 +42,7 @@ def _log_backup(db, path, status="success"):
     now = clock.now().isoformat(timespec="seconds")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) "
-        "VALUES (?,?,?,?)",
+        "VALUES (%s,%s,%s,%s)",
         (now, now, status, path),
     )
     db.commit()
@@ -60,13 +60,13 @@ def clean_backup_log(db):
     for row in saved:
         db.execute(
             "INSERT INTO backup_log (id, started_at, finished_at, status, filepath, "
-            "filesize_bytes, error, triggered_by) VALUES (?,?,?,?,?,?,?,?)",
+            "filesize_bytes, error, triggered_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (row["id"], row["started_at"], row["finished_at"], row["status"],
              row["filepath"], row["filesize_bytes"], row["error"], row["triggered_by"]),
         )
     if saved_setting:
         db.execute(
-            "INSERT INTO settings (key,value) VALUES (?,?) "
+            "INSERT INTO settings (key,value) VALUES (%s,%s) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             ("last_verified_restore", saved_setting["value"]),
         )
@@ -345,7 +345,7 @@ def _record_verification(db, days_ago, result="pass"):
         "result": result, "detail": "test",
     })
     db.execute(
-        "INSERT INTO settings (key,value) VALUES (?,?) "
+        "INSERT INTO settings (key,value) VALUES (%s,%s) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         ("last_verified_restore", payload),
     )
@@ -382,7 +382,7 @@ def test_the_reverify_interval_leaves_slack_before_the_warning(clean_backup_log)
 def test_an_unreadable_record_is_due(clean_backup_log):
     from vcs.ops import selfverify
     clean_backup_log.execute(
-        "INSERT INTO settings (key,value) VALUES (?,?) "
+        "INSERT INTO settings (key,value) VALUES (%s,%s) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         ("last_verified_restore", "not json at all"),
     )

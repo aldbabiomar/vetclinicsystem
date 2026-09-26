@@ -31,12 +31,12 @@ def settings_snapshot(db):
     yield original
     db.execute("DELETE FROM settings")
     for k, v in original.items():
-        db.execute("INSERT INTO settings (key, value) VALUES (?,?)", (k, v))
+        db.execute("INSERT INTO settings (key, value) VALUES (%s,%s)", (k, v))
     db.commit()
 
 
 def _setting(db, key):
-    row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
     return None if row is None else row["value"]
 
 
@@ -207,9 +207,9 @@ def role_cleanup(db):
     created = []
     yield created
     for rid in created:
-        db.execute("DELETE FROM role_permissions WHERE role_id=?", (rid,))
-        db.execute("UPDATE users SET role_id=NULL WHERE role_id=?", (rid,))
-        db.execute("DELETE FROM roles WHERE id=?", (rid,))
+        db.execute("DELETE FROM role_permissions WHERE role_id=%s", (rid,))
+        db.execute("UPDATE users SET role_id=NULL WHERE role_id=%s", (rid,))
+        db.execute("DELETE FROM roles WHERE id=%s", (rid,))
     db.commit()
 
 
@@ -222,7 +222,7 @@ def _new_role(client, name, **data):
 def test_a_role_can_be_created_with_a_discount_cap(client, db, role_cleanup):
     name = f"Role {uuid.uuid4().hex[:6]}"
     resp = _new_role(client, name, discount_cap="15")
-    row = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert row is not None, "the role was not created"
     role_cleanup.append(row["id"])
     assert resp.status_code == 302
@@ -267,7 +267,7 @@ def test_role_names_cannot_be_duplicated(client, db, role_cleanup):
     there is no way to tell which one an account actually holds."""
     name = f"Role {uuid.uuid4().hex[:6]}"
     _new_role(client, name)
-    first = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    first = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert first is not None
     role_cleanup.append(first["id"])
     before = db.execute("SELECT count(*) AS c FROM roles").fetchone()["c"]
@@ -286,11 +286,11 @@ def test_only_real_permissions_are_stored(client, db, role_cleanup):
         "name": name, "description": "", "discount_cap": "0",
         "permissions": [real, "not_a_real_permission", "../../etc/passwd"]},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert row is not None
     role_cleanup.append(row["id"])
     granted = [r["permission_id"] for r in db.execute(
-        "SELECT permission_id FROM role_permissions WHERE role_id=?", (row["id"],)).fetchall()]
+        "SELECT permission_id FROM role_permissions WHERE role_id=%s", (row["id"],)).fetchall()]
     assert real in granted
     for bogus in ("not_a_real_permission", "../../etc/passwd"):
         assert bogus not in granted, f"{bogus!r} must not have been granted"
@@ -300,26 +300,26 @@ def test_only_real_permissions_are_stored(client, db, role_cleanup):
 def test_a_role_can_be_edited(client, db, role_cleanup):
     name = f"Role {uuid.uuid4().hex[:6]}"
     _new_role(client, name, discount_cap="10")
-    row = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert row is not None
     role_cleanup.append(row["id"])
     client.post(f"/admin/roles/{row['id']}/edit", data={
         "name": name, "description": "edited", "discount_cap": "20"},
         follow_redirects=False)
-    after = db.execute("SELECT * FROM roles WHERE id=?", (row["id"],)).fetchone()
+    after = db.execute("SELECT * FROM roles WHERE id=%s", (row["id"],)).fetchone()
     assert after["discount_cap"] == 20
 
 
 def test_editing_a_role_to_an_invalid_cap_leaves_it_alone(client, db, role_cleanup):
     name = f"Role {uuid.uuid4().hex[:6]}"
     _new_role(client, name, discount_cap="10")
-    row = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert row is not None
     role_cleanup.append(row["id"])
     client.post(f"/admin/roles/{row['id']}/edit", data={
         "name": name, "description": "", "discount_cap": "999"},
         follow_redirects=False)
-    after = db.execute("SELECT * FROM roles WHERE id=?", (row["id"],)).fetchone()
+    after = db.execute("SELECT * FROM roles WHERE id=%s", (row["id"],)).fetchone()
     assert after["discount_cap"] == 10, "a rejected edit must not change the cap"
 
 
@@ -339,7 +339,7 @@ def test_the_discount_cap_is_read_from_the_role(client, db, role_cleanup):
     # What this test owns is that the number reaches the database intact.
     name = f"Role {uuid.uuid4().hex[:6]}"
     _new_role(client, name, discount_cap="7")
-    row = db.execute("SELECT * FROM roles WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE name=%s", (name,)).fetchone()
     assert row is not None
     role_cleanup.append(row["id"])
     assert row["discount_cap"] == 7, "the cap must be stored exactly as entered"

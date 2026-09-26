@@ -61,28 +61,28 @@ def sellable(db):
     """
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-               "VALUES (?,?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Route Test Item {inv_id}", "Retail", "unit", False, D("2.000"), "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
-               "VALUES (?,?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, f"Route Test Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                     "VALUES (?,?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
-               "VALUES (?,?,?,?)", (session_id, inv_id, 100.0, 0.0))
+               "VALUES (%s,%s,%s,%s)", (session_id, inv_id, 100.0, 0.0))
     db.commit()
     yield {"inv_id": inv_id, "pl_id": pl_id, "price": D("10.000"), "stock": 100}
     for sql, args in (
-        ("DELETE FROM inventory_transactions WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM sale_items WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM audit_session_lines WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM audit_sessions WHERE id=?", (session_id,)),
-        ("DELETE FROM price_list WHERE id=?", (pl_id,)),
-        ("DELETE FROM inventory_list WHERE id=?", (inv_id,)),
+        ("DELETE FROM inventory_transactions WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM sale_items WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM audit_session_lines WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM audit_sessions WHERE id=%s", (session_id,)),
+        ("DELETE FROM price_list WHERE id=%s", (pl_id,)),
+        ("DELETE FROM inventory_list WHERE id=%s", (inv_id,)),
     ):
         db.execute(sql, args)
     db.commit()
@@ -99,7 +99,7 @@ def _latest_sale(db):
 
 
 def _stock_now(db, inv_id):
-    row = db.execute("SELECT COALESCE(SUM(change_qty),0) AS c FROM inventory_transactions WHERE item_id=?",
+    row = db.execute("SELECT COALESCE(SUM(change_qty),0) AS c FROM inventory_transactions WHERE item_id=%s",
                      (inv_id,)).fetchone()
     return row["c"]
 
@@ -121,7 +121,7 @@ def test_checkout_records_the_line_and_decrements_stock(client, db, sellable):
     before = _stock_now(db, sellable["inv_id"])
     _checkout(client, sellable["inv_id"], qty=3, payment_method="Card")
     sale = _latest_sale(db)
-    line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
+    line = db.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     assert line["quantity"] == 3
     assert line["unit_price"] == D("10.000")
     assert line["line_total"] == D("30.000")
@@ -221,7 +221,7 @@ def test_checkout_rejects_a_discount_above_the_role_cap(client, db, sellable):
 
 
 def test_checkout_refuses_a_discount_on_a_non_discountable_item(client, db, sellable):
-    db.execute("UPDATE price_list SET can_discount=false WHERE id=?", (sellable["pl_id"],))
+    db.execute("UPDATE price_list SET can_discount=false WHERE id=%s", (sellable["pl_id"],))
     db.commit()
     before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
     resp = _checkout(client, sellable["inv_id"], qty=1, discount_percent=10, payment_method="Card")
@@ -234,9 +234,9 @@ def test_checkout_refuses_an_item_that_has_never_been_audited(client, db):
     and unknown must mean "cannot sell", not "sell without limit"."""
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-               "VALUES (?,?,?,?,?,?,?,?)", (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
-               "VALUES (?,?,?,?,?,?,?,?)", (pl_id, f"Unaudited {inv_id}", "Retail", D("1.000"), D("5.000"), True, inv_id, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Unaudited {inv_id}", "Retail", D("1.000"), D("5.000"), True, inv_id, True))
     db.commit()
     try:
         before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
@@ -244,8 +244,8 @@ def test_checkout_refuses_an_item_that_has_never_been_audited(client, db):
         assert resp.status_code == 200
         assert db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"] == before
     finally:
-        db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
-        db.execute("DELETE FROM inventory_list WHERE id=?", (inv_id,))
+        db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
+        db.execute("DELETE FROM inventory_list WHERE id=%s", (inv_id,))
         db.commit()
 
 
@@ -283,22 +283,22 @@ def test_a_refused_checkout_leaves_stock_untouched(client, db, sellable):
 def visit(db):
     """An owner -> patient -> visit chain, the minimum a bill can hang off."""
     o_id, p_id, v_id = _uid("O"), _uid("P"), _uid("V")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Route Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Route Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                (p_id, o_id, f"Route Pet {p_id}"))
     # 'Ongoing', not 'Open' — visits_case_status_check allows only the seven
     # statuses the app's own dropdown offers.
-    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     db.commit()
     yield {"visit_id": v_id, "patient_id": p_id, "owner_id": o_id}
     for sql, args in (
-        ("DELETE FROM payments WHERE visit_id=?", (v_id,)),
-        ("DELETE FROM visit_billing_lines WHERE visit_id=?", (v_id,)),
-        ("DELETE FROM billing WHERE visit_id=?", (v_id,)),
-        ("DELETE FROM visits WHERE id=?", (v_id,)),
-        ("DELETE FROM patients WHERE id=?", (p_id,)),
-        ("DELETE FROM owners WHERE id=?", (o_id,)),
+        ("DELETE FROM payments WHERE visit_id=%s", (v_id,)),
+        ("DELETE FROM visit_billing_lines WHERE visit_id=%s", (v_id,)),
+        ("DELETE FROM billing WHERE visit_id=%s", (v_id,)),
+        ("DELETE FROM visits WHERE id=%s", (v_id,)),
+        ("DELETE FROM patients WHERE id=%s", (p_id,)),
+        ("DELETE FROM owners WHERE id=%s", (o_id,)),
     ):
         db.execute(sql, args)
     db.commit()
@@ -310,7 +310,7 @@ def _bill(client, visit_id, **data):
 
 def test_manual_bill_stores_the_rounded_total(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["manual_amount"] == D("100.000")
     assert row["total"] == D("100.000")
     assert row["total"].as_tuple().exponent >= -3
@@ -321,7 +321,7 @@ def test_manual_bill_total_agrees_with_compute_bill_totals(client, db, visit):
     arithmetic. If it drifts from compute_bill_totals, the receipt and the
     P&L disagree and neither is obviously wrong."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="13.755")
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     expected, _, _, _, _ = billing.compute_bill_totals(
         row["manual_amount"], row["discount_percent"], D(0), row["cleanup_amount"],
         # A Manual bill is one typed figure and is discountable in full (A4).
@@ -335,27 +335,27 @@ def test_a_sub_unit_bill_is_stored_exactly_not_inflated(client, db, visit):
     real charge never prints as free. In JOD, 0.100 is a genuine payable
     amount -- inflating it would overcharge the client."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="0.100")
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["total"] == D("0.100")
 
 
 def test_manual_bill_requires_a_positive_amount(client, db, visit):
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="0")
     assert resp.status_code == 200
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row is None, "a zero-amount manual bill must not be stored"
 
 
 def test_manual_bill_rejects_a_non_numeric_amount(client, db, visit):
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="abc")
     assert resp.status_code == 200
-    assert db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone() is None
+    assert db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone() is None
 
 
 def test_bill_rejects_an_unknown_billing_type(client, db, visit):
     resp = _bill(client, visit["visit_id"], billing_type="Sideways", manual_amount="1000")
     assert resp.status_code == 200
-    assert db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone() is None
+    assert db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone() is None
 
 
 def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
@@ -363,12 +363,12 @@ def test_a_bill_cannot_shrink_below_what_is_already_paid(client, db, visit):
     allowed to shrink under an existing payment, the overpayment becomes
     invisible — not refunded, not flagged, just gone from every view."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="10.000")
     assert resp.status_code == 200
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["manual_amount"] == D("100.000"), "the bill must be left as it was"
 
 
@@ -381,7 +381,7 @@ def test_billing_a_missing_visit_is_refused(client, db):
                        follow_redirects=False)
     assert resp.status_code == 302, "should redirect with a message, not raise"
     assert resp.status_code != 500
-    assert db.execute("SELECT * FROM billing WHERE visit_id=?", (2000000001,)).fetchone() is None
+    assert db.execute("SELECT * FROM billing WHERE visit_id=%s", (2000000001,)).fetchone() is None
 
 
 # ---------------------------------------------------------------------------
@@ -392,13 +392,13 @@ def test_billing_a_missing_visit_is_refused(client, db):
 def boarding(db, visit):
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
-        "cleanup_amount, discount_percent, dismissed, total) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
+        "cleanup_amount, discount_percent, dismissed, total) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (visit["patient_id"], clock.today().isoformat(), False, False, D(0), D(0), False, D("200.000")))
     bid = cur.fetchone()["id"]
     db.commit()
     yield {"id": bid, "total": D("200.000"), "patient_id": visit["patient_id"]}
-    db.execute("DELETE FROM payments WHERE boarding_id=?", (bid,))
-    db.execute("DELETE FROM boarding_sessions WHERE id=?", (bid,))
+    db.execute("DELETE FROM payments WHERE boarding_id=%s", (bid,))
+    db.execute("DELETE FROM boarding_sessions WHERE id=%s", (bid,))
     db.commit()
 
 
@@ -408,16 +408,16 @@ def _pay(client, bid, **data):
 
 def test_boarding_payment_is_recorded(client, db, boarding):
     _pay(client, boarding["id"], amount="50.000", method="Cash")
-    row = db.execute("SELECT * FROM payments WHERE boarding_id=? ORDER BY id DESC LIMIT 1",
+    row = db.execute("SELECT * FROM payments WHERE boarding_id=%s ORDER BY id DESC LIMIT 1",
                      (boarding["id"],)).fetchone()
     assert row["amount"] == D("50.000")
 
 
 def test_boarding_payment_cannot_exceed_the_balance(client, db, boarding):
-    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     resp = _pay(client, boarding["id"], amount=str(boarding["total"] + D("50.000")), method="Cash")
     assert resp.status_code == 200
-    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     assert after == before, "an overpayment must write nothing"
 
 
@@ -428,37 +428,37 @@ def test_boarding_payment_is_checked_against_the_POST_DISCOUNT_balance(client, d
     let "apply 10% and pay in full" through at the undiscounted figure —
     overpaying a bill with no delete route to undo it."""
     full = boarding["total"]
-    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     resp = _pay(client, boarding["id"], amount=str(full), discount_percent="10", method="Cash")
     assert resp.status_code == 200, "paying the pre-discount total must be refused"
-    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     assert after == before, "nothing may be written when the payment is refused"
-    row = db.execute("SELECT discount_percent FROM boarding_sessions WHERE id=?", (boarding["id"],)).fetchone()
+    row = db.execute("SELECT discount_percent FROM boarding_sessions WHERE id=%s", (boarding["id"],)).fetchone()
     assert row["discount_percent"] == 0, "a refused payment must not leave the discount applied"
 
 
 def test_boarding_discount_is_stored_when_the_payment_is_valid(client, db, boarding):
     discounted = boarding["total"] * D("0.9")
     _pay(client, boarding["id"], amount=str(discounted), discount_percent="10", method="Cash")
-    row = db.execute("SELECT * FROM boarding_sessions WHERE id=?", (boarding["id"],)).fetchone()
+    row = db.execute("SELECT * FROM boarding_sessions WHERE id=%s", (boarding["id"],)).fetchone()
     assert row["discount_percent"] == 10
     assert row["discount_applied_by"], "a discount must record who applied it"
 
 
 def test_boarding_payment_rejects_zero_and_negative(client, db, boarding):
-    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     for bad in ("0", "-5.000"):
         resp = _pay(client, boarding["id"], amount=bad, method="Cash")
         assert resp.status_code == 200
-    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     assert after == before
 
 
 def test_boarding_payment_rejects_a_discount_above_the_cap(client, db, boarding):
-    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    before = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     resp = _pay(client, boarding["id"], amount="10.000", discount_percent="150", method="Cash")
     assert resp.status_code == 200
-    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=?", (boarding["id"],)).fetchone()["c"]
+    after = db.execute("SELECT count(*) AS c FROM payments WHERE boarding_id=%s", (boarding["id"],)).fetchone()["c"]
     assert after == before
 
 
@@ -471,11 +471,11 @@ def completed_sale(client, db, sellable):
     """A real sale, made through the real checkout, to refund against."""
     _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received="50.000")
     sale = _latest_sale(db)
-    line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
+    line = db.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     yield {"sale": sale, "line": line, "inv_id": sellable["inv_id"]}
-    db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)",
+    db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)",
                (sale["id"],))
-    db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
+    db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale["id"],))
     db.commit()
 
 
@@ -487,7 +487,7 @@ def _refund_retail(client, sale_id, sale_item_id, qty, **extra):
 
 
 def _refunds_for(db, sale_id):
-    return db.execute("SELECT * FROM refunds WHERE sale_id=? ORDER BY id", (sale_id,)).fetchall()
+    return db.execute("SELECT * FROM refunds WHERE sale_id=%s ORDER BY id", (sale_id,)).fetchall()
 
 
 def test_retail_refund_is_recorded_against_the_sale(client, db, completed_sale):
@@ -505,20 +505,20 @@ def test_refund_is_exact_to_the_fils_not_rounded(client, db, sellable):
     note to floor to, so the refund is the exact line total — flooring it
     here would quietly keep a few fils of the customer's money on every
     refund, in the clinic's favour, permanently."""
-    db.execute("UPDATE price_list SET sale_price=? WHERE id=?", (D("10.505"), sellable["pl_id"]))
+    db.execute("UPDATE price_list SET sale_price=%s WHERE id=%s", (D("10.505"), sellable["pl_id"]))
     db.commit()
     _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash", cash_received="20.000")
     sale = _latest_sale(db)
-    line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
+    line = db.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     try:
         _refund_retail(client, sale["id"], line["id"], 1)
         row = _refunds_for(db, sale["id"])[0]
         assert row["amount"] == D("10.505"), "exact, not rounded to anything"
         assert row["amount"] == line["line_total"]
     finally:
-        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)",
+        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)",
                    (sale["id"],))
-        db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
+        db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale["id"],))
         db.commit()
 
 
@@ -560,7 +560,7 @@ def test_aggregate_cap_bites_when_clean_up_shrank_what_was_collected(client, db,
     Only the aggregate cap sees that."""
     _checkout(client, sellable["inv_id"], qty=4, payment_method="Card", cleanup_amount="1.000")
     sale = _latest_sale(db)
-    line = db.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale["id"],)).fetchone()
+    line = db.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     assert line is not None, "the checkout did not produce a sale"
     try:
         assert sale["cleanup_amount"] == D("1.000"), "fixture must actually apply a write-off"
@@ -570,9 +570,9 @@ def test_aggregate_cap_bites_when_clean_up_shrank_what_was_collected(client, db,
         assert resp.status_code == 200, "refunding every line in full must be refused"
         assert _refunds_for(db, sale["id"]) == [], "nothing may be paid out"
     finally:
-        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)",
+        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)",
                    (sale["id"],))
-        db.execute("DELETE FROM refunds WHERE sale_id=?", (sale["id"],))
+        db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale["id"],))
         db.commit()
 
 
@@ -616,7 +616,7 @@ def test_refund_rejects_a_line_from_a_different_sale(client, db, completed_sale)
     _checkout(client, completed_sale["inv_id"], qty=1, payment_method="Card")
     other_sale = _latest_sale(db)
     assert other_sale["id"] != sale["id"], "needed a genuinely different sale"
-    other = db.execute("SELECT id FROM sale_items WHERE sale_id=?", (other_sale["id"],)).fetchone()
+    other = db.execute("SELECT id FROM sale_items WHERE sale_id=%s", (other_sale["id"],)).fetchone()
     assert other is not None
     resp = _refund_retail(client, sale["id"], other["id"], 1)
     assert resp.status_code == 200
@@ -634,20 +634,20 @@ def test_service_refund_cannot_exceed_what_the_visit_paid(client, db, visit):
     """A service refund is capped by what was actually collected on that
     visit — otherwise it is a way to pay money out against nothing."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     resp = client.post("/refunds/service", data={
         "visit_id": visit["visit_id"], "amount": "90.000",
         "refund_method": "Cash", "reason": "over-refund attempt"}, follow_redirects=False)
     assert resp.status_code == 200, "refunding more than was paid must be refused"
-    rows = db.execute("SELECT * FROM refunds WHERE visit_id=?", (visit["visit_id"],)).fetchall()
+    rows = db.execute("SELECT * FROM refunds WHERE visit_id=%s", (visit["visit_id"],)).fetchall()
     assert rows == []
 
 
 def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
@@ -655,11 +655,11 @@ def test_service_refund_within_what_was_paid_is_recorded(client, db, visit):
             "visit_id": visit["visit_id"], "amount": "25.000",
             "refund_method": "Cash", "reason": "partial"}, follow_redirects=False)
         assert resp.status_code == 302
-        rows = db.execute("SELECT * FROM refunds WHERE visit_id=?", (visit["visit_id"],)).fetchall()
+        rows = db.execute("SELECT * FROM refunds WHERE visit_id=%s", (visit["visit_id"],)).fetchall()
         assert len(rows) == 1
         assert rows[0]["amount"] == D("25.000")
     finally:
-        db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+        db.execute("DELETE FROM refunds WHERE visit_id=%s", (visit["visit_id"],))
         db.commit()
 
 
@@ -678,7 +678,7 @@ def test_service_refund_rejects_zero_and_negative(client, db, visit):
             "visit_id": visit["visit_id"], "amount": bad,
             "refund_method": "Cash", "reason": "bad"}, follow_redirects=False)
         assert resp.status_code == 200
-    assert db.execute("SELECT * FROM refunds WHERE visit_id=?", (visit["visit_id"],)).fetchall() == []
+    assert db.execute("SELECT * FROM refunds WHERE visit_id=%s", (visit["visit_id"],)).fetchall() == []
 
 
 def test_service_refund_requires_a_payout_method(client, db, visit):
@@ -690,7 +690,7 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
     physically left the clinic, which is exactly what cash reconciliation
     reads."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("50.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     try:
@@ -699,10 +699,10 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
                 "visit_id": visit["visit_id"], "amount": "25.000",
                 "refund_method": bad, "reason": "bad method"}, follow_redirects=False)
             assert resp.status_code == 200, f"method {bad!r} must be refused"
-        assert db.execute("SELECT * FROM refunds WHERE visit_id=?",
+        assert db.execute("SELECT * FROM refunds WHERE visit_id=%s",
                           (visit["visit_id"],)).fetchall() == []
     finally:
-        db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+        db.execute("DELETE FROM refunds WHERE visit_id=%s", (visit["visit_id"],))
         db.commit()
 
 
@@ -715,7 +715,7 @@ def _pay_visit(client, visit_id, **data):
 
 
 def _payments_for(db, visit_id):
-    return db.execute("SELECT * FROM payments WHERE visit_id=? ORDER BY id", (visit_id,)).fetchall()
+    return db.execute("SELECT * FROM payments WHERE visit_id=%s ORDER BY id", (visit_id,)).fetchall()
 
 
 def test_visit_payment_is_recorded(client, db, visit):
@@ -774,7 +774,7 @@ def test_a_visit_address_that_is_not_a_number_is_not_found(client):
 def test_visit_payment_on_a_missing_visit_is_refused(client, db):
     resp = _pay_visit(client, 2000000001, amount="10.000", method="Cash")
     assert resp.status_code != 500, "must degrade, not raise"
-    assert db.execute("SELECT * FROM payments WHERE visit_id=?",
+    assert db.execute("SELECT * FROM payments WHERE visit_id=%s",
                       (2000000001,)).fetchall() == []
 
 
@@ -783,7 +783,7 @@ def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):
     it lowers what is still owed rather than counting as a payment."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     _pay_visit(client, visit["visit_id"], amount="99.000", method="Cash", cleanup_amount="1.000")
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["cleanup_amount"] == D("1.000")
     summary = billing.visit_billing_summary(db, visit["visit_id"])
     # <= 0, not <= 0.5: in JOD a leftover half is real uncollected money, not
@@ -808,7 +808,7 @@ def inpatient_case(client, db, visit):
     """An admitted case to bill and take payments against."""
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, discount_percent, "
-        "total, cleanup_amount) VALUES (?,?,?,?,?,?) RETURNING id",
+        "total, cleanup_amount) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (visit["patient_id"], clock.today().isoformat(), False, D(0), D(0), D(0)))
     case_id = cur.fetchone()["id"]
     db.commit()
@@ -817,13 +817,13 @@ def inpatient_case(client, db, visit):
     # writes to leaves the parent delete failing on a foreign key, which
     # aborts the transaction and reports as a broken fixture rather than a
     # failing test. Delete every child first.
-    for sql in ("DELETE FROM payments WHERE inpatient_case_id=?",
-                "DELETE FROM refunds WHERE inpatient_case_id=?",
-                "DELETE FROM attachments WHERE inpatient_case_id=?",
-                "DELETE FROM inpatient_billing WHERE case_id=?",
-                "DELETE FROM inpatient_updates WHERE case_id=?",
-                "DELETE FROM inpatient_contact_log WHERE case_id=?",
-                "DELETE FROM inpatient_cases WHERE id=?"):
+    for sql in ("DELETE FROM payments WHERE inpatient_case_id=%s",
+                "DELETE FROM refunds WHERE inpatient_case_id=%s",
+                "DELETE FROM attachments WHERE inpatient_case_id=%s",
+                "DELETE FROM inpatient_billing WHERE case_id=%s",
+                "DELETE FROM inpatient_updates WHERE case_id=%s",
+                "DELETE FROM inpatient_contact_log WHERE case_id=%s",
+                "DELETE FROM inpatient_cases WHERE id=%s"):
         db.execute(sql, (case_id,))
     db.commit()
 
@@ -832,7 +832,7 @@ def inpatient_case(client, db, visit):
 def priced_service(db):
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, f"Inpatient Service {pl_id}", "Service", D("4.000"), D("12.000"), True, True))
     db.commit()
     yield {"id": pl_id, "price": D("12.000")}
@@ -841,10 +841,10 @@ def priced_service(db):
     # referenced by inpatient_billing at this point. Clear the lines that
     # point here first; otherwise the delete trips the foreign key, aborts
     # the transaction, and every later teardown on this connection fails too.
-    for sql in ("DELETE FROM inpatient_billing WHERE price_id=?",
-                "DELETE FROM visit_billing_lines WHERE price_id=?"):
+    for sql in ("DELETE FROM inpatient_billing WHERE price_id=%s",
+                "DELETE FROM visit_billing_lines WHERE price_id=%s"):
         db.execute(sql, (pl_id,))
-    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
     db.commit()
 
 
@@ -853,12 +853,12 @@ def blocked_service(db):
     """A priced service that must never be discounted."""
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, f"No-Discount Service {pl_id}", "Service", D("1.000"), D("5.000"), True, False))
     db.commit()
     yield {"id": pl_id}
-    db.execute("DELETE FROM inpatient_billing WHERE price_id=?", (pl_id,))
-    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+    db.execute("DELETE FROM inpatient_billing WHERE price_id=%s", (pl_id,))
+    db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
     db.commit()
 
 
@@ -870,7 +870,7 @@ def test_a_non_discountable_procedure_never_lands_on_a_staff_discounted_case(
     through — with nothing else noticing. Holds under today's rule (the
     blocked line is skipped) and owner decision D-5's (the whole submission
     is refused): either way the non-discountable line is not on the bill."""
-    db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_source='staff' WHERE id=?",
+    db.execute("UPDATE inpatient_cases SET discount_percent=%s, discount_source='staff' WHERE id=%s",
                (D(10), inpatient_case["id"]))
     db.commit()
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
@@ -878,7 +878,7 @@ def test_a_non_discountable_procedure_never_lands_on_a_staff_discounted_case(
                       f"qty_{priced_service['id']}": "1", f"qty_{blocked_service['id']}": "1"},
                 follow_redirects=False)
     billed = {r["price_id"] for r in db.execute(
-        "SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()}
+        "SELECT price_id FROM inpatient_billing WHERE case_id=%s", (inpatient_case["id"],)).fetchall()}
     assert blocked_service["id"] not in billed, "a non-discountable procedure was added under a staff discount"
 
 
@@ -886,16 +886,16 @@ def test_d5_a_blocked_item_refuses_the_whole_submission(client, db, inpatient_ca
     """GUARD (owner decision D-5, audit P8). Nothing from the submission is
     billed — not even its discountable line — and the message names the
     item. The predecessor JO app added the rest and skipped this one."""
-    db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_source='staff' WHERE id=?",
+    db.execute("UPDATE inpatient_cases SET discount_percent=%s, discount_source='staff' WHERE id=%s",
                (D(10), inpatient_case["id"]))
     db.commit()
     resp = client.post(f"/inpatient/{inpatient_case['id']}/billing",
                        data={"price_id": [priced_service["id"], blocked_service["id"]],
                              f"qty_{priced_service['id']}": "1", f"qty_{blocked_service['id']}": "1"},
                        follow_redirects=True)
-    billed = db.execute("SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()
+    billed = db.execute("SELECT price_id FROM inpatient_billing WHERE case_id=%s", (inpatient_case["id"],)).fetchall()
     assert billed == [], "part of a refused submission was billed"
-    name = db.execute("SELECT name FROM price_list WHERE id=?", (blocked_service["id"],)).fetchone()["name"]
+    name = db.execute("SELECT name FROM price_list WHERE id=%s", (blocked_service["id"],)).fetchone()["name"]
     assert name in resp.get_data(as_text=True)
 
 
@@ -905,7 +905,7 @@ def test_control_without_a_discount_the_same_procedure_is_billed(
                 data={"price_id": blocked_service["id"], f"qty_{blocked_service['id']}": "1"},
                 follow_redirects=False)
     billed = {r["price_id"] for r in db.execute(
-        "SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()}
+        "SELECT price_id FROM inpatient_billing WHERE case_id=%s", (inpatient_case["id"],)).fetchall()}
     assert blocked_service["id"] in billed
 
 
@@ -914,7 +914,7 @@ def _inpatient_pay(client, case_id, **data):
 
 
 def _inpatient_payments(db, case_id):
-    return db.execute("SELECT * FROM payments WHERE inpatient_case_id=? ORDER BY id",
+    return db.execute("SELECT * FROM payments WHERE inpatient_case_id=%s ORDER BY id",
                       (case_id,)).fetchall()
 
 
@@ -922,7 +922,7 @@ def test_inpatient_billing_line_can_be_added(client, db, inpatient_case, priced_
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
                 data={"price_id": priced_service["id"], f"qty_{priced_service['id']}": "2"},
                 follow_redirects=False)
-    rows = db.execute("SELECT * FROM inpatient_billing WHERE case_id=?",
+    rows = db.execute("SELECT * FROM inpatient_billing WHERE case_id=%s",
                       (inpatient_case["id"],)).fetchall()
     if not rows:
         pytest.skip("this build's inpatient billing form takes a shape this test does not model")
@@ -984,7 +984,7 @@ def test_boarding_stay_can_be_created(client, db, visit):
         "entry_date": clock.today().isoformat(),
         "price_per_day": "10.000", "room": "R1",
         "special_needs": "", "total": ""}, follow_redirects=False)
-    row = db.execute("SELECT * FROM boarding_sessions WHERE patient_id=? ORDER BY id DESC LIMIT 1",
+    row = db.execute("SELECT * FROM boarding_sessions WHERE patient_id=%s ORDER BY id DESC LIMIT 1",
                      (visit["patient_id"],)).fetchone()
     if row is None:
         pytest.skip("this build's boarding form takes a shape this test does not model")
@@ -992,8 +992,8 @@ def test_boarding_stay_can_be_created(client, db, visit):
         assert resp.status_code == 302
         assert row["price_per_day"] == D("10.000")
     finally:
-        db.execute("DELETE FROM payments WHERE boarding_id=?", (row["id"],))
-        db.execute("DELETE FROM boarding_sessions WHERE id=?", (row["id"],))
+        db.execute("DELETE FROM payments WHERE boarding_id=%s", (row["id"],))
+        db.execute("DELETE FROM boarding_sessions WHERE id=%s", (row["id"],))
         db.commit()
 
 
@@ -1026,7 +1026,7 @@ def test_visit_discount_can_be_applied(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "10"}, follow_redirects=False)
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["discount_percent"] == 10
     assert row["total"] == D("90.000"), "the stored total must follow the discount"
 
@@ -1036,7 +1036,7 @@ def test_visit_discount_above_the_role_cap_is_refused(client, db, visit):
     resp = client.post(f"/visits/{visit['visit_id']}/discount",
                        data={"discount_percent": "95"}, follow_redirects=False)
     assert resp.status_code != 500
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["discount_percent"] == 0, "an over-cap discount must not be applied"
 
 
@@ -1045,7 +1045,7 @@ def test_visit_discount_rejects_a_non_numeric_value(client, db, visit):
     resp = client.post(f"/visits/{visit['visit_id']}/discount",
                        data={"discount_percent": "loads"}, follow_redirects=False)
     assert resp.status_code != 500
-    row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["discount_percent"] == 0
 
 
@@ -1054,7 +1054,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     which is an overpayment nothing surfaces — the same hazard the billing
     route guards, on a different entry point."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("100.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
@@ -1092,7 +1092,7 @@ def _drawer_is_left_as_found(db):
     yield
     after = {r["id"] for r in db.execute("SELECT id FROM cash_register_payouts").fetchall()}
     for pid in after - before:
-        db.execute("DELETE FROM cash_register_payouts WHERE id=?", (pid,))
+        db.execute("DELETE FROM cash_register_payouts WHERE id=%s", (pid,))
     db.commit()
 
 
@@ -1173,17 +1173,17 @@ def test_price_list_bulk_edit_applies_a_valid_change(client, db):
     client.post("/price-list/new", data={
         "name": name, "category": "Service", "cost_price": "2.000", "sale_price": "10.000"},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE name=%s", (name,)).fetchone()
     assert row is not None
     try:
         resp = client.post("/price-list/bulk-edit", json={"items": [
             {"id": row["id"], "fields": {"name": name, "category": "Service",
                                          "cost_price": "3.000", "sale_price": "14.000"}}]})
         assert resp.get_json().get("ok"), f"control edit should succeed: {resp.get_json()}"
-        after = db.execute("SELECT * FROM price_list WHERE id=?", (row["id"],)).fetchone()
+        after = db.execute("SELECT * FROM price_list WHERE id=%s", (row["id"],)).fetchone()
         assert after["sale_price"] == D("14.000")
     finally:
-        db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
+        db.execute("DELETE FROM price_list WHERE id=%s", (row["id"],))
         db.commit()
 
 
@@ -1192,7 +1192,7 @@ def test_price_list_bulk_edit_rejects_a_negative_price(client, db):
     client.post("/price-list/new", data={
         "name": name, "category": "Service", "cost_price": "2.000", "sale_price": "10.000"},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE name=%s", (name,)).fetchone()
     assert row is not None
     try:
         resp = client.post("/price-list/bulk-edit", json={"items": [
@@ -1200,10 +1200,10 @@ def test_price_list_bulk_edit_rejects_a_negative_price(client, db):
                                          "cost_price": "3.000", "sale_price": "-14.000"}}]})
         assert resp.status_code < 500
         assert not resp.get_json().get("ok"), "a negative price must be reported as an error"
-        after = db.execute("SELECT * FROM price_list WHERE id=?", (row["id"],)).fetchone()
+        after = db.execute("SELECT * FROM price_list WHERE id=%s", (row["id"],)).fetchone()
         assert after["sale_price"] == D("10.000"), "the original price must survive"
     finally:
-        db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
+        db.execute("DELETE FROM price_list WHERE id=%s", (row["id"],))
         db.commit()
 
 
@@ -1220,21 +1220,21 @@ def test_price_list_bulk_edit_rejects_a_negative_price(client, db):
 @pytest.fixture
 def distributor_bill(db):
     did, bid = _uid("DIST"), _uid("DB")
-    db.execute("INSERT INTO distributors (id, name) VALUES (?,?)", (did, f"Precision Dist {did}"))
+    db.execute("INSERT INTO distributors (id, name) VALUES (%s,%s)", (did, f"Precision Dist {did}"))
     db.execute("INSERT INTO distributor_bills (id, distributor_id, bill_date, total_amount, created_at) "
-               "VALUES (?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s)",
                (bid, did, clock.today().isoformat(), D("10.000"), clock.now().isoformat(timespec="seconds")))
     db.commit()
     yield {"dist_id": did, "bill_id": bid}
     db.execute("DELETE FROM distributor_bill_payments WHERE bill_id IN "
-               "(SELECT id FROM distributor_bills WHERE distributor_id=?)", (did,))
-    db.execute("DELETE FROM distributor_bills WHERE distributor_id=?", (did,))
-    db.execute("DELETE FROM distributors WHERE id=?", (did,))
+               "(SELECT id FROM distributor_bills WHERE distributor_id=%s)", (did,))
+    db.execute("DELETE FROM distributor_bills WHERE distributor_id=%s", (did,))
+    db.execute("DELETE FROM distributors WHERE id=%s", (did,))
     db.commit()
 
 
 def _bill_payments(db, bill_id):
-    return db.execute("SELECT amount FROM distributor_bill_payments WHERE bill_id=?",
+    return db.execute("SELECT amount FROM distributor_bill_payments WHERE bill_id=%s",
                       (bill_id,)).fetchall()
 
 
@@ -1261,7 +1261,7 @@ def test_b6_a_bill_that_rounds_to_nothing_is_refused(client, db, distributor_bil
     """GUARD. The predecessor accepted it and showed a 0.000 bill."""
     d = distributor_bill
     client.post(f"/distributors/{d['dist_id']}/bills/new", data={"total_amount": "0.0004"})
-    count = db.execute("SELECT COUNT(*) AS n FROM distributor_bills WHERE distributor_id=?",
+    count = db.execute("SELECT COUNT(*) AS n FROM distributor_bills WHERE distributor_id=%s",
                        (d["dist_id"],)).fetchone()["n"]
     assert count == 1, "a bill worth 0.000 was logged"
 
@@ -1281,7 +1281,7 @@ def test_b6_the_balance_check_sees_the_amount_that_will_be_stored(client, db, di
 def _audit(client, db, day, counted):
     client.post("/cash-register/audit", data={"day": day, "counted_cash": counted, "notes": "B7"},
                 follow_redirects=True)
-    return db.execute("SELECT id, status FROM cash_register_audits WHERE audit_date=? "
+    return db.execute("SELECT id, status FROM cash_register_audits WHERE audit_date=%s "
                       "ORDER BY id DESC LIMIT 1", (day,)).fetchone()
 
 
@@ -1294,7 +1294,7 @@ def test_b7_a_drawer_off_by_under_one_dinar_is_not_perfect(client, db):
         assert row["status"] == "Surplus"
     finally:
         if row:
-            db.execute("DELETE FROM cash_register_audits WHERE id=?", (row["id"],))
+            db.execute("DELETE FROM cash_register_audits WHERE id=%s", (row["id"],))
             db.commit()
 
 
@@ -1304,5 +1304,5 @@ def test_b7_control_an_exact_count_is_perfect(client, db):
         assert row and row["status"] == "Perfect"
     finally:
         if row:
-            db.execute("DELETE FROM cash_register_audits WHERE id=?", (row["id"],))
+            db.execute("DELETE FROM cash_register_audits WHERE id=%s", (row["id"],))
             db.commit()

@@ -56,8 +56,8 @@ def search_patients(db, term):
     return db.execute(
         "SELECT p.*, o.name as owner_name, o.phone as owner_phone FROM patients p "
         "JOIN owners o ON o.id = p.owner_id "
-        "WHERE p.animal_name ILIKE ? OR p.id = ? OR p.microchip ILIKE ? "
-        "OR o.name ILIKE ? OR o.phone ILIKE ? "
+        "WHERE p.animal_name ILIKE %s OR p.id = %s OR p.microchip ILIKE %s "
+        "OR o.name ILIKE %s OR o.phone ILIKE %s "
         "ORDER BY p.animal_name LIMIT 25",
         # A typed code ("PT-00012") or number finds that patient exactly.
         (term, id_term, chip_term, term, term),

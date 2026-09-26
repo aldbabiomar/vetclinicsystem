@@ -162,11 +162,11 @@ msgstr "لا يمكن أن تكون التكاليف التشغيلية سالب
 msgid "Operating costs saved for %(month)s."
 msgstr "تم حفظ التكاليف التشغيلية لشهر %(month)s."
 
-#: vcs/auth.py:473
+#: vcs/auth.py:477
 msgid "Unknown OS"
 msgstr "نظام غير معروف"
 
-#: vcs/auth.py:488
+#: vcs/auth.py:492
 msgid "Unknown browser"
 msgstr "متصفح غير معروف"
 
@@ -1278,8 +1278,8 @@ msgid ""
 msgstr "رقم هاتف المالك لا يبدو صحيحًا — تحقق من الأرقام وحاول مرة أخرى."
 
 #: vcs/web/blueprints/clinical.py:640 vcs/web/blueprints/clinical.py:671
-#: vcs/web/blueprints/clinical.py:966 vcs/web/blueprints/clinical.py:2038
-#: vcs/web/blueprints/clinical.py:2135
+#: vcs/web/blueprints/clinical.py:966 vcs/web/blueprints/clinical.py:2043
+#: vcs/web/blueprints/clinical.py:2140
 msgid "Weight and BCS must be valid numbers."
 msgstr "يجب أن يكون الوزن ودرجة الحالة الجسدية أرقامًا صالحة."
 
@@ -1300,10 +1300,10 @@ msgstr "تعذّر حفظ هذا المالك — تحقق من الاسم ور�
 
 #: vcs/web/blueprints/clinical.py:912 vcs/web/blueprints/clinical.py:926
 #: vcs/web/blueprints/clinical.py:1050 vcs/web/blueprints/clinical.py:1058
-#: vcs/web/blueprints/clinical.py:1214 vcs/web/blueprints/clinical.py:1235
-#: vcs/web/blueprints/clinical.py:1354 vcs/web/blueprints/clinical.py:1363
-#: vcs/web/blueprints/clinical.py:1423 vcs/web/blueprints/clinical.py:1514
-#: vcs/web/blueprints/clinical.py:1546 vcs/web/blueprints/clinical.py:1583
+#: vcs/web/blueprints/clinical.py:1224 vcs/web/blueprints/clinical.py:1245
+#: vcs/web/blueprints/clinical.py:1359 vcs/web/blueprints/clinical.py:1368
+#: vcs/web/blueprints/clinical.py:1428 vcs/web/blueprints/clinical.py:1519
+#: vcs/web/blueprints/clinical.py:1551 vcs/web/blueprints/clinical.py:1588
 msgid "Visit not found."
 msgstr "الزيارة غير موجودة."
 
@@ -1311,8 +1311,8 @@ msgstr "الزيارة غير موجودة."
 msgid "Visit type must be Outpatient or Inpatient."
 msgstr "يجب أن يكون نوع الزيارة عيادات خارجية أو إقامة مرضية."
 
-#: vcs/web/blueprints/clinical.py:969 vcs/web/blueprints/clinical.py:2046
-#: vcs/web/blueprints/clinical.py:2138
+#: vcs/web/blueprints/clinical.py:969 vcs/web/blueprints/clinical.py:2051
+#: vcs/web/blueprints/clinical.py:2143
 msgid "Weight can't be negative."
 msgstr "لا يمكن أن يكون الوزن سالبًا."
 
@@ -1334,11 +1334,11 @@ msgid "Visit updated."
 msgstr "تم تحديث الزيارة."
 
 #: vcs/templates/inpatient_detail.html:321 vcs/templates/visit_detail.html:246
-#: vcs/web/blueprints/clinical.py:1096
+#: vcs/web/blueprints/clinical.py:1104
 msgid "Add at least one billed item."
 msgstr "أضف صنفًا واحدًا على الأقل إلى الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:1115
+#: vcs/web/blueprints/clinical.py:1123
 #, python-format
 msgid ""
 "Can't save — this bill has a %(discount_percent)s%% discount applied, but"
@@ -1349,15 +1349,15 @@ msgstr ""
 "أصنافًا غير قابلة للخصم: %(join)s. أزل الخصم أولًا، أو استبعد هذه الأصناف"
 " من الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:1120
+#: vcs/web/blueprints/clinical.py:1128
 msgid "Manual amount must be a valid number."
 msgstr "يجب أن يكون المبلغ اليدوي رقمًا صالحًا."
 
-#: vcs/web/blueprints/clinical.py:1123
+#: vcs/web/blueprints/clinical.py:1131
 msgid "Manual Entry requires a Billed Amount greater than 0."
 msgstr "الإدخال اليدوي يتطلب مبلغًا مفوترًا أكبر من ٠."
 
-#: vcs/web/blueprints/clinical.py:1158
+#: vcs/web/blueprints/clinical.py:1166
 #, python-format
 msgid ""
 "That change would leave %(fmt_money)s paid against a %(fmt_money2)s "
@@ -1366,25 +1366,25 @@ msgstr ""
 "هذا التغيير سيترك %(fmt_money)s مدفوعًا مقابل فاتورة بقيمة %(fmt_money2)s"
 " %(currency)s. نفّذ استرداد خدمة للفرق أولًا."
 
-#: vcs/web/blueprints/clinical.py:1197 vcs/web/blueprints/clinical.py:2303
+#: vcs/web/blueprints/clinical.py:1205 vcs/web/blueprints/clinical.py:2312
 msgid "Some quantities weren't valid numbers and were skipped."
 msgstr "بعض الكميات لم تكن أرقامًا صالحة وتم تجاهلها."
 
-#: vcs/web/blueprints/clinical.py:1199 vcs/web/blueprints/clinical.py:2305
+#: vcs/web/blueprints/clinical.py:1207 vcs/web/blueprints/clinical.py:2314
 msgid "Some selected items no longer exist in the Price List and were skipped."
 msgstr "بعض الأصناف المختارة لم تعد موجودة في قائمة الأسعار وتم تجاهلها."
 
-#: vcs/web/blueprints/clinical.py:1200
+#: vcs/web/blueprints/clinical.py:1210
 msgid "Billing saved."
 msgstr "تم حفظ الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:1221 vcs/web/blueprints/clinical.py:1893
-#: vcs/web/blueprints/clinical.py:2363 vcs/web/blueprints/sales.py:502
+#: vcs/web/blueprints/clinical.py:1231 vcs/web/blueprints/clinical.py:1898
+#: vcs/web/blueprints/clinical.py:2374 vcs/web/blueprints/sales.py:502
 msgid "Discount must be a valid number."
 msgstr "يجب أن يكون الخصم رقمًا صالحًا."
 
-#: vcs/web/blueprints/clinical.py:1245 vcs/web/blueprints/clinical.py:1901
-#: vcs/web/blueprints/clinical.py:2382
+#: vcs/web/blueprints/clinical.py:1255 vcs/web/blueprints/clinical.py:1906
+#: vcs/web/blueprints/clinical.py:2393
 msgid ""
 "This bill carries a rewards-card discount. A staff discount can't be "
 "added on top of it, and can't replace it."
@@ -1392,45 +1392,45 @@ msgstr ""
 "تحتوي هذه الفاتورة على خصم بطاقة المكافآت. لا يمكن إضافة خصم الموظفين "
 "فوقه، ولا يمكنه استبداله."
 
-#: vcs/web/blueprints/clinical.py:1251 vcs/web/blueprints/clinical.py:2390
+#: vcs/web/blueprints/clinical.py:1261 vcs/web/blueprints/clinical.py:2401
 #, python-format
 msgid ""
 "Can't apply a discount — this bill includes item(s) marked as not "
 "discountable: %(join)s."
 msgstr "تعذّر تطبيق الخصم — تتضمن هذه الفاتورة أصنافًا غير قابلة للخصم: %(join)s."
 
-#: vcs/web/blueprints/clinical.py:1259
+#: vcs/web/blueprints/clinical.py:1269
 msgid "Save the bill first — a discount needs something to apply to."
 msgstr "احفظ الفاتورة أولًا — الخصم يحتاج إلى ما يُطبَّق عليه."
 
-#: vcs/web/blueprints/clinical.py:1268 vcs/web/blueprints/clinical.py:2398
+#: vcs/web/blueprints/clinical.py:1278 vcs/web/blueprints/clinical.py:2409
 #, python-format
 msgid "%(percent)s%% discount applied."
 msgstr "تم تطبيق خصم %(percent)s٪."
 
-#: vcs/web/blueprints/clinical.py:1317
+#: vcs/web/blueprints/clinical.py:1327
 msgid "That bill no longer exists."
 msgstr "هذه الفاتورة لم تعد موجودة."
 
-#: vcs/web/blueprints/clinical.py:1322
+#: vcs/web/blueprints/clinical.py:1332
 msgid "This bill doesn't carry a rewards-card discount."
 msgstr "لا تحتوي هذه الفاتورة على خصم بطاقة المكافآت."
 
-#: vcs/web/blueprints/clinical.py:1340
+#: vcs/web/blueprints/clinical.py:1345
 msgid "Rewards-card discount removed from this bill."
 msgstr "تم إزالة خصم بطاقة المكافآت من هذه الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:1368 vcs/web/blueprints/clinical.py:1881
-#: vcs/web/blueprints/clinical.py:2426 vcs/web/blueprints/consignment.py:329
+#: vcs/web/blueprints/clinical.py:1373 vcs/web/blueprints/clinical.py:1886
+#: vcs/web/blueprints/clinical.py:2437 vcs/web/blueprints/consignment.py:329
 msgid "Payment amount must be a valid number."
 msgstr "يجب أن يكون مبلغ الدفعة رقمًا صالحًا."
 
-#: vcs/web/blueprints/clinical.py:1371 vcs/web/blueprints/clinical.py:1884
-#: vcs/web/blueprints/clinical.py:2429
+#: vcs/web/blueprints/clinical.py:1376 vcs/web/blueprints/clinical.py:1889
+#: vcs/web/blueprints/clinical.py:2440
 msgid "Payment amount must be greater than 0."
 msgstr "يجب أن يكون مبلغ الدفعة أكبر من ٠."
 
-#: vcs/web/blueprints/clinical.py:1376
+#: vcs/web/blueprints/clinical.py:1381
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1439,25 +1439,25 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الزيارة."
 
-#: vcs/web/blueprints/clinical.py:1381 vcs/web/blueprints/clinical.py:1913
-#: vcs/web/blueprints/clinical.py:2439 vcs/web/blueprints/sales.py:570
+#: vcs/web/blueprints/clinical.py:1386 vcs/web/blueprints/clinical.py:1918
+#: vcs/web/blueprints/clinical.py:2450 vcs/web/blueprints/sales.py:570
 msgid "Clean Up amount must be a valid number."
 msgstr "يجب أن تكون قيمة الإعفاء عن الفئات القليلة رقمًا صالحًا."
 
-#: vcs/web/blueprints/clinical.py:1412 vcs/web/blueprints/clinical.py:1964
-#: vcs/web/blueprints/clinical.py:2470 vcs/web/blueprints/consignment.py:366
+#: vcs/web/blueprints/clinical.py:1417 vcs/web/blueprints/clinical.py:1969
+#: vcs/web/blueprints/clinical.py:2481 vcs/web/blueprints/consignment.py:366
 msgid "Payment recorded."
 msgstr "تم تسجيل الدفعة."
 
-#: vcs/web/blueprints/clinical.py:1427 vcs/web/blueprints/clinical.py:2485
+#: vcs/web/blueprints/clinical.py:1432 vcs/web/blueprints/clinical.py:2496
 msgid "No file selected."
 msgstr "لم يتم اختيار أي ملف."
 
-#: vcs/web/blueprints/clinical.py:1440
+#: vcs/web/blueprints/clinical.py:1445
 msgid "File not found."
 msgstr "الملف غير موجود."
 
-#: vcs/web/blueprints/clinical.py:1449
+#: vcs/web/blueprints/clinical.py:1454
 msgid ""
 "This file's record exists but the file itself is missing from the uploads"
 " folder — it may not have been included in a backup/restore. Check with "
@@ -1467,57 +1467,57 @@ msgstr ""
 "مضمّنًا في نسخة احتياطية أو استعادة. راجع المسؤول عن النسخ الاحتياطي قبل "
 "إعادة الرفع."
 
-#: vcs/web/blueprints/clinical.py:1470 vcs/web/blueprints/clinical.py:1485
+#: vcs/web/blueprints/clinical.py:1475 vcs/web/blueprints/clinical.py:1490
 msgid "File not found — it may have already been deleted."
 msgstr "الملف غير موجود — ربما تم حذفه بالفعل."
 
-#: vcs/web/blueprints/clinical.py:1489
+#: vcs/web/blueprints/clinical.py:1494
 #, python-format
 msgid "Deleted %(original_name)s."
 msgstr "تم حذف %(original_name)s."
 
-#: vcs/web/blueprints/clinical.py:1522
+#: vcs/web/blueprints/clinical.py:1527
 msgid "Follow-up status updated."
 msgstr "تم تحديث حالة المتابعة."
 
-#: vcs/web/blueprints/clinical.py:1558
+#: vcs/web/blueprints/clinical.py:1563
 msgid "Wellness reminder updated."
 msgstr "تم تحديث تذكير الرعاية الوقائية."
 
-#: vcs/web/blueprints/clinical.py:1595
+#: vcs/web/blueprints/clinical.py:1600
 msgid "Grooming entry updated."
 msgstr "تم تحديث سجل العناية و تصفيف الحيوان."
 
-#: vcs/web/blueprints/clinical.py:1678 vcs/web/blueprints/clinical.py:2050
+#: vcs/web/blueprints/clinical.py:1683 vcs/web/blueprints/clinical.py:2055
 msgid "Pick a patient from the search results first."
 msgstr "اختر مريضًا من نتائج البحث أولًا."
 
-#: vcs/web/blueprints/clinical.py:1684 vcs/web/blueprints/clinical.py:1748
+#: vcs/web/blueprints/clinical.py:1689 vcs/web/blueprints/clinical.py:1753
 msgid "Price per Day and Total must be valid numbers."
 msgstr "يجب أن يكون السعر اليومي والإجمالي أرقامًا صالحة."
 
-#: vcs/web/blueprints/clinical.py:1687 vcs/web/blueprints/clinical.py:1751
+#: vcs/web/blueprints/clinical.py:1692 vcs/web/blueprints/clinical.py:1756
 msgid "Price per Day and Total can't be negative."
 msgstr "لا يمكن أن يكون السعر اليومي والإجمالي سالبين."
 
-#: vcs/web/blueprints/clinical.py:1716
+#: vcs/web/blueprints/clinical.py:1721
 msgid "Boarding session added."
 msgstr "تمت إضافة فترة الإقامة الفندقية."
 
-#: vcs/web/blueprints/clinical.py:1727 vcs/web/blueprints/clinical.py:1808
-#: vcs/web/blueprints/clinical.py:1838 vcs/web/blueprints/clinical.py:1876
+#: vcs/web/blueprints/clinical.py:1732 vcs/web/blueprints/clinical.py:1813
+#: vcs/web/blueprints/clinical.py:1843 vcs/web/blueprints/clinical.py:1881
 msgid "Boarding session not found."
 msgstr "فترة الإقامة الفندقية غير موجودة."
 
-#: vcs/web/blueprints/clinical.py:1764
+#: vcs/web/blueprints/clinical.py:1769
 msgid "A stay can't end before it starts — check the dates."
 msgstr "لا يمكن أن تنتهي الإقامة قبل أن تبدأ — تحقق من التواريخ."
 
-#: vcs/web/blueprints/clinical.py:1792
+#: vcs/web/blueprints/clinical.py:1797
 msgid "Boarding session updated."
 msgstr "تم تحديث فترة الإقامة الفندقية."
 
-#: vcs/web/blueprints/clinical.py:1794
+#: vcs/web/blueprints/clinical.py:1799
 msgid ""
 "This stay is already picked up, so dates/price/total stayed locked at the"
 " billed figure — only room, admitted items, and special needs were "
@@ -1527,19 +1527,19 @@ msgstr ""
 "والإجمالي مثبتة على القيمة المفوترة — لم يتغير سوى الغرفة والأغراض "
 "المستلمة والاحتياجات الخاصة."
 
-#: vcs/web/blueprints/clinical.py:1829
+#: vcs/web/blueprints/clinical.py:1834
 msgid "Marked as picked up."
 msgstr "تم وضع علامة الاستلام."
 
-#: vcs/web/blueprints/clinical.py:1843
+#: vcs/web/blueprints/clinical.py:1848
 msgid "Describe what's wrong before submitting."
 msgstr "صف المشكلة قبل الإرسال."
 
-#: vcs/web/blueprints/clinical.py:1855
+#: vcs/web/blueprints/clinical.py:1860
 msgid "Incident logged."
 msgstr "تم تسجيل الحادثة."
 
-#: vcs/web/blueprints/clinical.py:1933
+#: vcs/web/blueprints/clinical.py:1938
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1548,36 +1548,36 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الإقامة."
 
-#: vcs/web/blueprints/clinical.py:2071
+#: vcs/web/blueprints/clinical.py:2076
 msgid "Patient admitted."
 msgstr "تم إدخال المريض."
 
-#: vcs/web/blueprints/clinical.py:2103 vcs/web/blueprints/clinical.py:2117
-#: vcs/web/blueprints/clinical.py:2123 vcs/web/blueprints/clinical.py:2177
-#: vcs/web/blueprints/clinical.py:2211 vcs/web/blueprints/clinical.py:2236
-#: vcs/web/blueprints/clinical.py:2356 vcs/web/blueprints/clinical.py:2376
-#: vcs/web/blueprints/clinical.py:2412 vcs/web/blueprints/clinical.py:2421
-#: vcs/web/blueprints/clinical.py:2481
+#: vcs/web/blueprints/clinical.py:2108 vcs/web/blueprints/clinical.py:2122
+#: vcs/web/blueprints/clinical.py:2128 vcs/web/blueprints/clinical.py:2182
+#: vcs/web/blueprints/clinical.py:2216 vcs/web/blueprints/clinical.py:2241
+#: vcs/web/blueprints/clinical.py:2367 vcs/web/blueprints/clinical.py:2387
+#: vcs/web/blueprints/clinical.py:2423 vcs/web/blueprints/clinical.py:2432
+#: vcs/web/blueprints/clinical.py:2492
 msgid "Inpatient case not found."
 msgstr "حالة الإقامة المرضية غير موجودة."
 
-#: vcs/web/blueprints/clinical.py:2148
+#: vcs/web/blueprints/clinical.py:2153
 msgid "A case can't be discharged before it was admitted — check the dates."
 msgstr "لا يمكن إخراج الحالة قبل تاريخ إدخالها — تحقق من التواريخ."
 
-#: vcs/web/blueprints/clinical.py:2167
+#: vcs/web/blueprints/clinical.py:2172
 msgid "Case updated."
 msgstr "تم تحديث الحالة."
 
-#: vcs/web/blueprints/clinical.py:2187
+#: vcs/web/blueprints/clinical.py:2192
 msgid "Update logged."
 msgstr "تم تسجيل التحديث."
 
-#: vcs/web/blueprints/clinical.py:2201
+#: vcs/web/blueprints/clinical.py:2206
 msgid "Update edited."
 msgstr "تم تعديل التحديث."
 
-#: vcs/web/blueprints/clinical.py:2222
+#: vcs/web/blueprints/clinical.py:2227
 msgid "Contact attempt logged."
 msgstr "تم تسجيل محاولة التواصل."
 
@@ -1589,16 +1589,16 @@ msgstr ""
 "بعض الأصناف المختارة غير قابلة للخصم ولا يمكن إضافتها إلى فاتورة عليها "
 "خصم بالفعل — أزل الخصم أولًا، أو استبعدها من هذه الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:2307
+#: vcs/web/blueprints/clinical.py:2318
 #, python-format
 msgid "%(added)s procedure(s) added to the bill."
 msgstr "تمت إضافة %(added)s إجراء إلى الفاتورة."
 
-#: vcs/web/blueprints/clinical.py:2318
+#: vcs/web/blueprints/clinical.py:2329
 msgid "That billing line was already removed."
 msgstr "سطر الفاتورة هذا تمت إزالته بالفعل."
 
-#: vcs/web/blueprints/clinical.py:2336
+#: vcs/web/blueprints/clinical.py:2347
 #, python-format
 msgid ""
 "Removing this line would leave %(fmt_money)s paid against a "
@@ -1608,11 +1608,11 @@ msgstr ""
 "إزالة هذا السطر ستترك %(fmt_money)s مدفوعًا مقابل فاتورة بقيمة "
 "%(fmt_money2)s %(currency)s. نفّذ استرداد خدمة للفرق أولًا."
 
-#: vcs/web/blueprints/clinical.py:2342
+#: vcs/web/blueprints/clinical.py:2353
 msgid "Line removed."
 msgstr "تمت إزالة السطر."
 
-#: vcs/web/blueprints/clinical.py:2434
+#: vcs/web/blueprints/clinical.py:2445
 #, python-format
 msgid ""
 "That's more than the remaining balance of %(fmt_money)s %(currency)s on "
@@ -1621,41 +1621,41 @@ msgstr ""
 "هذا أكثر من الرصيد المتبقي البالغ %(fmt_money)s %(currency)s على هذه "
 "الحالة."
 
-#: vcs/web/blueprints/clinical.py:2518
+#: vcs/web/blueprints/clinical.py:2529
 msgid "That week link wasn't valid, showing the current week instead."
 msgstr "رابط الأسبوع غير صالح، يتم عرض الأسبوع الحالي بدلًا منه."
 
-#: vcs/web/blueprints/clinical.py:2526
+#: vcs/web/blueprints/clinical.py:2537
 msgid "That date wasn't valid, showing today instead."
 msgstr "التاريخ غير صالح، يتم عرض تاريخ اليوم بدلًا منه."
 
-#: vcs/web/blueprints/clinical.py:2566
+#: vcs/web/blueprints/clinical.py:2577
 msgid "Appointment date is required."
 msgstr "تاريخ الموعد مطلوب."
 
-#: vcs/web/blueprints/clinical.py:2589
+#: vcs/web/blueprints/clinical.py:2600
 msgid "Pick a valid, active vet for this appointment."
 msgstr "اختر طبيبًا بيطريًا نشطًا وصالحًا لهذا الموعد."
 
-#: vcs/web/blueprints/clinical.py:2592
+#: vcs/web/blueprints/clinical.py:2603
 msgid ""
 "That's not a valid time slot — the schedule may have changed. Reload and "
 "try again."
 msgstr "هذه ليست فترة زمنية صالحة — ربما تغيّر الجدول. أعد التحميل وحاول مرة أخرى."
 
-#: vcs/web/blueprints/clinical.py:2596 vcs/web/blueprints/clinical.py:2625
+#: vcs/web/blueprints/clinical.py:2607 vcs/web/blueprints/clinical.py:2636
 msgid "That slot is already booked for this vet/groomer."
 msgstr "هذه الفترة محجوزة بالفعل لهذا الطبيب أو مقدّم العناية."
 
-#: vcs/web/blueprints/clinical.py:2627
+#: vcs/web/blueprints/clinical.py:2638
 msgid "Appointment booked."
 msgstr "تم حجز الموعد."
 
-#: vcs/web/blueprints/clinical.py:2637
+#: vcs/web/blueprints/clinical.py:2648
 msgid "Appointment not found."
 msgstr "الموعد غير موجود."
 
-#: vcs/web/blueprints/clinical.py:2642
+#: vcs/web/blueprints/clinical.py:2653
 msgid "Appointment cancelled."
 msgstr "تم إلغاء الموعد."
 
@@ -1817,22 +1817,22 @@ msgstr "تم تسجيل التسوية: دُفع %(fmt_money)s %(currency)s، و
 msgid "Settlement not found."
 msgstr "التسوية غير موجودة."
 
-#: vcs/web/blueprints/inventory.py:155 vcs/web/blueprints/inventory.py:211
-#: vcs/web/blueprints/inventory.py:278
+#: vcs/web/blueprints/inventory.py:152 vcs/web/blueprints/inventory.py:208
+#: vcs/web/blueprints/inventory.py:275
 msgid "Cost Price and Sale Price must be valid numbers."
 msgstr "يجب أن يكون سعر التكلفة وسعر البيع أرقامًا صالحة."
 
-#: vcs/web/blueprints/inventory.py:158 vcs/web/blueprints/inventory.py:214
-#: vcs/web/blueprints/inventory.py:281
+#: vcs/web/blueprints/inventory.py:155 vcs/web/blueprints/inventory.py:211
+#: vcs/web/blueprints/inventory.py:278
 msgid "Cost Price and Sale Price can't be negative."
 msgstr "لا يمكن أن يكون سعر التكلفة وسعر البيع سالبين."
 
-#: vcs/web/blueprints/inventory.py:166 vcs/web/blueprints/inventory.py:227
-#: vcs/web/blueprints/inventory.py:299
+#: vcs/web/blueprints/inventory.py:163 vcs/web/blueprints/inventory.py:224
+#: vcs/web/blueprints/inventory.py:296
 msgid "That inventory item no longer exists — reload the page and pick again."
 msgstr "هذا الصنف لم يعد موجودًا — أعد تحميل الصفحة واختر مرة أخرى."
 
-#: vcs/web/blueprints/inventory.py:178 vcs/web/blueprints/inventory.py:235
+#: vcs/web/blueprints/inventory.py:175 vcs/web/blueprints/inventory.py:232
 #, python-format
 msgid ""
 "That inventory item is already linked to %(id)s (%(name)s) — an item can "
@@ -1841,54 +1841,54 @@ msgstr ""
 "هذا الصنف مرتبط بالفعل بـ %(id)s (%(name)s) — لا يمكن ربط الصنف إلا من "
 "سطر واحد نشط في قائمة الأسعار في كل مرة."
 
-#: vcs/web/blueprints/inventory.py:192
+#: vcs/web/blueprints/inventory.py:189
 #, python-format
 msgid "%(pid)s added to price list."
 msgstr "تمت إضافة %(pid)s إلى قائمة الأسعار."
 
-#: vcs/web/blueprints/inventory.py:221
+#: vcs/web/blueprints/inventory.py:218
 msgid "Price list item not found."
 msgstr "صنف قائمة الأسعار غير موجود."
 
-#: vcs/web/blueprints/inventory.py:249
+#: vcs/web/blueprints/inventory.py:246
 msgid "Price updated."
 msgstr "تم تحديث السعر."
 
-#: vcs/web/blueprints/inventory.py:338
+#: vcs/web/blueprints/inventory.py:335
 msgid "Item removed from price list."
 msgstr "تمت إزالة الصنف من قائمة الأسعار."
 
-#: vcs/web/blueprints/inventory.py:393 vcs/web/blueprints/inventory.py:436
-#: vcs/web/blueprints/inventory.py:496
+#: vcs/web/blueprints/inventory.py:390 vcs/web/blueprints/inventory.py:433
+#: vcs/web/blueprints/inventory.py:493
 msgid "Cost Price must be a valid number."
 msgstr "يجب أن يكون سعر التكلفة رقمًا صالحًا."
 
-#: vcs/web/blueprints/consignment.py:499 vcs/web/blueprints/inventory.py:398
-#: vcs/web/blueprints/inventory.py:439 vcs/web/blueprints/inventory.py:501
+#: vcs/web/blueprints/consignment.py:499 vcs/web/blueprints/inventory.py:395
+#: vcs/web/blueprints/inventory.py:436 vcs/web/blueprints/inventory.py:498
 msgid "Cost Price can't be negative."
 msgstr "لا يمكن أن يكون سعر التكلفة سالبًا."
 
-#: vcs/web/blueprints/inventory.py:406 vcs/web/blueprints/inventory.py:455
-#: vcs/web/blueprints/inventory.py:521
+#: vcs/web/blueprints/inventory.py:403 vcs/web/blueprints/inventory.py:452
+#: vcs/web/blueprints/inventory.py:518
 msgid "That distributor no longer exists — reload the page and pick again."
 msgstr "هذا المورد لم يعد موجودًا — أعد تحميل الصفحة واختر مرة أخرى."
 
-#: vcs/web/blueprints/inventory.py:420
+#: vcs/web/blueprints/inventory.py:417
 #, python-format
 msgid "%(iid)s added to inventory catalog."
 msgstr "تمت إضافة %(iid)s إلى دليل الأصناف."
 
-#: vcs/web/blueprints/inventory.py:446
+#: vcs/web/blueprints/inventory.py:443
 msgid "Inventory item not found."
 msgstr "الصنف غير موجود."
 
-#: vcs/web/blueprints/inventory.py:450 vcs/web/blueprints/inventory.py:516
+#: vcs/web/blueprints/inventory.py:447 vcs/web/blueprints/inventory.py:513
 msgid ""
 "Set this item back to Owned on the Consignment Items page before changing"
 " its category."
 msgstr "أعد هذا الصنف إلى \"مملوك\" من صفحة أصناف الأمانة قبل تغيير فئته."
 
-#: vcs/web/blueprints/inventory.py:458 vcs/web/blueprints/inventory.py:524
+#: vcs/web/blueprints/inventory.py:455 vcs/web/blueprints/inventory.py:521
 msgid ""
 "This item has consignment activity against it — its distributor can't be "
 "changed here. Create a new inventory item for the new supply source."
@@ -1896,34 +1896,34 @@ msgstr ""
 "على هذا الصنف حركة أمانة — لا يمكن تغيير مورده من هنا. أنشئ صنفًا جديدًا "
 "لمصدر التوريد الجديد."
 
-#: vcs/web/blueprints/inventory.py:475
+#: vcs/web/blueprints/inventory.py:472
 msgid "Inventory item updated."
 msgstr "تم تحديث الصنف."
 
-#: vcs/web/blueprints/consignment.py:483 vcs/web/blueprints/inventory.py:285
-#: vcs/web/blueprints/inventory.py:505 vcs/web/blueprints/inventory.py:548
-#: vcs/web/blueprints/inventory.py:564 vcs/web/blueprints/inventory.py:596
-#: vcs/web/blueprints/inventory.py:629 vcs/web/blueprints/inventory.py:644
+#: vcs/web/blueprints/consignment.py:483 vcs/web/blueprints/inventory.py:282
+#: vcs/web/blueprints/inventory.py:502 vcs/web/blueprints/inventory.py:545
+#: vcs/web/blueprints/inventory.py:561 vcs/web/blueprints/inventory.py:593
+#: vcs/web/blueprints/inventory.py:626 vcs/web/blueprints/inventory.py:641
 msgid "Item not found."
 msgstr "الصنف غير موجود."
 
-#: vcs/web/blueprints/inventory.py:658
+#: vcs/web/blueprints/inventory.py:655
 msgid "This item doesn't have a barcode yet."
 msgstr "لا يوجد باركود لهذا الصنف بعد."
 
-#: vcs/web/blueprints/inventory.py:710
+#: vcs/web/blueprints/inventory.py:707
 msgid "No barcodes selected to print."
 msgstr "لم يتم اختيار أي باركود للطباعة."
 
-#: vcs/web/blueprints/inventory.py:802
+#: vcs/web/blueprints/inventory.py:799
 msgid "Audit session not found."
 msgstr "جلسة الجرد غير موجودة."
 
-#: vcs/web/blueprints/inventory.py:894
+#: vcs/web/blueprints/inventory.py:891
 msgid "This audit is confirmed and can no longer be edited."
 msgstr "تم تأكيد هذا الجرد ولم يعد بالإمكان تعديله."
 
-#: vcs/web/blueprints/inventory.py:909
+#: vcs/web/blueprints/inventory.py:906
 msgid ""
 "Audit counts must be valid numbers. The draft was not saved — please "
 "correct the highlighted value(s)."
@@ -1931,17 +1931,17 @@ msgstr ""
 "يجب أن تكون أعداد الجرد أرقامًا صالحة. لم تُحفظ المسودة — يرجى تصحيح "
 "القيم المميزة."
 
-#: vcs/web/blueprints/inventory.py:916
+#: vcs/web/blueprints/inventory.py:913
 msgid ""
 "Audit saved. You can come back and finish it later, or confirm it once "
 "it's complete."
 msgstr "تم حفظ الجرد. يمكنك العودة لإكماله لاحقًا، أو تأكيده عند اكتماله."
 
-#: vcs/web/blueprints/inventory.py:926
+#: vcs/web/blueprints/inventory.py:923
 msgid "This audit is already confirmed."
 msgstr "تم تأكيد هذا الجرد بالفعل."
 
-#: vcs/web/blueprints/inventory.py:935
+#: vcs/web/blueprints/inventory.py:932
 msgid ""
 "Audit counts must be valid numbers. Nothing was confirmed — please "
 "correct the highlighted value(s)."
@@ -1949,7 +1949,7 @@ msgstr ""
 "يجب أن تكون أعداد الجرد أرقامًا صالحة. لم يتم تأكيد شيء — يرجى تصحيح "
 "القيم المميزة."
 
-#: vcs/web/blueprints/inventory.py:948
+#: vcs/web/blueprints/inventory.py:945
 msgid ""
 "Nothing has been counted in this audit yet — fill in at least one item "
 "before confirming."
@@ -1957,17 +1957,17 @@ msgstr ""
 "لم يتم عدّ أي شيء في هذا الجرد بعد — أدخل صنفًا واحدًا على الأقل قبل "
 "التأكيد."
 
-#: vcs/web/blueprints/inventory.py:965
+#: vcs/web/blueprints/inventory.py:962
 msgid ""
 "Audit confirmed and locked. Inventory Status and Ordering Sheet now "
 "reflect these counts."
 msgstr "تم تأكيد الجرد وقفله. تعكس الآن حالة المخزون وكشف النواقص هذه الأعداد."
 
-#: vcs/web/blueprints/inventory.py:1012
+#: vcs/web/blueprints/inventory.py:1009
 msgid "Only a draft audit can be discarded."
 msgstr "يمكن تجاهل الجرد المسودة فقط."
 
-#: vcs/web/blueprints/inventory.py:1018
+#: vcs/web/blueprints/inventory.py:1015
 msgid "Draft audit discarded."
 msgstr "تم تجاهل الجرد المسودة."
 
@@ -7158,13 +7158,13 @@ msgstr ""
 msgid "That date wasn't valid — showing all dates instead."
 msgstr "التاريخ غير صالح — يتم عرض كل التواريخ بدلًا منه."
 
-#: vcs/web/blueprints/inventory.py:907
+#: vcs/web/blueprints/inventory.py:904
 msgid ""
 "An expiry date isn't a valid date. The draft was not saved — please "
 "correct it."
 msgstr "أحد تواريخ الانتهاء غير صالح. لم تُحفظ المسودة — يرجى تصحيحه."
 
-#: vcs/web/blueprints/inventory.py:933
+#: vcs/web/blueprints/inventory.py:930
 msgid ""
 "An expiry date isn't a valid date. Nothing was confirmed — please correct"
 " it."
@@ -7185,7 +7185,7 @@ msgstr ""
 "حفظ شخص آخر هذه الزيارة أثناء فتحك لها، لذلك لم تُحفظ تغييراتك. تغييراته "
 "مدرجة أدناه."
 
-#: vcs/web/blueprints/clinical.py:1741
+#: vcs/web/blueprints/clinical.py:1746
 msgid ""
 "Someone else saved this boarding stay while you had it open, so your "
 "changes were not saved. Their changes are listed below."
@@ -7193,7 +7193,7 @@ msgstr ""
 "حفظ شخص آخر فترة الإقامة الفندقية هذه أثناء فتحك لها، لذلك لم تُحفظ "
 "تغييراتك. تغييراته مدرجة أدناه."
 
-#: vcs/web/blueprints/clinical.py:2126
+#: vcs/web/blueprints/clinical.py:2131
 msgid ""
 "Someone else saved this inpatient case while you had it open, so your "
 "changes were not saved. Their changes are listed below."
@@ -7288,7 +7288,7 @@ msgstr ""
 "هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد "
 "انتهائه."
 
-#: vcs/web/blueprints/inventory.py:566 vcs/web/blueprints/inventory.py:606
+#: vcs/web/blueprints/inventory.py:563 vcs/web/blueprints/inventory.py:603
 msgid "A barcode already exists for this item."
 msgstr "يوجد باركود لهذا الصنف بالفعل."
 
@@ -7309,7 +7309,7 @@ msgstr ""
 "هناك نسخ احتياطي أو استعادة أو تحديث آخر قيد التشغيل — حاول مرة أخرى بعد "
 "انتهائه."
 
-#: vcs/web/blueprints/clinical.py:2577
+#: vcs/web/blueprints/clinical.py:2588
 #, python-format
 msgid "Appointment type must be one of: %(choices)s."
 msgstr "يجب أن يكون نوع الموعد أحد التالي: %(choices)s."
@@ -7369,9 +7369,9 @@ msgstr "تعذّر فتح هذا المجلد: %(error)s"
 msgid "Case status must be one of: %(choices)s."
 msgstr "يجب أن تكون حالة الزيارة أحد التالي: %(choices)s."
 
-#: vcs/web/blueprints/inventory.py:161 vcs/web/blueprints/inventory.py:217
-#: vcs/web/blueprints/inventory.py:293 vcs/web/blueprints/inventory.py:401
-#: vcs/web/blueprints/inventory.py:442 vcs/web/blueprints/inventory.py:513
+#: vcs/web/blueprints/inventory.py:158 vcs/web/blueprints/inventory.py:214
+#: vcs/web/blueprints/inventory.py:290 vcs/web/blueprints/inventory.py:398
+#: vcs/web/blueprints/inventory.py:439 vcs/web/blueprints/inventory.py:510
 #, python-format
 msgid "Category must be one of: %(choices)s."
 msgstr "يجب أن تكون الفئة أحد التالي: %(choices)s."
@@ -7480,7 +7480,7 @@ msgstr "الإصدار الذي تم تنزيله لا يحتوي على ملف 
 msgid "Downloaded release is missing %(file)s."
 msgstr "الإصدار الذي تم تنزيله ينقصه %(file)s."
 
-#: vcs/templates/inventory_catalog.html:334 vcs/web/blueprints/inventory.py:600
+#: vcs/templates/inventory_catalog.html:334 vcs/web/blueprints/inventory.py:597
 msgid "Enter a barcode."
 msgstr "أدخل باركودًا."
 
@@ -7488,7 +7488,7 @@ msgstr "أدخل باركودًا."
 msgid "Enter a plain folder name (no slashes)."
 msgstr "أدخل اسم مجلد بسيطًا (دون شرطات مائلة)."
 
-#: vcs/web/blueprints/clinical.py:1430 vcs/web/blueprints/clinical.py:2488
+#: vcs/web/blueprints/clinical.py:1435 vcs/web/blueprints/clinical.py:2499
 msgid "File uploaded."
 msgstr "تم رفع الملف."
 
@@ -7576,15 +7576,15 @@ msgstr ""
 "فترة في الجدول. ما زالت محجوزة — راجع قائمة \"بحاجة إلى انتباه\" في "
 "المواعيد لإعادة جدولتها."
 
-#: vcs/web/blueprints/inventory.py:554
+#: vcs/web/blueprints/inventory.py:551
 msgid "Item deactivated."
 msgstr "تم إلغاء تفعيل الصنف."
 
-#: vcs/web/blueprints/inventory.py:554
+#: vcs/web/blueprints/inventory.py:551
 msgid "Item reactivated."
 msgstr "تمت إعادة تفعيل الصنف."
 
-#: vcs/web/blueprints/inventory.py:289 vcs/web/blueprints/inventory.py:509
+#: vcs/web/blueprints/inventory.py:286 vcs/web/blueprints/inventory.py:506
 msgid "Name is required."
 msgstr "الاسم مطلوب."
 
@@ -7616,7 +7616,7 @@ msgstr "لا توجد عملية بيع بهذا الرقم."
 msgid "Only PDF and JPG/JPEG files are allowed."
 msgstr "يُسمح فقط بملفات PDF وJPG/JPEG."
 
-#: vcs/web/blueprints/inventory.py:604
+#: vcs/web/blueprints/inventory.py:601
 msgid "Only letters, numbers, spaces, and . - _ are allowed."
 msgstr "يُسمح فقط بالأحرف والأرقام والمسافات و . - _"
 
@@ -7633,7 +7633,7 @@ msgstr "يجب ألا تقل كلمة المرور عن %(n)s حرفًا."
 msgid "Pick a distributor to flag this item as Consignment."
 msgstr "اختر موردًا لتحديد هذا الصنف كأمانة."
 
-#: vcs/web/blueprints/clinical.py:2573
+#: vcs/web/blueprints/clinical.py:2584
 #, python-format
 msgid "Resource type must be one of: %(choices)s."
 msgstr "يجب أن يكون نوع المورد المحجوز أحد التالي: %(choices)s."
@@ -7678,16 +7678,16 @@ msgstr "جارٍ استعادة قاعدة البيانات (%(done)s/%(total)s 
 msgid "Rolling back to %(tag)s. This page will reconnect in a few seconds."
 msgstr "جارٍ الرجوع إلى %(tag)s. ستُعاد هذه الصفحة الاتصال خلال ثوانٍ."
 
-#: vcs/web/blueprints/inventory.py:612
+#: vcs/web/blueprints/inventory.py:609
 #, python-format
 msgid "That barcode is already used by \"%(name)s\"."
 msgstr "هذا الباركود مستخدم بالفعل للصنف \"%(name)s\"."
 
-#: vcs/web/blueprints/inventory.py:617
+#: vcs/web/blueprints/inventory.py:614
 msgid "That barcode was just claimed by another item — try again."
 msgstr "استُخدم هذا الباركود للتو لصنف آخر — حاول مرة أخرى."
 
-#: vcs/web/blueprints/inventory.py:583
+#: vcs/web/blueprints/inventory.py:580
 msgid "That code was just claimed by another item — try again."
 msgstr "استُخدم هذا الرمز للتو لصنف آخر — حاول مرة أخرى."
 
@@ -7717,7 +7717,7 @@ msgstr "هذا الملف ليس داخل مجلد النسخ الاحتياطي
 msgid "That folder is outside the areas this app can browse (%(where)s)."
 msgstr "هذا المجلد خارج المواقع التي يمكن لهذا التطبيق تصفحها (%(where)s)."
 
-#: vcs/web/blueprints/inventory.py:311
+#: vcs/web/blueprints/inventory.py:308
 #, python-format
 msgid ""
 "That inventory item is already linked to %(row)s — an item can only be "
@@ -7736,7 +7736,7 @@ msgid ""
 "another."
 msgstr "كلمة المرور هذه من أكثر كلمات المرور تخمينًا — يرجى اختيار غيرها."
 
-#: vcs/web/blueprints/inventory.py:602
+#: vcs/web/blueprints/inventory.py:599
 msgid "That's too long to be a real barcode — check what you entered."
 msgstr "هذا أطول من أن يكون باركودًا حقيقيًا — تحقق مما أدخلته."
 
@@ -8023,7 +8023,7 @@ msgstr ""
 msgid "You have unsaved changes on this page. Leave without saving?"
 msgstr "لديك تغييرات غير محفوظة في هذه الصفحة. هل تريد المغادرة دون حفظ؟"
 
-#: vcs/web/blueprints/clinical.py:2266
+#: vcs/web/blueprints/clinical.py:2271
 #, python-format
 msgid ""
 "Can't add — this case has a %(discount_percent)s%% discount applied, but "
@@ -8034,12 +8034,12 @@ msgstr ""
 "أصنافًا غير قابلة للخصم: %(join)s. أزل الخصم أولًا، أو استبعد هذه الأصناف"
 " من الفاتورة."
 
-#: vcs/web/blueprints/inventory.py:994
+#: vcs/web/blueprints/inventory.py:991
 #, python-format
 msgid "%(name)s (%(distributor)s): short %(quantity)s"
 msgstr "%(name)s (%(distributor)s): ناقص %(quantity)s"
 
-#: vcs/web/blueprints/inventory.py:967
+#: vcs/web/blueprints/inventory.py:964
 #, python-format
 msgid ""
 "Consignment item(s) came in under the expected count — %(items)s. If this"
@@ -8062,4 +8062,9 @@ msgid ""
 msgstr ""
 "حذف %(name)s؟ سيؤدي ذلك إلى حذف الملف نهائيًا، بما في ذلك النسخة المحفوظة"
 " على القرص."
+
+#: vcs/web/blueprints/clinical.py:1103 vcs/web/blueprints/clinical.py:1209
+#: vcs/web/blueprints/clinical.py:2316
+msgid "Some selected items have no sale price in the Price List and were skipped."
+msgstr "بعض الأصناف المختارة ليس لها سعر بيع محدد في قائمة الأسعار وتم تجاهلها."
 

@@ -87,11 +87,11 @@ def vet_performance(db, months_back=12):
                -- Clean Up entirely); a member's bill, where the discount comes
                -- off the eligible lines only, would have widened that
                -- silently. billing.total is kept in sync by
-               -- refresh_visit_billing_total().
+               -- billing.bill_changed().
                COALESCE(SUM(vt.total),0) AS revenue
         FROM visits v
         LEFT JOIN visit_totals vt ON vt.visit_id = v.id
-        WHERE v.doctor IS NOT NULL AND v.doctor <> '' AND v.date >= ?
+        WHERE v.doctor IS NOT NULL AND v.doctor <> '' AND v.date >= %s
         GROUP BY v.doctor
         ORDER BY revenue DESC
         """,
@@ -137,37 +137,37 @@ def client_value(db, limit=20, months_back=12):
           -- Money in: payments against a visit, an inpatient case or a stay.
           SELECT pa.owner_id, p.amount AS amount, 1 AS payments
           FROM payments p JOIN visits v ON v.id = p.visit_id JOIN patients pa ON pa.id = v.patient_id
-          WHERE p.visit_id IS NOT NULL AND p.date >= ?::date
+          WHERE p.visit_id IS NOT NULL AND p.date >= %s::date
           UNION ALL
           SELECT pa.owner_id, p.amount, 1
           FROM payments p JOIN inpatient_cases ic ON ic.id = p.inpatient_case_id JOIN patients pa ON pa.id = ic.patient_id
-          WHERE p.inpatient_case_id IS NOT NULL AND p.date >= ?::date
+          WHERE p.inpatient_case_id IS NOT NULL AND p.date >= %s::date
           UNION ALL
           SELECT pa.owner_id, p.amount, 1
           FROM payments p JOIN boarding_sessions bs ON bs.id = p.boarding_id JOIN patients pa ON pa.id = bs.patient_id
-          WHERE p.boarding_id IS NOT NULL AND p.date >= ?::date
+          WHERE p.boarding_id IS NOT NULL AND p.date >= %s::date
           UNION ALL
           -- Retail, but only where a customer was identified at the till.
           SELECT s.owner_id, s.total, 1
-          FROM sales s WHERE s.owner_id IS NOT NULL AND s.sold_at >= ?
+          FROM sales s WHERE s.owner_id IS NOT NULL AND s.sold_at >= %s
           UNION ALL
           -- Money back out. Not counted as a payment, so payment_count stays
           -- a count of visits paid for rather than going negative.
           SELECT pa.owner_id, -r.amount, 0
           FROM refunds r JOIN visits v ON v.id = r.visit_id JOIN patients pa ON pa.id = v.patient_id
-          WHERE r.visit_id IS NOT NULL AND r.refund_date >= ?::date
+          WHERE r.visit_id IS NOT NULL AND r.refund_date >= %s::date
           UNION ALL
           SELECT pa.owner_id, -r.amount, 0
           FROM refunds r JOIN inpatient_cases ic ON ic.id = r.inpatient_case_id JOIN patients pa ON pa.id = ic.patient_id
-          WHERE r.inpatient_case_id IS NOT NULL AND r.refund_date >= ?::date
+          WHERE r.inpatient_case_id IS NOT NULL AND r.refund_date >= %s::date
           UNION ALL
           SELECT pa.owner_id, -r.amount, 0
           FROM refunds r JOIN boarding_sessions bs ON bs.id = r.boarding_id JOIN patients pa ON pa.id = bs.patient_id
-          WHERE r.boarding_id IS NOT NULL AND r.refund_date >= ?::date
+          WHERE r.boarding_id IS NOT NULL AND r.refund_date >= %s::date
           UNION ALL
           SELECT s.owner_id, -r.amount, 0
           FROM refunds r JOIN sales s ON s.id = r.sale_id
-          WHERE s.owner_id IS NOT NULL AND r.refund_date >= ?::date
+          WHERE s.owner_id IS NOT NULL AND r.refund_date >= %s::date
         )
         SELECT o.id, o.name, o.is_member, o.member_expires_on,
                SUM(oa.payments) AS payment_count, SUM(oa.amount) AS total_paid
@@ -197,12 +197,12 @@ def appointment_weekday_load(db, months_back=12):
     cutoff = months[0] + "-01"
     appt_rows = db.execute(
         "SELECT EXTRACT(DOW FROM appt_date::date)::int AS dow, COUNT(*) AS c "
-        "FROM appointments WHERE appt_date >= ? GROUP BY 1",
+        "FROM appointments WHERE appt_date >= %s GROUP BY 1",
         (cutoff,),
     ).fetchall()
     visit_rows = db.execute(
         "SELECT EXTRACT(DOW FROM date::date)::int AS dow, COUNT(*) AS c "
-        "FROM visits WHERE date IS NOT NULL AND date >= ? GROUP BY 1",
+        "FROM visits WHERE date IS NOT NULL AND date >= %s GROUP BY 1",
         (cutoff,),
     ).fetchall()
     appt_by_dow = {r["dow"]: r["c"] for r in appt_rows}
@@ -233,7 +233,7 @@ def inpatient_boarding_occupancy(db, months_back=12):
           SELECT to_char(date_trunc('month', current_date) - (g || ' months')::interval, 'YYYY-MM') AS month,
                  (date_trunc('month', current_date) - (g || ' months')::interval)::date AS month_start,
                  (date_trunc('month', current_date) - (g || ' months')::interval + interval '1 month' - interval '1 day')::date AS month_end
-          FROM generate_series(0, ?) g
+          FROM generate_series(0, %s) g
         )
         SELECT m.month,
                (SELECT COUNT(*) FROM inpatient_cases ic
@@ -299,7 +299,7 @@ def cohort_retention_grid(db, max_offset=11):
         retained AS (
           SELECT cohort_month, month_offset, COUNT(DISTINCT patient_id) AS retained_count
           FROM visit_offsets
-          WHERE month_offset BETWEEN 0 AND ?
+          WHERE month_offset BETWEEN 0 AND %s
           GROUP BY cohort_month, month_offset
         )
         SELECT r.cohort_month, r.month_offset, r.retained_count, cs.cohort_size

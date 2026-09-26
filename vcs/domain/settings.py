@@ -5,7 +5,7 @@ The clinic's settings table: one row per key, read with a default.
 
 
 def get_setting(db, key, default=None):
-    row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
     return row["value"] if row else default
 
 

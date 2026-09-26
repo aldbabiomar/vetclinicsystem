@@ -72,29 +72,29 @@ def sellable(db):
     """An audited item with limited stock, so overselling is possible."""
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-               "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+               "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Race Item {inv_id}", "Retail", "unit", False, D("2.000"), "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, "
-               "linked_item_id, can_discount) VALUES (?,?,?,?,?,?,?,?)",
+               "linked_item_id, can_discount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, f"Race Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                     "VALUES (?,?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     sid = cur.fetchone()["id"]
     # Exactly 5 in stock: two concurrent sales of 3 cannot both be legitimate.
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
-               "VALUES (?,?,?,?)", (sid, inv_id, D("5.000"), D(0)))
+               "VALUES (%s,%s,%s,%s)", (sid, inv_id, D("5.000"), D(0)))
     db.commit()
     yield {"inv_id": inv_id, "pl_id": pl_id, "stock": 5}
-    for sql in ("DELETE FROM inventory_transactions WHERE item_id=?",
-                "DELETE FROM sale_items WHERE item_id=?",
-                "DELETE FROM audit_session_lines WHERE item_id=?",
-                "DELETE FROM price_list WHERE linked_item_id=?",
-                "DELETE FROM inventory_list WHERE id=?"):
+    for sql in ("DELETE FROM inventory_transactions WHERE item_id=%s",
+                "DELETE FROM sale_items WHERE item_id=%s",
+                "DELETE FROM audit_session_lines WHERE item_id=%s",
+                "DELETE FROM price_list WHERE linked_item_id=%s",
+                "DELETE FROM inventory_list WHERE id=%s"):
         db.execute(sql, (inv_id,))
-    db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
     db.commit()
 
 
@@ -118,7 +118,7 @@ def test_two_simultaneous_checkouts_cannot_oversell_the_same_item(flask_app, db,
     land — so it holds whichever thread wins.
     """
     inv_id = sellable["inv_id"]
-    before = db.execute("SELECT count(*) AS c FROM sale_items WHERE item_id=?",
+    before = db.execute("SELECT count(*) AS c FROM sale_items WHERE item_id=%s",
                         (inv_id,)).fetchone()["c"]
 
     def checkout(_i):
@@ -131,9 +131,9 @@ def test_two_simultaneous_checkouts_cannot_oversell_the_same_item(flask_app, db,
     results, errors = _run_together(checkout, 2)
     assert not any(errors), f"a checkout thread raised: {[e for e in errors if e]}"
 
-    sold = db.execute("SELECT COALESCE(SUM(quantity),0) AS q FROM sale_items WHERE item_id=?",
+    sold = db.execute("SELECT COALESCE(SUM(quantity),0) AS q FROM sale_items WHERE item_id=%s",
                       (inv_id,)).fetchone()["q"]
-    lines = db.execute("SELECT count(*) AS c FROM sale_items WHERE item_id=?",
+    lines = db.execute("SELECT count(*) AS c FROM sale_items WHERE item_id=%s",
                        (inv_id,)).fetchone()["c"]
     assert sold <= sellable["stock"], (
         f"{sold} units sold from a shelf holding {sellable['stock']} — the stock lock did not hold")
@@ -160,7 +160,7 @@ def test_the_same_idempotency_key_twice_at_once_creates_one_sale(flask_app, db, 
     _results, errors = _run_together(checkout, 2)
     assert not any(errors), f"a checkout thread raised: {[e for e in errors if e]}"
 
-    n = db.execute("SELECT count(*) AS c FROM sales WHERE idempotency_key=?", (key,)).fetchone()["c"]
+    n = db.execute("SELECT count(*) AS c FROM sales WHERE idempotency_key=%s", (key,)).fetchone()["c"]
     assert n == 1, f"{n} sales share one idempotency key — the double-submit guard did not hold"
 
 
@@ -170,10 +170,10 @@ def test_two_simultaneous_payments_cannot_overpay_one_visit(flask_app, db):
     pass, and the client is overpaid with no delete route to undo it.
     """
     o_id, p_id, v_id = _uid("O"), _uid("P"), _uid("V")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Race Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Race Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                (p_id, o_id, f"Race Pet {p_id}"))
-    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v_id, p_id, clock.today().isoformat(), "Ongoing"))
     db.commit()
     admin = _fresh_client(flask_app)
@@ -191,20 +191,20 @@ def test_two_simultaneous_payments_cannot_overpay_one_visit(flask_app, db):
         _results, errors = _run_together(pay, 2)
         assert not any(errors), f"a payment thread raised: {[e for e in errors if e]}"
 
-        paid = db.execute("SELECT COALESCE(SUM(amount),0) AS s FROM payments WHERE visit_id=?",
+        paid = db.execute("SELECT COALESCE(SUM(amount),0) AS s FROM payments WHERE visit_id=%s",
                           (v_id,)).fetchone()["s"]
-        total = db.execute("SELECT total FROM billing WHERE visit_id=?", (v_id,)).fetchone()["total"]
+        total = db.execute("SELECT total FROM billing WHERE visit_id=%s", (v_id,)).fetchone()["total"]
         # No tolerance in JOD — any excess is real money, not rounding noise.
         assert paid <= total, (
             f"{paid} collected against a {total} bill — the balance lock did not hold")
     finally:
-        for sql in ("DELETE FROM payments WHERE visit_id=?",
-                    "DELETE FROM visit_billing_lines WHERE visit_id=?",
-                    "DELETE FROM billing WHERE visit_id=?",
-                    "DELETE FROM visits WHERE id=?"):
+        for sql in ("DELETE FROM payments WHERE visit_id=%s",
+                    "DELETE FROM visit_billing_lines WHERE visit_id=%s",
+                    "DELETE FROM billing WHERE visit_id=%s",
+                    "DELETE FROM visits WHERE id=%s"):
             db.execute(sql, (v_id,))
-        db.execute("DELETE FROM patients WHERE id=?", (p_id,))
-        db.execute("DELETE FROM owners WHERE id=?", (o_id,))
+        db.execute("DELETE FROM patients WHERE id=%s", (p_id,))
+        db.execute("DELETE FROM owners WHERE id=%s", (o_id,))
         db.commit()
 
 

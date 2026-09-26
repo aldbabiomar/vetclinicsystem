@@ -61,14 +61,14 @@ def test_a_visit_payment_needs_a_real_method(client, db, visit, method):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     resp = _pay_visit(client, visit["visit_id"], **_data(method, amount="10.000"))
     assert resp.status_code == 200
-    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE visit_id=?", visit["visit_id"]) == 0
+    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE visit_id=%s", visit["visit_id"]) == 0
 
 
 @needs_db
 def test_control_a_visit_payment_by_card(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     assert _pay_visit(client, visit["visit_id"], amount="10.000", method="Card").status_code == 302
-    assert db.execute("SELECT method FROM payments WHERE visit_id=?", (visit["visit_id"],)).fetchone()["method"] == "Card"
+    assert db.execute("SELECT method FROM payments WHERE visit_id=%s", (visit["visit_id"],)).fetchone()["method"] == "Card"
 
 
 @needs_db
@@ -77,13 +77,13 @@ def test_a_boarding_payment_needs_a_real_method(client, db, boarding, method):
     """GUARD."""
     resp = _pay(client, boarding["id"], **_data(method, amount="10.000"))
     assert resp.status_code == 200
-    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE boarding_id=?", boarding["id"]) == 0
+    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE boarding_id=%s", boarding["id"]) == 0
 
 
 @needs_db
 def test_control_a_boarding_payment_by_transfer(client, db, boarding):
     assert _pay(client, boarding["id"], amount="10.000", method="Transfer").status_code == 302
-    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE boarding_id=?", boarding["id"]) == 1
+    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE boarding_id=%s", boarding["id"]) == 1
 
 
 def _bill_case(client, case_id, service_id):
@@ -99,7 +99,7 @@ def test_an_inpatient_payment_needs_a_real_method(client, db, inpatient_case, pr
     _bill_case(client, inpatient_case["id"], priced_service["id"])
     resp = client.post(f"/inpatient/{inpatient_case['id']}/payment", data=_data(method, amount="1.000"))
     assert resp.status_code == 200
-    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE inpatient_case_id=?", inpatient_case["id"]) == 0
+    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE inpatient_case_id=%s", inpatient_case["id"]) == 0
 
 
 @needs_db
@@ -107,7 +107,7 @@ def test_control_an_inpatient_payment_in_cash(client, db, inpatient_case, priced
     _bill_case(client, inpatient_case["id"], priced_service["id"])
     resp = client.post(f"/inpatient/{inpatient_case['id']}/payment", data={"amount": "1.000", "method": "Cash"})
     assert resp.status_code == 302
-    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE inpatient_case_id=?", inpatient_case["id"]) == 1
+    assert _count(db, "SELECT COUNT(*) c FROM payments WHERE inpatient_case_id=%s", inpatient_case["id"]) == 1
 
 
 @needs_db
@@ -117,13 +117,13 @@ def test_a_pos_sale_needs_a_real_method(client, db, sellable, method):
     extra = {} if method is None else {"payment_method": method}
     resp = _checkout(client, sellable["inv_id"], qty=1, **extra)
     assert resp.status_code == 200
-    assert _count(db, "SELECT COUNT(*) c FROM sale_items WHERE item_id=?", sellable["inv_id"]) == 0
+    assert _count(db, "SELECT COUNT(*) c FROM sale_items WHERE item_id=%s", sellable["inv_id"]) == 0
 
 
 @needs_db
 def test_control_a_pos_sale_by_card(client, db, sellable):
     assert _checkout(client, sellable["inv_id"], qty=1, payment_method="Card").status_code == 302
-    assert _count(db, "SELECT COUNT(*) c FROM sale_items WHERE item_id=?", sellable["inv_id"]) == 1
+    assert _count(db, "SELECT COUNT(*) c FROM sale_items WHERE item_id=%s", sellable["inv_id"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ def _pay_bill(client, d, method):
 def test_a_supplier_bill_payment_refuses_an_unknown_method(client, db, distributor_bill, method):
     """GUARD."""
     _pay_bill(client, distributor_bill, method)
-    assert _count(db, "SELECT COUNT(*) c FROM distributor_bill_payments WHERE bill_id=?",
+    assert _count(db, "SELECT COUNT(*) c FROM distributor_bill_payments WHERE bill_id=%s",
                   distributor_bill["bill_id"]) == 0
 
 
@@ -148,7 +148,7 @@ def test_a_supplier_bill_payment_refuses_an_unknown_method(client, db, distribut
 @pytest.mark.parametrize("method,stored", [("Transfer", "Transfer"), ("", None)])
 def test_control_a_supplier_bill_payment_by_transfer_or_unrecorded(client, db, distributor_bill, method, stored):
     assert _pay_bill(client, distributor_bill, method).status_code == 302
-    row = db.execute("SELECT method FROM distributor_bill_payments WHERE bill_id=?",
+    row = db.execute("SELECT method FROM distributor_bill_payments WHERE bill_id=%s",
                      (distributor_bill["bill_id"],)).fetchone()
     assert row is not None and row["method"] == stored
 
@@ -165,7 +165,7 @@ def test_a_consignment_settlement_refuses_an_unknown_method(client, db, sell_con
     owed = sell_consigned(2, "2.000", "3.500")
     dist = consignment_item["distributor_id"]
     assert _settle(client, dist, str(owed), method).status_code == 200
-    assert _count(db, "SELECT COUNT(*) c FROM consignment_settlements WHERE distributor_id=?", dist) == 0
+    assert _count(db, "SELECT COUNT(*) c FROM consignment_settlements WHERE distributor_id=%s", dist) == 0
 
 
 @needs_db
@@ -173,7 +173,7 @@ def test_control_a_consignment_settlement_without_a_method(client, db, sell_cons
     owed = sell_consigned(2, "2.000", "3.500")
     dist = consignment_item["distributor_id"]
     assert _settle(client, dist, str(owed), "").status_code == 302
-    assert _count(db, "SELECT COUNT(*) c FROM consignment_settlements WHERE distributor_id=?", dist) == 1
+    assert _count(db, "SELECT COUNT(*) c FROM consignment_settlements WHERE distributor_id=%s", dist) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +186,6 @@ def test_control_a_consignment_settlement_without_a_method(client, db, sell_cons
     ("distributor_bill_payments", "method"), ("consignment_settlements", "payment_method")])
 def test_the_database_refuses_any_other_method(db, table, column):
     checks = [r["def"] for r in db.execute(
-        "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = ?::regclass AND contype = 'c'",
+        "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = %s::regclass AND contype = 'c'",
         (table,)).fetchall()]
     assert any(column in c and all(f"'{m}'" in c for m in core.PAYMENT_METHODS) for c in checks), checks

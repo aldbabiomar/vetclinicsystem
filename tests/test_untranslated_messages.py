@@ -177,5 +177,5 @@ def test_a_background_jobs_message_reaches_the_page_translated(client, db):
         if saved is None:
             db.execute("DELETE FROM settings WHERE key='language'")
         else:
-            db.execute("UPDATE settings SET value=? WHERE key='language'", (saved,))
+            db.execute("UPDATE settings SET value=%s WHERE key='language'", (saved,))
         db.commit()

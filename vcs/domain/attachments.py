@@ -97,7 +97,7 @@ def save_attachment(db, patient_id, record_type, record_id, file_storage, upload
 
     cur = db.execute(
         "INSERT INTO attachments (patient_id, visit_id, inpatient_case_id, relative_path, original_name, uploaded_at, uploaded_by) "
-        "VALUES (?,?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (patient_id, visit_id, case_id, relative_path, file_storage.filename,
          clock.now().isoformat(timespec="seconds"), uploaded_by),
     )
@@ -129,12 +129,12 @@ def save_attachment(db, patient_id, record_type, record_id, file_storage, upload
 
 def list_attachments(db, record_type, record_id):
     if record_type == "visit":
-        return db.execute("SELECT * FROM attachments WHERE visit_id=? ORDER BY uploaded_at DESC", (record_id,)).fetchall()
-    return db.execute("SELECT * FROM attachments WHERE inpatient_case_id=? ORDER BY uploaded_at DESC", (record_id,)).fetchall()
+        return db.execute("SELECT * FROM attachments WHERE visit_id=%s ORDER BY uploaded_at DESC", (record_id,)).fetchall()
+    return db.execute("SELECT * FROM attachments WHERE inpatient_case_id=%s ORDER BY uploaded_at DESC", (record_id,)).fetchall()
 
 
 def get_attachment(db, attachment_id):
-    return db.execute("SELECT * FROM attachments WHERE id=?", (attachment_id,)).fetchone()
+    return db.execute("SELECT * FROM attachments WHERE id=%s", (attachment_id,)).fetchone()
 
 
 def delete_attachment(db, attachment_id):
@@ -170,5 +170,5 @@ def delete_attachment(db, attachment_id):
             os.remove(disk_path)
     except OSError as e:
         return None, Msg(N_("Couldn't remove the file from disk (%(error)s) — the attachment was not deleted."), error=str(e))
-    db.execute("DELETE FROM attachments WHERE id=?", (attachment_id,))
+    db.execute("DELETE FROM attachments WHERE id=%s", (attachment_id,))
     return dict(row), None

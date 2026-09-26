@@ -136,9 +136,9 @@ GROUP BY month, category
 def _rows(db, since_month=None, only_month=None):
     where, params = "", []
     if only_month:
-        where, params = "AND month = ?", [only_month]
+        where, params = "AND month = %s", [only_month]
     elif since_month:
-        where, params = "AND month >= ?", [since_month]
+        where, params = "AND month >= %s", [since_month]
     return db.execute(_lines_sql(where), params).fetchall()
 
 

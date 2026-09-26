@@ -67,7 +67,7 @@ def vet_users(db):
 def day_grid(db, day_iso):
     vets = vet_users(db)
     slots = generate_slots(db)
-    appts = db.execute("SELECT * FROM appointments WHERE appt_date=?", (day_iso,)).fetchall()
+    appts = db.execute("SELECT * FROM appointments WHERE appt_date=%s", (day_iso,)).fetchall()
 
     by_cell = defaultdict(list)
     for a in appts:
@@ -109,7 +109,7 @@ def orphaned_appointments(db, include_past=False):
     # id. See ORPHANED_RECORDS_AUDIT.md F-18.
     valid_labels = {s["label"] for s in generate_slots(db)}
     active_vet_ids = {v["id"] for v in vet_users(db)}
-    date_filter = "" if include_past else "WHERE a.appt_date >= ?"
+    date_filter = "" if include_past else "WHERE a.appt_date >= %s"
     params = () if include_past else (clock.today().isoformat(),)
     rows = db.execute(
         "SELECT a.*, u.full_name AS vet_name FROM appointments a "
@@ -130,8 +130,8 @@ def orphaned_appointments(db, include_past=False):
 
 def slot_conflict(db, appt_date, slot_label, resource_type, resource_id):
     row = db.execute(
-        "SELECT 1 FROM appointments WHERE appt_date=? AND slot_label=? AND resource_type=? AND "
-        "(resource_id=? OR (resource_id IS NULL AND ?::text IS NULL))",
+        "SELECT 1 FROM appointments WHERE appt_date=%s AND slot_label=%s AND resource_type=%s AND "
+        "(resource_id=%s OR (resource_id IS NULL AND %s::text IS NULL))",
         (appt_date, slot_label, resource_type, resource_id, resource_id),
     ).fetchone()
     return bool(row)

@@ -70,7 +70,7 @@ def api_sale_refundable_items(sale_id):
 @auth.permission_required("view_sales_history")
 def pos_export_receipt(sale_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM sales WHERE id=?", (sale_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM sales WHERE id=%s", (sale_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_sale_receipt(db, sale_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"sale_{sale_id}_receipt.pdf")
@@ -138,7 +138,7 @@ def cash_register_payout_new():
     # there. A transaction-scoped advisory lock keyed on the day, released
     # at commit; the total below is read after it, so it counts the payout
     # that went first.
-    db.execute("SELECT pg_advisory_xact_lock(?, ?)", (DRAWER_LOCK_NAMESPACE, strict_date(day).toordinal()))
+    db.execute("SELECT pg_advisory_xact_lock(%s, %s)", (DRAWER_LOCK_NAMESPACE, strict_date(day).toordinal()))
     # Recomputed fresh at submit time — cash_register_totals() already
     # subtracts every payout already logged for this day, so this is
     # exactly how much is left in the drawer before this new one.
@@ -148,7 +148,7 @@ def cash_register_payout_new():
         return redisplay(day)
     cur = db.execute(
         "INSERT INTO cash_register_payouts (payout_date, amount, reason, logged_by, created_at) "
-        "VALUES (?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s) RETURNING id",
         (day, amount, reason, session["user_id"], clock.now().isoformat(timespec="seconds")),
     )
     payout_id = cur.fetchone()["id"]
@@ -195,7 +195,7 @@ def cash_register_audit_new():
     status = money.audit_status(difference)
     cur = db.execute(
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, "
-        "counted_cash, difference, status, notes, performed_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
+        "counted_cash, difference, status, notes, performed_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (day, totals["Cash"], totals["Card"], totals["Transfer"], counted_cash, difference, status,
          (f.get("notes") or "").strip() or None, session["user_id"], clock.now().isoformat(timespec="seconds")),
     )
@@ -291,12 +291,12 @@ def _lock_and_snapshot_cart_items(db, qty_by_item):
     re-point. ORPHANED_RECORDS_AUDIT.md F-07.
     """
     for iid in sorted(qty_by_item.keys()):
-        db.execute("SELECT id FROM inventory_list WHERE id=? FOR UPDATE", (iid,))
+        db.execute("SELECT id FROM inventory_list WHERE id=%s FOR UPDATE", (iid,))
     if not qty_by_item:
         return {}, {}
     item_rows = {r["id"]: r for r in db.execute(
         "SELECT id, cost_price, distributor_id FROM inventory_list WHERE id IN ("
-        + ",".join("?" * len(qty_by_item)) + ")",
+        + ",".join(["%s"] * len(qty_by_item)) + ")",
         list(qty_by_item.keys()),
     ).fetchall()}
     return ({iid: r["cost_price"] for iid, r in item_rows.items()},
@@ -315,10 +315,10 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     # One query for the whole cart rather than one per line, and read from
     # the same active price_list row item_sale_price() prices from.
     discountable_by_item = billing.discountable_by_item_ids(db, list(qty_by_item))
-    # Stock for the whole cart in one pass, not the whole catalogue's status
-    # recomputed once per line (audit P13's shape). Read here, after
-    # _lock_and_snapshot_cart_items() has locked the rows it describes.
-    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
+    # Stock for the whole cart in one pass, not recomputed once per line
+    # (audit P13's shape), and for the cart's items only (D4). Read here,
+    # after _lock_and_snapshot_cart_items() has locked the rows it describes.
+    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db, list(qty_by_item))}
     for iid, qty in qty_by_item.items():
         price = inventory.item_sale_price(db, iid)
         if price is None:
@@ -333,7 +333,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
         # The row is locked (_lock_and_snapshot_cart_items), so a deactivation
         # cannot land between this check and the sale.
         if status is None:
-            row = db.execute("SELECT name FROM inventory_list WHERE id=?", (iid,)).fetchone()
+            row = db.execute("SELECT name FROM inventory_list WHERE id=%s", (iid,)).fetchone()
             return 0, [], notices, _(
                 "%(name)s is no longer sold — it was deactivated in the catalogue. Remove it from the cart.",
                 name=row["name"] if row else codes.code("INV", iid))
@@ -430,7 +430,7 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
         "INSERT INTO sales (sold_at, cashier_id, subtotal, discount_percent, discount_applied_by, total, "
         "payment_method, cash_received, change_given, idempotency_key, cleanup_amount, cleanup_applied_by, "
         "owner_id, discount_source) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (now, session["user_id"], money.to_store(subtotal), discount_percent,
          session["user_id"] if discount_percent else None, total, payment_method,
          cash_received, change_given, idempotency_key, cleanup_amount,
@@ -441,11 +441,11 @@ def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount
     for iid, qty, price, line_total, unit_cost, distributor_id, discountable in lines:
         db.execute(
             "INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, line_total, unit_cost, distributor_id, discountable) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (sale_id, iid, qty, price, money.to_store(line_total), unit_cost, distributor_id, discountable))
         db.execute(
             "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-            "VALUES (?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s)",
             (iid, -qty, "sale", str(sale_id), now, session["user_id"]))
     auth.log_change(db, "sales", str(sale_id), "create")
     return sale_id
@@ -486,7 +486,7 @@ def pos_checkout():
     # guarantee — see the IntegrityError catch below for that.
     idempotency_key = f.get("idempotency_key") or None
     if idempotency_key:
-        existing_sale = db.execute("SELECT id FROM sales WHERE idempotency_key=?", (idempotency_key,)).fetchone()
+        existing_sale = db.execute("SELECT id FROM sales WHERE idempotency_key=%s", (idempotency_key,)).fetchone()
         if existing_sale:
             return redirect(url_for("sales.pos_receipt", sale_id=existing_sale["id"]))
 
@@ -508,7 +508,7 @@ def pos_checkout():
     owner_id = parse_id(owner_raw, "OW")
     owner = None
     if owner_raw:
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone() if owner_id else None
+        owner = db.execute("SELECT * FROM owners WHERE id=%s", (owner_id,)).fetchone() if owner_id else None
         if not owner:
             return refuse(_("That customer no longer exists — search again."))
     member_percent, discount_source = members.member_discount_for(db, owner)
@@ -601,7 +601,7 @@ def pos_checkout():
         # it to the sale that won instead of erroring.
         db.rollback()
         if idempotency_key:
-            existing_sale = db.execute("SELECT id FROM sales WHERE idempotency_key=?", (idempotency_key,)).fetchone()
+            existing_sale = db.execute("SELECT id FROM sales WHERE idempotency_key=%s", (idempotency_key,)).fetchone()
             if existing_sale:
                 return redirect(url_for("sales.pos_receipt", sale_id=existing_sale["id"]))
         raise
@@ -613,12 +613,12 @@ def pos_checkout():
 @auth.permission_required("process_pos_sales", "view_sales_history")
 def pos_receipt(sale_id):
     db = get_db()
-    sale = db.execute("SELECT * FROM sales WHERE id=?", (sale_id,)).fetchone()
+    sale = db.execute("SELECT * FROM sales WHERE id=%s", (sale_id,)).fetchone()
     if sale is None:
         flash(_("Sale not found."), "error")
         return redirect(url_for("sales.pos_history"))
     items = db.execute(
-        "SELECT si.*, i.name FROM sale_items si JOIN inventory_list i ON i.id=si.item_id WHERE si.sale_id=?", (sale_id,)
+        "SELECT si.*, i.name FROM sale_items si JOIN inventory_list i ON i.id=si.item_id WHERE si.sale_id=%s", (sale_id,)
     ).fetchall()
     return render_template("pos_receipt.html", sale=sale, items=items)
 
@@ -629,12 +629,12 @@ def pos_history():
     db = get_db()
     page = get_page()
     date_filter = date_filter_arg()
-    where = " WHERE s.sold_at >= ? AND s.sold_at < ?" if date_filter else ""
+    where = " WHERE s.sold_at >= %s AND s.sold_at < %s" if date_filter else ""
     params = list(dates.day_bounds(date_filter)) if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM sales s{where}", params).fetchone()["c"]
     sales = db.execute(
         f"SELECT s.*, u.full_name as cashier_name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id{where} "
-        "ORDER BY s.sold_at DESC LIMIT ? OFFSET ?", params + [PER_PAGE, page_offset(page)]
+        "ORDER BY s.sold_at DESC LIMIT %s OFFSET %s", params + [PER_PAGE, page_offset(page)]
     ).fetchall()
     return render_template("pos_history.html", sales=sales, date_filter=date_filter,
                             page=page, total_pages=page_count(total), total_count=total)
@@ -648,7 +648,7 @@ def _refunds_page_context():
     db = get_db()
     page = get_page()
     date_filter = clean_date_filter(request.args.get("date"))
-    count_where = " WHERE refund_date = ?" if date_filter else ""
+    count_where = " WHERE refund_date = %s" if date_filter else ""
     count_params = [date_filter] if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM refunds{count_where}", count_params).fetchone()["c"]
     refund_rows = refunds.recent_refunds(db, limit=PER_PAGE, offset=page_offset(page), date_filter=date_filter)
@@ -732,15 +732,15 @@ def refund_retail_save():
     # both read the same "already refunded" total and together paid out more
     # than the sale collected. Parent before children, the order every other
     # path takes.
-    db.execute("SELECT id FROM sales WHERE id=? FOR UPDATE", (sale_id,))
+    db.execute("SELECT id FROM sales WHERE id=%s FOR UPDATE", (sale_id,))
     for sid in sorted(set(sale_item_ids)):
-        db.execute("SELECT id FROM sale_items WHERE id=? AND sale_id=? FOR UPDATE", (sid, sale_id))
+        db.execute("SELECT id FROM sale_items WHERE id=%s AND sale_id=%s FOR UPDATE", (sid, sale_id))
 
     sale, refundable = refunds.refundable_sale_items(db, sale_id)
     if not sale:
         flash(_("Sale not found."), "error")
         return redisplay()
-    sold_on = db.execute("SELECT sold_at::date AS d FROM sales WHERE id=?", (sale_id,)).fetchone()["d"]
+    sold_on = db.execute("SELECT sold_at::date AS d FROM sales WHERE id=%s", (sale_id,)).fetchone()["d"]
     error = _refund_date_error(refund_date, sold_on)
     if error:
         flash(error, "error")
@@ -785,7 +785,7 @@ def refund_retail_save():
     # collected (sale["total"] already reflects any Clean Up applied at
     # sale time, so no separate reference to cleanup_amount is needed).
     already_refunded_total = db.execute(
-        "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE sale_id=? AND refund_type='retail'", (sale_id,)
+        "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE sale_id=%s AND refund_type='retail'", (sale_id,)
     ).fetchone()["s"]
     # Money leaving the clinic rounds DOWN to the cash unit, like change —
     # and a real return is never settled at zero: a line worth less than one
@@ -804,7 +804,7 @@ def refund_retail_save():
         return redisplay()
     cur = db.execute(
         "INSERT INTO refunds (refund_type, refund_date, amount, restocked, sale_id, reason, refund_method, "
-        "processed_by, created_at, cleanup_amount_at_refund) VALUES ('retail',?,?,?,?,?,?,?,?,?) RETURNING id",
+        "processed_by, created_at, cleanup_amount_at_refund) VALUES ('retail',%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (refund_date, rounded_total, restock, sale_id, reason, refund_method, session["user_id"], now,
          sale["cleanup_amount"] or 0),
     )
@@ -813,13 +813,13 @@ def refund_retail_save():
     for iid, sid, qty, price, line_total in lines:
         db.execute(
             "INSERT INTO refund_items (refund_id, item_id, quantity, unit_price, line_total, sale_item_id) "
-            "VALUES (?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s)",
             (refund_id, iid, qty, price, line_total, sid),
         )
         if restock:
             db.execute(
                 "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-                "VALUES (?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s)",
                 (iid, qty, "refund", str(refund_id), now, session["user_id"]),
             )
 
@@ -891,14 +891,14 @@ def refund_service_save():
     # each read the same "amount paid so far minus prior refunds" before
     # either commits, and both pass a cap check that together they exceed.
     if visit_raw:
-        origin = db.execute("SELECT date FROM visits WHERE id=? FOR UPDATE",
+        origin = db.execute("SELECT date FROM visits WHERE id=%s FOR UPDATE",
                             (visit_id,)).fetchone() if visit_id is not None else None
         if origin is None:
             flash(_("Visit %(visit_id)s not found.", visit_id=visit_raw), "error")
             return redisplay()
         paid = billing.visit_billing_summary(db, visit_id)["paid"]
         already_refunded = db.execute(
-            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND visit_id=?", (visit_id,)
+            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND visit_id=%s", (visit_id,)
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
@@ -907,7 +907,7 @@ def refund_service_save():
 
     case_id = None
     if case_id_raw:
-        origin = db.execute("SELECT admission_date AS date FROM inpatient_cases WHERE id=? FOR UPDATE",
+        origin = db.execute("SELECT admission_date AS date FROM inpatient_cases WHERE id=%s FOR UPDATE",
                             (int(case_id_raw),)).fetchone() if case_id_raw.isdigit() else None
         if origin is None:
             flash(_("Inpatient case %(case_id_raw)s not found.", case_id_raw=case_id_raw), "error")
@@ -915,7 +915,7 @@ def refund_service_save():
         case_id = int(case_id_raw)
         paid = billing.inpatient_billing_summary(db, case_id)["paid"]
         already_refunded = db.execute(
-            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND inpatient_case_id=?", (case_id,)
+            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND inpatient_case_id=%s", (case_id,)
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
@@ -924,7 +924,7 @@ def refund_service_save():
 
     boarding_id = None
     if boarding_id_raw:
-        origin = db.execute("SELECT entry_date AS date FROM boarding_sessions WHERE id=? FOR UPDATE",
+        origin = db.execute("SELECT entry_date AS date FROM boarding_sessions WHERE id=%s FOR UPDATE",
                             (int(boarding_id_raw),)).fetchone() if boarding_id_raw.isdigit() else None
         if origin is None:
             flash(_("Boarding stay %(boarding_id_raw)s not found.", boarding_id_raw=boarding_id_raw), "error")
@@ -932,7 +932,7 @@ def refund_service_save():
         boarding_id = int(boarding_id_raw)
         paid = billing.boarding_billing_summary(db, boarding_id)["paid"]
         already_refunded = db.execute(
-            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND boarding_id=?", (boarding_id,)
+            "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND boarding_id=%s", (boarding_id,)
         ).fetchone()["s"]
         cap = paid - already_refunded
         if amount > cap:
@@ -960,18 +960,18 @@ def refund_service_save():
     # never itself a `payments` row.
     cleanup_amount_at_refund = 0
     if visit_id:
-        b = db.execute("SELECT cleanup_amount FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+        b = db.execute("SELECT cleanup_amount FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
         cleanup_amount_at_refund += (b["cleanup_amount"] if b else 0) or 0
     if case_id:
-        c = db.execute("SELECT cleanup_amount FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
+        c = db.execute("SELECT cleanup_amount FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
         cleanup_amount_at_refund += (c["cleanup_amount"] if c else 0) or 0
     if boarding_id:
-        bs = db.execute("SELECT cleanup_amount FROM boarding_sessions WHERE id=?", (boarding_id,)).fetchone()
+        bs = db.execute("SELECT cleanup_amount FROM boarding_sessions WHERE id=%s", (boarding_id,)).fetchone()
         cleanup_amount_at_refund += (bs["cleanup_amount"] if bs else 0) or 0
     cur = db.execute(
         "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, inpatient_case_id, boarding_id, reason, "
         "refund_method, processed_by, created_at, cleanup_amount_at_refund) "
-        "VALUES ('service',?,?,?,?,?,?,?,?,?,?) RETURNING id",
+        "VALUES ('service',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (refund_date, payout, visit_id, case_id, boarding_id, reason, refund_method, session["user_id"], now,
          cleanup_amount_at_refund),
     )

@@ -55,19 +55,19 @@ def test_a_code_round_trips():
 @pytest.fixture
 def chain(db):
     o, p, v = new_id(), new_id(), new_id()
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, "Code Owner"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, "Code Pet"))
-    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o, "Code Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, "Code Pet"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v, p, clock.today(), "Ongoing"))
     db.execute("INSERT INTO billing (visit_id, billing_type, manual_amount, total, discount_percent, cleanup_amount) "
-               "VALUES (?,?,?,?,?,?)", (v, "Manual", D(10), D(10), D(0), D(0)))
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s)", (v, "Manual", D(10), D(10), D(0), D(0)))
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (v, D(10), "Cash", clock.today(), ADMIN_ID))
     db.commit()
     yield {"owner": o, "patient": p, "visit": v}
-    for sql, arg in (("DELETE FROM refunds WHERE visit_id=?", v), ("DELETE FROM payments WHERE visit_id=?", v),
-                     ("DELETE FROM billing WHERE visit_id=?", v), ("DELETE FROM visits WHERE id=?", v),
-                     ("DELETE FROM patients WHERE id=?", p), ("DELETE FROM owners WHERE id=?", o)):
+    for sql, arg in (("DELETE FROM refunds WHERE visit_id=%s", v), ("DELETE FROM payments WHERE visit_id=%s", v),
+                     ("DELETE FROM billing WHERE visit_id=%s", v), ("DELETE FROM visits WHERE id=%s", v),
+                     ("DELETE FROM patients WHERE id=%s", p), ("DELETE FROM owners WHERE id=%s", o)):
         db.execute(sql, (arg,))
     db.commit()
 
@@ -100,7 +100,7 @@ def test_a_service_refund_accepts_the_visit_code_staff_read(client, db, chain):
         "visit_id": codes.code("V", chain["visit"]), "amount": "1", "refund_method": "Cash",
         "reason": "code typed"}, follow_redirects=False)
     assert resp.status_code == 302
-    assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=?", (chain["visit"],)).fetchone()["n"] == 1
+    assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=%s", (chain["visit"],)).fetchone()["n"] == 1
 
 
 @needs_db
@@ -109,7 +109,7 @@ def test_control_a_code_for_another_kind_of_record_is_not_found(client, db, chai
         "visit_id": codes.code("PT", chain["visit"]), "amount": "1", "refund_method": "Cash",
         "reason": "wrong kind"}, follow_redirects=True)
     assert "not found" in resp.get_data(as_text=True)
-    assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=?", (chain["visit"],)).fetchone()["n"] == 0
+    assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=%s", (chain["visit"],)).fetchone()["n"] == 0
 
 
 # ---------------------------------------------------------------------------

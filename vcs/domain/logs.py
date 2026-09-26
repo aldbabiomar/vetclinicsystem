@@ -14,13 +14,13 @@ from vcs.domain import dates, settings
 # ---------------------------------------------------------------------------
 def changes_on_date(db, day_str):
     start, end = dates.day_bounds(day_str)
-    return db.execute("SELECT * FROM audit_log WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC",
+    return db.execute("SELECT * FROM audit_log WHERE timestamp >= %s AND timestamp < %s ORDER BY timestamp DESC",
                       (start, end)).fetchall()
 
 
 def logins_on_date(db, day_str):
     start, end = dates.day_bounds(day_str)
-    rows = db.execute("SELECT * FROM login_log WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC",
+    rows = db.execute("SELECT * FROM login_log WHERE timestamp >= %s AND timestamp < %s ORDER BY timestamp DESC",
                       (start, end)).fetchall()
     out = []
     for r in rows:
@@ -90,7 +90,7 @@ def prune_old_logs(db, now=None):
         while True:
             cur = db.execute(
                 f"DELETE FROM {table} WHERE ctid IN ("
-                f"  SELECT ctid FROM {table} WHERE {column} < ? LIMIT {PRUNE_BATCH})",
+                f"  SELECT ctid FROM {table} WHERE {column} < %s LIMIT {PRUNE_BATCH})",
                 (cutoff,),
             )
             n = cur.rowcount or 0

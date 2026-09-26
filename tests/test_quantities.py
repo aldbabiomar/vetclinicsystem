@@ -108,7 +108,7 @@ def test_the_database_itself_refuses_a_nan_or_negative_amount(db, bad):
     with pytest.raises(psycopg.errors.CheckViolation):
         with db.transaction():
             db.execute("INSERT INTO monthly_opex (month, rent, salaries, utilities, marketing, other) "
-                       "VALUES (?,?,0,0,0,0)", (month, D(bad)))
+                       "VALUES (%s,%s,0,0,0,0)", (month, D(bad)))
 
 
 @needs_db
@@ -116,11 +116,11 @@ def test_control_a_zero_operating_cost_is_accepted(db):
     month = "1998-01"
     try:
         with db.transaction():
-            db.execute("DELETE FROM monthly_opex WHERE month=?", (month,))
+            db.execute("DELETE FROM monthly_opex WHERE month=%s", (month,))
             db.execute("INSERT INTO monthly_opex (month, rent, salaries, utilities, marketing, other) "
-                       "VALUES (?,0,0,0,0,0)", (month,))
+                       "VALUES (%s,0,0,0,0,0)", (month,))
     finally:
-        db.execute("DELETE FROM monthly_opex WHERE month=?", (month,))
+        db.execute("DELETE FROM monthly_opex WHERE month=%s", (month,))
         db.commit()
 
 
@@ -135,7 +135,7 @@ def audited_three_times(db):
     needed, 13 on the shelf, 8.7 short."""
     inv_id = new_id()
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-               "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+               "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Ordering {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
     sessions = []
     today = clock.today()
@@ -143,18 +143,18 @@ def audited_three_times(db):
         day = today - timedelta(days=days_ago)
         stamp = datetime.combine(day, datetime.min.time()).isoformat(timespec="microseconds")
         sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                         "VALUES (?,?,?,?,?) RETURNING id",
+                         "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                          (day.isoformat(), ADMIN_ID, "Confirmed", stamp, stamp)).fetchone()["id"]
         sessions.append(sid)
         db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
-                   "received_since_prior, target_coverage_days) VALUES (?,?,?,?,?)",
+                   "received_since_prior, target_coverage_days) VALUES (%s,%s,%s,%s,%s)",
                    (sid, inv_id, D(counted), D(0), D(target) if target else None))
     db.commit()
     yield inv_id
-    db.execute("DELETE FROM audit_session_lines WHERE item_id=?", (inv_id,))
+    db.execute("DELETE FROM audit_session_lines WHERE item_id=%s", (inv_id,))
     for sid in sessions:
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
-    db.execute("DELETE FROM inventory_list WHERE id=?", (inv_id,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
+    db.execute("DELETE FROM inventory_list WHERE id=%s", (inv_id,))
     db.commit()
 
 
@@ -190,7 +190,7 @@ def test_pos_lookup_sends_stock_as_a_number(client, db, audited_three_times):
     number) — this pins that for the one API a page computes with."""
     pl_id = new_id()
     db.execute("INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, "x", "Retail", D("5.000"), True, audited_three_times, True))
     db.commit()
     try:
@@ -199,7 +199,7 @@ def test_pos_lookup_sends_stock_as_a_number(client, db, audited_three_times):
         hit = next(r for r in found if r["id"] == audited_three_times)
         assert hit["stock"] == 13 and isinstance(hit["stock"], (int, float))
     finally:
-        db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+        db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
         db.commit()
 
 
@@ -208,27 +208,27 @@ def sold_two(client, db):
     from test_money_routes import _checkout, _latest_sale
     inv_id, pl_id = new_id(), new_id()
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-               "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+               "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Receipt {inv_id}", "Retail", "unit", False, D("1.000"), "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, sale_price, active, linked_item_id, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (pl_id, f"Receipt {inv_id}", "Retail", D("5.000"), True, inv_id, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Receipt {inv_id}", "Retail", D("5.000"), True, inv_id, True))
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                     "VALUES (?,?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed", clock.now().isoformat(),
                       clock.now().isoformat(timespec="microseconds"))).fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
-               "VALUES (?,?,?,?)", (sid, inv_id, D(10), D(0)))
+               "VALUES (%s,%s,%s,%s)", (sid, inv_id, D(10), D(0)))
     db.commit()
     assert _checkout(client, inv_id, qty=2, payment_method="Card").status_code == 302
     sale = _latest_sale(db)
     yield sale["id"]
-    for sql, arg in (("DELETE FROM inventory_transactions WHERE item_id=?", inv_id),
-                     ("DELETE FROM sale_items WHERE item_id=?", inv_id),
-                     ("DELETE FROM sales WHERE id=?", sale["id"]),
-                     ("DELETE FROM audit_session_lines WHERE item_id=?", inv_id),
-                     ("DELETE FROM audit_sessions WHERE id=?", sid),
-                     ("DELETE FROM price_list WHERE id=?", pl_id),
-                     ("DELETE FROM inventory_list WHERE id=?", inv_id)):
+    for sql, arg in (("DELETE FROM inventory_transactions WHERE item_id=%s", inv_id),
+                     ("DELETE FROM sale_items WHERE item_id=%s", inv_id),
+                     ("DELETE FROM sales WHERE id=%s", sale["id"]),
+                     ("DELETE FROM audit_session_lines WHERE item_id=%s", inv_id),
+                     ("DELETE FROM audit_sessions WHERE id=%s", sid),
+                     ("DELETE FROM price_list WHERE id=%s", pl_id),
+                     ("DELETE FROM inventory_list WHERE id=%s", inv_id)):
         db.execute(sql, (arg,))
     db.commit()
 

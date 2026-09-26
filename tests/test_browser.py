@@ -673,9 +673,9 @@ def _seed_member_cart(db, sale_price):
     nothing.
     """
     owner_id = _rid("O")
-    db.execute("INSERT INTO owners (id, name, is_member, member_since) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO owners (id, name, is_member, member_since) VALUES (%s,%s,%s,%s)",
                (owner_id, f"Rewards Browser {owner_id}", True, clock.today().isoformat()))
-    db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+    db.execute("INSERT INTO settings (key,value) VALUES (%s,%s) "
                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                ("member_discount_percent", "10"))
     items = {}
@@ -684,20 +684,20 @@ def _seed_member_cart(db, sale_price):
         inv_id, pl_id = _rid("BINV"), _rid("BPL")
         name = f"Browser Rewards {key.upper()} {inv_id}"
         db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-                   "VALUES (?,?,?,?,?,?,?,?)",
+                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                    (inv_id, name, "Retail", "unit", False, 0, "Owned", True))
         db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
-                   "VALUES (?,?,?,?,?,?,?,?)",
+                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                    (pl_id, name, "Retail", 0, Decimal(sale_price), True, inv_id, can_discount))
         cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                         "VALUES (?,?,?,?,?) RETURNING id",
+                         "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                          (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                           clock.now().isoformat(timespec="seconds"),
                           clock.now().isoformat(timespec="microseconds")))
         sid = cur.fetchone()["id"]
         audit_ids.append(sid)
         db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
-                   "VALUES (?,?,?,?)", (sid, inv_id, 50, 0))
+                   "VALUES (%s,%s,%s,%s)", (sid, inv_id, 50, 0))
         items[key] = {"inv_id": inv_id, "pl_id": pl_id, "name": name}
     db.commit()
     # sale_ids: sales a test makes WITHOUT a customer (a walk-in), which the
@@ -708,21 +708,21 @@ def _seed_member_cart(db, sale_price):
 
 def _remove_member_cart(db, cart):
     owner_id, items, audit_ids = cart["owner_id"], cart["items"], cart["audit_ids"]
-    db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+    db.execute("INSERT INTO settings (key,value) VALUES (%s,%s) "
                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                ("member_discount_percent", "0"))
     for it in items.values():
-        db.execute("DELETE FROM inventory_transactions WHERE item_id=?", (it["inv_id"],))
-        db.execute("DELETE FROM sale_items WHERE item_id=?", (it["inv_id"],))
-        db.execute("DELETE FROM audit_session_lines WHERE item_id=?", (it["inv_id"],))
-        db.execute("DELETE FROM price_list WHERE id=?", (it["pl_id"],))
-        db.execute("DELETE FROM inventory_list WHERE id=?", (it["inv_id"],))
+        db.execute("DELETE FROM inventory_transactions WHERE item_id=%s", (it["inv_id"],))
+        db.execute("DELETE FROM sale_items WHERE item_id=%s", (it["inv_id"],))
+        db.execute("DELETE FROM audit_session_lines WHERE item_id=%s", (it["inv_id"],))
+        db.execute("DELETE FROM price_list WHERE id=%s", (it["pl_id"],))
+        db.execute("DELETE FROM inventory_list WHERE id=%s", (it["inv_id"],))
     for sid in audit_ids:
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
-    db.execute("DELETE FROM sales WHERE owner_id=?", (owner_id,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
+    db.execute("DELETE FROM sales WHERE owner_id=%s", (owner_id,))
     for sale_id in cart["sale_ids"]:
-        db.execute("DELETE FROM sales WHERE id=?", (sale_id,))
-    db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
+        db.execute("DELETE FROM sales WHERE id=%s", (sale_id,))
+    db.execute("DELETE FROM owners WHERE id=%s", (owner_id,))
     db.commit()
 
 
@@ -823,7 +823,7 @@ def test_the_pos_preview_matches_the_server_on_a_member_mixed_cart(browser, db, 
 
         row = db.execute(
             "SELECT total, discount_percent, discount_source, owner_id FROM sales "
-            "WHERE owner_id=? ORDER BY id DESC LIMIT 1", (member_cart["owner_id"],)).fetchone()
+            "WHERE owner_id=%s ORDER BY id DESC LIMIT 1", (member_cart["owner_id"],)).fetchone()
         assert row, "the sale was not recorded against the customer"
         assert row["discount_source"] == "member"
         assert float(row["total"]) == previewed, (
@@ -878,7 +878,7 @@ def test_the_iq_till_rounds_the_total_and_the_change_as_the_server_does(browser,
         before = db.execute("SELECT COALESCE(MAX(id), 0) AS m FROM sales").fetchone()["m"]
         page.click("#completeSaleBtn")
         page.wait_for_load_state("networkidle")
-        row = db.execute("SELECT id, total FROM sales WHERE id > ? ORDER BY id DESC LIMIT 1",
+        row = db.execute("SELECT id, total FROM sales WHERE id > %s ORDER BY id DESC LIMIT 1",
                          (before,)).fetchone()
         assert row, "the sale was not recorded"
         iq_member_cart["sale_ids"].append(row["id"])
@@ -911,7 +911,7 @@ def test_the_iq_preview_matches_the_server_on_a_member_mixed_cart(browser, db, i
         page.select_option("#paymentMethod", "Card")
         page.click("#completeSaleBtn")
         page.wait_for_load_state("networkidle")
-        row = db.execute("SELECT total, discount_source FROM sales WHERE owner_id=? "
+        row = db.execute("SELECT total, discount_source FROM sales WHERE owner_id=%s "
                          "ORDER BY id DESC LIMIT 1", (iq_member_cart["owner_id"],)).fetchone()
         assert row, "the sale was not recorded against the customer"
         assert row["discount_source"] == "member"
@@ -954,17 +954,17 @@ def test_the_pos_quantity_and_remove_buttons_act_on_their_line(browser, db, memb
 def billable_visit(db):
     o, p, v, pl = new_id(), new_id(), new_id(), new_id()
     name = f"Cart Button Service {pl}"
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, "Cart Owner"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, "Cart Pet"))
-    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o, "Cart Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, "Cart Pet"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v, p, clock.today(), "Ongoing"))
-    db.execute("INSERT INTO price_list (id, name, category, sale_price, active, can_discount) VALUES (?,?,?,?,?,?)",
+    db.execute("INSERT INTO price_list (id, name, category, sale_price, active, can_discount) VALUES (%s,%s,%s,%s,%s,%s)",
                (pl, name, "Service", Decimal("3.000"), True, True))
     db.commit()
     yield {"visit": v, "name": name}
-    for sql, arg in (("DELETE FROM visit_billing_lines WHERE visit_id=?", v), ("DELETE FROM billing WHERE visit_id=?", v),
-                     ("DELETE FROM visits WHERE id=?", v), ("DELETE FROM patients WHERE id=?", p),
-                     ("DELETE FROM owners WHERE id=?", o), ("DELETE FROM price_list WHERE id=?", pl)):
+    for sql, arg in (("DELETE FROM visit_billing_lines WHERE visit_id=%s", v), ("DELETE FROM billing WHERE visit_id=%s", v),
+                     ("DELETE FROM visits WHERE id=%s", v), ("DELETE FROM patients WHERE id=%s", p),
+                     ("DELETE FROM owners WHERE id=%s", o), ("DELETE FROM price_list WHERE id=%s", pl)):
         db.execute(sql, (arg,))
     db.commit()
 
@@ -1002,12 +1002,12 @@ def test_a_saved_bill_line_counts_up_as_a_number(browser, db, billable_visit):
     inherited bug in both predecessor apps; the JS-error sweep only ever
     opens visits with no bill. The + at the end is the control that the
     prefilled line is a working line, not just text."""
-    pl = db.execute("SELECT id FROM price_list WHERE name=?", (billable_visit["name"],)).fetchone()["id"]
+    pl = db.execute("SELECT id FROM price_list WHERE name=%s", (billable_visit["name"],)).fetchone()["id"]
     v = billable_visit["visit"]
     db.execute("INSERT INTO billing (visit_id, billing_type, total, discount_percent, cleanup_amount) "
-               "VALUES (?,?,?,?,?)", (v, "Automatic", Decimal("6.000"), Decimal(0), Decimal(0)))
+               "VALUES (%s,%s,%s,%s,%s)", (v, "Automatic", Decimal("6.000"), Decimal(0), Decimal(0)))
     db.execute("INSERT INTO visit_billing_lines (visit_id, price_id, name, category, quantity, unit_price, "
-               "unit_cost, discountable, created_at) VALUES (?,?,?,?,?,?,?,?,now())",
+               "unit_cost, discountable, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,now())",
                (v, pl, billable_visit["name"], "Service", Decimal("2.000"), Decimal("3.000"), Decimal(0), True))
     db.commit()
     ctx = browser.new_context(viewport={"width": 1440, "height": 900})
@@ -1030,17 +1030,17 @@ def ward_case(db):
     """An inpatient case and a medicine on the Price List."""
     o, p, pl = new_id(), new_id(), new_id()
     name = f"Ward Medicine {pl}"
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, "Ward Owner"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, "Ward Pet"))
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o, "Ward Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, "Ward Pet"))
     case = db.execute("INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, created_by) "
-                      "VALUES (?,?,false,?) RETURNING id", (p, clock.today(), ADMIN_ID)).fetchone()["id"]
+                      "VALUES (%s,%s,false,%s) RETURNING id", (p, clock.today(), ADMIN_ID)).fetchone()["id"]
     db.execute("INSERT INTO price_list (id, name, category, sale_price, cost_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (pl, name, "Medicine", Decimal("4.000"), Decimal("1.000"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl, name, "Medicine", Decimal("4.000"), Decimal("1.000"), True, True))
     db.commit()
     yield {"case": case, "name": name}
-    for sql, arg in (("DELETE FROM inpatient_billing WHERE case_id=?", case), ("DELETE FROM audit_log WHERE table_name='inpatient_billing' AND record_id=?", str(case)),
-                     ("DELETE FROM inpatient_cases WHERE id=?", case), ("DELETE FROM patients WHERE id=?", p),
-                     ("DELETE FROM owners WHERE id=?", o), ("DELETE FROM price_list WHERE id=?", pl)):
+    for sql, arg in (("DELETE FROM inpatient_billing WHERE case_id=%s", case), ("DELETE FROM audit_log WHERE table_name='inpatient_billing' AND record_id=%s", str(case)),
+                     ("DELETE FROM inpatient_cases WHERE id=%s", case), ("DELETE FROM patients WHERE id=%s", p),
+                     ("DELETE FROM owners WHERE id=%s", o), ("DELETE FROM price_list WHERE id=%s", pl)):
         db.execute(sql, (arg,))
     db.commit()
 

@@ -47,7 +47,7 @@ def record(request, client, db):
     rid = request.getfixturevalue(fixture)[key]
 
     def value():
-        return db.execute(f"SELECT {field} FROM {table} WHERE id=?", (rid,)).fetchone()[field]
+        return db.execute(f"SELECT {field} FROM {table} WHERE id=%s", (rid,)).fetchone()[field]
 
     return {"id": rid, "table": table, "action": action.format(rid), "field": field, "other": other, "value": value,
             "save": lambda **data: save(client, db, rid, **data), "kind": request.param}
@@ -175,11 +175,11 @@ def test_a_status_button_makes_an_open_visit_form_stale(client, db, a_visit, url
     vid = a_visit["visit_id"]
     t0 = _stamp(db, "visits", vid)
     client.post(url.format(vid), data=data)
-    assert db.execute(f"SELECT {column} FROM visits WHERE id=?", (vid,)).fetchone()[column] == value, (
+    assert db.execute(f"SELECT {column} FROM visits WHERE id=%s", (vid,)).fetchone()[column] == value, (
         "the button's own write failed — the test would prove nothing")
     resp = _edit_visit(client, vid, db, complaint="Stale form", expected_updated_at=t0)
     assert resp.status_code == 200
-    assert db.execute(f"SELECT {column} FROM visits WHERE id=?", (vid,)).fetchone()[column] == value
+    assert db.execute(f"SELECT {column} FROM visits WHERE id=%s", (vid,)).fetchone()[column] == value
 
 
 @needs_db
@@ -187,12 +187,12 @@ def test_dismissing_a_stay_makes_an_open_stay_form_stale(client, db, stay):
     """GUARD. The stay form writes dismissal_date and total, which Dismiss sets."""
     t0 = _stamp(db, "boarding_sessions", stay["id"])
     client.post(f"/boarding/{stay['id']}/dismiss")
-    dismissed = db.execute("SELECT dismissed, dismissal_date FROM boarding_sessions WHERE id=?",
+    dismissed = db.execute("SELECT dismissed, dismissal_date FROM boarding_sessions WHERE id=%s",
                            (stay["id"],)).fetchone()
     assert dismissed["dismissed"] and dismissed["dismissal_date"], "Dismiss did not land"
     resp = _edit_stay(client, db, stay["id"], dismissal_date="", room="Stale", expected_updated_at=t0)
     assert resp.status_code == 200
-    after = db.execute("SELECT dismissal_date, room FROM boarding_sessions WHERE id=?", (stay["id"],)).fetchone()
+    after = db.execute("SELECT dismissal_date, room FROM boarding_sessions WHERE id=%s", (stay["id"],)).fetchone()
     assert after["dismissal_date"] == dismissed["dismissal_date"] and after["room"] != "Stale"
 
 

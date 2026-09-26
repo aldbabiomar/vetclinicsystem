@@ -48,7 +48,7 @@ def _user_field(db, raw):
     uid = parse_id(raw)
     if uid is None:
         return None
-    return uid if db.execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone() else None
+    return uid if db.execute("SELECT 1 FROM users WHERE id=%s", (uid,)).fetchone() else None
 
 
 def edit_is_stale(current_updated_at, form):
@@ -107,7 +107,7 @@ def edit_conflict(db, table, record_id, current_updated_at, form):
         since = None
     rows = [] if since is None else db.execute(
         "SELECT username, timestamp, field, old_value, new_value FROM audit_log "
-        "WHERE table_name=? AND record_id=? AND action='update' AND timestamp > ? ORDER BY timestamp, id",
+        "WHERE table_name=%s AND record_id=%s AND action='update' AND timestamp > %s ORDER BY timestamp, id",
         (table, str(record_id), since)).fetchall()
     return {"token": clock.token(current_updated_at),
             "changes": [dict(r, label=_EDIT_FIELD_LABELS.get(r["field"], r["field"])) for r in rows]}
@@ -165,11 +165,11 @@ def patient_with_microchip(db, microchip, exclude_patient_id=None):
         return None
     if exclude_patient_id:
         return db.execute(
-            "SELECT id, animal_name FROM patients WHERE microchip=? AND id<>?",
+            "SELECT id, animal_name FROM patients WHERE microchip=%s AND id<>%s",
             (microchip, exclude_patient_id),
         ).fetchone()
     return db.execute(
-        "SELECT id, animal_name FROM patients WHERE microchip=?", (microchip,)
+        "SELECT id, animal_name FROM patients WHERE microchip=%s", (microchip,)
     ).fetchone()
 
 
@@ -222,7 +222,7 @@ def api_owners_search():
         return jsonify([])
     pat = search.like_pattern(term)
     rows = db.execute(
-        "SELECT * FROM owners WHERE name ILIKE ? OR phone ILIKE ? OR member_card_number ILIKE ? "
+        "SELECT * FROM owners WHERE name ILIKE %s OR phone ILIKE %s OR member_card_number ILIKE %s "
         "ORDER BY name LIMIT 10", (pat, pat, pat)).fetchall()
     return jsonify([{"id": r["id"], "name": r["name"], "phone": r["phone"],
                      "is_member": members.is_active_member(r),
@@ -239,15 +239,15 @@ def owners_list():
     term = request.args.get("q", "").strip()
     page = get_page()
     if term:
-        total = db.execute("SELECT COUNT(*) c FROM owners WHERE name ILIKE ? OR phone ILIKE ?",
+        total = db.execute("SELECT COUNT(*) c FROM owners WHERE name ILIKE %s OR phone ILIKE %s",
                             (search.like_pattern(term), search.like_pattern(term))).fetchone()["c"]
         rows = db.execute(
-            "SELECT * FROM owners WHERE name ILIKE ? OR phone ILIKE ? ORDER BY name LIMIT ? OFFSET ?",
+            "SELECT * FROM owners WHERE name ILIKE %s OR phone ILIKE %s ORDER BY name LIMIT %s OFFSET %s",
             (search.like_pattern(term), search.like_pattern(term), PER_PAGE, page_offset(page)),
         ).fetchall()
     else:
         total = db.execute("SELECT COUNT(*) c FROM owners").fetchone()["c"]
-        rows = db.execute("SELECT * FROM owners ORDER BY name LIMIT ? OFFSET ?",
+        rows = db.execute("SELECT * FROM owners ORDER BY name LIMIT %s OFFSET %s",
                           (PER_PAGE, page_offset(page))).fetchall()
     counts = {r["owner_id"]: r["c"] for r in db.execute("SELECT owner_id, COUNT(*) c FROM patients GROUP BY owner_id").fetchall()}
     return render_template("owners_list.html", owners=rows, search=term, counts=counts,
@@ -270,7 +270,7 @@ def owner_new():
         # almost always means "add another pet to them", not "make a new
         # owner", so send staff straight there instead of a duplicate row.
         if phone:
-            existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
+            existing = db.execute("SELECT id FROM owners WHERE phone=%s", (phone,)).fetchone()
             if existing:
                 flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=codes.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
@@ -279,7 +279,7 @@ def owner_new():
             return render_template("owner_form.html", owner=None, form=f)
         oid = dbmod.next_row_id(db, "owners")
         try:
-            db.execute("INSERT INTO owners (id,name,phone,address,notes) VALUES (?,?,?,?,?)",
+            db.execute("INSERT INTO owners (id,name,phone,address,notes) VALUES (%s,%s,%s,%s,%s)",
                       (oid, name, phone, f.get("address"), f.get("notes")))
             auth.log_change(db, "owners", oid, "create")
             db.commit()
@@ -291,7 +291,7 @@ def owner_new():
             # duplicate; this catches the resulting IntegrityError for
             # whichever request loses that race.
             db.rollback()
-            existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
+            existing = db.execute("SELECT id FROM owners WHERE phone=%s", (phone,)).fetchone()
             if existing:
                 flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=codes.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
@@ -306,14 +306,14 @@ def owner_new():
 @auth.permission_required("manage_owners")
 def owner_detail(owner_id):
     db = get_db()
-    owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone()
+    owner = db.execute("SELECT * FROM owners WHERE id=%s", (owner_id,)).fetchone()
     if not owner:
         flash(_("Owner not found."), "error")
         return redirect(url_for("clinical.owners_list"))
-    patients = db.execute("SELECT * FROM patients WHERE owner_id=? ORDER BY animal_name", (owner_id,)).fetchall()
+    patients = db.execute("SELECT * FROM patients WHERE owner_id=%s ORDER BY animal_name", (owner_id,)).fetchall()
     enrolled_by = None
     if owner["member_enrolled_by"]:
-        u = db.execute("SELECT username FROM users WHERE id=?", (owner["member_enrolled_by"],)).fetchone()
+        u = db.execute("SELECT username FROM users WHERE id=%s", (owner["member_enrolled_by"],)).fetchone()
         enrolled_by = u["username"] if u else None
     return render_template(
         "owner_detail.html", owner=owner, patients=patients,
@@ -341,7 +341,7 @@ def owner_rewards_enroll(owner_id):
     # enrolments of the same owner serialise rather than interleave -- the
     # same rule every other bill-adjacent mutation here follows (SEAM_RULES
     # S1 is what skipping it cost last time).
-    owner = db.execute("SELECT * FROM owners WHERE id=? FOR UPDATE", (owner_id,)).fetchone()
+    owner = db.execute("SELECT * FROM owners WHERE id=%s FOR UPDATE", (owner_id,)).fetchone()
     if not owner:
         flash(_("Owner not found."), "error")
         return redirect(url_for("clinical.owners_list"))
@@ -360,8 +360,8 @@ def owner_rewards_enroll(owner_id):
     today = clock.today().isoformat()
     try:
         db.execute(
-            "UPDATE owners SET is_member=true, member_card_number=?, member_since=?, "
-            "member_expires_on=?, member_enrolled_by=? WHERE id=?",
+            "UPDATE owners SET is_member=true, member_card_number=%s, member_since=%s, "
+            "member_expires_on=%s, member_enrolled_by=%s WHERE id=%s",
             (card, today, expires, session.get("user_id"), owner_id))
         auth.log_change(db, "owners", owner_id, "update", {
             "is_member": (owner["is_member"], True),
@@ -394,11 +394,11 @@ def owner_rewards_unenroll(owner_id):
     without tripping the unique index.
     """
     db = get_db()
-    owner = db.execute("SELECT * FROM owners WHERE id=? FOR UPDATE", (owner_id,)).fetchone()
+    owner = db.execute("SELECT * FROM owners WHERE id=%s FOR UPDATE", (owner_id,)).fetchone()
     if not owner:
         flash(_("Owner not found."), "error")
         return redirect(url_for("clinical.owners_list"))
-    db.execute("UPDATE owners SET is_member=false, member_card_number=NULL WHERE id=?", (owner_id,))
+    db.execute("UPDATE owners SET is_member=false, member_card_number=NULL WHERE id=%s", (owner_id,))
     auth.log_change(db, "owners", owner_id, "update", {
         "is_member": (owner["is_member"], False),
         "member_card_number": (owner["member_card_number"], None),
@@ -412,7 +412,7 @@ def owner_rewards_unenroll(owner_id):
 @auth.permission_required("manage_owners")
 def owner_edit(owner_id):
     db = get_db()
-    owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone()
+    owner = db.execute("SELECT * FROM owners WHERE id=%s", (owner_id,)).fetchone()
     if not owner:
         flash(_("Owner not found."), "error")
         return redirect(url_for("clinical.owners_list"))
@@ -428,7 +428,7 @@ def owner_edit(owner_id):
             return render_template("owner_form.html", owner=owner, form=f)
         new_vals = {"name": name, "phone": phone, "address": f.get("address"), "notes": f.get("notes")}
         changes = auth.diff_dict(owner, new_vals)
-        db.execute("UPDATE owners SET name=?, phone=?, address=?, notes=? WHERE id=?",
+        db.execute("UPDATE owners SET name=%s, phone=%s, address=%s, notes=%s WHERE id=%s",
                   (new_vals["name"], new_vals["phone"], new_vals["address"], new_vals["notes"], owner_id))
         auth.log_change(db, "owners", owner_id, "update", changes)
         db.commit()
@@ -466,7 +466,7 @@ def patients_list():
         total = db.execute("SELECT COUNT(*) c FROM patients").fetchone()["c"]
         rows = db.execute(
             f"SELECT p.*, o.name as owner_name, o.phone as owner_phone FROM patients p "
-            f"JOIN owners o ON o.id=p.owner_id ORDER BY {sort_col} {direction_sql} LIMIT ? OFFSET ?",
+            f"JOIN owners o ON o.id=p.owner_id ORDER BY {sort_col} {direction_sql} LIMIT %s OFFSET %s",
             (PER_PAGE, page_offset(page)),
         ).fetchall()
         total_pages_ = page_count(total)
@@ -480,17 +480,17 @@ def patient_detail(patient_id):
     db = get_db()
     patient = db.execute(
         "SELECT p.*, o.name as owner_name, o.phone as owner_phone, o.id as owner_id FROM patients p "
-        "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (patient_id,)
+        "JOIN owners o ON o.id=p.owner_id WHERE p.id=%s", (patient_id,)
     ).fetchone()
     if not patient:
         flash(_("Patient not found."), "error")
         return redirect(url_for("clinical.patients_list"))
-    visits = db.execute("SELECT * FROM visits WHERE patient_id=? ORDER BY date DESC", (patient_id,)).fetchall()
+    visits = db.execute("SELECT * FROM visits WHERE patient_id=%s ORDER BY date DESC", (patient_id,)).fetchall()
     visits = [dict(v) for v in visits]
     for v in visits:
         v["billing"] = billing.visit_billing_summary(db, v["id"])
     grooming_sessions = [v for v in visits if v["grooming_needed"] == "Y"]
-    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date DESC", (patient_id,)).fetchall()
+    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=%s ORDER BY admission_date DESC", (patient_id,)).fetchall()
     boarding_sessions = clinical.boarding_sessions_for_patient(db, patient_id)
     return render_template("patient_detail.html", patient=patient, visits=visits, cases=cases,
                             grooming_sessions=grooming_sessions, boarding_sessions=boarding_sessions)
@@ -500,7 +500,7 @@ def patient_detail(patient_id):
 @auth.permission_required("manage_patients")
 def patient_edit(patient_id):
     db = get_db()
-    patient = db.execute("SELECT * FROM patients WHERE id=?", (patient_id,)).fetchone()
+    patient = db.execute("SELECT * FROM patients WHERE id=%s", (patient_id,)).fetchone()
     if not patient:
         flash(_("Patient not found."), "error")
         return redirect(url_for("clinical.patients_list"))
@@ -533,8 +533,8 @@ def patient_edit(patient_id):
         changes = auth.diff_dict(patient, new_vals)
         try:
             db.execute(
-                "UPDATE patients SET animal_name=?, species=?, sex=?, age_note=?, repro_status=?, "
-                "housing=?, microchip=?, notes=? WHERE id=?",
+                "UPDATE patients SET animal_name=%s, species=%s, sex=%s, age_note=%s, repro_status=%s, "
+                "housing=%s, microchip=%s, notes=%s WHERE id=%s",
                 (*new_vals.values(), patient_id),
             )
         except dbmod.IntegrityError:
@@ -556,7 +556,7 @@ def patient_edit(patient_id):
 def patient_history(patient_id):
     db = get_db()
     patient = db.execute(
-        "SELECT p.*, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (patient_id,)
+        "SELECT p.*, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=%s", (patient_id,)
     ).fetchone()
     if not patient:
         flash(_("Patient not found."), "error")
@@ -569,7 +569,7 @@ def patient_history(patient_id):
 @auth.permission_required("manage_patients")
 def patient_export_file(patient_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM patients WHERE id=%s", (patient_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_patient_file(db, patient_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"{patient_id}_patient_file.pdf")
@@ -579,7 +579,7 @@ def patient_export_file(patient_id):
 @auth.permission_required("manage_patients")
 def patient_export_billing(patient_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM patients WHERE id=%s", (patient_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_patient_billing(db, patient_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"{patient_id}_billing.pdf")
@@ -589,7 +589,7 @@ def patient_export_billing(patient_id):
 @auth.permission_required("manage_visits")
 def visit_export_pdf(visit_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM visits WHERE id=?", (visit_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM visits WHERE id=%s", (visit_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_visit_pdf(db, visit_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"{visit_id}_visit.pdf")
@@ -599,7 +599,7 @@ def visit_export_pdf(visit_id):
 @auth.permission_required("manage_inpatient")
 def inpatient_export_pdf(case_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=?", (case_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_inpatient_pdf(db, case_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"inpatient_{case_id}.pdf")
@@ -628,7 +628,7 @@ def visit_new_existing():
     if request.method == "POST":
         patient_id = parse_id(request.form.get("patient_id"), "PT")
         patient_row = db.execute(
-            "SELECT p.animal_name, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=?",
+            "SELECT p.animal_name, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=%s",
             (patient_id,),
         ).fetchone() if patient_id else None
         if not patient_id or not patient_row:
@@ -705,14 +705,14 @@ def visit_new_patient():
         # in the whole visit form by this point — losing that work to a
         # hard error would be a worse experience than quietly reusing the
         # existing owner, which is what they almost always actually meant).
-        existing_owner = db.execute("SELECT id FROM owners WHERE phone=?", (owner_phone,)).fetchone() if owner_phone else None
+        existing_owner = db.execute("SELECT id FROM owners WHERE phone=%s", (owner_phone,)).fetchone() if owner_phone else None
         if existing_owner:
             oid = existing_owner["id"]
             flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=codes.code("OW", oid)), "success")
         else:
             oid = dbmod.next_row_id(db, "owners")
             try:
-                db.execute("INSERT INTO owners (id,name,phone,address) VALUES (?,?,?,?)",
+                db.execute("INSERT INTO owners (id,name,phone,address) VALUES (%s,%s,%s,%s)",
                           (oid, owner_name, owner_phone, f.get("owner_address")))
                 auth.log_change(db, "owners", oid, "create")
             except dbmod.IntegrityError:
@@ -728,7 +728,7 @@ def visit_new_patient():
                 # owner_new()'s own handling of this same race. See
                 # ERROR_500_AUDIT.md E-12 / ORPHANED_RECORDS_AUDIT.md F-03.
                 db.rollback()
-                existing = db.execute("SELECT id FROM owners WHERE phone=?", (owner_phone,)).fetchone() \
+                existing = db.execute("SELECT id FROM owners WHERE phone=%s", (owner_phone,)).fetchone() \
                     if owner_phone else None
                 if not existing:
                     flash(_("That owner couldn't be saved — check the name and phone number "
@@ -741,7 +741,7 @@ def visit_new_patient():
         try:
             db.execute(
                 "INSERT INTO patients (id,owner_id,animal_name,species,sex,age_note,repro_status,housing,microchip) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (pid, oid, animal_name, species, f.get("sex"), f.get("age_note"),
                  f.get("repro_status"), f.get("housing"), microchip),
             )
@@ -810,7 +810,7 @@ def _create_visit(db, patient_id, f):
            wellness_needed,wellness_type,wellness_next_dose_date,wellness_contacted,wellness_contact_method,
            grooming_needed,grooming_services,grooming_notes,grooming_admitted_items,grooming_status,grooming_contacted,
            payment_status,created_by)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (vid, patient_id, "Inpatient" if admit_now else "Outpatient", visit_date,
          f.get("doctor"), weight_kg, bcs, f.get("complaint"), f.get("history"), None, None,
          "Admitted to Inpatient" if admit_now else "Needs Filling", visit_date, None,
@@ -837,7 +837,7 @@ def _create_inpatient_case(db, patient_id, visit_id, complaint, admission_date, 
         db, members.owner_for_patient(db, patient_id))
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, visit_id, complaint, admission_date, weight_kg, bcs, dismissed, created_by, "
-        "discount_percent, discount_source, discount_applied_by) VALUES (?,?,?,?,?,?,false,?,?,?,?) RETURNING id",
+        "discount_percent, discount_source, discount_applied_by) VALUES (%s,%s,%s,%s,%s,%s,false,%s,%s,%s,%s) RETURNING id",
         (patient_id, visit_id, complaint, admission_date or clock.today().isoformat(), weight_kg, bcs, session.get("user_id"),
          member_percent, member_source, session.get("user_id") if member_percent else None),
     )
@@ -862,10 +862,10 @@ def visits_list():
     params = []
     where = []
     if day_filter:
-        where.append("v.date=?")
+        where.append("v.date=%s")
         params.append(day_filter)
     if term:
-        where.append("(p.animal_name ILIKE ? OR o.name ILIKE ?)")
+        where.append("(p.animal_name ILIKE %s OR o.name ILIKE %s)")
         params.extend([search.like_pattern(term), search.like_pattern(term)])
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
@@ -879,7 +879,7 @@ def visits_list():
     }
     q = f"SELECT v.*, p.animal_name, o.name as owner_name {from_join}{where_sql}"
     q += " ORDER BY " + order_map.get(sort, order_map["date"])
-    q += " LIMIT ? OFFSET ?"
+    q += " LIMIT %s OFFSET %s"
 
     rows = [dict(r) for r in db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()]
     for r in rows:
@@ -891,13 +891,13 @@ def visits_list():
 def _visit_detail_context(db, visit_id):
     visit = db.execute(
         "SELECT v.*, p.animal_name, p.id as patient_id, o.name as owner_name, o.phone as owner_phone FROM visits v "
-        "JOIN patients p ON p.id=v.patient_id JOIN owners o ON o.id=p.owner_id WHERE v.id=?", (visit_id,)
+        "JOIN patients p ON p.id=v.patient_id JOIN owners o ON o.id=p.owner_id WHERE v.id=%s", (visit_id,)
     ).fetchone()
     if not visit:
         return None
-    billing_row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+    billing_row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     summary = billing.visit_billing_summary(db, visit_id)
-    payments = db.execute("SELECT * FROM payments WHERE visit_id=? ORDER BY date DESC", (visit_id,)).fetchall()
+    payments = db.execute("SELECT * FROM payments WHERE visit_id=%s ORDER BY date DESC", (visit_id,)).fetchall()
     files = attach_mod.list_attachments(db, "visit", visit_id)
     cap = auth.discount_cap_for()
     return dict(visit=visit, billing=billing_row, summary=summary, payments=payments, files=files, discount_cap=cap)
@@ -920,7 +920,7 @@ def visit_edit(visit_id):
     db = get_db()
     # Locked on a save, so the stale check below and the UPDATE it guards
     # cannot interleave with another save of the same visit.
-    visit = db.execute("SELECT * FROM visits WHERE id=?" + (" FOR UPDATE" if request.method == "POST" else ""),
+    visit = db.execute("SELECT * FROM visits WHERE id=%s" + (" FOR UPDATE" if request.method == "POST" else ""),
                        (visit_id,)).fetchone()
     if not visit:
         flash(_("Visit not found."), "error")
@@ -998,7 +998,7 @@ def visit_edit(visit_id):
         was_admitted = visit["case_status"] == "Admitted to Inpatient"
         now_admitted = new_case_status == "Admitted to Inpatient"
         existing_case = db.execute(
-            "SELECT id, dismissed FROM inpatient_cases WHERE visit_id=? ORDER BY id DESC LIMIT 1",
+            "SELECT id, dismissed FROM inpatient_cases WHERE visit_id=%s ORDER BY id DESC LIMIT 1",
             (visit_id,)).fetchone()
         if was_admitted and not now_admitted and existing_case and not existing_case["dismissed"]:
             flash(_("Inpatient case #%(id)s is still open for this visit — dismiss it there first, or leave the status as Admitted to Inpatient.", id=existing_case['id']), "error")
@@ -1007,12 +1007,12 @@ def visit_edit(visit_id):
         changes = auth.diff_dict(visit, new_vals)
         now = clock.now()
         db.execute(
-            """UPDATE visits SET visit_type=?, date=?, doctor=?, weight_kg=?, bcs=?, complaint=?, history=?, exam=?, treatment=?,
-               case_status=?, case_status_changed_at=?, updates_log=?, followup_needed=?, followup_method=?,
-               followup_reason=?, followup_date=?, followup_status=?, wellness_needed=?, wellness_type=?,
-               wellness_next_dose_date=?, wellness_contacted=?, wellness_contact_method=?, grooming_needed=?,
-               grooming_services=?, grooming_notes=?, grooming_admitted_items=?, grooming_status=?,
-               grooming_contacted=?, payment_status=?, updated_at=? WHERE id=?""",
+            """UPDATE visits SET visit_type=%s, date=%s, doctor=%s, weight_kg=%s, bcs=%s, complaint=%s, history=%s, exam=%s, treatment=%s,
+               case_status=%s, case_status_changed_at=%s, updates_log=%s, followup_needed=%s, followup_method=%s,
+               followup_reason=%s, followup_date=%s, followup_status=%s, wellness_needed=%s, wellness_type=%s,
+               wellness_next_dose_date=%s, wellness_contacted=%s, wellness_contact_method=%s, grooming_needed=%s,
+               grooming_services=%s, grooming_notes=%s, grooming_admitted_items=%s, grooming_status=%s,
+               grooming_contacted=%s, payment_status=%s, updated_at=%s WHERE id=%s""",
             (*new_vals.values(), now, visit_id),
         )
         auth.log_change(db, "visits", visit_id, "update", changes, at=now)
@@ -1054,7 +1054,7 @@ def visit_billing_save(visit_id):
     # Locked for the same reason visit_discount_save() locks this row —
     # see the comment there. A pure mutex against a concurrent discount
     # save on the same visit; nothing about the visits row itself changes.
-    if not db.execute("SELECT id FROM visits WHERE id=? FOR UPDATE", (visit_id,)).fetchone():
+    if not db.execute("SELECT id FROM visits WHERE id=%s FOR UPDATE", (visit_id,)).fetchone():
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.visits_list"))
     billing_type = f.get("billing_type", "Automatic")
@@ -1062,7 +1062,7 @@ def visit_billing_save(visit_id):
         flash(_("Billing type must be one of: %(choices)s.", choices=list_join(_(c) for c in BILLING_TYPES)), "error")
         return redisplay()
     priced_lines = []
-    had_bad_number = had_bad_price = False
+    had_bad_number = had_bad_price = had_unpriced = False
     if billing_type == "Automatic":
         # Same pattern as inpatient_billing_add(): each cart row is a
         # validated search-result pick (price_id + qty_{id}), not typed
@@ -1079,10 +1079,16 @@ def visit_billing_save(visit_id):
                 continue
             pid = parse_id(raw_pid)
             price_row = db.execute(
-                "SELECT name, category, sale_price, cost_price, can_discount FROM price_list WHERE id=?", (pid,)
+                "SELECT name, category, sale_price, cost_price, can_discount FROM price_list WHERE id=%s", (pid,)
             ).fetchone()
             if not price_row:
                 had_bad_price = True
+                continue
+            # The Price List search offers only priced items; this is the server
+            # agreeing with it (a crafted form, or a price cleared while the bill
+            # was open). A line is billed at its price, or not at all.
+            if price_row["sale_price"] is None:
+                had_unpriced = True
                 continue
             priced_lines.append({
                 "price_id": pid, "name": price_row["name"], "category": price_row["category"],
@@ -1093,6 +1099,8 @@ def visit_billing_save(visit_id):
                 "discountable": bool(price_row["can_discount"]),
             })
         if not priced_lines:
+            if had_unpriced:
+                flash(_("Some selected items have no sale price in the Price List and were skipped."), "error")
             flash(_("Add at least one billed item."), "error")
             return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
         # visit_discount_save() only checks non-discountable items against
@@ -1102,7 +1110,7 @@ def visit_billing_save(visit_id):
         # otherwise silently carry forward onto items added afterward that
         # were never supposed to be discountable at all.
         existing_discount = db.execute(
-            "SELECT discount_percent, discount_source FROM billing WHERE visit_id=?", (visit_id,)
+            "SELECT discount_percent, discount_source FROM billing WHERE visit_id=%s", (visit_id,)
         ).fetchone()
         # Scoped to STAFF discounts. A member's card discounts the eligible
         # lines and charges the rest in full — that is what the per-line
@@ -1134,10 +1142,10 @@ def visit_billing_save(visit_id):
         # with nothing flagging it. Falls back to the visit's own date
         # (itself nullable) or today, same as the template's displayed
         # default. See ORPHANED_RECORDS_AUDIT.md F-06.
-        visit_row = db.execute("SELECT date FROM visits WHERE id=?", (visit_id,)).fetchone()
+        visit_row = db.execute("SELECT date FROM visits WHERE id=%s", (visit_id,)).fetchone()
         date_billed = (visit_row["date"] if visit_row else None) or clock.today().isoformat()
     notes = f.get("notes")
-    existing = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+    existing = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     # Re-saving this bill with a shorter cart (or a smaller Manual amount)
     # can shrink the total below what's already been paid against it —
     # nothing else ever surfaces `paid > total` after that. See
@@ -1150,7 +1158,7 @@ def visit_billing_save(visit_id):
         new_discountable = (manual_amount if billing_type == "Manual"
                             else sum(l["quantity"] * l["unit_price"]
                                      for l in priced_lines if l["discountable"]))
-        paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE visit_id=?", (visit_id,)).fetchone()
+        paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE visit_id=%s", (visit_id,)).fetchone()
         new_total, _unused, _unused, _unused, _unused = billing.compute_bill_totals(
             new_subtotal or 0, existing["discount_percent"], 0, existing["cleanup_amount"],
             discountable_subtotal=new_discountable or 0)
@@ -1168,12 +1176,12 @@ def visit_billing_save(visit_id):
     # list and deliberately NOT in the DO UPDATE clause: every later save of
     # this bill goes through the UPDATE branch, and listing them there would
     # re-stamp the snapshot on every edit.
-    visit_row = db.execute("SELECT patient_id FROM visits WHERE id=?", (visit_id,)).fetchone()
+    visit_row = db.execute("SELECT patient_id FROM visits WHERE id=%s", (visit_id,)).fetchone()
     member_percent, member_source = members.member_discount_for(
         db, members.owner_for_patient(db, visit_row["patient_id"]) if visit_row else None)
     db.execute(
         "INSERT INTO billing (visit_id, billing_type, manual_amount, date_billed, notes, "
-        "discount_percent, discount_source, discount_applied_by) VALUES (?,?,?,?,?,?,?,?) "
+        "discount_percent, discount_source, discount_applied_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
         "ON CONFLICT (visit_id) DO UPDATE SET billing_type=excluded.billing_type, "
         "manual_amount=excluded.manual_amount, date_billed=excluded.date_billed, notes=excluded.notes",
         (visit_id, billing_type, manual_amount, date_billed, notes,
@@ -1189,14 +1197,16 @@ def visit_billing_save(visit_id):
     else:
         # Switched to (or re-saved as) Manual — any prior Automatic
         # snapshot for this visit no longer applies.
-        db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
-    billing.refresh_visit_billing_total(db, visit_id)
+        db.execute("DELETE FROM visit_billing_lines WHERE visit_id=%s", (visit_id,))
+    billing.bill_changed(db, "visit", visit_id)
     auth.log_change(db, "billing", visit_id, "update" if existing else "create")
     db.commit()
     if had_bad_number:
         flash(_("Some quantities weren't valid numbers and were skipped."), "error")
     if had_bad_price:
         flash(_("Some selected items no longer exist in the Price List and were skipped."), "error")
+    if had_unpriced:
+        flash(_("Some selected items have no sale price in the Price List and were skipped."), "error")
     flash(_("Billing saved."), "success")
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
@@ -1231,7 +1241,7 @@ def visit_discount_save(visit_id):
     # check but write a new (non-discountable) line after it, and both
     # requests' writes would land having each only validated against a
     # snapshot the other had already invalidated.
-    if not db.execute("SELECT id FROM visits WHERE id=? FOR UPDATE", (visit_id,)).fetchone():
+    if not db.execute("SELECT id FROM visits WHERE id=%s FOR UPDATE", (visit_id,)).fetchone():
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.visits_list"))
     # Card only (owner's decision): the card's discount is the only discount
@@ -1240,7 +1250,7 @@ def visit_discount_save(visit_id):
     # an admin who needs a wrongly-applied card discount off an existing bill
     # uses rewards_remove_discount() below, which can only ever remove.
     member_bill = db.execute(
-        "SELECT discount_source FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+        "SELECT discount_source FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     if member_bill and member_bill["discount_source"] == "member":
         flash(_("This bill carries a rewards-card discount. A staff discount can't be added on top of it, and can't replace it."), "error")
         return redisplay()
@@ -1250,7 +1260,7 @@ def visit_discount_save(visit_id):
         if blocked:
             flash(_("Can't apply a discount — this bill includes item(s) marked as not discountable: %(join)s.", join=', '.join(blocked)), "error")
             return redisplay()
-    existing = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+    existing = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     if not existing:
         # A discount needs a bill to apply to — the old UPSERT here would
         # otherwise create a childless billing row (total=0, no lines, no
@@ -1259,10 +1269,10 @@ def visit_discount_save(visit_id):
         flash(_("Save the bill first — a discount needs something to apply to."), "error")
         return redisplay()
     db.execute(
-        "UPDATE billing SET discount_percent=?, discount_applied_by=? WHERE visit_id=?",
+        "UPDATE billing SET discount_percent=%s, discount_applied_by=%s WHERE visit_id=%s",
         (percent, session["user_id"], visit_id),
     )
-    billing.refresh_visit_billing_total(db, visit_id)
+    billing.bill_changed(db, "visit", visit_id)
     auth.log_change(db, "billing", visit_id, "update", {"discount_percent": (existing["discount_percent"] if existing else 0, percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")
@@ -1311,7 +1321,7 @@ def rewards_remove_discount(surface, bill_id):
     # Locked like every other mutation of these rows, so a concurrent billing
     # save serialises behind this rather than recomputing a total from a
     # discount this is in the middle of clearing (SEAM_RULES S1).
-    row = db.execute(f"SELECT discount_percent, discount_source FROM {table} WHERE {key}=? FOR UPDATE",
+    row = db.execute(f"SELECT discount_percent, discount_source FROM {table} WHERE {key}=%s FOR UPDATE",
                      (bill_id,)).fetchone()
     if not row:
         flash(_("That bill no longer exists."), "error")
@@ -1323,15 +1333,10 @@ def rewards_remove_discount(surface, bill_id):
         return back
 
     db.execute(f"UPDATE {table} SET discount_percent=0, discount_source='staff', "
-               f"discount_applied_by=NULL WHERE {key}=?", (bill_id,))
+               f"discount_applied_by=NULL WHERE {key}=%s", (bill_id,))
     # Leaves an ordinary, staff-shaped, undiscounted bill — a state the rest
     # of the system already understands, not a fourth kind of bill.
-    if surface == "visit":
-        billing.refresh_visit_billing_total(db, bill_id)
-    elif surface == "inpatient":
-        billing.refresh_inpatient_total(db, bill_id)
-    else:
-        billing.refresh_boarding_total(db, bill_id)
+    billing.bill_changed(db, surface, bill_id)
     auth.log_change(db, table, str(bill_id), "update", {
         "discount_percent": (row["discount_percent"], 0),
         "discount_source": ("member", "staff"),
@@ -1359,7 +1364,7 @@ def visit_payment_add(visit_id):
     # boarding_payment(): there's no delete/edit route for a payment once
     # recorded, so an overpayment here can never be undone, only journaled
     # around.
-    if not db.execute("SELECT id FROM visits WHERE id=? FOR UPDATE", (visit_id,)).fetchone():
+    if not db.execute("SELECT id FROM visits WHERE id=%s FOR UPDATE", (visit_id,)).fetchone():
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.visits_list"))
     try:
@@ -1395,19 +1400,19 @@ def visit_payment_add(visit_id):
         flash(payment_method_message(), "error")
         return redisplay()
     cur = db.execute(
-        "INSERT INTO payments (visit_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
+        "INSERT INTO payments (visit_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (visit_id, amount, method, payment_date, session["user_id"], f.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")
     if cleanup_amount > 0:
         db.execute(
-            "UPDATE billing SET cleanup_amount = cleanup_amount + ?, cleanup_applied_by = ? WHERE visit_id = ?",
+            "UPDATE billing SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE visit_id = %s",
             (cleanup_amount, session["user_id"], visit_id),
         )
         auth.log_change(db, "billing", visit_id, "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        billing.refresh_visit_billing_total(db, visit_id)
+        billing.bill_changed(db, "visit", visit_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -1418,7 +1423,7 @@ def visit_payment_add(visit_id):
 @auth.permission_required("manage_visits")
 def visit_attachment_upload(visit_id):
     db = get_db()
-    patient_row = db.execute("SELECT patient_id FROM visits WHERE id=?", (visit_id,)).fetchone()
+    patient_row = db.execute("SELECT patient_id FROM visits WHERE id=%s", (visit_id,)).fetchone()
     if patient_row is None:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.visits_list"))
@@ -1435,7 +1440,7 @@ def visit_attachment_upload(visit_id):
 @auth.permission_required("manage_visits", "manage_inpatient")
 def serve_attachment(relpath):
     db = get_db()
-    row = db.execute("SELECT relative_path FROM attachments WHERE relative_path=?", (relpath,)).fetchone()
+    row = db.execute("SELECT relative_path FROM attachments WHERE relative_path=%s", (relpath,)).fetchone()
     if row is None:
         flash(_("File not found."), "error")
         return redirect(url_for("main.dashboard"))
@@ -1509,14 +1514,14 @@ def followups_list():
 def followup_status_update(visit_id):
     db = get_db()
     status = request.form.get("status")
-    old = db.execute("SELECT followup_status FROM visits WHERE id=?", (visit_id,)).fetchone()
+    old = db.execute("SELECT followup_status FROM visits WHERE id=%s", (visit_id,)).fetchone()
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(request.referrer or url_for("clinical.followups_list"))
     # Bumps updated_at: an open edit form of this visit writes this column
     # too, and must see that it changed (audit B4).
     now = clock.now()
-    db.execute("UPDATE visits SET followup_status=?, updated_at=? WHERE id=?", (status, now, visit_id))
+    db.execute("UPDATE visits SET followup_status=%s, updated_at=%s WHERE id=%s", (status, now, visit_id))
     auth.log_change(db, "visits", visit_id, "update", {"followup_status": (old["followup_status"], status)}, at=now)
     db.commit()
     flash(_("Follow-up status updated."), "success")
@@ -1541,7 +1546,7 @@ def wellness_list():
 def wellness_update(visit_id):
     db = get_db()
     f = request.form
-    old = db.execute("SELECT wellness_contacted, wellness_contact_method FROM visits WHERE id=?", (visit_id,)).fetchone()
+    old = db.execute("SELECT wellness_contacted, wellness_contact_method FROM visits WHERE id=%s", (visit_id,)).fetchone()
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.wellness_list"))
@@ -1549,7 +1554,7 @@ def wellness_update(visit_id):
     # too, and must see that it changed (audit B4).
     now = clock.now()
     contacted, method = f.get("wellness_contacted", "N"), f.get("wellness_contact_method") or None
-    db.execute("UPDATE visits SET wellness_contacted=?, wellness_contact_method=?, updated_at=? WHERE id=?",
+    db.execute("UPDATE visits SET wellness_contacted=%s, wellness_contact_method=%s, updated_at=%s WHERE id=%s",
                (contacted, method, now, visit_id))
     auth.log_change(db, "visits", visit_id, "update",
                     {"wellness_contacted": (old["wellness_contacted"], contacted),
@@ -1578,7 +1583,7 @@ def grooming_list():
 def grooming_update(visit_id):
     db = get_db()
     f = request.form
-    old = db.execute("SELECT grooming_status, grooming_contacted FROM visits WHERE id=?", (visit_id,)).fetchone()
+    old = db.execute("SELECT grooming_status, grooming_contacted FROM visits WHERE id=%s", (visit_id,)).fetchone()
     if not old:
         flash(_("Visit not found."), "error")
         return redirect(url_for("clinical.grooming_list"))
@@ -1586,7 +1591,7 @@ def grooming_update(visit_id):
     # too, and must see that it changed (audit B4).
     now = clock.now()
     status, contacted = f.get("grooming_status"), f.get("grooming_contacted", "N")
-    db.execute("UPDATE visits SET grooming_status=?, grooming_contacted=?, updated_at=? WHERE id=?",
+    db.execute("UPDATE visits SET grooming_status=%s, grooming_contacted=%s, updated_at=%s WHERE id=%s",
                (status, contacted, now, visit_id))
     auth.log_change(db, "visits", visit_id, "update",
                     {"grooming_status": (old["grooming_status"], status),
@@ -1619,7 +1624,7 @@ def _boarding_page_context(show_all):
          "FROM boarding_sessions b JOIN patients p ON p.id=b.patient_id JOIN owners o ON o.id=p.owner_id")
     if not show_all:
         q += " WHERE b.dismissed=false"
-    q += " ORDER BY b.entry_date DESC LIMIT ? OFFSET ?"
+    q += " ORDER BY b.entry_date DESC LIMIT %s OFFSET %s"
     rows = [dict(r) for r in db.execute(q, (PER_PAGE, page_offset(page))).fetchall()]
     # Batched across the whole page instead of a paid-sum + incident-count
     # query per row (boarding_billing_summary() alone was also redundantly
@@ -1629,7 +1634,7 @@ def _boarding_page_context(show_all):
     paid_by_id = {}
     incidents_by_id = {}
     if ids:
-        placeholders = ",".join("?" * len(ids))
+        placeholders = ",".join(["%s"] * len(ids))
         paid_by_id = {p["boarding_id"]: p["s"] for p in db.execute(
             f"SELECT boarding_id, COALESCE(SUM(amount),0) s FROM payments "
             f"WHERE boarding_id IN ({placeholders}) GROUP BY boarding_id", ids
@@ -1667,14 +1672,14 @@ def boarding_new():
         if pid:
             prow = db.execute(
                 "SELECT p.animal_name, p.species, o.name AS owner_name FROM patients p "
-                "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (pid,),
+                "JOIN owners o ON o.id=p.owner_id WHERE p.id=%s", (pid,),
             ).fetchone()
             if prow:
                 ctx["new_form_patient_label"] = f"{prow['animal_name']} — {prow['owner_name']} ({pid})"
         return render_template("boarding.html", **ctx)
 
     patient_id = parse_id(f.get("patient_id"), "PT")
-    if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
+    if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=%s", (patient_id,)).fetchone():
         flash(_("Pick a patient from the search results first."), "error")
         return redisplay()
     try:
@@ -1702,7 +1707,7 @@ def boarding_new():
         "INSERT INTO boarding_sessions (patient_id, entry_date, dismissal_date, admitted_items, special_needs, "
         "special_needs_notes, room, price_per_day, total, total_is_auto, dismissed, created_by, "
         "discount_percent, discount_source, discount_applied_by) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,false,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,false,%s,%s,%s,%s) RETURNING id",
         (patient_id, entry_date, dismissal_date, f.get("admitted_items"), special_needs,
          f.get("special_needs_notes") if special_needs else None, f.get("room"), price_per_day, total,
          total_is_auto, session.get("user_id"),
@@ -1710,7 +1715,7 @@ def boarding_new():
          session.get("user_id") if member_percent else None),
     )
     boarding_id = cur.fetchone()["id"]
-    billing.refresh_boarding_total(db, boarding_id)
+    billing.bill_changed(db, "boarding", boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "create")
     db.commit()
     flash(_("Boarding session added."), "success")
@@ -1722,7 +1727,7 @@ def boarding_new():
 def boarding_edit(boarding_id):
     db = get_db()
     f = request.form
-    old = db.execute("SELECT * FROM boarding_sessions WHERE id=? FOR UPDATE", (boarding_id,)).fetchone()
+    old = db.execute("SELECT * FROM boarding_sessions WHERE id=%s FOR UPDATE", (boarding_id,)).fetchone()
     if not old:
         flash(_("Boarding session not found."), "error")
         return redirect(url_for("clinical.boarding_page"))
@@ -1782,11 +1787,11 @@ def boarding_edit(boarding_id):
     changes = auth.diff_dict(old, new_vals)
     now = clock.now()
     db.execute(
-        "UPDATE boarding_sessions SET entry_date=?, dismissal_date=?, admitted_items=?, special_needs=?, "
-        "special_needs_notes=?, room=?, price_per_day=?, total=?, total_is_auto=?, updated_at=? WHERE id=?",
+        "UPDATE boarding_sessions SET entry_date=%s, dismissal_date=%s, admitted_items=%s, special_needs=%s, "
+        "special_needs_notes=%s, room=%s, price_per_day=%s, total=%s, total_is_auto=%s, updated_at=%s WHERE id=%s",
         (*new_vals.values(), now, boarding_id),
     )
-    billing.refresh_boarding_total(db, boarding_id)
+    billing.bill_changed(db, "boarding", boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes, at=now)
     db.commit()
     flash(_("Boarding session updated."), "success")
@@ -1801,7 +1806,7 @@ def boarding_edit(boarding_id):
 def boarding_dismiss(boarding_id):
     db = get_db()
     row = db.execute(
-        "SELECT price_per_day, entry_date, dismissal_date, total, total_is_auto FROM boarding_sessions WHERE id=?",
+        "SELECT price_per_day, entry_date, dismissal_date, total, total_is_auto FROM boarding_sessions WHERE id=%s",
         (boarding_id,),
     ).fetchone()
     if not row:
@@ -1819,9 +1824,9 @@ def boarding_dismiss(boarding_id):
     # Bumps updated_at: an open edit form of this stay writes dismissal_date
     # and total too, and must see that they changed (audit B4).
     now = clock.now()
-    db.execute("UPDATE boarding_sessions SET dismissed=true, dismissal_date=?, total=?, updated_at=? WHERE id=?",
+    db.execute("UPDATE boarding_sessions SET dismissed=true, dismissal_date=%s, total=%s, updated_at=%s WHERE id=%s",
                (dismissal_date, final_total, now, boarding_id))
-    billing.refresh_boarding_total(db, boarding_id)
+    billing.bill_changed(db, "boarding", boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update",
                     {"dismissed": (False, True), "dismissal_date": (row["dismissal_date"], dismissal_date),
                      "total": (row["total"], final_total)}, at=now)
@@ -1834,7 +1839,7 @@ def boarding_dismiss(boarding_id):
 @auth.permission_required("manage_boarding")
 def boarding_incident(boarding_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM boarding_sessions WHERE id=?", (boarding_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM boarding_sessions WHERE id=%s", (boarding_id,)).fetchone():
         flash(_("Boarding session not found."), "error")
         return redirect(url_for("clinical.boarding_page"))
     f = request.form
@@ -1845,7 +1850,7 @@ def boarding_incident(boarding_id):
     contacted = "Y" if f.get("contacted") == "on" else "N"
     cur = db.execute(
         "INSERT INTO boarding_incidents (boarding_id, timestamp, issue, contacted, contact_method, response, user_id) "
-        "VALUES (?,?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (boarding_id, clock.now().isoformat(timespec="seconds"), issue, contacted,
          f.get("contact_method") if contacted == "Y" else None, f.get("response"), session.get("user_id")),
     )
@@ -1871,7 +1876,7 @@ def boarding_payment(boarding_id):
     # distributor_payment_new()/consignment_settlement_new() — there's no
     # delete/edit route for a payment once recorded, so an overpayment here
     # can never be undone, only journaled around.
-    session_row = db.execute("SELECT id FROM boarding_sessions WHERE id=? FOR UPDATE", (boarding_id,)).fetchone()
+    session_row = db.execute("SELECT id FROM boarding_sessions WHERE id=%s FOR UPDATE", (boarding_id,)).fetchone()
     if not session_row:
         flash(_("Boarding session not found."), "error")
         return redirect(url_for("clinical.boarding_page"))
@@ -1938,7 +1943,7 @@ def boarding_payment(boarding_id):
         flash(payment_method_message(), "error")
         return redisplay()
     cur = db.execute(
-        "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
+        "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (boarding_id, amount, method, clock.today().isoformat(),
          session.get("user_id"), request.form.get("notes")),
     )
@@ -1946,20 +1951,20 @@ def boarding_payment(boarding_id):
     auth.log_change(db, "payments", str(payment_id), "create")
     if discount_percent != summary["discount_percent"]:
         db.execute(
-            "UPDATE boarding_sessions SET discount_percent = ?, discount_applied_by = ? WHERE id = ?",
+            "UPDATE boarding_sessions SET discount_percent = %s, discount_applied_by = %s WHERE id = %s",
             (discount_percent, session["user_id"], boarding_id),
         )
         auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes={
             "discount_percent": (summary["discount_percent"], discount_percent)})
     if cleanup_amount > 0:
         db.execute(
-            "UPDATE boarding_sessions SET cleanup_amount = cleanup_amount + ?, cleanup_applied_by = ? WHERE id = ?",
+            "UPDATE boarding_sessions SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE id = %s",
             (cleanup_amount, session["user_id"], boarding_id),
         )
         auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
     if cleanup_amount > 0 or discount_percent != summary["discount_percent"]:
-        billing.refresh_boarding_total(db, boarding_id)
+        billing.bill_changed(db, "boarding", boarding_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -1970,7 +1975,7 @@ def boarding_payment(boarding_id):
 @auth.permission_required("manage_boarding")
 def boarding_export_pdf(boarding_id):
     db = get_db()
-    if not db.execute("SELECT 1 FROM boarding_sessions WHERE id=?", (boarding_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM boarding_sessions WHERE id=%s", (boarding_id,)).fetchone():
         abort(404)
     buf = pdf_export.export_boarding_pdf(db, boarding_id)
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"boarding_{boarding_id}.pdf")
@@ -1999,7 +2004,7 @@ def inpatient_list():
         total = db.execute(f"SELECT COUNT(*) c FROM inpatient_cases c {paid_join}{where}").fetchone()["c"]
         q = (f"SELECT c.*, p.animal_name, o.name as owner_name, COALESCE(pay.paid, 0) AS paid "
              f"FROM inpatient_cases c JOIN patients p ON p.id=c.patient_id JOIN owners o ON o.id=p.owner_id "
-             f"{paid_join}{where} ORDER BY c.admission_date DESC LIMIT ? OFFSET ?")
+             f"{paid_join}{where} ORDER BY c.admission_date DESC LIMIT %s OFFSET %s")
         cases = db.execute(q, (PER_PAGE, page_offset(page))).fetchall()
     else:
         count_where = "" if show_all else " WHERE dismissed=false"
@@ -2008,7 +2013,7 @@ def inpatient_list():
              "JOIN patients p ON p.id=c.patient_id JOIN owners o ON o.id=p.owner_id")
         if not show_all:
             q += " WHERE c.dismissed=false"
-        q += " ORDER BY c.admission_date DESC LIMIT ? OFFSET ?"
+        q += " ORDER BY c.admission_date DESC LIMIT %s OFFSET %s"
         cases = db.execute(q, (PER_PAGE, page_offset(page))).fetchall()
     return render_template("inpatient_list.html", cases=cases, show_all=show_all, balance_due=balance_due,
                             page=page, total_pages=page_count(total), total_count=total)
@@ -2024,7 +2029,7 @@ def inpatient_new():
             pid = parse_id(f.get("patient_id"), "PT")
             prow = db.execute(
                 "SELECT p.animal_name, o.name AS owner_name FROM patients p "
-                "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (pid,),
+                "JOIN owners o ON o.id=p.owner_id WHERE p.id=%s", (pid,),
             ).fetchone() if pid else None
             return render_template(
                 "inpatient_new.html", vets=vet_users(db), form=f, selected_patient_id=pid,
@@ -2046,7 +2051,7 @@ def inpatient_new():
             flash(_("Weight can't be negative."), "error")
             return redisplay()
         patient_id = parse_id(f.get("patient_id"), "PT")
-        if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=?", (patient_id,)).fetchone():
+        if not patient_id or not db.execute("SELECT 1 FROM patients WHERE id=%s", (patient_id,)).fetchone():
             flash(_("Pick a patient from the search results first."), "error")
             return redisplay()
         case_id = _create_inpatient_case(db, patient_id, None, f.get("complaint"), new_admission_date,
@@ -2058,8 +2063,8 @@ def inpatient_new():
         }
         now = clock.now()
         db.execute(
-            "UPDATE inpatient_cases SET exam_findings=?, admitted_items=?, attending_vet_id=?, supervising_vet_id=?, "
-            "updated_at=? WHERE id=?",
+            "UPDATE inpatient_cases SET exam_findings=%s, admitted_items=%s, attending_vet_id=%s, supervising_vet_id=%s, "
+            "updated_at=%s WHERE id=%s",
             (*admit_fields.values(), now, case_id),
         )
         # The admission's own findings, items and vets, in the change log as
@@ -2077,16 +2082,16 @@ def _inpatient_detail_context(db, case_id):
     case = db.execute(
         "SELECT c.*, p.animal_name, p.species, p.sex, p.age_note, o.name as owner_name, o.phone as owner_phone, "
         "p.id as patient_id FROM inpatient_cases c JOIN patients p ON p.id=c.patient_id "
-        "JOIN owners o ON o.id=p.owner_id WHERE c.id=?", (case_id,)
+        "JOIN owners o ON o.id=p.owner_id WHERE c.id=%s", (case_id,)
     ).fetchone()
     if not case:
         return None
     updates = db.execute("SELECT u.*, us.full_name FROM inpatient_updates u LEFT JOIN users us ON us.id=u.user_id "
-                         "WHERE case_id=? ORDER BY timestamp DESC", (case_id,)).fetchall()
+                         "WHERE case_id=%s ORDER BY timestamp DESC", (case_id,)).fetchall()
     contacts = db.execute("SELECT c.*, us.full_name FROM inpatient_contact_log c LEFT JOIN users us ON us.id=c.staff_user_id "
-                          "WHERE case_id=? ORDER BY timestamp DESC", (case_id,)).fetchall()
+                          "WHERE case_id=%s ORDER BY timestamp DESC", (case_id,)).fetchall()
     bill = billing.inpatient_billing_summary(db, case_id)
-    payments = db.execute("SELECT * FROM payments WHERE inpatient_case_id=? ORDER BY date DESC", (case_id,)).fetchall()
+    payments = db.execute("SELECT * FROM payments WHERE inpatient_case_id=%s ORDER BY date DESC", (case_id,)).fetchall()
     files = attach_mod.list_attachments(db, "inpatient", case_id)
     cap = auth.discount_cap_for()
     return dict(case=case, updates=updates, recent_updates=updates[:3],
@@ -2118,7 +2123,7 @@ def inpatient_edit(case_id):
             return redirect(url_for("clinical.inpatient_list"))
         return render_template("inpatient_detail.html", **ctx, form=f, edit_conflict=conflict)
 
-    old = db.execute("SELECT * FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone()
+    old = db.execute("SELECT * FROM inpatient_cases WHERE id=%s FOR UPDATE", (case_id,)).fetchone()
     if not old:
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
@@ -2158,8 +2163,8 @@ def inpatient_edit(case_id):
     changes = auth.diff_dict(old, new_vals)
     now = clock.now()
     db.execute(
-        "UPDATE inpatient_cases SET complaint=?, exam_findings=?, weight_kg=?, bcs=?, admitted_items=?, dismissed=?, dismissal_date=?, "
-        "attending_vet_id=?, supervising_vet_id=?, updated_at=? WHERE id=?",
+        "UPDATE inpatient_cases SET complaint=%s, exam_findings=%s, weight_kg=%s, bcs=%s, admitted_items=%s, dismissed=%s, dismissal_date=%s, "
+        "attending_vet_id=%s, supervising_vet_id=%s, updated_at=%s WHERE id=%s",
         (*new_vals.values(), now, case_id),
     )
     auth.log_change(db, "inpatient_cases", str(case_id), "update", changes, at=now)
@@ -2173,13 +2178,13 @@ def inpatient_edit(case_id):
 def inpatient_update_add(case_id):
     db = get_db()
     # A missing case reached the foreign key as a 500 (audit B11).
-    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=?", (case_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     note = request.form.get("note", "").strip()
     if note:
         update_id = db.execute(
-            "INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?) RETURNING id",
+            "INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (%s,%s,%s,%s) RETURNING id",
             (case_id, clock.now(), note, session["user_id"])).fetchone()["id"]
         # The new row's id, not the case's: the audit log names the record created.
         auth.log_change(db, "inpatient_updates", str(update_id), "create")
@@ -2193,9 +2198,9 @@ def inpatient_update_add(case_id):
 def inpatient_update_edit(case_id, update_id):
     db = get_db()
     note = request.form.get("note", "").strip()
-    old = db.execute("SELECT note FROM inpatient_updates WHERE id=? AND case_id=?", (update_id, case_id)).fetchone()
+    old = db.execute("SELECT note FROM inpatient_updates WHERE id=%s AND case_id=%s", (update_id, case_id)).fetchone()
     if old and note:
-        db.execute("UPDATE inpatient_updates SET note=? WHERE id=?", (note, update_id))
+        db.execute("UPDATE inpatient_updates SET note=%s WHERE id=%s", (note, update_id))
         auth.log_change(db, "inpatient_updates", str(update_id), "update", {"note": (old["note"], note)})
         db.commit()
         flash(_("Update edited."), "success")
@@ -2207,14 +2212,14 @@ def inpatient_update_edit(case_id, update_id):
 def inpatient_contact_add(case_id):
     db = get_db()
     # A missing case reached the foreign key as a 500 (audit B11).
-    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=?", (case_id,)).fetchone():
+    if not db.execute("SELECT 1 FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     f = request.form
     picked_up = 1 if f.get("picked_up") == "yes" else 0
     contact_id = db.execute(
         "INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id, notes) "
-        "VALUES (?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s) RETURNING id",
         (case_id, clock.now(), picked_up, session["user_id"], f.get("notes"))).fetchone()["id"]
     # The new row's id, not the case's: the audit log names the record created.
     auth.log_change(db, "inpatient_contact_log", str(contact_id), "create")
@@ -2232,7 +2237,7 @@ def inpatient_billing_add(case_id):
     # — see the comment there. A pure mutex against a concurrent discount
     # save on the same case; nothing about the inpatient_cases row itself
     # changes here.
-    if not db.execute("SELECT id FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone():
+    if not db.execute("SELECT id FROM inpatient_cases WHERE id=%s FOR UPDATE", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     # (the raw value, which names this line's qty_<id> field; the id itself).
@@ -2243,7 +2248,7 @@ def inpatient_billing_add(case_id):
     now = clock.now().isoformat(timespec="seconds")
     added = 0
     had_bad_number = False
-    had_bad_price = False
+    had_bad_price = had_unpriced = False
     # inpatient_discount_save() only checks non-discountable items against
     # whatever's on the bill *at the moment a discount is applied* — it
     # has no way to know the bill will change later. Re-checking here too
@@ -2251,7 +2256,7 @@ def inpatient_billing_add(case_id):
     # otherwise silently carry forward onto procedures added afterward
     # that were never supposed to be discountable at all (mirrors
     # visit_billing_save()'s equivalent check).
-    existing_case = db.execute("SELECT discount_percent, discount_source FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
+    existing_case = db.execute("SELECT discount_percent, discount_source FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
     existing_discount = (existing_case["discount_percent"] or 0) if existing_case else 0
     existing_source = (existing_case["discount_source"] if existing_case else "staff") or "staff"
     # Scoped to STAFF discounts, same reasoning as visit_billing_save(). The
@@ -2260,7 +2265,7 @@ def inpatient_billing_add(case_id):
     # a bill that was neither what was entered nor obviously short of it.
     if existing_discount > 0 and existing_source == "staff" and price_ids:
         blocked = [r["name"] for r in db.execute(
-            f"SELECT name FROM price_list WHERE id IN ({','.join('?' * len(price_ids))}) AND can_discount=false "
+            f"SELECT name FROM price_list WHERE id IN ({','.join(['%s'] * len(price_ids))}) AND can_discount=false "
             "ORDER BY name", price_ids).fetchall()]
         if blocked:
             flash(_("Can't add — this case has a %(discount_percent)s%% discount applied, but includes item(s) "
@@ -2284,25 +2289,31 @@ def inpatient_billing_add(case_id):
         # the moment this procedure is added to the bill — so a price
         # edit made next month can't reach back and change what this
         # stay's bill (or that month's revenue/COGS report) says today.
-        price_row = db.execute("SELECT sale_price, cost_price, can_discount FROM price_list WHERE id=?", (pid,)).fetchone()
+        price_row = db.execute("SELECT sale_price, cost_price, can_discount FROM price_list WHERE id=%s", (pid,)).fetchone()
         if not price_row:
             had_bad_price = True
             continue
+        # As in visit_billing_save(): a line is billed at its price, or not at all.
+        if price_row["sale_price"] is None:
+            had_unpriced = True
+            continue
         db.execute(
             "INSERT INTO inpatient_billing (case_id, price_id, quantity, unit_price, unit_cost, discountable, logged_by, timestamp) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (case_id, pid, qty, price_row["sale_price"], price_row["cost_price"],
              bool(price_row["can_discount"]), session["user_id"], now),
         )
         added += 1
     if added:
-        billing.refresh_inpatient_total(db, case_id)
+        billing.bill_changed(db, "inpatient", case_id)
         auth.log_change(db, "inpatient_billing", str(case_id), "create")
     db.commit()
     if had_bad_number:
         flash(_("Some quantities weren't valid numbers and were skipped."), "error")
     if had_bad_price:
         flash(_("Some selected items no longer exist in the Price List and were skipped."), "error")
+    if had_unpriced:
+        flash(_("Some selected items have no sale price in the Price List and were skipped."), "error")
     if added:
         flash(_("%(added)s procedure(s) added to the bill.", added=added), "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
@@ -2313,7 +2324,7 @@ def inpatient_billing_add(case_id):
 @requires_money_setting
 def inpatient_billing_delete(case_id, line_id):
     db = get_db()
-    row = db.execute("SELECT timestamp FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id)).fetchone()
+    row = db.execute("SELECT timestamp FROM inpatient_billing WHERE id=%s AND case_id=%s", (line_id, case_id)).fetchone()
     if not row:
         flash(_("That billing line was already removed."), "error")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
@@ -2335,8 +2346,8 @@ def inpatient_billing_delete(case_id, line_id):
     if summary["paid"] > remaining_total:
         flash(_("Removing this line would leave %(fmt_money)s paid against a %(fmt_money2)s %(currency)s bill. Process a service refund for the difference first.", fmt_money=display_money(summary['paid']), fmt_money2=display_money(remaining_total), currency=currency_label()), "error")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
-    db.execute("DELETE FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id))
-    billing.refresh_inpatient_total(db, case_id)
+    db.execute("DELETE FROM inpatient_billing WHERE id=%s AND case_id=%s", (line_id, case_id))
+    billing.bill_changed(db, "inpatient", case_id)
     auth.log_change(db, "inpatient_billing", str(line_id), "delete")
     db.commit()
     flash(_("Line removed."), "success")
@@ -2372,27 +2383,27 @@ def inpatient_discount_save(case_id):
     # this, a concurrent inpatient_billing_add() for the same case could
     # read the bill's lines before this request's check but write a new
     # (non-discountable) line after it.
-    if not db.execute("SELECT id FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone():
+    if not db.execute("SELECT id FROM inpatient_cases WHERE id=%s FOR UPDATE", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     # Card only — see visit_discount_save().
     member_case = db.execute(
-        "SELECT discount_source FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
+        "SELECT discount_source FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
     if member_case and member_case["discount_source"] == "member":
         flash(_("This bill carries a rewards-card discount. A staff discount can't be added on top of it, and can't replace it."), "error")
         return redisplay()
     if percent > 0:
         price_ids = [r["price_id"] for r in db.execute(
-            "SELECT DISTINCT price_id FROM inpatient_billing WHERE case_id=?", (case_id,)
+            "SELECT DISTINCT price_id FROM inpatient_billing WHERE case_id=%s", (case_id,)
         ).fetchall()]
         blocked = billing.non_discountable_line_names(db, price_ids)
         if blocked:
             flash(_("Can't apply a discount — this bill includes item(s) marked as not discountable: %(join)s.", join=', '.join(blocked)), "error")
             return redisplay()
-    old = db.execute("SELECT discount_percent FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
-    db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_applied_by=? WHERE id=?",
+    old = db.execute("SELECT discount_percent FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
+    db.execute("UPDATE inpatient_cases SET discount_percent=%s, discount_applied_by=%s WHERE id=%s",
               (percent, session["user_id"], case_id))
-    billing.refresh_inpatient_total(db, case_id)
+    billing.bill_changed(db, "inpatient", case_id)
     auth.log_change(db, "inpatient_cases", str(case_id), "update", {"discount_percent": (old["discount_percent"], percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")
@@ -2417,7 +2428,7 @@ def inpatient_payment_add(case_id):
     # boarding_payment()/visit_payment_add(): there's no delete/edit route
     # for a payment once recorded, so an overpayment here can never be
     # undone, only journaled around.
-    if not db.execute("SELECT id FROM inpatient_cases WHERE id=? FOR UPDATE", (case_id,)).fetchone():
+    if not db.execute("SELECT id FROM inpatient_cases WHERE id=%s FOR UPDATE", (case_id,)).fetchone():
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     try:
@@ -2453,19 +2464,19 @@ def inpatient_payment_add(case_id):
         flash(payment_method_message(), "error")
         return redisplay()
     cur = db.execute(
-        "INSERT INTO payments (inpatient_case_id, amount, method, date, user_id, notes) VALUES (?,?,?,?,?,?) RETURNING id",
+        "INSERT INTO payments (inpatient_case_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (case_id, amount, method, payment_date, session["user_id"], f.get("notes")),
     )
     payment_id = cur.fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")
     if cleanup_amount > 0:
         db.execute(
-            "UPDATE inpatient_cases SET cleanup_amount = cleanup_amount + ?, cleanup_applied_by = ? WHERE id = ?",
+            "UPDATE inpatient_cases SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE id = %s",
             (cleanup_amount, session["user_id"], case_id),
         )
         auth.log_change(db, "inpatient_cases", str(case_id), "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        billing.refresh_inpatient_total(db, case_id)
+        billing.bill_changed(db, "inpatient", case_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -2476,7 +2487,7 @@ def inpatient_payment_add(case_id):
 @auth.permission_required("manage_inpatient")
 def inpatient_attachment_upload(case_id):
     db = get_db()
-    case = db.execute("SELECT patient_id FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
+    case = db.execute("SELECT patient_id FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
     if not case:
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
@@ -2613,7 +2624,7 @@ def appointment_new():
     try:
         cur = db.execute(
             "INSERT INTO appointments (appt_date, slot_label, resource_type, resource_id, pet_name, owner_name, "
-            "appointment_type, reason, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
+            "appointment_type, reason, created_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
             (appt_date, slot_label, resource_type, resource_id, pet_name, owner_name,
              appointment_type, f.get("reason"), session["user_id"], clock.now().isoformat(timespec="seconds")),
         )
@@ -2632,11 +2643,11 @@ def appointment_new():
 @auth.permission_required("manage_appointments")
 def appointment_cancel(appt_id):
     db = get_db()
-    row = db.execute("SELECT appt_date FROM appointments WHERE id=?", (appt_id,)).fetchone()
+    row = db.execute("SELECT appt_date FROM appointments WHERE id=%s", (appt_id,)).fetchone()
     if not row:
         flash(_("Appointment not found."), "error")
         return redirect(url_for("clinical.appointments_page"))
-    db.execute("DELETE FROM appointments WHERE id=?", (appt_id,))
+    db.execute("DELETE FROM appointments WHERE id=%s", (appt_id,))
     auth.log_change(db, "appointments", str(appt_id), "delete")
     db.commit()
     flash(_("Appointment cancelled."), "success")

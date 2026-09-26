@@ -5,16 +5,15 @@ This module exists so the rest of the codebase (the request layer, the domain mo
 auth.py, attachments.py, ...) can use a consistent, simple data-access style.
 It provides:
 
-  - a psycopg (v3) connection whose .execute() accepts '?' as a placeholder
-    (the style used throughout this codebase), translating it to Postgres's
-    '%s' style before running it.
+  - psycopg (v3) connections, with psycopg's own '%s' placeholders (audit
+    D7: a regex used to translate SQLite-style '?' to '%s', and it could not
+    tell a placeholder from a '?' inside a string literal).
   - rows returned as plain dicts (via psycopg's dict_row): row["field"],
     row.get("field"), "field" in row.keys(), and Jinja's {{ row.field }}
     all work as expected.
   - IntegrityError re-exported for convenient importing at call sites.
 """
 import os
-import re
 import atexit
 import threading
 
@@ -32,28 +31,6 @@ PoolTimeout = PoolTimeout
 # huge ?page=, ...) raises this instead of a generic DB error; caught globally
 # for a clean message instead of a raw 500 (see vcs/web/errors.py).
 NumericValueOutOfRange = psycopg.errors.NumericValueOutOfRange
-
-# Matches every bare '?' unconditionally — this is NOT quote-aware (a
-# previous version of this comment claimed it was; it isn't). Safe today
-# only because the app never puts a literal '?' character inside a SQL
-# string literal (verified) — if a future LIKE pattern or similar ever
-# needs one (e.g. "...LIKE '100%?'"), it would be silently mistranslated
-# and desync the bound parameters. Make this quote-aware first if that
-# ever comes up, rather than relying on this comment as documentation of
-# safety it doesn't actually provide.
-_PLACEHOLDER_RE = re.compile(r"\?")
-
-
-def _translate(sql):
-    return _PLACEHOLDER_RE.sub("%s", sql)
-
-
-class Connection(psycopg.Connection):
-    """psycopg Connection that accepts SQLite-style '?' placeholders."""
-
-    def execute(self, query, params=None, **kwargs):
-        return super().execute(_translate(query), params, **kwargs)
-
 
 def database_url():
     url = os.environ.get("DATABASE_URL")
@@ -78,7 +55,7 @@ def connect():
     small pool with request traffic, so they keep opening their own
     short-lived connections exactly as before.
     """
-    conn = Connection.connect(database_url(), row_factory=dict_row, autocommit=False)
+    conn = psycopg.connect(database_url(), row_factory=dict_row, autocommit=False)
     # In the clinic's time zone, and committed at once, so a later rollback
     # by the caller cannot undo it (clock.apply_to).
     from vcs import clock
@@ -135,7 +112,6 @@ def init_pool():
         min_size, max_size, timeout, max_lifetime = _pool_settings()
         _pool = ConnectionPool(
             conninfo=database_url(),
-            connection_class=Connection,
             kwargs={"row_factory": dict_row, "autocommit": False},
             min_size=min_size,
             max_size=max_size,

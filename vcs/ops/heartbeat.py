@@ -73,7 +73,7 @@ def install_id(db):
     new = secrets.token_hex(4).upper()
     try:
         db.execute(
-            "INSERT INTO settings (key,value) VALUES (?,?) "
+            "INSERT INTO settings (key,value) VALUES (%s,%s) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (INSTALL_ID_SETTING, new),
         )
@@ -160,7 +160,7 @@ def _db_section(db):
     for table in ROW_COUNT_TABLES:
         try:
             exists = db.execute(
-                "SELECT to_regclass(?) IS NOT NULL AS e", (f"public.{table}",)
+                "SELECT to_regclass(%s) IS NOT NULL AS e", (f"public.{table}",)
             ).fetchone()["e"]
             if exists:
                 out["row_counts"][table] = db.execute(
@@ -250,7 +250,7 @@ def _mark_reported(db, sent_at):
     """Records that the most recent self-check result has been reported."""
     try:
         db.execute(
-            "UPDATE self_check_log SET reported_at=? WHERE id = "
+            "UPDATE self_check_log SET reported_at=%s WHERE id = "
             "(SELECT id FROM self_check_log ORDER BY id DESC LIMIT 1)",
             (sent_at or clock.now().isoformat(timespec="seconds"),),
         )

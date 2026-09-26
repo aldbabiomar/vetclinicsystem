@@ -23,7 +23,7 @@ def refundable_sale_items(db, sale_id):
     refund_retail_save() uses both to render the refund pick list and,
     server-side, to enforce a refund can never exceed what was actually
     sold — see refunds.sale_id / refund_items.sale_item_id."""
-    sale = db.execute("SELECT * FROM sales WHERE id=?", (sale_id,)).fetchone()
+    sale = db.execute("SELECT * FROM sales WHERE id=%s", (sale_id,)).fetchone()
     if not sale:
         return None, []
     discount_percent = sale["discount_percent"] or 0
@@ -31,7 +31,7 @@ def refundable_sale_items(db, sale_id):
         "SELECT si.id AS sale_item_id, si.item_id, il.name, si.quantity, si.unit_price, si.discountable, "
         "COALESCE((SELECT SUM(ri.quantity) FROM refund_items ri WHERE ri.sale_item_id = si.id), 0) AS already_refunded "
         "FROM sale_items si JOIN inventory_list il ON il.id = si.item_id "
-        "WHERE si.sale_id=? ORDER BY si.id",
+        "WHERE si.sale_id=%s ORDER BY si.id",
         (sale_id,),
     ).fetchall()
     lines = []
@@ -56,12 +56,12 @@ def recent_refunds(db, limit=100, offset=0, date_filter=None):
     where = ""
     params = []
     if date_filter:
-        where = "WHERE r.refund_date = ? "
+        where = "WHERE r.refund_date = %s "
         params.append(date_filter)
     rows = db.execute(
         "SELECT r.*, u.full_name AS processed_by_name FROM refunds r "
         "LEFT JOIN users u ON u.id = r.processed_by " + where +
-        "ORDER BY r.refund_date DESC, r.id DESC LIMIT ? OFFSET ?",
+        "ORDER BY r.refund_date DESC, r.id DESC LIMIT %s OFFSET %s",
         params + [limit, offset],
     ).fetchall()
     out = []
@@ -70,7 +70,7 @@ def recent_refunds(db, limit=100, offset=0, date_filter=None):
         if d["refund_type"] == "retail":
             d["refund_lines"] = db.execute(
                 "SELECT ri.*, il.name FROM refund_items ri JOIN inventory_list il ON il.id = ri.item_id "
-                "WHERE ri.refund_id=?",
+                "WHERE ri.refund_id=%s",
                 (r["id"],),
             ).fetchall()
         out.append(d)

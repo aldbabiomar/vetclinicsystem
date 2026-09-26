@@ -108,7 +108,7 @@ _current = ContextVar("money_setting", default=None)
 
 def load(db):
     """The setting stored in this database, or None if not chosen yet."""
-    row = db.execute("SELECT value FROM settings WHERE key=?", (SETTING_KEY,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (SETTING_KEY,)).fetchone()
     return SETTINGS.get((row["value"] or "").strip().upper()) if row else None
 
 

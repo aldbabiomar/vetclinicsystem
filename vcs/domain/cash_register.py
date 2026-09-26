@@ -34,7 +34,7 @@ def cash_register_ledger(db, day):
         "SELECT to_char(s.sold_at, 'YYYY-MM-DD HH24:MI') AS event_date, u.full_name AS employee, s.subtotal AS subtotal, "
         "s.discount_percent AS discount_percent, s.total AS total, s.payment_method AS payment_method, "
         "'POS Sale' AS event_type, s.id AS ref_id "
-        "FROM sales s LEFT JOIN users u ON u.id = s.cashier_id WHERE s.sold_at >= ? AND s.sold_at < ? "
+        "FROM sales s LEFT JOIN users u ON u.id = s.cashier_id WHERE s.sold_at >= %s AND s.sold_at < %s "
         "UNION ALL "
         "SELECT p.date::text, u.full_name, p.amount, 0.0, p.amount, p.method, "
         "CASE WHEN p.visit_id IS NOT NULL THEN 'Visit Payment' "
@@ -42,12 +42,12 @@ def cash_register_ledger(db, day):
         "     WHEN p.boarding_id IS NOT NULL THEN 'Boarding Payment' "
         "     ELSE 'Payment' END, "
         "p.id "
-        "FROM payments p LEFT JOIN users u ON u.id = p.user_id WHERE p.date = ? "
+        "FROM payments p LEFT JOIN users u ON u.id = p.user_id WHERE p.date = %s "
         "UNION ALL "
         "SELECT r.refund_date::text, u.full_name, -r.amount, 0.0, -r.amount, r.refund_method, "
         "CASE WHEN r.refund_type='retail' THEN 'Retail Refund' ELSE 'Service Refund' END, "
         "r.id "
-        "FROM refunds r LEFT JOIN users u ON u.id = r.processed_by WHERE r.refund_date = ? "
+        "FROM refunds r LEFT JOIN users u ON u.id = r.processed_by WHERE r.refund_date = %s "
         "ORDER BY event_date DESC",
         (*dates.day_bounds(day), day, day),
     ).fetchall()
@@ -69,7 +69,7 @@ def cash_register_totals(db, day):
         bucket = row["payment_method"] if row["payment_method"] in CASH_REGISTER_METHODS else "other"
         totals[bucket] += row["total"] or 0
     payouts_total = db.execute(
-        "SELECT COALESCE(SUM(amount), 0) AS s FROM cash_register_payouts WHERE payout_date=?", (day,)
+        "SELECT COALESCE(SUM(amount), 0) AS s FROM cash_register_payouts WHERE payout_date=%s", (day,)
     ).fetchone()["s"]
     totals["Cash"] = money.to_store(totals["Cash"] - payouts_total)
     for k in ("Card", "Transfer", "other"):
@@ -81,7 +81,7 @@ def cash_register_totals(db, day):
 def cash_register_payouts_for_day(db, day):
     return db.execute(
         "SELECT p.*, u.full_name AS logged_by_name FROM cash_register_payouts p "
-        "LEFT JOIN users u ON u.id = p.logged_by WHERE p.payout_date=? ORDER BY p.id DESC",
+        "LEFT JOIN users u ON u.id = p.logged_by WHERE p.payout_date=%s ORDER BY p.id DESC",
         (day,),
     ).fetchall()
 
@@ -89,7 +89,7 @@ def cash_register_payouts_for_day(db, day):
 def cash_register_latest_audit(db, day):
     return db.execute(
         "SELECT a.*, u.full_name AS performed_by_name FROM cash_register_audits a "
-        "LEFT JOIN users u ON u.id = a.performed_by WHERE a.audit_date=? ORDER BY a.id DESC LIMIT 1",
+        "LEFT JOIN users u ON u.id = a.performed_by WHERE a.audit_date=%s ORDER BY a.id DESC LIMIT 1",
         (day,),
     ).fetchone()
 

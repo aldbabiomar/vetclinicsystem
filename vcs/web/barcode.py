@@ -21,7 +21,7 @@ def generate_barcode(db):
         code12 = body
         check = _ean13_check_digit(code12)
         candidate = code12 + str(check)
-        existing = db.execute("SELECT 1 FROM inventory_list WHERE barcode=?", (candidate,)).fetchone()
+        existing = db.execute("SELECT 1 FROM inventory_list WHERE barcode=%s", (candidate,)).fetchone()
         if not existing:
             return candidate
     raise RuntimeError("Could not generate a unique barcode — try again.")

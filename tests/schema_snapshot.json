@@ -1387,7 +1387,7 @@
    "unit_price": {
     "default": null,
     "identity": null,
-    "null": true,
+    "null": false,
     "type": "numeric(15,3)"
    }
   },
@@ -1398,7 +1398,7 @@
    "inpatient_billing_price_id_fkey": "FOREIGN KEY (price_id) REFERENCES price_list(id)",
    "inpatient_billing_quantity_check": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))",
    "inpatient_billing_unit_cost_check": "CHECK (((unit_cost IS NULL) OR ((unit_cost >= (0)::numeric) AND (unit_cost <> 'NaN'::numeric))))",
-   "inpatient_billing_unit_price_check": "CHECK (((unit_price IS NULL) OR ((unit_price >= (0)::numeric) AND (unit_price <> 'NaN'::numeric))))"
+   "inpatient_billing_unit_price_check": "CHECK (((unit_price >= (0)::numeric) AND (unit_price <> 'NaN'::numeric)))"
   },
   "indexes": {
    "idx_inpbilling_case": "CREATE INDEX idx_inpbilling_case ON public.inpatient_billing USING btree (case_id)",

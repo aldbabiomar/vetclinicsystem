@@ -43,7 +43,7 @@ def _uid(prefix):
 
 
 def _set_rate(db, rate=RATE):
-    db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+    db.execute("INSERT INTO settings (key,value) VALUES (%s,%s) "
                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                ("member_discount_percent", str(rate)))
     db.commit()
@@ -61,37 +61,37 @@ def items(db):
     """Two priced services: A discountable, B deliberately not."""
     a, b = _uid("PLA"), _uid("PLB")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (a, f"Eligible {a}", "Service", Decimal("0.000"), Decimal("10.500"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (a, f"Eligible {a}", "Service", Decimal("0.000"), Decimal("10.500"), True, True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (?,?,?,?,?,?,?)", (b, f"Full price {b}", "Medicine", Decimal("0.000"), Decimal("10.500"), True, False))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (b, f"Full price {b}", "Medicine", Decimal("0.000"), Decimal("10.500"), True, False))
     db.commit()
     yield {"a": a, "b": b, "price": Decimal("10.500")}
     for pid in (a, b):
-        db.execute("DELETE FROM visit_billing_lines WHERE price_id=?", (pid,))
-        db.execute("DELETE FROM price_list WHERE id=?", (pid,))
+        db.execute("DELETE FROM visit_billing_lines WHERE price_id=%s", (pid,))
+        db.execute("DELETE FROM price_list WHERE id=%s", (pid,))
     db.commit()
 
 
 def _owner_chain(db, *, member, expires=None):
     o, p, v = _uid("O"), _uid("P"), _uid("V")
     db.execute("INSERT INTO owners (id, name, is_member, member_since, member_expires_on) "
-               "VALUES (?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s)",
                (o, f"Rewards Owner {o}", member, clock.today().isoformat() if member else None, expires))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, f"Pet {p}"))
-    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, f"Pet {p}"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v, p, clock.today().isoformat(), "Ongoing"))
     db.commit()
     return {"owner_id": o, "patient_id": p, "visit_id": v}
 
 
 def _cleanup_chain(db, chain):
-    for sql in ("DELETE FROM payments WHERE visit_id=?",
-                "DELETE FROM visit_billing_lines WHERE visit_id=?",
-                "DELETE FROM billing WHERE visit_id=?",
-                "DELETE FROM visits WHERE id=?"):
+    for sql in ("DELETE FROM payments WHERE visit_id=%s",
+                "DELETE FROM visit_billing_lines WHERE visit_id=%s",
+                "DELETE FROM billing WHERE visit_id=%s",
+                "DELETE FROM visits WHERE id=%s"):
         db.execute(sql, (chain["visit_id"],))
-    db.execute("DELETE FROM patients WHERE id=?", (chain["patient_id"],))
-    db.execute("DELETE FROM owners WHERE id=?", (chain["owner_id"],))
+    db.execute("DELETE FROM patients WHERE id=%s", (chain["patient_id"],))
+    db.execute("DELETE FROM owners WHERE id=%s", (chain["owner_id"],))
     db.commit()
 
 
@@ -234,7 +234,7 @@ def test_the_removal_action_refuses_a_bill_with_no_card_discount(client, db, ite
 def test_enrolling_after_a_bill_exists_does_not_discount_it(client, db, rate_on, items, non_member):
     """A2. Membership is snapshotted when the bill is created."""
     _bill(client, non_member["visit_id"], items)
-    db.execute("UPDATE owners SET is_member=true WHERE id=?", (non_member["owner_id"],))
+    db.execute("UPDATE owners SET is_member=true WHERE id=%s", (non_member["owner_id"],))
     db.commit()
     assert billing.visit_billing_summary(db, non_member["visit_id"])["total"] == Decimal("21.000")
 
@@ -254,12 +254,12 @@ def test_flipping_can_discount_after_billing_changes_nothing(client, db, rate_on
     """A3. Eligibility is snapshotted per line at insert."""
     _bill(client, member["visit_id"], items)
     before = billing.visit_billing_summary(db, member["visit_id"])["total"]
-    db.execute("UPDATE price_list SET can_discount=false WHERE id=?", (items["a"],))
+    db.execute("UPDATE price_list SET can_discount=false WHERE id=%s", (items["a"],))
     db.commit()
     try:
         assert billing.visit_billing_summary(db, member["visit_id"])["total"] == before
     finally:
-        db.execute("UPDATE price_list SET can_discount=true WHERE id=?", (items["a"],))
+        db.execute("UPDATE price_list SET can_discount=true WHERE id=%s", (items["a"],))
         db.commit()
 
 
@@ -279,7 +279,7 @@ def test_the_card_is_valid_through_its_expiry_date(db, offset, expected_source):
     chain = _owner_chain(db, member=True, expires=expires)
     try:
         _set_rate(db, RATE)
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
+        owner = db.execute("SELECT * FROM owners WHERE id=%s", (chain["owner_id"],)).fetchone()
         _percent, source = members.member_discount_for(db, owner)
         assert source == expected_source
     finally:
@@ -290,7 +290,7 @@ def test_the_card_is_valid_through_its_expiry_date(db, offset, expected_source):
 def test_a_null_expiry_never_lapses(db):
     chain = _owner_chain(db, member=True, expires=None)
     try:
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
+        owner = db.execute("SELECT * FROM owners WHERE id=%s", (chain["owner_id"],)).fetchone()
         assert members.is_active_member(owner) is True
     finally:
         _cleanup_chain(db, chain)
@@ -301,7 +301,7 @@ def test_expiry_never_flips_is_member(db):
     the ranking badge both need the difference."""
     chain = _owner_chain(db, member=True, expires=(clock.today() - timedelta(days=5)).isoformat())
     try:
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
+        owner = db.execute("SELECT * FROM owners WHERE id=%s", (chain["owner_id"],)).fetchone()
         assert owner["is_member"] is True
         assert members.is_active_member(owner) is False
     finally:
@@ -313,7 +313,7 @@ def test_the_programme_is_off_at_a_zero_rate(db, items):
     chain = _owner_chain(db, member=True)
     try:
         _set_rate(db, 0)
-        owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
+        owner = db.execute("SELECT * FROM owners WHERE id=%s", (chain["owner_id"],)).fetchone()
         assert members.member_discount_for(db, owner) == (Decimal(0), "staff")
     finally:
         _cleanup_chain(db, chain)
@@ -353,7 +353,7 @@ def test_re_saving_a_bill_never_re_stamps_the_membership_snapshot(
     re-save afterwards, which is what the mutation exposed.
     """
     _bill(client, non_member["visit_id"], items)
-    db.execute("UPDATE owners SET is_member=true, member_since=? WHERE id=?",
+    db.execute("UPDATE owners SET is_member=true, member_since=%s WHERE id=%s",
                (clock.today().isoformat(), non_member["owner_id"]))
     db.commit()
     _bill(client, non_member["visit_id"], items)      # re-save
@@ -383,15 +383,15 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
     inv_a, inv_b = _uid("INVA"), _uid("INVB")
     for iid in (inv_a, inv_b):
         db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-                   "VALUES (?,?,?,?,?,?,?,?)", (iid, f"Item {iid}", "Retail", "unit", False, Decimal("1.000"), "Owned", True))
+                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (iid, f"Item {iid}", "Retail", "unit", False, Decimal("1.000"), "Owned", True))
     cur = db.execute(
         "INSERT INTO sales (sold_at, subtotal, discount_percent, discount_source, total, payment_method) "
-        "VALUES (?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (clock.today().isoformat(), Decimal("21.000"), RATE, "member", Decimal("19.950"), "Cash"))
     sale_id = cur.fetchone()["id"]
     for iid, ok in ((inv_a, True), (inv_b, False)):
         db.execute("INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, line_total, discountable) "
-                   "VALUES (?,?,?,?,?,?)", (sale_id, iid, 1, Decimal("10.500"), Decimal("10.500"), ok))
+                   "VALUES (%s,%s,%s,%s,%s,%s)", (sale_id, iid, 1, Decimal("10.500"), Decimal("10.500"), ok))
     db.commit()
     try:
         _sale, lines = refunds.refundable_sale_items(db, sale_id)
@@ -399,10 +399,10 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
         assert by_item[inv_a] == Decimal("9.450"), "the eligible line should refund at the discounted price"
         assert by_item[inv_b] == Decimal("10.500"), "the full-price line should refund in full"
     finally:
-        db.execute("DELETE FROM sale_items WHERE sale_id=?", (sale_id,))
-        db.execute("DELETE FROM sales WHERE id=?", (sale_id,))
+        db.execute("DELETE FROM sale_items WHERE sale_id=%s", (sale_id,))
+        db.execute("DELETE FROM sales WHERE id=%s", (sale_id,))
         for iid in (inv_a, inv_b):
-            db.execute("DELETE FROM inventory_list WHERE id=?", (iid,))
+            db.execute("DELETE FROM inventory_list WHERE id=%s", (iid,))
         db.commit()
 
 
@@ -469,7 +469,7 @@ def test_the_reports_agree_with_the_stored_total_on_a_member_bill(
     counts that bill must move by the bill's STORED total — not by
     subtotal * (1 - d), which is what the old per-line derivations computed
     and which is wrong by the value of every non-discountable line."""
-    db.execute("UPDATE visits SET doctor=? WHERE id=?", ("Dr Rewards Test", member["visit_id"]))
+    db.execute("UPDATE visits SET doctor=%s WHERE id=%s", ("Dr Rewards Test", member["visit_id"]))
     db.commit()
 
     before_cat = _month_revenue(db)
@@ -525,7 +525,7 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
     """
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, created_by, "
-        "discount_percent, discount_source) VALUES (?,?,?,?,?,?) RETURNING id",
+        "discount_percent, discount_source) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (member["patient_id"], clock.today().isoformat(), False, ADMIN_ID, RATE, "member"))
     case_id = cur.fetchone()["id"]
     last_month_day = dates.add_months(clock.today().replace(day=1), -1)
@@ -537,10 +537,10 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
                 (items["b"], False, clock.today().isoformat() + "T10:00:00")):
             db.execute(
                 "INSERT INTO inpatient_billing (case_id, price_id, quantity, unit_price, "
-                "unit_cost, discountable, logged_by, timestamp) VALUES (?,?,?,?,?,?,?,?)",
+                "unit_cost, discountable, logged_by, timestamp) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                 (case_id, price_id, 1, items["price"], 0, discountable, ADMIN_ID, when))
         db.commit()
-        billing.refresh_inpatient_total(db, case_id)
+        billing.bill_changed(db, "inpatient", case_id)
         db.commit()
 
         summary = billing.inpatient_billing_summary(db, case_id)
@@ -563,6 +563,6 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
             "both months carry the same amount — the P&L is splitting this case "
             "by its RAW line amounts, ignoring which line the card applied to")
     finally:
-        db.execute("DELETE FROM inpatient_billing WHERE case_id=?", (case_id,))
-        db.execute("DELETE FROM inpatient_cases WHERE id=?", (case_id,))
+        db.execute("DELETE FROM inpatient_billing WHERE case_id=%s", (case_id,))
+        db.execute("DELETE FROM inpatient_cases WHERE id=%s", (case_id,))
         db.commit()

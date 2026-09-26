@@ -118,7 +118,7 @@ def owner_for_patient(db, patient_id):
     """The owner a patient belongs to — how visits, inpatient and boarding
     find the customer whose card applies."""
     return db.execute(
-        "SELECT o.* FROM owners o JOIN patients p ON p.owner_id = o.id WHERE p.id=?",
+        "SELECT o.* FROM owners o JOIN patients p ON p.owner_id = o.id WHERE p.id=%s",
         (patient_id,)).fetchone()
 
 

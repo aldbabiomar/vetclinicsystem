@@ -16,7 +16,7 @@ from conftest import ADMIN_ID, needs_db
 
 
 def _drafts_today(db):
-    return db.execute("SELECT id FROM audit_sessions WHERE audit_date=? AND status='Draft'",
+    return db.execute("SELECT id FROM audit_sessions WHERE audit_date=%s AND status='Draft'",
                       (clock.today(),)).fetchall()
 
 
@@ -44,8 +44,8 @@ def test_two_people_starting_an_audit_at_once_get_one_draft(client, db, flask_ap
     finally:
         db.rollback()
         for d in _drafts_today(db):
-            db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=?", (str(d["id"]),))
-            db.execute("DELETE FROM audit_sessions WHERE id=?", (d["id"],))
+            db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=%s", (str(d["id"]),))
+            db.execute("DELETE FROM audit_sessions WHERE id=%s", (d["id"],))
         db.commit()
 
 
@@ -57,8 +57,8 @@ def test_control_starting_an_audit_twice_in_a_row_reopens_the_same_draft(client,
         assert a == b and len(_drafts_today(db)) == 1
     finally:
         for d in _drafts_today(db):
-            db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=?", (str(d["id"]),))
-            db.execute("DELETE FROM audit_sessions WHERE id=?", (d["id"],))
+            db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=%s", (str(d["id"]),))
+            db.execute("DELETE FROM audit_sessions WHERE id=%s", (d["id"],))
         db.commit()
 
 

@@ -89,7 +89,7 @@ BILL_WRITE = re.compile(
     r"|UPDATE\s+inpatient_cases\s+SET[^\"']*discount_percent",
     re.I)
 PARENT_LOCK = re.compile(
-    r"FROM\s+(visits|inpatient_cases)\s+WHERE\s+id=\?\s+FOR UPDATE", re.I)
+    r"FROM\s+(visits|inpatient_cases)\s+WHERE\s+id=%s\s+FOR UPDATE", re.I)
 
 
 def test_every_bill_mutation_takes_the_parent_row_lock():
@@ -515,3 +515,63 @@ def test_the_vet_query_exists_once():
                 found.append(f"{path.name}:{n}")
     assert len(found) == 1 and found[0].startswith("appointments.py:"), (
         "the vet query must live only in appointments.vet_users():\n  " + "\n  ".join(found))
+
+
+# ---------------------------------------------------------------------------
+# Rule 12 — a write to a bill's inputs stores its new total (audit D2, B2)
+#
+# The P&L, Insights and every list read the STORED totals (reports.py). Audit
+# B2 was three writes that changed a bill and left its total as it was; D2
+# gave keeping them right one entry point, billing.bill_changed(). Every
+# function that writes a bill's lines, manual amount, discount or Clean Up
+# calls it -- payments change what is owed, never the total.
+# ---------------------------------------------------------------------------
+
+BILL_INPUT_WRITE = re.compile(
+    r"(INSERT INTO|DELETE FROM|UPDATE)\s+(visit_billing_lines|inpatient_billing)\b"
+    r"|INSERT INTO\s+(billing|boarding_sessions)\b"
+    r"|UPDATE\s+(billing|boarding_sessions)\s+SET\s+(?!(total|billed_total)\s*=)"
+    r"|UPDATE\s+inpatient_cases\s+SET[^\"']*(discount_percent|cleanup_amount)"
+    r"|UPDATE\s+\{\w+\}\s+SET[^\"']*discount_percent",
+    re.I)
+# Writes lines for its caller; rule 12 checks every caller calls bill_changed().
+BILL_INPUT_HELPERS = {"save_visit_billing_lines"}
+
+
+def _route_and_domain_functions():
+    out = list(_functions())
+    for path in source_files.domain_modules():
+        src = path.read_text(encoding="utf-8")
+        for node in ast.parse(src).body:
+            if isinstance(node, ast.FunctionDef):
+                out.append((path.name, node.name, ast.get_source_segment(src, node)))
+    return out
+
+
+def test_every_write_to_a_bills_inputs_stores_its_new_total():
+    """GUARD."""
+    functions = _route_and_domain_functions()
+    writers, missing = [], []
+    for mod, fn, src in functions:
+        if BILL_INPUT_WRITE.search(src) and fn not in BILL_INPUT_HELPERS:
+            writers.append(f"{mod}:{fn}")
+            if "bill_changed(" not in src:
+                missing.append(f"{mod}:{fn}")
+    assert len(writers) >= 12, f"only {writers} write a bill's inputs — the pattern has drifted"
+    assert not missing, (
+        "these change a bill without billing.bill_changed(), so its stored total "
+        "— what every report reads — stays at the old amount:\n  " + "\n  ".join(missing))
+    for helper in BILL_INPUT_HELPERS:
+        callers = [f"{m}:{f}" for m, f, s in functions if f != helper and f"{helper}(" in s]
+        assert callers, f"{helper} has no callers — drop it from BILL_INPUT_HELPERS"
+        assert all("bill_changed(" in s for m, f, s in functions if f != helper and f"{helper}(" in s), callers
+
+
+def test_control_the_bill_input_pattern():
+    for sql in ("INSERT INTO visit_billing_lines (a) VALUES (%s)", "DELETE FROM inpatient_billing WHERE id=%s",
+                "UPDATE billing SET discount_percent=%s", "UPDATE boarding_sessions SET price_per_day=%s",
+                "UPDATE inpatient_cases SET cleanup_amount=%s", "UPDATE {table} SET discount_percent=0"):
+        assert BILL_INPUT_WRITE.search(sql), sql
+    for sql in ("UPDATE billing SET total=%s WHERE visit_id=%s", "UPDATE boarding_sessions SET billed_total=%s",
+                "UPDATE inpatient_cases SET dismissed=true", "INSERT INTO payments (amount) VALUES (%s)"):
+        assert not BILL_INPUT_WRITE.search(sql), sql

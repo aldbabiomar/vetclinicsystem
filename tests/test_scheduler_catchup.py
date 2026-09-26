@@ -135,7 +135,7 @@ def _clear(db):
 
 def _log_backup(db, when, status="success"):
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status) VALUES (?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status) VALUES (%s,%s,%s)",
         (when.isoformat(timespec="seconds"), when.isoformat(timespec="seconds"), status),
     )
     db.commit()
@@ -150,7 +150,7 @@ def blog(db):
     for r in saved:
         db.execute(
             "INSERT INTO backup_log (id, started_at, finished_at, status, filepath, "
-            "filesize_bytes, error, triggered_by) VALUES (?,?,?,?,?,?,?,?)",
+            "filesize_bytes, error, triggered_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (r["id"], r["started_at"], r["finished_at"], r["status"], r["filepath"],
              r["filesize_bytes"], r["error"], r["triggered_by"]),
         )
@@ -284,7 +284,7 @@ def test_self_check_due_uses_the_wall_clock(blog, db):
     assert scheduler._self_check_due(db, 0, 30) is True, "never run today"
 
     db.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
         (now.isoformat(timespec="seconds"), "ok", "[]"),
     )
     db.commit()
@@ -297,7 +297,7 @@ def test_self_check_not_due_before_its_time(blog, db):
     from vcs.ops import scheduler
     db.execute("DELETE FROM self_check_log")
     db.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"), "ok", "[]"),
     )
     db.commit()
@@ -345,7 +345,7 @@ def test_the_tick_does_nothing_when_everything_is_current(blog, monkeypatch):
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
     _log_backup(blog, now - timedelta(minutes=1))
     blog.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
         (now.isoformat(timespec="seconds"), "ok", "[]"),
     )
     blog.commit()
@@ -456,7 +456,7 @@ def test_two_paths_firing_together_produce_exactly_one_self_check(blog, db, monk
         import time as _t
         _t.sleep(0.25)
         db.execute(
-            "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+            "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
             (clock.now().isoformat(timespec="seconds"), "ok", "[]"),
         )
         db.commit()
@@ -488,7 +488,7 @@ def test_a_failed_backup_is_not_retried_on_the_very_next_tick(blog, db):
     from vcs.ops import scheduler
     db.execute("DELETE FROM backup_log")
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "failed", "folder gone"),
     )
@@ -507,7 +507,7 @@ def test_a_failure_older_than_the_bound_is_retried(blog, db):
     db.execute("DELETE FROM backup_log")
     stale = (clock.now() - timedelta(minutes=scheduler.BACKUP_RETRY_MIN_MINUTES + 5))
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (%s,%s,%s,%s)",
         (stale.isoformat(timespec="seconds"), stale.isoformat(timespec="seconds"),
          "failed", "folder gone"),
     )
@@ -525,7 +525,7 @@ def test_the_bound_does_not_delay_the_first_attempt_of_the_day(blog, db):
     db.execute("DELETE FROM backup_log")
     yesterday = clock.now() - timedelta(days=1)
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (yesterday.isoformat(timespec="seconds"), yesterday.isoformat(timespec="seconds"),
          "success", "/tmp/x.dump"),
     )

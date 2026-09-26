@@ -17,7 +17,7 @@ WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
 
 def boarding_sessions_for_patient(db, patient_id):
     return db.execute(
-        "SELECT * FROM boarding_sessions WHERE patient_id=? ORDER BY entry_date DESC", (patient_id,)
+        "SELECT * FROM boarding_sessions WHERE patient_id=%s ORDER BY entry_date DESC", (patient_id,)
     ).fetchall()
 
 
@@ -43,7 +43,10 @@ def _annotate_followup(r, today):
     return r
 
 
-def followups(db, only_pending=False):
+def followups(db, only_pending=False, on_dates=None):
+    """Follow-ups, newest date first. `on_dates` limits them to those days
+    (the Dashboard wants today's and tomorrow's, not every pending one ever)."""
+    params = []
     q = """
     SELECT v.id as visit_id, v.followup_method, v.followup_reason, v.followup_date,
            v.followup_status, v.doctor, v.created_by, v.date as visit_date,
@@ -53,7 +56,10 @@ def followups(db, only_pending=False):
     """
     if only_pending:
         q += " AND v.followup_status = 'Pending'"
-    rows = [dict(r) for r in db.execute(q).fetchall()]
+    if on_dates is not None:
+        q += " AND v.followup_date = ANY(%s)"
+        params.append(list(on_dates))
+    rows = [dict(r) for r in db.execute(q, params).fetchall()]
     today = clock.today()
     out = [_annotate_followup(r, today) for r in rows]
     out.sort(key=lambda r: (r["followup_date"] or date.min), reverse=True)
@@ -87,7 +93,7 @@ def followups_page(db, only_pending=False, limit=20, offset=0):
     FROM visits v JOIN patients p ON p.id = v.patient_id JOIN owners o ON o.id = p.owner_id
     WHERE {where}
     ORDER BY COALESCE(v.followup_date, '0001-01-01') DESC, v.id DESC
-    LIMIT ? OFFSET ?
+    LIMIT %s OFFSET %s
     """
     rows = [dict(r) for r in db.execute(q, [limit, offset]).fetchall()]
     today = clock.today()
@@ -146,8 +152,16 @@ def wellness_reminders(db, only_due=False):
            p.animal_name, o.id as owner_id, o.name as owner_name, o.phone
     FROM visits v JOIN patients p ON p.id = v.patient_id JOIN owners o ON o.id = p.owner_id
     WHERE """ + _WELLNESS_CURRENT
-    rows = [dict(r) for r in db.execute(q).fetchall()]
     today = clock.today()
+    params = []
+    if only_due:
+        # Only the doses that can be due, so the Dashboard (on every page, for
+        # the badge) does not read every reminder ever set (audit D3). Due is
+        # decided below; this window is one day wider than it on the missed
+        # side, so it can only let through more, never fewer.
+        q += " AND v.wellness_next_dose_date BETWEEN %s AND %s"
+        params += [today - timedelta(days=MISSED_WINDOW_DAYS), today + timedelta(days=WELLNESS_LEAD_DAYS)]
+    rows = [dict(r) for r in db.execute(q, params).fetchall()]
     out = []
     for r in rows:
         r = _annotate_wellness(r, today)
@@ -181,7 +195,7 @@ def wellness_reminders_page(db, limit=20, offset=0):
     # open reminders (not contacted, not past the missed window) by the
     # earliest next dose, then the closed ones newest first.
     missed_before = today - timedelta(days=MISSED_WINDOW_DAYS)
-    closed = "(COALESCE(v.wellness_contacted, 'N') = 'Y' OR v.wellness_next_dose_date <= ?)"
+    closed = "(COALESCE(v.wellness_contacted, 'N') = 'Y' OR v.wellness_next_dose_date <= %s)"
     q = f"""
     SELECT v.id as visit_id, v.wellness_type, v.wellness_next_dose_date, v.wellness_contacted,
            v.wellness_contact_method, v.doctor, v.created_by,
@@ -192,7 +206,7 @@ def wellness_reminders_page(db, limit=20, offset=0):
              CASE WHEN {closed} THEN NULL ELSE v.wellness_next_dose_date END ASC,
              CASE WHEN {closed} THEN NULL ELSE v.id END ASC,
              v.wellness_next_dose_date DESC, v.id DESC
-    LIMIT ? OFFSET ?
+    LIMIT %s OFFSET %s
     """
     rows = [dict(r) for r in db.execute(q, [missed_before] * 3 + [limit, offset]).fetchall()]
     rows = [_annotate_wellness(r, today) for r in rows]
@@ -240,7 +254,7 @@ def grooming_queue_page(db, include_finished=False, limit=20, offset=0):
     FROM visits v JOIN patients p ON p.id = v.patient_id JOIN owners o ON o.id = p.owner_id
     WHERE {where}
     ORDER BY v.date DESC, v.id DESC
-    LIMIT ? OFFSET ?
+    LIMIT %s OFFSET %s
     """
     rows = [dict(r) for r in db.execute(q, [limit, offset]).fetchall()]
     return rows, total
@@ -260,14 +274,14 @@ def patient_outpatient_visits(db, patient_id, cases, order="DESC"):
     linked = {c["visit_id"] for c in cases if c["visit_id"]}
     unlinked_dates = {c["admission_date"] for c in cases if not c["visit_id"]}
     order = "ASC" if str(order).upper() == "ASC" else "DESC"
-    visits = db.execute(f"SELECT * FROM visits WHERE patient_id=? ORDER BY date {order}, id {order}",
+    visits = db.execute(f"SELECT * FROM visits WHERE patient_id=%s ORDER BY date {order}, id {order}",
                         (patient_id,)).fetchall()
     return [v for v in visits
             if v["id"] not in linked and not (v["visit_type"] == "Inpatient" and v["date"] in unlinked_dates)]
 
 
 def patient_history(db, patient_id):
-    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date DESC", (patient_id,)).fetchall()
+    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=%s ORDER BY admission_date DESC", (patient_id,)).fetchall()
     visits = patient_outpatient_visits(db, patient_id, cases)
     boarding = boarding_sessions_for_patient(db, patient_id)
     events = []

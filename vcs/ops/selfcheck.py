@@ -516,12 +516,12 @@ def record(db, result):
     Never raises — a monitoring feature must not be able to break the app."""
     try:
         db.execute(
-            "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+            "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
             (result["ran_at"], result["status"], json.dumps(result["findings"])),
         )
         db.execute(
             "DELETE FROM self_check_log WHERE id NOT IN ("
-            "  SELECT id FROM self_check_log ORDER BY id DESC LIMIT ?"
+            "  SELECT id FROM self_check_log ORDER BY id DESC LIMIT %s"
             ")",
             (LOG_RETENTION_ROWS,),
         )

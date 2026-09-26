@@ -329,7 +329,7 @@ def record(db, result):
                "detail": result["detail"]}
     try:
         db.execute(
-            "INSERT INTO settings (key,value) VALUES (?,?) "
+            "INSERT INTO settings (key,value) VALUES (%s,%s) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (SETTING_KEY, json.dumps(payload)),
         )

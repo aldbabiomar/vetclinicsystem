@@ -117,7 +117,7 @@ def test_an_arabic_page_carries_the_scripts_sentences_in_arabic(client, db):
         if saved is None:
             db.execute("DELETE FROM settings WHERE key='language'")
         else:
-            db.execute("UPDATE settings SET value=? WHERE key='language'", (saved,))
+            db.execute("UPDATE settings SET value=%s WHERE key='language'", (saved,))
         db.commit()
     m = re.search(r"window\.VZ_I18N = (\{.*?\});", page)
     assert m, "the page does not hand the scripts their sentences"

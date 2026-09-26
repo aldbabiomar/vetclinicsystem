@@ -73,19 +73,19 @@ def owners(db):
     ids = []
     for name in names:
         oid = new_id()
-        db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",
+        db.execute("INSERT INTO owners (id, name, phone) VALUES (%s,%s,%s)",
                    (oid, name, f"0770{uuid.uuid4().int % 1000000:06d}"))
         ids.append(oid)
     db.commit()
     yield tag, names
     for oid in ids:
-        db.execute("DELETE FROM owners WHERE id=?", (oid,))
+        db.execute("DELETE FROM owners WHERE id=%s", (oid,))
     db.commit()
 
 
 def _search(db, term):
     return [r["name"] for r in db.execute(
-        "SELECT name FROM owners WHERE name ILIKE ? ORDER BY name",
+        "SELECT name FROM owners WHERE name ILIKE %s ORDER BY name",
         (search.like_pattern(term),)).fetchall()]
 
 
@@ -109,7 +109,7 @@ def test_percent_does_not_match_everything(db, owners):
     # A decoy that shares the "50" but not the rest of the name.
     decoy = f"5000 Dinars Clinic {tag}"
     decoy_id = new_id()
-    db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name, phone) VALUES (%s,%s,%s)",
                (decoy_id, decoy, f"0771{tag[:6]}"))
     db.commit()
     try:
@@ -118,7 +118,7 @@ def test_percent_does_not_match_everything(db, owners):
             f"percent behaved as a wildcard and pulled in unrelated rows: {found}")
         assert decoy not in found
     finally:
-        db.execute("DELETE FROM owners WHERE id=?", (decoy_id,))
+        db.execute("DELETE FROM owners WHERE id=%s", (decoy_id,))
         db.commit()
 
 

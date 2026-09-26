@@ -35,12 +35,12 @@ def as_role(flask_app, db):
         tag = uuid.uuid4().hex[:8]
         role_id = db.execute(
             "INSERT INTO roles (name, description, is_system, discount_cap, is_vet_role, created_at) "
-            "VALUES (?,?,false,0,false,now()) RETURNING id", (f"Limited {tag}", "privilege test")).fetchone()["id"]
+            "VALUES (%s,%s,false,0,false,now()) RETURNING id", (f"Limited {tag}", "privilege test")).fetchone()["id"]
         for p in perms:
-            db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, p))
+            db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (%s,%s)", (role_id, p))
         user_id = db.execute(
             "INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-            "VALUES (?,?,?,?,true,false,now()) RETURNING id",
+            "VALUES (%s,%s,%s,%s,true,false,now()) RETURNING id",
             (f"limited{tag}", auth.hash_password(PASSWORD), "Limited User", role_id)).fetchone()["id"]
         db.commit()
         made.append((user_id, role_id))
@@ -59,16 +59,16 @@ def as_role(flask_app, db):
     db.rollback()
     for user_id, _ in made:
         for table in ("login_log", "audit_log"):
-            db.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
-        db.execute("DELETE FROM users WHERE id=?", (user_id,))
+            db.execute(f"DELETE FROM {table} WHERE user_id=%s", (user_id,))
+        db.execute("DELETE FROM users WHERE id=%s", (user_id,))
     # By id — a test may have renamed a role or cleared its description —
     # plus any role a test created through the admin screens, which all carry
     # the marker description.
     role_ids = {r for _, r in made} | {r["id"] for r in db.execute(
         "SELECT id FROM roles WHERE description='privilege test' AND NOT is_system").fetchall()}
     for role_id in role_ids:
-        db.execute("DELETE FROM role_permissions WHERE role_id=?", (role_id,))
-        db.execute("DELETE FROM roles WHERE id=? AND NOT is_system", (role_id,))
+        db.execute("DELETE FROM role_permissions WHERE role_id=%s", (role_id,))
+        db.execute("DELETE FROM roles WHERE id=%s AND NOT is_system", (role_id,))
     db.commit()
 
 
@@ -82,11 +82,11 @@ def admin_restored(db, as_role):
     down FIRST: the Admin must be out of a test role before that role is
     deleted."""
     cols = "active, must_change_password, password_hash, password_changed_at, role_id"
-    saved = db.execute(f"SELECT {cols} FROM users WHERE id=?", (ADMIN_ID,)).fetchone()
+    saved = db.execute(f"SELECT {cols} FROM users WHERE id=%s", (ADMIN_ID,)).fetchone()
     yield
     db.rollback()
-    db.execute("UPDATE users SET active=?, must_change_password=?, password_hash=?, password_changed_at=?, role_id=? "
-               "WHERE id=?", (saved["active"], saved["must_change_password"], saved["password_hash"],
+    db.execute("UPDATE users SET active=%s, must_change_password=%s, password_hash=%s, password_changed_at=%s, role_id=%s "
+               "WHERE id=%s", (saved["active"], saved["must_change_password"], saved["password_hash"],
                               saved["password_changed_at"], saved["role_id"], ADMIN_ID))
     db.commit()
 
@@ -96,7 +96,7 @@ def _admin_role(db):
 
 
 def _role_of(db, user_id):
-    return db.execute("SELECT role_id FROM users WHERE id=?", (user_id,)).fetchone()["role_id"]
+    return db.execute("SELECT role_id FROM users WHERE id=%s", (user_id,)).fetchone()["role_id"]
 
 
 # ---------------------------------------------------------------------------
@@ -119,9 +119,9 @@ def test_control_an_admin_can_assign_the_admin_role(client, db, as_role):
 def test_they_cannot_reset_the_admins_password(db, as_role):
     """GUARD. Resetting a password is signing in as that person."""
     me = as_role({"manage_users_roles"})
-    before = db.execute("SELECT password_hash FROM users WHERE id=?", (ADMIN_ID,)).fetchone()["password_hash"]
+    before = db.execute("SELECT password_hash FROM users WHERE id=%s", (ADMIN_ID,)).fetchone()["password_hash"]
     me["client"].post(f"/admin/users/{ADMIN_ID}/reset-password", data={"new_password": "Takeover12345!"})
-    after = db.execute("SELECT password_hash FROM users WHERE id=?", (ADMIN_ID,)).fetchone()["password_hash"]
+    after = db.execute("SELECT password_hash FROM users WHERE id=%s", (ADMIN_ID,)).fetchone()["password_hash"]
     assert after == before
 
 
@@ -129,7 +129,7 @@ def test_control_they_can_reset_a_password_within_their_own_access(db, as_role):
     me = as_role({"manage_users_roles", "manage_owners"})
     other = as_role({"manage_owners"})
     me["client"].post(f"/admin/users/{other['user_id']}/reset-password", data={"new_password": "FreshStart12345!"})
-    row = db.execute("SELECT password_hash FROM users WHERE id=?", (other["user_id"],)).fetchone()
+    row = db.execute("SELECT password_hash FROM users WHERE id=%s", (other["user_id"],)).fetchone()
     assert auth.verify_password(row["password_hash"], "FreshStart12345!")
 
 
@@ -140,7 +140,7 @@ def test_they_cannot_create_a_role_holding_a_permission_they_lack(db, as_role):
     me["client"].post("/admin/roles/new", data={"name": name, "discount_cap": "0",
                                                  "permissions": ["manage_users_roles", "manage_maintenance"],
                                                  "description": "privilege test"})
-    assert db.execute("SELECT 1 FROM roles WHERE name=?", (name,)).fetchone() is None
+    assert db.execute("SELECT 1 FROM roles WHERE name=%s", (name,)).fetchone() is None
 
 
 def test_control_they_can_create_a_role_within_their_own_access(db, as_role):
@@ -148,7 +148,7 @@ def test_control_they_can_create_a_role_within_their_own_access(db, as_role):
     name = f"Within {uuid.uuid4().hex[:6]}"
     me["client"].post("/admin/roles/new", data={"name": name, "discount_cap": "0",
                                                  "permissions": ["manage_owners"], "description": "privilege test"})
-    assert db.execute("SELECT 1 FROM roles WHERE name=?", (name,)).fetchone() is not None
+    assert db.execute("SELECT 1 FROM roles WHERE name=%s", (name,)).fetchone() is not None
 
 
 def test_they_cannot_create_a_user_in_the_admin_role(db, as_role):
@@ -158,11 +158,11 @@ def test_they_cannot_create_a_user_in_the_admin_role(db, as_role):
     try:
         me["client"].post("/admin/users/new", data={"username": username, "full_name": "Sock Puppet",
                                                      "password": "SockPuppet12345!", "role_id": _admin_role(db)})
-        assert db.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone() is None
+        assert db.execute("SELECT 1 FROM users WHERE username=%s", (username,)).fetchone() is None
     finally:
         db.execute("DELETE FROM audit_log WHERE table_name='users' AND record_id IN "
-                   "(SELECT id::text FROM users WHERE username=?)", (username,))
-        db.execute("DELETE FROM users WHERE username=?", (username,))
+                   "(SELECT id::text FROM users WHERE username=%s)", (username,))
+        db.execute("DELETE FROM users WHERE username=%s", (username,))
         db.commit()
 
 
@@ -173,11 +173,11 @@ def test_control_they_can_create_a_user_within_their_own_access(db, as_role):
     try:
         me["client"].post("/admin/users/new", data={"username": username, "full_name": "Peer",
                                                      "password": "PeerUser12345!", "role_id": peer["role_id"]})
-        assert db.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone() is not None
+        assert db.execute("SELECT 1 FROM users WHERE username=%s", (username,)).fetchone() is not None
     finally:
         db.execute("DELETE FROM audit_log WHERE table_name='users' AND record_id IN "
-                   "(SELECT id::text FROM users WHERE username=?)", (username,))
-        db.execute("DELETE FROM users WHERE username=?", (username,))
+                   "(SELECT id::text FROM users WHERE username=%s)", (username,))
+        db.execute("DELETE FROM users WHERE username=%s", (username,))
         db.commit()
 
 
@@ -187,14 +187,14 @@ def test_they_cannot_disable_an_admin(db, as_role):
     me = as_role({"manage_users_roles"})
     second = db.execute(
         "INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-        "VALUES (?,?,?,?,true,false,now()) RETURNING id",
+        "VALUES (%s,%s,%s,%s,true,false,now()) RETURNING id",
         (f"admin2{uuid.uuid4().hex[:6]}", auth.hash_password(PASSWORD), "Second Admin", _admin_role(db))).fetchone()["id"]
     db.commit()
     try:
         me["client"].post(f"/admin/users/{ADMIN_ID}/toggle-active")
-        assert db.execute("SELECT active FROM users WHERE id=?", (ADMIN_ID,)).fetchone()["active"] is True
+        assert db.execute("SELECT active FROM users WHERE id=%s", (ADMIN_ID,)).fetchone()["active"] is True
     finally:
-        db.execute("DELETE FROM users WHERE id=?", (second,))
+        db.execute("DELETE FROM users WHERE id=%s", (second,))
         db.commit()
 
 
@@ -211,7 +211,7 @@ def test_they_cannot_delete_their_own_role_into_the_admin_role(db, as_role):
 # ---------------------------------------------------------------------------
 
 def _setting(db, key):
-    row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
     return row["value"] if row else None
 
 
@@ -235,7 +235,7 @@ def test_control_the_same_role_can_save_the_fields_it_holds(db, as_role):
         assert _setting(db, "clinic_location") == "Privilege Test"
     finally:
         db.execute("DELETE FROM settings WHERE key='clinic_location'") if before is None else \
-            db.execute("UPDATE settings SET value=? WHERE key='clinic_location'", (before,))
+            db.execute("UPDATE settings SET value=%s WHERE key='clinic_location'", (before,))
         db.commit()
 
 
@@ -249,7 +249,7 @@ def test_control_they_can_disable_a_user_within_their_own_access(db, as_role):
     me = as_role({"manage_users_roles", "manage_owners"})
     peer = as_role({"manage_owners"})
     me["client"].post(f"/admin/users/{peer['user_id']}/toggle-active")
-    assert db.execute("SELECT active FROM users WHERE id=?", (peer["user_id"],)).fetchone()["active"] is False
+    assert db.execute("SELECT active FROM users WHERE id=%s", (peer["user_id"],)).fetchone()["active"] is False
 
 
 def test_they_cannot_move_an_admin_into_a_smaller_role(db, as_role):
@@ -260,14 +260,14 @@ def test_they_cannot_move_an_admin_into_a_smaller_role(db, as_role):
     me = as_role({"manage_users_roles"})
     second = db.execute(
         "INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-        "VALUES (?,?,?,?,true,false,now()) RETURNING id",
+        "VALUES (%s,%s,%s,%s,true,false,now()) RETURNING id",
         (f"admin2{uuid.uuid4().hex[:6]}", auth.hash_password(PASSWORD), "Second Admin", _admin_role(db))).fetchone()["id"]
     db.commit()
     try:
         me["client"].post(f"/admin/users/{ADMIN_ID}/role", data={"role_id": me["role_id"]})
         assert _role_of(db, ADMIN_ID) == _admin_role(db)
     finally:
-        db.execute("DELETE FROM users WHERE id=?", (second,))
+        db.execute("DELETE FROM users WHERE id=%s", (second,))
         db.commit()
 
 
@@ -279,7 +279,7 @@ def test_they_cannot_edit_a_role_that_holds_more_than_they_do(db, as_role):
                       data={"name": f"Stripped {uuid.uuid4().hex[:6]}", "discount_cap": "0",
                             "permissions": ["manage_users_roles"], "description": "privilege test"})
     perms = {r["permission_id"] for r in db.execute(
-        "SELECT permission_id FROM role_permissions WHERE role_id=?", (stronger["role_id"],)).fetchall()}
+        "SELECT permission_id FROM role_permissions WHERE role_id=%s", (stronger["role_id"],)).fetchall()}
     assert perms == {"manage_users_roles", "manage_maintenance"}
 
 
@@ -289,7 +289,7 @@ def test_control_they_can_edit_a_role_within_their_own_access(db, as_role):
     me["client"].post(f"/admin/roles/{peer['role_id']}/edit",
                       data={"name": f"Edited {uuid.uuid4().hex[:6]}", "discount_cap": "0", "permissions": [],
                             "description": "privilege test"})
-    assert db.execute("SELECT COUNT(*) c FROM role_permissions WHERE role_id=?", (peer["role_id"],)).fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) c FROM role_permissions WHERE role_id=%s", (peer["role_id"],)).fetchone()["c"] == 0
 
 
 def test_they_cannot_delete_a_role_that_holds_more_than_they_do(db, as_role):
@@ -297,7 +297,7 @@ def test_they_cannot_delete_a_role_that_holds_more_than_they_do(db, as_role):
     me = as_role({"manage_users_roles"})
     stronger = as_role({"manage_users_roles", "manage_maintenance"})
     me["client"].post(f"/admin/roles/{stronger['role_id']}/delete", data={"reassign_to": me["role_id"]})
-    assert db.execute("SELECT 1 FROM roles WHERE id=?", (stronger["role_id"],)).fetchone() is not None
+    assert db.execute("SELECT 1 FROM roles WHERE id=%s", (stronger["role_id"],)).fetchone() is not None
     assert _role_of(db, stronger["user_id"]) == stronger["role_id"]
 
 
@@ -305,14 +305,14 @@ def test_signed_out_by_a_password_change_is_told_why_and_brought_back(db, as_rol
     """GUARD (audit P14). One predecessor app said why and lost the page; the
     other kept the page and said nothing."""
     me = as_role({"manage_owners"})
-    db.execute("UPDATE users SET password_changed_at = now() WHERE id=?", (me["user_id"],))
+    db.execute("UPDATE users SET password_changed_at = now() WHERE id=%s", (me["user_id"],))
     db.commit()
     resp = me["client"].get("/owners")
     location = resp.headers["Location"]
     assert resp.status_code == 302 and ("next=/owners" in location or "next=%2Fowners" in location), location
     login_page = me["client"].get(resp.headers["Location"]).get_data(as_text=True)
     assert "Your password was changed" in login_page
-    username = db.execute("SELECT username FROM users WHERE id=?", (me["user_id"],)).fetchone()["username"]
+    username = db.execute("SELECT username FROM users WHERE id=%s", (me["user_id"],)).fetchone()["username"]
     back = me["client"].post(resp.headers["Location"], data={"username": username, "password": PASSWORD},
                              environ_base={"REMOTE_ADDR": "10.78.1.1"})
     assert back.status_code == 302 and back.headers["Location"].endswith("/owners"), back.headers.get("Location")

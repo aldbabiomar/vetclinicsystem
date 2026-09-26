@@ -63,7 +63,7 @@ def resolve(time_zone_setting, money_setting):
 
 def load(db, money_setting):
     """The effective zone name for this database."""
-    row = db.execute("SELECT value FROM settings WHERE key=?", (SETTING_KEY,)).fetchone()
+    row = db.execute("SELECT value FROM settings WHERE key=%s", (SETTING_KEY,)).fetchone()
     return resolve(row["value"] if row else None, money_setting)
 
 
@@ -138,4 +138,4 @@ def apply_to(con, name=None):
     for the connection — but a GUC set inside a transaction that later rolls
     back is rolled back with it, which is why the app re-applies it per
     request rather than trusting a pooled connection to remember."""
-    con.execute("SELECT set_config('TimeZone', ?, false)", (name or zone_name(),))
+    con.execute("SELECT set_config('TimeZone', %s, false)", (name or zone_name(),))

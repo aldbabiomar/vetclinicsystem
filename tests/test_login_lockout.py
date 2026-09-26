@@ -231,7 +231,7 @@ def test_a_real_burst_of_failures_locks_the_account(db):
         for i in range(auth.LOCKOUT_THRESHOLD):
             db.execute(
                 "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) "
-                "VALUES (?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s)",
                 (None, username, 0,
                  (now - timedelta(seconds=(5 - i) * 10)).isoformat(timespec="seconds"),
                  "127.0.0.1", "test"))
@@ -241,7 +241,7 @@ def test_a_real_burst_of_failures_locks_the_account(db):
         assert mins and mins >= 1
         assert unlock_at > now
     finally:
-        db.execute("DELETE FROM login_log WHERE username=?", (username,))
+        db.execute("DELETE FROM login_log WHERE username=%s", (username,))
         db.commit()
 
 
@@ -255,17 +255,17 @@ def test_a_real_successful_login_unlocks_it(db):
         for i in range(auth.LOCKOUT_THRESHOLD):
             db.execute(
                 "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) "
-                "VALUES (?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s)",
                 (None, username, 0,
                  (now - timedelta(seconds=(6 - i) * 10)).isoformat(timespec="seconds"),
                  "127.0.0.1", "test"))
         db.execute(
             "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) "
-            "VALUES (?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s)",
             (None, username, 1, now.isoformat(timespec="seconds"), "127.0.0.1", "test"))
         db.commit()
         locked, _, _ = auth.login_lock_status(db, username)
         assert not locked, "the account stayed locked after a successful login"
     finally:
-        db.execute("DELETE FROM login_log WHERE username=?", (username,))
+        db.execute("DELETE FROM login_log WHERE username=%s", (username,))
         db.commit()

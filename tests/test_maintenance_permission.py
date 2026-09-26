@@ -100,12 +100,12 @@ def test_reseeding_restores_the_system_admins_maintenance_grant(db):
 
     try:
         db.execute(
-            "DELETE FROM role_permissions WHERE role_id=? AND permission_id='manage_maintenance'",
+            "DELETE FROM role_permissions WHERE role_id=%s AND permission_id='manage_maintenance'",
             (admin_role["id"],),
         )
         db.commit()
         held_before = db.execute(
-            "SELECT 1 FROM role_permissions WHERE role_id=? AND permission_id='manage_maintenance'",
+            "SELECT 1 FROM role_permissions WHERE role_id=%s AND permission_id='manage_maintenance'",
             (admin_role["id"],),
         ).fetchone()
         assert held_before is None, "arrangement failed — the grant was not actually removed"
@@ -113,7 +113,7 @@ def test_reseeding_restores_the_system_admins_maintenance_grant(db):
         auth.seed_default_roles_and_permissions(db)
 
         held_after = db.execute(
-            "SELECT 1 FROM role_permissions WHERE role_id=? AND permission_id='manage_maintenance'",
+            "SELECT 1 FROM role_permissions WHERE role_id=%s AND permission_id='manage_maintenance'",
             (admin_role["id"],),
         ).fetchone()
         assert held_after is not None, (
@@ -124,7 +124,7 @@ def test_reseeding_restores_the_system_admins_maintenance_grant(db):
         )
     finally:
         db.execute(
-            "INSERT INTO role_permissions (role_id, permission_id) VALUES (?, 'manage_maintenance') "
+            "INSERT INTO role_permissions (role_id, permission_id) VALUES (%s, 'manage_maintenance') "
             "ON CONFLICT DO NOTHING",
             (admin_role["id"],),
         )
@@ -188,14 +188,14 @@ def browse_root(db, tmp_path):
     root = tmp_path / "backups"
     (root / "nested").mkdir(parents=True)
     db.execute(
-        "INSERT INTO settings (key,value) VALUES ('backup_dir',?) "
+        "INSERT INTO settings (key,value) VALUES ('backup_dir',%s) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (str(root),),
     )
     db.commit()
     yield root
     db.execute(
-        "INSERT INTO settings (key,value) VALUES ('backup_dir',?) "
+        "INSERT INTO settings (key,value) VALUES ('backup_dir',%s) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (previous["value"] if previous else "",),
     )

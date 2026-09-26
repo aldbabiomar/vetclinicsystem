@@ -171,7 +171,7 @@ def current_user(db):
     uid = session.get("user_id")
     if not uid:
         return None
-    return db.execute("SELECT * FROM users WHERE id=? AND active=true", (uid,)).fetchone()
+    return db.execute("SELECT * FROM users WHERE id=%s AND active=true", (uid,)).fetchone()
 
 
 def permission_required(*perm_keys):
@@ -222,10 +222,11 @@ def seed_default_roles_and_permissions(db):
     table (the app's fixed vocabulary) in sync with PERMISSIONS above, and
     creates Admin/Vet/Reception the first time only — never overwrites an
     admin's later edits to Vet or Reception, since those are ordinary
-    custom roles from that point on."""
+    custom roles from that point on. Commits: it runs from migrate.apply()
+    at install and update, on its own connection, never inside a request."""
     for i, (key, label, category) in enumerate(PERMISSIONS):
         db.execute(
-            "INSERT INTO permissions (id, label, category, sort_order) VALUES (?,?,?,?) "
+            "INSERT INTO permissions (id, label, category, sort_order) VALUES (%s,%s,%s,%s) "
             "ON CONFLICT (id) DO UPDATE SET label=EXCLUDED.label, category=EXCLUDED.category, "
             "sort_order=EXCLUDED.sort_order",
             (key, label, category, i),
@@ -255,17 +256,17 @@ def seed_default_roles_and_permissions(db):
     ]
     changed = False
     for name, desc, is_system, cap, perms, is_vet_role in defaults:
-        existing = db.execute("SELECT id FROM roles WHERE name=?", (name,)).fetchone()
+        existing = db.execute("SELECT id FROM roles WHERE name=%s", (name,)).fetchone()
         if existing:
             continue
         role_id = db.execute(
             "INSERT INTO roles (name,description,is_system,discount_cap,is_vet_role,created_at) "
-            "VALUES (?,?,?,?,?,?) RETURNING id",
+            "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
             (name, desc, is_system, cap, is_vet_role, clock.now()),
         ).fetchone()["id"]
         for perm in perms:
             db.execute(
-                "INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?) ON CONFLICT DO NOTHING",
+                "INSERT INTO role_permissions (role_id, permission_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
                 (role_id, perm),
             )
         changed = True
@@ -284,7 +285,7 @@ def refresh_session_permissions(db, user_row):
     back in. Skips the extra permission-set query on every request when
     nothing has actually changed since it was last cached."""
     role_row = db.execute(
-        "SELECT id, name, discount_cap, is_system FROM roles WHERE id=?",
+        "SELECT id, name, discount_cap, is_system FROM roles WHERE id=%s",
         (user_row["role_id"],),
     ).fetchone()
     if not role_row:
@@ -302,7 +303,7 @@ def refresh_session_permissions(db, user_row):
         return  # nothing relevant has changed since this was cached
 
     perm_rows = db.execute(
-        "SELECT permission_id FROM role_permissions WHERE role_id=?", (role_row["id"],)
+        "SELECT permission_id FROM role_permissions WHERE role_id=%s", (role_row["id"],)
     ).fetchall()
     session["role_id"] = role_row["id"]
     session["role"] = role_row["name"]
@@ -327,6 +328,9 @@ def discount_cap_for():
 # Login attempt logging
 # ---------------------------------------------------------------------------
 def log_login(db, user_id, username, success):
+    """Record a sign-in attempt, and commit it: the attempt stays on record
+    even if the request fails after it, since login_lock_status() counts
+    the failures this table holds."""
     ua = request.headers.get("User-Agent", "")
     # request.remote_addr only -- never the X-Forwarded-For header directly.
     # The default deployment is plain HTTP on the clinic LAN with no proxy in
@@ -339,7 +343,7 @@ def log_login(db, user_id, username, success):
     # the header read here.
     ip = request.remote_addr
     db.execute(
-        "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (%s,%s,%s,%s,%s,%s)",
         (user_id, username, 1 if success else 0, clock.now().isoformat(timespec="seconds"), ip, ua),
     )
     db.commit()
@@ -407,12 +411,12 @@ def login_lock_status(db, username):
         return False, None, None
     lookback_cutoff = (clock.now() - timedelta(hours=LOCKOUT_LOOKBACK_HOURS)).isoformat(timespec="seconds")
     last_success = db.execute(
-        "SELECT MAX(timestamp) AS t FROM login_log WHERE username=? AND success=1 AND timestamp >= ?",
+        "SELECT MAX(timestamp) AS t FROM login_log WHERE username=%s AND success=1 AND timestamp >= %s",
         (username, lookback_cutoff),
     ).fetchone()["t"]
     since = last_success or lookback_cutoff
     rows = db.execute(
-        "SELECT timestamp FROM login_log WHERE username=? AND success=0 AND timestamp > ? ORDER BY timestamp",
+        "SELECT timestamp FROM login_log WHERE username=%s AND success=0 AND timestamp > %s ORDER BY timestamp",
         (username, since),
     ).fetchall()
     if not rows:
@@ -530,13 +534,13 @@ def log_change(db, table_name, record_id, action, changes=None, at=None):
                 continue
             db.execute(
                 "INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id,field,old_value,new_value) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (uid, uname, ts, "update", table_name, record_id, field, _as_text(old), _as_text(new)),
             )
     else:
         db.execute(
             "INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id,field,old_value,new_value) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (uid, uname, ts, action, table_name, record_id, None, None, None),
         )
 

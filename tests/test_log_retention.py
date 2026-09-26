@@ -35,28 +35,28 @@ def aged_rows(db):
     new = clock.now().isoformat(timespec="seconds")
     for ts in (old, new):
         db.execute("INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id) "
-                   "VALUES (?,?,?,?,?,?)", (None, f"probe{tag}", ts, "update", "owners", tag))
+                   "VALUES (%s,%s,%s,%s,%s,%s)", (None, f"probe{tag}", ts, "update", "owners", tag))
         db.execute("INSERT INTO login_log (user_id,username,success,timestamp,ip,user_agent) "
-                   "VALUES (?,?,?,?,?,?)", (None, f"probe{tag}", 0, ts, "127.0.0.1", "test"))
+                   "VALUES (%s,%s,%s,%s,%s,%s)", (None, f"probe{tag}", 0, ts, "127.0.0.1", "test"))
         db.execute("INSERT INTO backup_log (started_at,status,filepath,error,triggered_by) "
-                   "VALUES (?,?,?,?,?)", (ts, "success", f"/tmp/{tag}.dump", None, "test"))
+                   "VALUES (%s,%s,%s,%s,%s)", (ts, "success", f"/tmp/{tag}.dump", None, "test"))
         db.execute("INSERT INTO restore_log (started_at,finished_at,status,source_file,error,triggered_by) "
-                   "VALUES (?,?,?,?,?,?)", (ts, ts, "success", f"/tmp/{tag}.dump", None, "test"))
+                   "VALUES (%s,%s,%s,%s,%s,%s)", (ts, ts, "success", f"/tmp/{tag}.dump", None, "test"))
     db.commit()
     yield {"tag": tag, "old": old, "new": new}
     for table, col in logs.RETENTION_TABLES:
         who = "username" if table in ("audit_log", "login_log") else "source_file"
         if table == "backup_log":
-            db.execute(f"DELETE FROM {table} WHERE filepath LIKE ?", (f"%{tag}%",))
+            db.execute(f"DELETE FROM {table} WHERE filepath LIKE %s", (f"%{tag}%",))
         elif table == "restore_log":
-            db.execute(f"DELETE FROM {table} WHERE source_file LIKE ?", (f"%{tag}%",))
+            db.execute(f"DELETE FROM {table} WHERE source_file LIKE %s", (f"%{tag}%",))
         else:
-            db.execute(f"DELETE FROM {table} WHERE username=?", (f"probe{tag}",))
+            db.execute(f"DELETE FROM {table} WHERE username=%s", (f"probe{tag}",))
     db.commit()
 
 
 def _count(db, table, col, value):
-    return db.execute(f"SELECT COUNT(*) c FROM {table} WHERE {col} LIKE ?", (f"%{value}%",)).fetchone()["c"]
+    return db.execute(f"SELECT COUNT(*) c FROM {table} WHERE {col} LIKE %s", (f"%{value}%",)).fetchone()["c"]
 
 
 # ---------------------------------------------------------------------------
@@ -104,25 +104,25 @@ def test_a_setting_below_the_floor_is_clamped(db):
     previous = db.execute("SELECT value FROM settings WHERE key='log_retention_days'").fetchone()
     try:
         for bad in ("1", "0", "-5", "notanumber", ""):
-            db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
+            db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',%s) "
                        "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (bad,))
             db.commit()
             recent = clock.now() - timedelta(days=30)
             # Nothing 30 days old may be deleted at any of these settings.
             tag = uuid.uuid4().hex[:8].upper()
             db.execute("INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id) "
-                       "VALUES (?,?,?,?,?,?)",
+                       "VALUES (%s,%s,%s,%s,%s,%s)",
                        (None, f"clamp{tag}", recent.isoformat(timespec="seconds"),
                         "update", "owners", tag))
             db.commit()
             logs.prune_old_logs(db)
-            survived = db.execute("SELECT COUNT(*) c FROM audit_log WHERE username=?",
+            survived = db.execute("SELECT COUNT(*) c FROM audit_log WHERE username=%s",
                                   (f"clamp{tag}",)).fetchone()["c"]
-            db.execute("DELETE FROM audit_log WHERE username=?", (f"clamp{tag}",))
+            db.execute("DELETE FROM audit_log WHERE username=%s", (f"clamp{tag}",))
             db.commit()
             assert survived == 1, f"retention setting {bad!r} deleted a 30-day-old row"
     finally:
-        db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
+        db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',%s) "
                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                    (previous["value"] if previous else str(logs.LOG_RETENTION_DEFAULT_DAYS),))
         db.commit()
@@ -144,7 +144,7 @@ def test_the_settings_form_accepts_a_sane_window(client, db):
         stored = db.execute("SELECT value FROM settings WHERE key='log_retention_days'").fetchone()
         assert stored["value"] == "365"
     finally:
-        db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
+        db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',%s) "
                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                    (previous["value"] if previous else str(logs.LOG_RETENTION_DEFAULT_DAYS),))
         db.commit()

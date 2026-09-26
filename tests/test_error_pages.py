@@ -71,18 +71,18 @@ def test_a_bill_for_a_deleted_distributor_says_so(client, db):
 @pytest.fixture
 def arabic_clinic(db):
     keys = ("language", "clinic_name")
-    saved = {k: (db.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone() or {}).get("value")
+    saved = {k: (db.execute("SELECT value FROM settings WHERE key=%s", (k,)).fetchone() or {}).get("value")
              for k in keys}
     for k, v in (("language", "ar"), ("clinic_name", "Error Page Clinic 7Q")):
-        db.execute("INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT (key) DO UPDATE SET value=excluded.value",
+        db.execute("INSERT INTO settings (key, value) VALUES (%s,%s) ON CONFLICT (key) DO UPDATE SET value=excluded.value",
                    (k, v))
     db.commit()
     yield
     for k, v in saved.items():
         if v is None:
-            db.execute("DELETE FROM settings WHERE key=?", (k,))
+            db.execute("DELETE FROM settings WHERE key=%s", (k,))
         else:
-            db.execute("UPDATE settings SET value=? WHERE key=?", (v, k))
+            db.execute("UPDATE settings SET value=%s WHERE key=%s", (v, k))
     db.commit()
 
 
@@ -116,7 +116,7 @@ def test_a_daily_update_or_call_is_audited_under_its_own_id(client, db, inpatien
     so the audit log named a record that was never created."""
     resp = client.post(url.format(inpatient_case["id"]), data=data)
     assert resp.status_code == 302
-    row_id = db.execute(f"SELECT max(id) AS id FROM {table} WHERE case_id=?", (inpatient_case["id"],)).fetchone()["id"]
-    logged = db.execute("SELECT record_id FROM audit_log WHERE table_name=? AND action='create' ORDER BY id DESC LIMIT 1",
+    row_id = db.execute(f"SELECT max(id) AS id FROM {table} WHERE case_id=%s", (inpatient_case["id"],)).fetchone()["id"]
+    logged = db.execute("SELECT record_id FROM audit_log WHERE table_name=%s AND action='create' ORDER BY id DESC LIMIT 1",
                         (table,)).fetchone()["record_id"]
     assert logged == str(row_id)

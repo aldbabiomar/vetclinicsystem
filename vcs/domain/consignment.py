@@ -33,14 +33,14 @@ def record_consignment_receipt(db, item_id, distributor_id, quantity, unit_cost_
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_receipts (item_id, distributor_id, quantity, unit_cost_at_receipt, "
-        "received_date, delivery_reference, notes, received_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "received_date, delivery_reference, notes, received_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (item_id, distributor_id, quantity, unit_cost_at_receipt, received_date,
          delivery_reference, notes, received_by, now),
     )
     receipt_id = cur.fetchone()["id"]
     db.execute(
         "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-        "VALUES (?,?,?,?,?,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s)",
         (item_id, quantity, "consignment_receipt", str(receipt_id), now, received_by),
     )
     return receipt_id
@@ -61,7 +61,7 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
 
     Returns (ok, shrinkage_id_or_None, error_message_or_None).
     """
-    db.execute("SELECT id FROM inventory_list WHERE id=? FOR UPDATE", (item_id,))
+    db.execute("SELECT id FROM inventory_list WHERE id=%s FOR UPDATE", (item_id,))
     status = inventory.inventory_status_by_id(db, item_id)
     # current_stock is None until this item has a confirmed audit — fail
     # closed rather than let `quantity > None` either silently pass or
@@ -74,7 +74,7 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
         return False, None, gettext(
             "Only %(stock)s unit(s) on the shelf — can't write off %(quantity)s.",
             stock=display.display_qty(current_stock), quantity=display.display_qty(quantity))
-    item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT cost_price FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s
     # confirmed_at write in the inventory blueprint; this writes an
@@ -82,14 +82,14 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_shrinkage (item_id, distributor_id, quantity, reason, liable_party, "
-        "liability_overridden, unit_cost, notes, logged_by, logged_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id",
+        "liability_overridden, unit_cost, notes, logged_by, logged_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (item_id, distributor_id, quantity, reason, liable_party,
          bool(liability_overridden), unit_cost, notes, logged_by, now),
     )
     shrinkage_id = cur.fetchone()["id"]
     db.execute(
         "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-        "VALUES (?,?,?,?,?,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s)",
         (item_id, -quantity, "shrinkage", str(shrinkage_id), now, logged_by),
     )
     return True, shrinkage_id, None
@@ -108,7 +108,7 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
 
     Returns (ok, return_id_or_None, error_message_or_None).
     """
-    db.execute("SELECT id FROM inventory_list WHERE id=? FOR UPDATE", (item_id,))
+    db.execute("SELECT id FROM inventory_list WHERE id=%s FOR UPDATE", (item_id,))
     status = inventory.inventory_status_by_id(db, item_id)
     if status and status["current_stock"] is None:
         return False, None, gettext(
@@ -118,7 +118,7 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
         return False, None, gettext(
             "Only %(stock)s unit(s) on the shelf — can't return %(quantity)s.",
             stock=display.display_qty(current_stock), quantity=display.display_qty(quantity))
-    item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT cost_price FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s
     # confirmed_at write in the inventory blueprint; this writes an
@@ -126,13 +126,13 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_returns (item_id, distributor_id, quantity, unit_cost_at_return, "
-        "return_date, reason, notes, returned_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "return_date, reason, notes, returned_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (item_id, distributor_id, quantity, unit_cost, return_date, reason, notes, returned_by, now),
     )
     return_id = cur.fetchone()["id"]
     db.execute(
         "INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-        "VALUES (?,?,?,?,?,?)",
+        "VALUES (%s,%s,%s,%s,%s,%s)",
         (item_id, -quantity, "consignment_return", str(return_id), now, returned_by),
     )
     return True, return_id, None
@@ -188,7 +188,7 @@ def consignment_balance(db, distributor_id):
     amount_owed, units_sold_since, last_settlement_date.
     """
     last = db.execute(
-        "SELECT * FROM consignment_settlements WHERE distributor_id=? ORDER BY created_at DESC LIMIT 1",
+        "SELECT * FROM consignment_settlements WHERE distributor_id=%s ORDER BY created_at DESC LIMIT 1",
         (distributor_id,),
     ).fetchone()
     if last:
@@ -207,11 +207,11 @@ def consignment_balance(db, distributor_id):
         # settle" while showing an amount owed (CODE_AUDIT §10 M8).
         earliest = db.execute(
             "SELECT MIN(x) AS m FROM ("
-            "  SELECT MIN(created_at) AS x FROM consignment_receipts WHERE distributor_id=?"
-            "  UNION ALL SELECT MIN(logged_at) FROM consignment_shrinkage WHERE distributor_id=?"
-            "  UNION ALL SELECT MIN(created_at) FROM consignment_returns WHERE distributor_id=?"
+            "  SELECT MIN(created_at) AS x FROM consignment_receipts WHERE distributor_id=%s"
+            "  UNION ALL SELECT MIN(logged_at) FROM consignment_shrinkage WHERE distributor_id=%s"
+            "  UNION ALL SELECT MIN(created_at) FROM consignment_returns WHERE distributor_id=%s"
             "  UNION ALL SELECT MIN(consignment_since) FROM inventory_list"
-            "    WHERE distributor_id=? AND ownership_type='Consignment'"
+            "    WHERE distributor_id=%s AND ownership_type='Consignment'"
             ") t",
             (distributor_id, distributor_id, distributor_id, distributor_id),
         ).fetchone()
@@ -233,11 +233,11 @@ def consignment_balance(db, distributor_id):
     # existing history isn't silently dropped. See ORPHANED_RECORDS_AUDIT.md
     # F-07.
     sold_where = (
-        "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=? "
+        "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=%s "
         # GREATEST ignores a NULL argument; both NULL (no period yet, item
         # never flagged) means no lower bound, not "nothing" -- hence -infinity.
-        "AND s.sold_at > COALESCE(GREATEST(?::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
-        "AND s.sold_at <= ?"
+        "AND s.sold_at > COALESCE(GREATEST(%s::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
+        "AND s.sold_at <= %s"
     )
     sold_params = [distributor_id, period_start, period_end]
     sold_row = db.execute(
@@ -256,16 +256,16 @@ def consignment_balance(db, distributor_id):
         "SELECT COALESCE(SUM(ri.quantity * COALESCE(si.unit_cost, 0)), 0) AS cost "
         "FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id "
         "JOIN sale_items si ON si.id = ri.sale_item_id JOIN inventory_list i ON i.id = ri.item_id "
-        "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=? AND r.restocked=true "
-        "AND r.created_at > COALESCE(GREATEST(?::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
-        "AND r.created_at <= ?",
+        "WHERE i.ownership_type='Consignment' AND COALESCE(si.distributor_id, i.distributor_id)=%s AND r.restocked=true "
+        "AND r.created_at > COALESCE(GREATEST(%s::timestamptz, i.consignment_since), '-infinity'::timestamptz) "
+        "AND r.created_at <= %s",
         [distributor_id, period_start, period_end],
     ).fetchone()["cost"] or 0
 
-    shrink_where = "WHERE distributor_id=? AND liable_party='Clinic' AND logged_at <= ?"
+    shrink_where = "WHERE distributor_id=%s AND liable_party='Clinic' AND logged_at <= %s"
     shrink_params = [distributor_id, period_end]
     if period_start:
-        shrink_where += " AND logged_at > ?"
+        shrink_where += " AND logged_at > %s"
         shrink_params.append(period_start)
     shrink_row = db.execute(
         "SELECT COALESCE(SUM(quantity * unit_cost), 0) AS cost FROM consignment_shrinkage " + shrink_where,
@@ -308,7 +308,7 @@ def consignment_distributors_overview(db):
     out = []
     for d in distributors:
         items = db.execute(
-            "SELECT id, cost_price FROM inventory_list WHERE distributor_id=? AND ownership_type='Consignment'",
+            "SELECT id, cost_price FROM inventory_list WHERE distributor_id=%s AND ownership_type='Consignment'",
             (d["id"],),
         ).fetchall()
         shelf_units, shelf_value = 0, 0
@@ -325,7 +325,7 @@ def consignment_distributors_overview(db):
         month_units = db.execute(
             "SELECT COALESCE(SUM(si.quantity), 0) AS u FROM sale_items si "
             "JOIN sales s ON s.id=si.sale_id JOIN inventory_list i ON i.id=si.item_id "
-            "WHERE i.distributor_id=? AND i.ownership_type='Consignment' AND s.sold_at >= ? AND s.sold_at < ?",
+            "WHERE i.distributor_id=%s AND i.ownership_type='Consignment' AND s.sold_at >= %s AND s.sold_at < %s",
             (d["id"], *dates.month_bounds(this_month)),
         ).fetchone()["u"] or 0
         balance = consignment_balance(db, d["id"])
@@ -349,13 +349,13 @@ def consignment_sales_by_distributor(db, distributor_id=None, date_from=None, da
     where = ["i.ownership_type = 'Consignment'"]
     params = []
     if distributor_id:
-        where.append("d.id = ?")
+        where.append("d.id = %s")
         params.append(distributor_id)
     if date_from:
-        where.append("s.sold_at >= ?")
+        where.append("s.sold_at >= %s")
         params.append(dates.day_bounds(date_from)[0])
     if date_to:
-        where.append("s.sold_at < ?")
+        where.append("s.sold_at < %s")
         params.append(dates.day_bounds(date_to)[0])
     rows = db.execute(
         "SELECT d.id AS distributor_id, d.name AS distributor_name, "
@@ -395,14 +395,14 @@ def consignment_item_locked(db, item_id):
     itself requires ownership_type='Consignment' first), so an Owned item
     can never have false-positive rows there.
     """
-    if db.execute("SELECT 1 FROM consignment_receipts WHERE item_id=?", (item_id,)).fetchone():
+    if db.execute("SELECT 1 FROM consignment_receipts WHERE item_id=%s", (item_id,)).fetchone():
         return True
-    item = db.execute("SELECT ownership_type FROM inventory_list WHERE id=?", (item_id,)).fetchone()
+    item = db.execute("SELECT ownership_type FROM inventory_list WHERE id=%s", (item_id,)).fetchone()
     if item and item["ownership_type"] == "Consignment":
-        if db.execute("SELECT 1 FROM sale_items WHERE item_id=?", (item_id,)).fetchone():
+        if db.execute("SELECT 1 FROM sale_items WHERE item_id=%s", (item_id,)).fetchone():
             return True
-    if db.execute("SELECT 1 FROM consignment_shrinkage WHERE item_id=?", (item_id,)).fetchone():
+    if db.execute("SELECT 1 FROM consignment_shrinkage WHERE item_id=%s", (item_id,)).fetchone():
         return True
-    if db.execute("SELECT 1 FROM consignment_returns WHERE item_id=?", (item_id,)).fetchone():
+    if db.execute("SELECT 1 FROM consignment_returns WHERE item_id=%s", (item_id,)).fetchone():
         return True
     return False

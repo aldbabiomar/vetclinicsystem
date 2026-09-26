@@ -52,35 +52,35 @@ def sellable(db):
     """
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-               "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+               "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Sim Test Item {inv_id}", "Retail", "unit", False, D("2.000"),
                 "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, "
-               "linked_item_id, can_discount) VALUES (?,?,?,?,?,?,?,?)",
+               "linked_item_id, can_discount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (pl_id, f"Sim Test Item {inv_id}", "Retail", D("2.000"), D("10.000"), True,
                 inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, "
-                     "confirmed_at) VALUES (?,?,?,?,?) RETURNING id",
+                     "confirmed_at) VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
     session_id = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
-               "received_since_prior) VALUES (?,?,?,?)", (session_id, inv_id, 1000.0, 0.0))
+               "received_since_prior) VALUES (%s,%s,%s,%s)", (session_id, inv_id, 1000.0, 0.0))
     db.commit()
     yield {"inv_id": inv_id, "pl_id": pl_id, "price": D("10.000"), "stock": 1000.0,
            "session_id": session_id}
     for sql, args in (
         ("DELETE FROM refund_items WHERE sale_item_id IN "
-         "(SELECT id FROM sale_items WHERE item_id=?)", (inv_id,)),
+         "(SELECT id FROM sale_items WHERE item_id=%s)", (inv_id,)),
         ("DELETE FROM refunds WHERE sale_id IN "
-         "(SELECT sale_id FROM sale_items WHERE item_id=?)", (inv_id,)),
-        ("DELETE FROM inventory_transactions WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM sale_items WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM audit_session_lines WHERE item_id=?", (inv_id,)),
-        ("DELETE FROM audit_sessions WHERE id=?", (session_id,)),
-        ("DELETE FROM price_list WHERE id=?", (pl_id,)),
-        ("DELETE FROM inventory_list WHERE id=?", (inv_id,)),
+         "(SELECT sale_id FROM sale_items WHERE item_id=%s)", (inv_id,)),
+        ("DELETE FROM inventory_transactions WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM sale_items WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM audit_session_lines WHERE item_id=%s", (inv_id,)),
+        ("DELETE FROM audit_sessions WHERE id=%s", (session_id,)),
+        ("DELETE FROM price_list WHERE id=%s", (pl_id,)),
+        ("DELETE FROM inventory_list WHERE id=%s", (inv_id,)),
     ):
         try:
             db.execute(sql, args)
@@ -100,7 +100,7 @@ def test_a_small_pos_sale_stays_exact_and_is_never_floored(client, db, sellable)
     0.100 is a real payable amount and must be stored exactly as typed.
     If IQ's floor were ever ported across, this total would come back as
     250.000 JOD."""
-    db.execute("UPDATE price_list SET sale_price=? WHERE id=?", (D("0.100"), sellable["pl_id"]))
+    db.execute("UPDATE price_list SET sale_price=%s WHERE id=%s", (D("0.100"), sellable["pl_id"]))
     db.commit()
     resp = client.post("/pos/checkout", data={
         "item_id": sellable["inv_id"], "quantity": "1", "payment_method": "Cash",
@@ -118,7 +118,7 @@ def test_a_small_pos_sale_stays_exact_and_is_never_floored(client, db, sellable)
 def test_a_small_refund_stays_exact(client, db, sellable):
     """IQ rounds refunds down to a note and needed a guard against reaching
     zero. Here the refund is simply exact, and a sub-note value is normal."""
-    db.execute("UPDATE price_list SET sale_price=? WHERE id=?", (D("0.240"), sellable["pl_id"]))
+    db.execute("UPDATE price_list SET sale_price=%s WHERE id=%s", (D("0.240"), sellable["pl_id"]))
     db.commit()
     client.post("/pos/checkout", data={
         "item_id": sellable["inv_id"], "quantity": "1", "payment_method": "Cash",
@@ -126,13 +126,13 @@ def test_a_small_refund_stays_exact(client, db, sellable):
         "idempotency_key": uuid.uuid4().hex}, follow_redirects=True)
     sale = db.execute("SELECT id, total FROM sales ORDER BY id DESC LIMIT 1").fetchone()
     assert sale["total"] == D("0.240")
-    line = db.execute("SELECT id FROM sale_items WHERE sale_id=? LIMIT 1",
+    line = db.execute("SELECT id FROM sale_items WHERE sale_id=%s LIMIT 1",
                       (sale["id"],)).fetchone()
     client.post("/refunds/retail", data={
         "sale_id": str(sale["id"]), "sale_item_id": str(line["id"]), "quantity": "1",
         "reason": "Returned unopened", "refund_date": clock.today().isoformat(),
         "refund_method": "Cash", "restock": "on"}, follow_redirects=True)
-    ref = db.execute("SELECT amount FROM refunds WHERE sale_id=? ORDER BY id DESC LIMIT 1",
+    ref = db.execute("SELECT amount FROM refunds WHERE sale_id=%s ORDER BY id DESC LIMIT 1",
                      (sale["id"],)).fetchone()
     assert ref is not None and ref["amount"] == D("0.240"), (
         "a JOD refund is exact — neither rounded to zero nor lifted to a note")
@@ -168,7 +168,7 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
     a confirmed session refuses every save regardless, which would make this
     pass whether or not the guard exists."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
@@ -178,7 +178,7 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
                     data={f"stock_{sellable['inv_id']}": "5",
                           f"received_{sellable['inv_id']}": "0"}, follow_redirects=True)
         seeded = db.execute("SELECT stock_counted FROM audit_session_lines "
-                            "WHERE session_id=? AND item_id=?",
+                            "WHERE session_id=%s AND item_id=%s",
                             (sid, sellable["inv_id"])).fetchone()
         assert seeded and seeded["stock_counted"] == 5.0, "control value did not save"
 
@@ -186,12 +186,12 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
                     data={f"stock_{sellable['inv_id']}": bad,
                           f"received_{sellable['inv_id']}": "0"}, follow_redirects=True)
         after = db.execute("SELECT stock_counted FROM audit_session_lines "
-                           "WHERE session_id=? AND item_id=?",
+                           "WHERE session_id=%s AND item_id=%s",
                            (sid, sellable["inv_id"])).fetchone()
         assert after["stock_counted"] == 5.0, f"{bad!r} was accepted into the count"
     finally:
-        db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+        db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (sid,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
         db.commit()
 
 
@@ -199,7 +199,7 @@ def test_audit_counts_reject_non_finite_and_negative(client, db, sellable, bad):
 def test_a_valid_audit_count_still_saves(client, db, sellable):
     """CONTROL — the draft is not simply locked; good values go in."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
@@ -209,13 +209,13 @@ def test_a_valid_audit_count_still_saves(client, db, sellable):
                     data={f"stock_{sellable['inv_id']}": "42.5",
                           f"received_{sellable['inv_id']}": "3"}, follow_redirects=True)
         row = db.execute("SELECT stock_counted, received_since_prior FROM audit_session_lines "
-                         "WHERE session_id=? AND item_id=?",
+                         "WHERE session_id=%s AND item_id=%s",
                          (sid, sellable["inv_id"])).fetchone()
         assert row["stock_counted"] == 42.5
         assert row["received_since_prior"] == 3.0
     finally:
-        db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+        db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (sid,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
         db.commit()
 
 
@@ -224,7 +224,7 @@ def test_the_database_itself_refuses_a_nan_count(db, sellable):
     """Defence in depth. A plain `>= 0` CHECK would NOT catch this: in
     Postgres NaN sorts above every value, so 'NaN' >= 0 is true."""
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
@@ -233,21 +233,21 @@ def test_the_database_itself_refuses_a_nan_count(db, sellable):
         for bad in ("NaN", "Infinity", "-1"):
             with pytest.raises(Exception):
                 db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
-                           "received_since_prior) VALUES (?,?,?::float8,?)",
+                           "received_since_prior) VALUES (%s,%s,%s::float8,%s)",
                            (sid, sellable["inv_id"], bad, 0.0))
                 db.commit()
             db.rollback()
         db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, "
-                   "received_since_prior) VALUES (?,?,?,?)",
+                   "received_since_prior) VALUES (%s,%s,%s,%s)",
                    (sid, sellable["inv_id"], 9.0, 0.0))
         db.commit()
-        row = db.execute("SELECT stock_counted FROM audit_session_lines WHERE session_id=?",
+        row = db.execute("SELECT stock_counted FROM audit_session_lines WHERE session_id=%s",
                          (sid,)).fetchone()
         assert row["stock_counted"] == 9.0
     finally:
         db.rollback()
-        db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+        db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (sid,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
         db.commit()
 
 
@@ -263,10 +263,10 @@ def test_a_nan_count_already_stored_does_not_500_the_till(client, db, sellable):
                "DROP CONSTRAINT IF EXISTS audit_session_lines_stock_counted_check")
     db.commit()
     try:
-        db.execute("UPDATE audit_session_lines SET stock_counted='NaN'::float8 WHERE item_id=?",
+        db.execute("UPDATE audit_session_lines SET stock_counted='NaN'::float8 WHERE item_id=%s",
                    (sellable["inv_id"],))
         db.commit()
-        planted = db.execute("SELECT stock_counted FROM audit_session_lines WHERE item_id=?",
+        planted = db.execute("SELECT stock_counted FROM audit_session_lines WHERE item_id=%s",
                              (sellable["inv_id"],)).fetchone()
         assert str(planted["stock_counted"]).lower() == "nan", "could not plant the bad row"
 
@@ -280,7 +280,7 @@ def test_a_nan_count_already_stored_does_not_500_the_till(client, db, sellable):
         assert after == before, "a sale was recorded against a NaN stock count"
         assert b"audit" in resp.data.lower()
     finally:
-        db.execute("UPDATE audit_session_lines SET stock_counted=? WHERE item_id=?",
+        db.execute("UPDATE audit_session_lines SET stock_counted=%s WHERE item_id=%s",
                    (sellable["stock"], sellable["inv_id"]))
         db.execute("ALTER TABLE audit_session_lines ADD CONSTRAINT "
                    "audit_session_lines_stock_counted_check CHECK (stock_counted IS NULL "
@@ -319,19 +319,19 @@ def test_appointments_still_handles_absent_and_invalid_dates(client, query):
 def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
     """boarding_edit() has always enforced this; inpatient_edit() did not."""
     o_id, p_id = _uid("O"), _uid("P")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Date Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Date Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                (p_id, o_id, f"Date Pet {p_id}"))
     admitted = clock.today().isoformat()
     cur = db.execute("INSERT INTO inpatient_cases (patient_id, admission_date, complaint, "
-                     "dismissed, updated_at) VALUES (?,?,?,?,?) RETURNING id",
+                     "dismissed, updated_at) VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (p_id, admitted, "obs", False,
                       clock.now().isoformat(timespec="seconds")))
     case_id = cur.fetchone()["id"]
     db.commit()
     try:
         def edit(dismissal_date):
-            stamp = db.execute("SELECT updated_at FROM inpatient_cases WHERE id=?",
+            stamp = db.execute("SELECT updated_at FROM inpatient_cases WHERE id=%s",
                                (case_id,)).fetchone()["updated_at"]
             return client.post(f"/inpatient/{case_id}/edit", data={
                 "complaint": "obs", "exam_findings": "stable", "weight_kg": "10", "bcs": "5",
@@ -339,7 +339,7 @@ def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
                 "expected_updated_at": stamp}, follow_redirects=True)
 
         edit((clock.today() - timedelta(days=400)).isoformat())
-        row = db.execute("SELECT admission_date, dismissal_date FROM inpatient_cases WHERE id=?",
+        row = db.execute("SELECT admission_date, dismissal_date FROM inpatient_cases WHERE id=%s",
                          (case_id,)).fetchone()
         assert (row["dismissal_date"] is None
                 or str(row["dismissal_date"]) >= str(row["admission_date"])), (
@@ -347,13 +347,13 @@ def test_an_inpatient_case_cannot_be_discharged_before_admission(client, db):
             f"discharged {row['dismissal_date']}")
 
         edit(admitted)
-        row = db.execute("SELECT dismissal_date FROM inpatient_cases WHERE id=?",
+        row = db.execute("SELECT dismissal_date FROM inpatient_cases WHERE id=%s",
                          (case_id,)).fetchone()
         assert str(row["dismissal_date"]) == admitted, "a valid discharge was blocked too"
     finally:
-        db.execute("DELETE FROM inpatient_cases WHERE id=?", (case_id,))
-        db.execute("DELETE FROM patients WHERE id=?", (p_id,))
-        db.execute("DELETE FROM owners WHERE id=?", (o_id,))
+        db.execute("DELETE FROM inpatient_cases WHERE id=%s", (case_id,))
+        db.execute("DELETE FROM patients WHERE id=%s", (p_id,))
+        db.execute("DELETE FROM owners WHERE id=%s", (o_id,))
         db.commit()
 
 

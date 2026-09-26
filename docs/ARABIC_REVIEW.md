@@ -389,3 +389,14 @@ the reviewed "حذف".
 | 2 | Consignment item(s) came in under the expected count — %(items)s. If this wasn't just a counting difference, log it as shrinkage from Consignment > Shrinkage so it's reflected in what's owed. | جاء عدّ بعض أصناف الأمانة أقل من المتوقع — %(items)s. إن لم يكن ذلك مجرد فرق في العدّ، فسجّله كهالك من الأمانة > الهالك ليظهر في المستحق للمورد. |
 | 3 | Delete %(name)s | حذف %(name)s |
 | 4 | Delete %(name)s? This removes the file permanently, including the copy on disk. | حذف %(name)s؟ سيؤدي ذلك إلى حذف الملف نهائيًا، بما في ذلك النسخة المحفوظة على القرص. |
+
+## 18. An item with no sale price (1)
+
+Visit and inpatient billing now skip an item whose Price List row has no sale
+price, as the billing search already does (restructure R4). Built from the
+shipped "بعض الأصناف المختارة … وتم تجاهلها" and "ليس له سعر بيع محدد في
+قائمة الأسعار".
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Some selected items have no sale price in the Price List and were skipped. | بعض الأصناف المختارة ليس لها سعر بيع محدد في قائمة الأسعار وتم تجاهلها. |

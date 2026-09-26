@@ -38,24 +38,24 @@ def _uid(prefix):
 def paid_stay(db):
     """A boarding stay with 20.000 JOD actually paid against it."""
     o_id, p_id = _uid("O"), _uid("P")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Refund Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Refund Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                (p_id, o_id, f"Refund Pet {p_id}"))
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total, price_per_day) "
-        "VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (p_id, clock.today().isoformat(), False, False, 0.0, 0.0, True, Decimal("20.000"), Decimal("5.000")))
     bid = cur.fetchone()["id"]
-    db.execute("INSERT INTO payments (boarding_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (boarding_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (bid, Decimal("20.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     yield {"id": bid, "patient_id": p_id, "owner_id": o_id, "paid": Decimal("20.000")}
-    db.execute("DELETE FROM refunds WHERE boarding_id=?", (bid,))
-    db.execute("DELETE FROM payments WHERE boarding_id=?", (bid,))
-    db.execute("DELETE FROM boarding_sessions WHERE id=?", (bid,))
-    db.execute("DELETE FROM patients WHERE id=?", (p_id,))
-    db.execute("DELETE FROM owners WHERE id=?", (o_id,))
+    db.execute("DELETE FROM refunds WHERE boarding_id=%s", (bid,))
+    db.execute("DELETE FROM payments WHERE boarding_id=%s", (bid,))
+    db.execute("DELETE FROM boarding_sessions WHERE id=%s", (bid,))
+    db.execute("DELETE FROM patients WHERE id=%s", (p_id,))
+    db.execute("DELETE FROM owners WHERE id=%s", (o_id,))
     db.commit()
 
 
@@ -76,7 +76,7 @@ def test_a_boarding_stay_can_be_refunded(client, db, paid_stay):
     the CHECK constraint would have refused the row even if it had not."""
     resp = _refund(client, boarding_id=str(paid_stay["id"]), amount="5.000")
     assert b"Service refund of" in resp.data, resp.data[-600:]
-    row = db.execute("SELECT * FROM refunds WHERE boarding_id=?", (paid_stay["id"],)).fetchone()
+    row = db.execute("SELECT * FROM refunds WHERE boarding_id=%s", (paid_stay["id"],)).fetchone()
     assert row is not None, "no refund row was written"
     assert row["refund_type"] == "service"
     assert row["amount"] == Decimal("5.000")
@@ -98,7 +98,7 @@ def test_a_boarding_refund_cannot_exceed_what_was_paid(client, db, paid_stay):
     """GUARD. The cap is the whole reason this anchors on a record at all."""
     resp = _refund(client, boarding_id=str(paid_stay["id"]), amount="25.000")
     assert b"left refundable" in resp.data
-    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE boarding_id=?",
+    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE boarding_id=%s",
                       (paid_stay["id"],)).fetchone()["c"] == 0
 
 
@@ -108,7 +108,7 @@ def test_a_second_refund_cannot_exceed_the_remainder(client, db, paid_stay):
     assert b"Service refund of" in first.data
     second = _refund(client, boarding_id=str(paid_stay["id"]), amount="15.000")
     assert b"left refundable" in second.data
-    total = db.execute("SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE boarding_id=?",
+    total = db.execute("SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE boarding_id=%s",
                        (paid_stay["id"],)).fetchone()["s"]
     assert total == Decimal("15.000")
 
@@ -118,14 +118,14 @@ def test_the_remainder_is_still_refundable(client, db, paid_stay):
     _refund(client, boarding_id=str(paid_stay["id"]), amount="15.000")
     resp = _refund(client, boarding_id=str(paid_stay["id"]), amount="5.000")
     assert b"Service refund of" in resp.data
-    total = db.execute("SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE boarding_id=?",
+    total = db.execute("SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE boarding_id=%s",
                        (paid_stay["id"],)).fetchone()["s"]
     assert total == Decimal("20.000")
 
 
 def test_an_unpaid_stay_cannot_be_refunded(client, db, paid_stay):
     """GUARD. Nothing paid means nothing to give back."""
-    db.execute("DELETE FROM payments WHERE boarding_id=?", (paid_stay["id"],))
+    db.execute("DELETE FROM payments WHERE boarding_id=%s", (paid_stay["id"],))
     db.commit()
     resp = _refund(client, boarding_id=str(paid_stay["id"]), amount="5.000")
     assert b"left refundable" in resp.data
@@ -145,7 +145,7 @@ def test_two_anchors_are_refused(client, db, paid_stay):
     """GUARD. A refund reverses one record; two would double-count the cap."""
     resp = _refund(client, boarding_id=str(paid_stay["id"]), visit_id="V001", amount="5.000")
     assert b"exactly one visit, inpatient case, or boarding stay" in resp.data
-    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE boarding_id=?",
+    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE boarding_id=%s",
                       (paid_stay["id"],)).fetchone()["c"] == 0
 
 
@@ -167,7 +167,7 @@ def test_the_database_itself_refuses_a_two_anchor_service_refund(db, paid_stay):
     with pytest.raises(psycopg.errors.CheckViolation):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, visit_id, boarding_id, "
-            "processed_by, created_at) VALUES ('service',?,?,?,?,?,?)",
+            "processed_by, created_at) VALUES ('service',%s,%s,%s,%s,%s,%s)",
             (clock.today().isoformat(), Decimal("1.000"), 1, paid_stay["id"], ADMIN_ID, "2026-01-01T00:00:00"))
     db.rollback()
 
@@ -177,7 +177,7 @@ def test_the_database_refuses_a_service_refund_with_no_anchor(db):
     with pytest.raises(psycopg.errors.CheckViolation):
         db.execute(
             "INSERT INTO refunds (refund_type, refund_date, amount, processed_by, created_at) "
-            "VALUES ('service',?,?,?,?)",
+            "VALUES ('service',%s,%s,%s,%s)",
             (clock.today().isoformat(), Decimal("1.000"), ADMIN_ID, "2026-01-01T00:00:00"))
     db.rollback()
 
@@ -211,10 +211,10 @@ def test_a_boarding_refund_reduces_the_boarding_category(client, db, paid_stay):
 @pytest.fixture
 def paid_visit(db):
     o_id, p_id, v_id = _uid("O"), _uid("P"), _uid("V")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"V Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)",
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"V Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)",
                (p_id, o_id, f"V Pet {p_id}"))
-    db.execute("INSERT INTO visits (id, patient_id, date, visit_type) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO visits (id, patient_id, date, visit_type) VALUES (%s,%s,%s,%s)",
                (v_id, p_id, clock.today().isoformat(), "Consultation"))
     # JO needs the billing row, IQ does not: JO's refund cap reads
     # billing.visit_billing_summary()["paid"], which returns 0 for a visit with
@@ -224,18 +224,18 @@ def paid_visit(db):
     # unbilled visit cannot be created -- but a fixture has to build the state
     # the code actually reads, or the control fails for the wrong reason.
     db.execute("INSERT INTO billing (visit_id, billing_type, manual_amount, total, date_billed) "
-               "VALUES (?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s)",
                (v_id, "Manual", Decimal("10.000"), Decimal("10.000"), clock.today().isoformat()))
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (v_id, Decimal("10.000"), "Cash", clock.today().isoformat(), ADMIN_ID))
     db.commit()
     yield {"id": v_id}
-    db.execute("DELETE FROM refunds WHERE visit_id=?", (v_id,))
-    db.execute("DELETE FROM payments WHERE visit_id=?", (v_id,))
-    db.execute("DELETE FROM billing WHERE visit_id=?", (v_id,))
-    db.execute("DELETE FROM visits WHERE id=?", (v_id,))
-    db.execute("DELETE FROM patients WHERE id=?", (p_id,))
-    db.execute("DELETE FROM owners WHERE id=?", (o_id,))
+    db.execute("DELETE FROM refunds WHERE visit_id=%s", (v_id,))
+    db.execute("DELETE FROM payments WHERE visit_id=%s", (v_id,))
+    db.execute("DELETE FROM billing WHERE visit_id=%s", (v_id,))
+    db.execute("DELETE FROM visits WHERE id=%s", (v_id,))
+    db.execute("DELETE FROM patients WHERE id=%s", (p_id,))
+    db.execute("DELETE FROM owners WHERE id=%s", (o_id,))
     db.commit()
 
 
@@ -244,7 +244,7 @@ def test_a_visit_refund_still_works(client, db, paid_visit):
     already worked — the most likely way this change goes wrong."""
     resp = _refund(client, visit_id=paid_visit["id"], amount="5.000")
     assert b"Service refund of" in resp.data, resp.data[-600:]
-    row = db.execute("SELECT * FROM refunds WHERE visit_id=?", (paid_visit["id"],)).fetchone()
+    row = db.execute("SELECT * FROM refunds WHERE visit_id=%s", (paid_visit["id"],)).fetchone()
     assert row is not None and row["boarding_id"] is None
 
 

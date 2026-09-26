@@ -76,6 +76,7 @@ VetClinicSystem/                  ← repo root = this folder
 │   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log
 │   ├── CODE_AUDIT_2026-09-25.md          ← findings, tracked to their fixes
 │   ├── RELEASE_WORKFLOW.md, SEAM_RULES.md
+│   ├── decisions/                ← why the code is the way it is; each names the test that holds it
 │   ├── ARABIC_REVIEW.md          ← Arabic written without clinic review; confirm, then delete rows
 │   ├── features/                 ← specs of built features (Clean Up, monitoring, rewards card)
 │   └── archive/                  ← IQ/JO-era documents, cited by code comments
@@ -125,7 +126,7 @@ vcs/
    `url_for("main.dashboard")`, `url_for("reports.monthly")`. A missed one raises
    `BuildError` at the first page load.
 
-Two conventions enforced by tests:
+Conventions enforced by tests (the why is in `docs/decisions/`):
 
 1. **No inline `on*=` handlers.** `script-src` uses a per-request nonce, which
    does not authorise inline handlers — an `onclick=` is a button that silently
@@ -134,6 +135,14 @@ Two conventions enforced by tests:
 2. **Inline `style=` only for server-computed values, or for an element a script
    reveals with `el.style.display = ''`** — clearing an inline style cannot
    unhide an element a *class* hides. `tests/test_inline_styles.py` is a ratchet.
+3. **SQL placeholders are psycopg's `%s`.** In a query with parameters a literal
+   `%` is `%%` (a LIKE pattern goes in a parameter); a list of placeholders is
+   `["%s"] * n`, never `"%s" * n` (`tests/test_sql_placeholders.py`, decision 0004).
+4. **A change to a bill's lines, manual amount, discount or Clean Up calls
+   `billing.bill_changed(db, kind, id)`** in the same transaction — the stored
+   total is what every report reads (seam rule 12, decision 0005).
+5. **Helpers do not commit**; the request does, once (`tests/test_no_hidden_commits.py`,
+   decision 0003).
 
 **If you write a test that parses source text, take its files from
 `tests/source_files.py`** (the one place tests locate source), and assert a

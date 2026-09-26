@@ -42,7 +42,7 @@ def non_discountable_line_names(db, price_ids):
     ids = [i for i in price_ids if i]
     if not ids:
         return []
-    placeholders = ",".join("?" * len(ids))
+    placeholders = ",".join(["%s"] * len(ids))
     rows = db.execute(
         f"SELECT name FROM price_list WHERE id IN ({placeholders}) AND can_discount=false",
         tuple(ids),
@@ -57,7 +57,7 @@ def non_discountable_line_names_for_items(db, inventory_item_ids):
     ids = [i for i in inventory_item_ids if i]
     if not ids:
         return []
-    placeholders = ",".join("?" * len(ids))
+    placeholders = ",".join(["%s"] * len(ids))
     rows = db.execute(
         f"SELECT name FROM price_list WHERE linked_item_id IN ({placeholders}) AND can_discount=false",
         tuple(ids),
@@ -84,7 +84,7 @@ def discountable_by_item_ids(db, inventory_item_ids):
     ids = [i for i in inventory_item_ids if i]
     if not ids:
         return {}
-    placeholders = ",".join("?" * len(ids))
+    placeholders = ",".join(["%s"] * len(ids))
     rows = db.execute(
         f"SELECT linked_item_id, can_discount FROM price_list "
         f"WHERE linked_item_id IN ({placeholders}) AND active=true",
@@ -101,12 +101,12 @@ def save_visit_billing_lines(db, visit_id, lines):
     (visit_billing_save() in the clinical blueprint builds this list). Does not
     commit (caller's job, same convention as every other write in this module).
     """
-    db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
+    db.execute("DELETE FROM visit_billing_lines WHERE visit_id=%s", (visit_id,))
     now_str = clock.now().isoformat(timespec="seconds")
     for l in lines:
         db.execute(
             "INSERT INTO visit_billing_lines (visit_id, price_id, name, category, quantity, unit_price, unit_cost, discountable, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (visit_id, l["price_id"], l["name"], l["category"], l["quantity"],
              l["unit_price"], l["unit_cost"], l["discountable"], now_str),
         )
@@ -181,7 +181,7 @@ def compute_bill_totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
 
 
 def visit_billing_summary(db, visit_id):
-    b = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
+    b = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     if not b:
         return {"billing_type": "Automatic", "lines": [], "subtotal": 0, "discount_percent": 0,
                 "discount_source": "staff", "discountable_subtotal": 0, "pre_cleanup_total": 0,
@@ -197,7 +197,7 @@ def visit_billing_summary(db, visit_id):
         discountable_subtotal = subtotal
     else:
         snapshot_rows = db.execute(
-            "SELECT price_id, name, category, quantity, unit_price, discountable FROM visit_billing_lines WHERE visit_id=? ORDER BY id",
+            "SELECT price_id, name, category, quantity, unit_price, discountable FROM visit_billing_lines WHERE visit_id=%s ORDER BY id",
             (visit_id,),
         ).fetchall()
         # Priced from the snapshot taken when this bill was saved (via the
@@ -214,7 +214,7 @@ def visit_billing_summary(db, visit_id):
 
     discount_percent = b["discount_percent"] or 0
     cleanup_amount = b["cleanup_amount"] or 0
-    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE visit_id=?", (visit_id,)).fetchone()
+    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE visit_id=%s", (visit_id,)).fetchone()
     total, paid, balance, status, pre_cleanup_total = compute_bill_totals(
         subtotal, discount_percent, paid_row["s"], cleanup_amount,
         discountable_subtotal=discountable_subtotal)
@@ -225,13 +225,11 @@ def visit_billing_summary(db, visit_id):
             "total": total, "paid": paid, "balance": balance, "status": status}
 
 
-def refresh_visit_billing_total(db, visit_id):
-    """Recomputes and persists billing.total after any change to this
-    bill's lines, discount, or manual amount. Call this in the same
-    transaction right after such a change, before commit — so reports
-    can read the stored total instead of re-deriving it independently."""
+def _refresh_visit_billing_total(db, visit_id):
+    """billing.total, from the bill's lines, manual amount, discount and
+    Clean Up (see bill_changed())."""
     total = visit_billing_summary(db, visit_id)["total"]
-    db.execute("UPDATE billing SET total=? WHERE visit_id=?", (total, visit_id))
+    db.execute("UPDATE billing SET total=%s WHERE visit_id=%s", (total, visit_id))
 
 
 # ---------------------------------------------------------------------------
@@ -239,18 +237,15 @@ def refresh_visit_billing_total(db, visit_id):
 # ---------------------------------------------------------------------------
 def inpatient_billing_summary(db, case_id):
     rows = db.execute(
-        "SELECT ib.*, p.name, p.sale_price, p.category FROM inpatient_billing ib "
-        "JOIN price_list p ON p.id = ib.price_id WHERE ib.case_id=? ORDER BY ib.timestamp",
+        "SELECT ib.*, p.name, p.category FROM inpatient_billing ib "
+        "JOIN price_list p ON p.id = ib.price_id WHERE ib.case_id=%s ORDER BY ib.timestamp",
         (case_id,),
     ).fetchall()
     lines, subtotal, discountable_subtotal = [], 0, 0
     for r in rows:
-        # Prefer the snapshot taken when this line was added (unit_price)
-        # — falls back to the live Price List join (p.sale_price) only if
-        # that specific line's snapshot is NULL (e.g. added before this
-        # column existed, or the price_list item had no sale_price set at
-        # the moment it was billed).
-        unit_price = r["unit_price"] if r["unit_price"] is not None else (r["sale_price"] or 0)
+        # The price snapshotted when the line was added: a later Price List
+        # edit never reprices a bill already charged.
+        unit_price = r["unit_price"]
         line_total = unit_price * r["quantity"]
         subtotal += line_total
         if r["discountable"]:
@@ -258,10 +253,10 @@ def inpatient_billing_summary(db, case_id):
         lines.append({"id": r["id"], "name": r["name"], "quantity": r["quantity"],
                        "unit_price": unit_price, "line_total": money.to_store(line_total),
                        "discountable": bool(r["discountable"])})
-    case = db.execute("SELECT discount_percent, discount_source, cleanup_amount FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
+    case = db.execute("SELECT discount_percent, discount_source, cleanup_amount FROM inpatient_cases WHERE id=%s", (case_id,)).fetchone()
     discount_percent = case["discount_percent"] if case else 0
     cleanup_amount = (case["cleanup_amount"] if case else 0) or 0
-    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE inpatient_case_id=?", (case_id,)).fetchone()
+    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE inpatient_case_id=%s", (case_id,)).fetchone()
     total, paid, balance, status, pre_cleanup_total = compute_bill_totals(
         subtotal, discount_percent, paid_row["s"], cleanup_amount,
         discountable_subtotal=discountable_subtotal)
@@ -272,13 +267,11 @@ def inpatient_billing_summary(db, case_id):
             "cleanup_amount": cleanup_amount, "total": total, "paid": paid, "balance": balance, "status": status}
 
 
-def refresh_inpatient_total(db, case_id):
-    """Recomputes and persists inpatient_cases.total after any change to
-    this case's procedures or discount. Call this in the same transaction
-    right after such a change, before commit — see
-    refresh_visit_billing_total()."""
+def _refresh_inpatient_total(db, case_id):
+    """inpatient_cases.total, from the case's procedures, discount and Clean
+    Up (see bill_changed())."""
     total = inpatient_billing_summary(db, case_id)["total"]
-    db.execute("UPDATE inpatient_cases SET total=? WHERE id=?", (total, case_id))
+    db.execute("UPDATE inpatient_cases SET total=%s WHERE id=%s", (total, case_id))
 
 
 # ---------------------------------------------------------------------------
@@ -340,16 +333,39 @@ def boarding_billing_summary(db, boarding_id):
     b = db.execute(
         "SELECT total, total_is_auto, price_per_day, entry_date, dismissal_date, dismissed, cleanup_amount, "
         "discount_percent, discount_source "
-        "FROM boarding_sessions WHERE id=?", (boarding_id,)
+        "FROM boarding_sessions WHERE id=%s", (boarding_id,)
     ).fetchone()
-    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE boarding_id=?", (boarding_id,)).fetchone()
+    paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE boarding_id=%s", (boarding_id,)).fetchone()
     return boarding_billing_summary_from_fields(b, paid_row["s"])
 
 
-def refresh_boarding_total(db, boarding_id):
-    """Recomputes and persists boarding_sessions.billed_total — the figure
-    boarding_page()'s batched list view and any report read instead of
-    recomputing per row. Call this in the same transaction right after the
-    session is saved, before commit. See refresh_visit_billing_total()."""
+def _refresh_boarding_total(db, boarding_id):
+    """boarding_sessions.billed_total — the figure boarding_page()'s batched
+    list view and the reports read instead of recomputing per row (see
+    bill_changed())."""
     total = boarding_billing_summary(db, boarding_id)["total"]
-    db.execute("UPDATE boarding_sessions SET billed_total=? WHERE id=?", (total, boarding_id))
+    db.execute("UPDATE boarding_sessions SET billed_total=%s WHERE id=%s", (total, boarding_id))
+
+
+# ---------------------------------------------------------------------------
+# The one way a stored bill total is kept right (audit D2)
+# ---------------------------------------------------------------------------
+_REFRESH = {"visit": _refresh_visit_billing_total, "inpatient": _refresh_inpatient_total,
+            "boarding": _refresh_boarding_total}
+BILL_KINDS = tuple(_REFRESH)
+
+
+def bill_changed(db, kind, record_id):
+    """A bill's lines, manual amount, discount or Clean Up changed: store its
+    new total. `kind` is "visit" (record_id = the visit), "inpatient" (the
+    case) or "boarding" (the stay).
+
+    Call it in the same transaction as the change, before commit. The stored
+    totals are what the P&L, Insights and every list read (reports.py), so a
+    write that skips this leaves them reporting the old amount -- audit B2 was
+    three such writes. It is the only entry point, and seam rule 12 checks
+    every function that writes a bill's inputs calls it. Payments do not
+    change a total, only what is still owed."""
+    if kind not in _REFRESH:
+        raise ValueError(f"bill_changed(): not a kind of bill: {kind!r}")
+    _REFRESH[kind](db, record_id)

@@ -32,7 +32,7 @@ def restock_one(client, db, consignment_item):
 
     def restock():
         sale = _latest_sale(db)
-        line = db.execute("SELECT id FROM sale_items WHERE sale_id=? AND item_id=?",
+        line = db.execute("SELECT id FROM sale_items WHERE sale_id=%s AND item_id=%s",
                           (sale["id"], consignment_item["id"])).fetchone()
         resp = _refund_retail(client, sale["id"], line["id"], 1, restock="on")
         assert resp.status_code == 302, "the restocked refund was refused — the test would prove nothing"
@@ -41,9 +41,9 @@ def restock_one(client, db, consignment_item):
     yield restock
     for sale_id in refunded:
         db.execute("DELETE FROM inventory_transactions WHERE reason='refund' AND ref_id IN "
-                   "(SELECT id::text FROM refunds WHERE sale_id=?)", (sale_id,))
-        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=?)", (sale_id,))
-        db.execute("DELETE FROM refunds WHERE sale_id=?", (sale_id,))
+                   "(SELECT id::text FROM refunds WHERE sale_id=%s)", (sale_id,))
+        db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)", (sale_id,))
+        db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale_id,))
     db.commit()
 
 
@@ -54,15 +54,15 @@ def test_the_credit_stays_with_the_distributor_the_sale_was_charged_to(db, sell_
     a = consignment_item["distributor_id"]
     assert sell_consigned(2, "2.000", "3.500") == D("4.000")
     b = db.execute("INSERT INTO distributors (name) VALUES ('B9 Distributor B') RETURNING id").fetchone()["id"]
-    db.execute("UPDATE inventory_list SET distributor_id=? WHERE id=?", (b, consignment_item["id"]))
+    db.execute("UPDATE inventory_list SET distributor_id=%s WHERE id=%s", (b, consignment_item["id"]))
     db.commit()
     try:
         restock_one()
         assert _owed(db, a) == D("2.000"), "the credit left the distributor the sale was charged to"
         assert _owed(db, b) == 0, "the credit landed on a distributor that sold nothing"
     finally:
-        db.execute("UPDATE inventory_list SET distributor_id=? WHERE id=?", (a, consignment_item["id"]))
-        db.execute("DELETE FROM distributors WHERE id=?", (b,))
+        db.execute("UPDATE inventory_list SET distributor_id=%s WHERE id=%s", (a, consignment_item["id"]))
+        db.execute("DELETE FROM distributors WHERE id=%s", (b,))
         db.commit()
 
 
@@ -71,7 +71,7 @@ def test_the_credit_is_at_the_cost_the_sale_was_charged_at(db, sell_consigned, c
     comes back. The distributor is credited 2.000, not 5.000."""
     a = consignment_item["distributor_id"]
     sell_consigned(2, "2.000", "3.500")
-    db.execute("UPDATE inventory_list SET cost_price=? WHERE id=?", (D("5.000"), consignment_item["id"]))
+    db.execute("UPDATE inventory_list SET cost_price=%s WHERE id=%s", (D("5.000"), consignment_item["id"]))
     db.commit()
     restock_one()
     assert _owed(db, a) == D("2.000")

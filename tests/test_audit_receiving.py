@@ -23,17 +23,17 @@ pytestmark = needs_db
 @pytest.fixture
 def draft(db):
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,'Draft',now()) RETURNING id", (date(2001, 1, 2), ADMIN_ID)).fetchone()["id"]
+                     "VALUES (%s,%s,'Draft',now()) RETURNING id", (date(2001, 1, 2), ADMIN_ID)).fetchone()["id"]
     db.commit()
     yield sid
-    db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))
-    db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+    db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (sid,))
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
     db.commit()
 
 
 def _txn(db, item_id, qty, reason, when):
     db.execute("INSERT INTO inventory_transactions (item_id, change_qty, reason, ref_id, timestamp, user_id) "
-               "VALUES (?,?,?,?,?,?)", (item_id, D(qty), reason, "B18", when, ADMIN_ID))
+               "VALUES (%s,%s,%s,%s,%s,%s)", (item_id, D(qty), reason, "B18", when, ADMIN_ID))
     db.commit()
 
 

@@ -16,11 +16,11 @@ pytestmark = needs_db
 
 
 def _lines_sold(db, inv_id):
-    return db.execute("SELECT COUNT(*) c FROM sale_items WHERE item_id=?", (inv_id,)).fetchone()["c"]
+    return db.execute("SELECT COUNT(*) c FROM sale_items WHERE item_id=%s", (inv_id,)).fetchone()["c"]
 
 
 def _deactivate(db, inv_id):
-    db.execute("UPDATE inventory_list SET active=false WHERE id=?", (inv_id,))
+    db.execute("UPDATE inventory_list SET active=false WHERE id=%s", (inv_id,))
     db.commit()
 
 

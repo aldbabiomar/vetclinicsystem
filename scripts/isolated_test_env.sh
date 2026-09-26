@@ -242,14 +242,14 @@ schema.apply(con)
 
 # The throwaway clinic's money setting: the second argument to this script.
 con.execute(
-    "INSERT INTO settings (key, value) VALUES ('money_setting', ?) "
+    "INSERT INTO settings (key, value) VALUES ('money_setting', %s) "
     "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (money_setting,))
 admin_role = con.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
 # The first user, so id 1 on a fresh database; tests look it up by username
 # (conftest.ADMIN_ID) rather than assuming the number.
 con.execute(
     "INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, created_at) "
-    "VALUES (?,?,?,?,?,?,now())",
+    "VALUES (%s,%s,%s,%s,%s,%s,now())",
     ("admin", auth.hash_password("Admin12345!"), "Test Admin", admin_role["id"], True, False),
 )
 # Priced in the throwaway clinic's own currency: 5,000 / 1,000 IQD under IQ
@@ -257,11 +257,11 @@ con.execute(
 cost, price = ("1000", "5000") if money_setting == "IQ" else ("1.000", "5.000")
 item_id = con.execute(
     "INSERT INTO inventory_list (name, category, unit, track_expiry, cost_price, active) "
-    "VALUES ('Test Retail Item', 'Retail', 'unit', false, ?, true) RETURNING id", (cost,)
+    "VALUES ('Test Retail Item', 'Retail', 'unit', false, %s, true) RETURNING id", (cost,)
 ).fetchone()["id"]
 con.execute(
     "INSERT INTO price_list (name, category, sale_price, active, linked_item_id, can_discount) "
-    "VALUES ('Test Retail Item', 'Retail', ?, true, ?, true)", (price, item_id)
+    "VALUES ('Test Retail Item', 'Retail', %s, true, %s, true)", (price, item_id)
 )
 con.commit()
 con.close()

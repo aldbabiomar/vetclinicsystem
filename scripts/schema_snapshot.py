@@ -29,15 +29,14 @@ SNAPSHOT = os.path.join(ROOT, "tests", "schema_snapshot.json")
 def build_snapshot(server_url):
     import psycopg
     from psycopg.rows import dict_row
-    from vcs.db import pool as dbmod
     from vcs.db import migrate as schema
     admin_url = re.sub(r"/[^/]+$", "/postgres", server_url)
     name = f"snapshot_{uuid.uuid4().hex[:10]}"
     with psycopg.connect(admin_url, autocommit=True) as con:
         con.execute(f'CREATE DATABASE "{name}"')
     try:
-        con = dbmod.Connection.connect(re.sub(r"/[^/]+$", f"/{name}", server_url),
-                                       row_factory=dict_row, autocommit=False)
+        con = psycopg.connect(re.sub(r"/[^/]+$", f"/{name}", server_url),
+                              row_factory=dict_row, autocommit=False)
         try:
             schema.apply(con, log=lambda *a: None)
             return schema.snapshot(con)

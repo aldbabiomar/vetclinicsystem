@@ -554,8 +554,8 @@ CREATE TABLE billing (
     discount_source TEXT NOT NULL DEFAULT 'staff' CHECK (discount_source IN ('staff','member')),
     notes TEXT,
     -- The final payable figure for this bill (what compute_bill_totals()
-    -- actually charges), kept in sync by billing.refresh_visit_billing_total()
-    -- every time lines/discount/manual_amount change. Reports read this
+    -- actually charges), kept in sync by billing.bill_changed() every time
+    -- lines/discount/manual_amount/Clean Up change. Reports read this
     -- instead of re-deriving subtotal*(1-discount%) independently.
     total NUMERIC(15,3) NOT NULL DEFAULT 0,
     -- "Clean Up" — a capped, explicit staff write-off applied at payment
@@ -635,7 +635,7 @@ CREATE TABLE boarding_sessions (
     total_is_auto BOOLEAN NOT NULL DEFAULT TRUE,
     -- The persisted figure boarding_page()'s batched list view and any
     -- report read instead of recomputing per row — kept in sync by
-    -- billing.refresh_boarding_total() every time the session is saved.
+    -- billing.bill_changed() every time the session is saved.
     billed_total NUMERIC(15,3),
     -- "Clean Up" write-off — see the matching comment on billing.cleanup_amount.
     cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0,
@@ -714,8 +714,8 @@ CREATE TABLE inpatient_cases (
     discount_source TEXT NOT NULL DEFAULT 'staff' CHECK (discount_source IN ('staff','member')),
     created_by INTEGER,
     -- The final payable figure for this case (what compute_bill_totals()
-    -- actually charges), kept in sync by billing.refresh_inpatient_total()
-    -- every time procedures/discount change.
+    -- actually charges), kept in sync by billing.bill_changed() every time
+    -- procedures/discount/Clean Up change.
     total NUMERIC(15,3) NOT NULL DEFAULT 0,
     -- "Clean Up" write-off — see the matching comment on billing.cleanup_amount.
     cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0,
@@ -811,8 +811,9 @@ CREATE TABLE inpatient_billing (
     -- already-billed stay owes, or this month's revenue/COGS report for
     -- an already-logged procedure. unit_cost stays nullable: not every
     -- price_list row necessarily has a cost_price set (Services
-    -- typically don't carry a COGS basis).
-    unit_price NUMERIC(15,3),
+    -- typically don't carry a COGS basis). unit_price is required: an item
+    -- with no sale price is not billed (inpatient_billing_add()).
+    unit_price NUMERIC(15,3) NOT NULL,
     unit_cost NUMERIC(15,3),
     logged_by INTEGER,
     timestamp TIMESTAMPTZ NOT NULL,
@@ -831,7 +832,7 @@ CREATE TABLE inpatient_billing (
     -- Amounts: never NaN (Postgres sorts NaN above every number, so a
     -- plain `>= 0` passes it), and never below what the routes allow.
     CHECK (quantity > 0 AND quantity <> 'NaN'),
-    CHECK (unit_price IS NULL OR (unit_price >= 0 AND unit_price <> 'NaN')),
+    CHECK (unit_price >= 0 AND unit_price <> 'NaN'),
     CHECK (unit_cost IS NULL OR (unit_cost >= 0 AND unit_cost <> 'NaN'))
 );
 CREATE INDEX idx_inpbilling_case ON inpatient_billing(case_id);

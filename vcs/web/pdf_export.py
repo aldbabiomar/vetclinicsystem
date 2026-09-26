@@ -134,9 +134,9 @@ def export_patient_file(db, patient_id):
     ss = _styles()
     patient = db.execute(
         "SELECT p.*, o.name as owner_name, o.phone as owner_phone FROM patients p "
-        "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (patient_id,)
+        "JOIN owners o ON o.id=p.owner_id WHERE p.id=%s", (patient_id,)
     ).fetchone()
-    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date", (patient_id,)).fetchall()
+    cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=%s ORDER BY admission_date", (patient_id,)).fetchall()
     # Without the admitting visit of each stay, which the stay's own section
     # already covers (audit P4).
     visits = clinical.patient_outpatient_visits(db, patient_id, cases, order="ASC")
@@ -202,10 +202,10 @@ def export_patient_billing(db, patient_id):
     """Date / services individually / prices individually / total / status."""
     ss = _styles()
     patient = db.execute(
-        "SELECT p.*, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=?",
+        "SELECT p.*, o.name as owner_name FROM patients p JOIN owners o ON o.id=p.owner_id WHERE p.id=%s",
         (patient_id,),
     ).fetchone()
-    visits = db.execute("SELECT * FROM visits WHERE patient_id=? ORDER BY date", (patient_id,)).fetchall()
+    visits = db.execute("SELECT * FROM visits WHERE patient_id=%s ORDER BY date", (patient_id,)).fetchall()
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,
@@ -261,11 +261,11 @@ def export_sale_receipt(db, sale_id):
     """One POS sale — line items, prices, quantities, total, cashier, and timestamp."""
     ss = _styles()
     sale = db.execute(
-        "SELECT s.*, u.full_name AS cashier_name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id WHERE s.id=?",
+        "SELECT s.*, u.full_name AS cashier_name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id WHERE s.id=%s",
         (sale_id,),
     ).fetchone()
     lines = db.execute(
-        "SELECT si.*, il.name FROM sale_items si JOIN inventory_list il ON il.id=si.item_id WHERE si.sale_id=?",
+        "SELECT si.*, il.name FROM sale_items si JOIN inventory_list il ON il.id=si.item_id WHERE si.sale_id=%s",
         (sale_id,),
     ).fetchall()
 
@@ -324,7 +324,7 @@ def export_visit_pdf(db, visit_id):
     v = db.execute(
         "SELECT vi.*, p.animal_name, p.species, p.sex, p.age_note, p.microchip, o.name AS owner_name, o.phone AS owner_phone, "
         "o.address AS owner_address FROM visits vi JOIN patients p ON p.id=vi.patient_id "
-        "JOIN owners o ON o.id=p.owner_id WHERE vi.id=?",
+        "JOIN owners o ON o.id=p.owner_id WHERE vi.id=%s",
         (visit_id,),
     ).fetchone()
     summary = billing.visit_billing_summary(db, visit_id)
@@ -420,11 +420,11 @@ def export_inpatient_pdf(db, case_id):
         "o.address AS owner_address, uatt.full_name AS attending_name, usup.full_name AS supervising_name "
         "FROM inpatient_cases ic JOIN patients p ON p.id=ic.patient_id JOIN owners o ON o.id=p.owner_id "
         "LEFT JOIN users uatt ON uatt.id=ic.attending_vet_id LEFT JOIN users usup ON usup.id=ic.supervising_vet_id "
-        "WHERE ic.id=?",
+        "WHERE ic.id=%s",
         (case_id,),
     ).fetchone()
     updates = db.execute("SELECT iu.*, u.full_name FROM inpatient_updates iu LEFT JOIN users u ON u.id=iu.user_id "
-                          "WHERE iu.case_id=? ORDER BY iu.timestamp", (case_id,)).fetchall()
+                          "WHERE iu.case_id=%s ORDER BY iu.timestamp", (case_id,)).fetchall()
     summary = billing.inpatient_billing_summary(db, case_id)
     files = attachments.list_attachments(db, "inpatient", case_id)
 
@@ -506,12 +506,12 @@ def export_boarding_pdf(db, boarding_id):
     b = db.execute(
         "SELECT bs.*, p.animal_name, p.species, p.sex, p.age_note, p.microchip, o.name AS owner_name, "
         "o.phone AS owner_phone, o.address AS owner_address FROM boarding_sessions bs "
-        "JOIN patients p ON p.id=bs.patient_id JOIN owners o ON o.id=p.owner_id WHERE bs.id=?",
+        "JOIN patients p ON p.id=bs.patient_id JOIN owners o ON o.id=p.owner_id WHERE bs.id=%s",
         (boarding_id,),
     ).fetchone()
     incidents = db.execute(
         "SELECT bi.*, u.full_name FROM boarding_incidents bi LEFT JOIN users u ON u.id=bi.user_id "
-        "WHERE bi.boarding_id=? ORDER BY bi.timestamp",
+        "WHERE bi.boarding_id=%s ORDER BY bi.timestamp",
         (boarding_id,),
     ).fetchall()
     summary = billing.boarding_billing_summary(db, boarding_id)
@@ -586,7 +586,7 @@ def export_consignment_settlement_pdf(db, settlement_id):
     s = db.execute(
         "SELECT cs.*, d.name AS distributor_name, d.contact_person, d.phone, u.full_name AS settled_by_name "
         "FROM consignment_settlements cs JOIN distributors d ON d.id=cs.distributor_id "
-        "LEFT JOIN users u ON u.id=cs.settled_by WHERE cs.id=?",
+        "LEFT JOIN users u ON u.id=cs.settled_by WHERE cs.id=%s",
         (settlement_id,),
     ).fetchone()
 
@@ -634,7 +634,7 @@ def export_consignment_settlement_pdf(db, settlement_id):
 def export_distributor_ledger(db, distributor_id):
     """One distributor — every bill, its payments, and running totals."""
     ss = _styles()
-    dist = db.execute("SELECT * FROM distributors WHERE id=?", (distributor_id,)).fetchone()
+    dist = db.execute("SELECT * FROM distributors WHERE id=%s", (distributor_id,)).fetchone()
     ledger = distributors.distributor_ledger(db, distributor_id)
 
     buf = io.BytesIO()

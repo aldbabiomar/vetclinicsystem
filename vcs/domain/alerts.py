@@ -109,12 +109,13 @@ def dashboard_snapshot(db):
     tomorrow = today + timedelta(days=1)
 
     total_patients = db.execute("SELECT COUNT(*) c FROM patients").fetchone()["c"]
-    active_statuses = {"Ongoing", "Admitted to Inpatient", "Needs Filling"}
-    all_visits = db.execute("SELECT case_status FROM visits").fetchall()
-    active_cases = sum(1 for v in all_visits if v["case_status"] in active_statuses)
+    # Counted in SQL: this runs on every page (the sidebar badge), and it used
+    # to fetch every visit ever recorded to count them in Python (audit D3).
+    active_cases = db.execute("SELECT COUNT(*) c FROM visits WHERE case_status = ANY(%s)",
+                              (["Ongoing", "Admitted to Inpatient", "Needs Filling"],)).fetchone()["c"]
     admitted_now = db.execute("SELECT COUNT(*) c FROM inpatient_cases WHERE dismissed=false").fetchone()["c"]
 
-    fu = clinical.followups(db, only_pending=True)
+    fu = clinical.followups(db, only_pending=True, on_dates=[today, tomorrow])
     due_today = [f for f in fu if dates.as_date(f["followup_date"]) == today]
     reminders_tomorrow = [f for f in fu if dates.as_date(f["followup_date"]) == tomorrow and f["followup_method"] == "Physical Visit"]
 
@@ -140,5 +141,5 @@ def opex_reminder_due(db):
     if last_day - today.day > 2:
         return False
     month = today.strftime("%Y-%m")
-    row = db.execute("SELECT 1 FROM monthly_opex WHERE month=?", (month,)).fetchone()
+    row = db.execute("SELECT 1 FROM monthly_opex WHERE month=%s", (month,)).fetchone()
     return row is None

@@ -23,8 +23,8 @@ pytestmark = needs_db
 @pytest.fixture
 def pet(db):
     o_id, p_id = _uid("O"), _uid("P")
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o_id, f"Wellness Owner {o_id}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p_id, o_id, f"Wellness Pet {p_id}"))
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o_id, f"Wellness Owner {o_id}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p_id, o_id, f"Wellness Pet {p_id}"))
     db.commit()
     made = []
 
@@ -32,7 +32,7 @@ def pet(db):
         today = clock.today()
         vid = _uid("V")
         db.execute("INSERT INTO visits (id, patient_id, date, case_status, wellness_needed, wellness_type, "
-                   "wellness_next_dose_date, wellness_contacted) VALUES (?,?,?,?,?,?,?,?)",
+                   "wellness_next_dose_date, wellness_contacted) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                    (vid, p_id, today - timedelta(days=visit_days_ago), "Ongoing", "Y", wellness_type,
                     today + timedelta(days=dose_in_days), contacted))
         db.commit()
@@ -41,9 +41,9 @@ def pet(db):
 
     yield entry
     for vid in made:
-        db.execute("DELETE FROM visits WHERE id=?", (vid,))
-    db.execute("DELETE FROM patients WHERE id=?", (p_id,))
-    db.execute("DELETE FROM owners WHERE id=?", (o_id,))
+        db.execute("DELETE FROM visits WHERE id=%s", (vid,))
+    db.execute("DELETE FROM patients WHERE id=%s", (p_id,))
+    db.execute("DELETE FROM owners WHERE id=%s", (o_id,))
     db.commit()
 
 

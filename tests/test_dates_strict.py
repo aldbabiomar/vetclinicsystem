@@ -113,17 +113,17 @@ def draft_audit(db):
     if item is None:
         pytest.skip("no active inventory item to count")
     sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,'Draft',now()) RETURNING id", (date(2001, 1, 1), ADMIN_ID)).fetchone()["id"]
+                     "VALUES (%s,%s,'Draft',now()) RETURNING id", (date(2001, 1, 1), ADMIN_ID)).fetchone()["id"]
     db.commit()
     yield {"id": sid, "item": item["id"]}
-    db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (sid,))
-    db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=?", (str(sid),))
-    db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+    db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (sid,))
+    db.execute("DELETE FROM audit_log WHERE table_name='audit_sessions' AND record_id=%s", (str(sid),))
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
     db.commit()
 
 
 def _line(db, audit):
-    return db.execute("SELECT nearest_expiry_date FROM audit_session_lines WHERE session_id=? AND item_id=?",
+    return db.execute("SELECT nearest_expiry_date FROM audit_session_lines WHERE session_id=%s AND item_id=%s",
                       (audit["id"], audit["item"])).fetchone()
 
 
@@ -154,8 +154,8 @@ def opex_months(db):
     made = []
     yield made
     for m in made:
-        db.execute("DELETE FROM audit_log WHERE table_name='monthly_opex' AND record_id=?", (m,))
-        db.execute("DELETE FROM monthly_opex WHERE month=?", (m,))
+        db.execute("DELETE FROM audit_log WHERE table_name='monthly_opex' AND record_id=%s", (m,))
+        db.execute("DELETE FROM monthly_opex WHERE month=%s", (m,))
     db.commit()
 
 

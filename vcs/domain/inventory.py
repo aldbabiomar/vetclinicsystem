@@ -24,14 +24,14 @@ def get_or_create_draft_session(db, audit_date, user_id):
     exists or is being created, and waits for it rather than duplicating it.
     Does not commit -- the caller does, with the rest of its request (D11)."""
     row = db.execute(
-        "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) VALUES (?,?,'Draft',?) "
+        "INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) VALUES (%s,%s,'Draft',%s) "
         "ON CONFLICT (audit_date) WHERE status = 'Draft' DO NOTHING RETURNING id",
         (audit_date, user_id, clock.now()),
     ).fetchone()
     if row:
         authmod.log_change(db, "audit_sessions", str(row["id"]), "create")
         return row["id"]
-    return db.execute("SELECT id FROM audit_sessions WHERE audit_date=? AND status='Draft'",
+    return db.execute("SELECT id FROM audit_sessions WHERE audit_date=%s AND status='Draft'",
                       (audit_date,)).fetchone()["id"]
 
 
@@ -45,7 +45,7 @@ def list_audit_sessions(db, limit, offset=0):
         "FROM audit_sessions s LEFT JOIN users u ON u.id=s.performed_by ORDER BY s.audit_date DESC, s.id DESC"
     )
     total = db.execute("SELECT COUNT(*) c FROM audit_sessions").fetchone()["c"]
-    rows = db.execute(q + " LIMIT ? OFFSET ?", [limit, offset]).fetchall()
+    rows = db.execute(q + " LIMIT %s OFFSET %s", [limit, offset]).fetchall()
     return rows, total
 
 
@@ -67,7 +67,7 @@ def consignment_received_since_audit(db, latest_confirmed):
         return {}
     out = defaultdict(Decimal)
     for t in db.execute("SELECT item_id, change_qty, timestamp FROM inventory_transactions "
-                        "WHERE reason = 'consignment_receipt' AND timestamp > ?", (min(cutoffs.values()),)).fetchall():
+                        "WHERE reason = 'consignment_receipt' AND timestamp > %s", (min(cutoffs.values()),)).fetchall():
         cutoff = cutoffs.get(t["item_id"])
         if cutoff is not None and t["timestamp"] > clock.aware(cutoff):
             out[t["item_id"]] += t["change_qty"]
@@ -87,7 +87,7 @@ def confirmed_audit_rows_by_item(db, item_id=None):
     """
     params = []
     if item_id:
-        q += " AND l.item_id=?"
+        q += " AND l.item_id=%s"
         params.append(item_id)
     # confirmed_at (a full timestamp) orders same-day confirmations
     # correctly; audit_date alone (date-only) can't tell two same-day
@@ -144,7 +144,7 @@ def _txn_qty_since_batch(db, cutoffs):
     if not cutoffs:
         return {}
     items = list(cutoffs.items())
-    values_sql = ",".join("(?,?)" for _ in items)
+    values_sql = ",".join("(%s,%s)" for _ in items)
     params = [v for pair in items for v in pair]
     rows = db.execute(
         f"SELECT t.item_id, COALESCE(SUM(t.change_qty), 0) AS net FROM inventory_transactions t "
@@ -155,19 +155,89 @@ def _txn_qty_since_batch(db, cutoffs):
     return {r["item_id"]: r["net"] or 0 for r in rows}
 
 
+# Each item's latest confirmed audit line, and what confirmed_audit_rows_by_item()
+# derives for it from the item's whole history -- worked out in SQL, so the
+# history is not shipped to Python on every page (audit D3: the sidebar badge
+# did exactly that). "Latest" is the last by (audit_date, id), as
+# confirmed_audit_rows_by_item() sorts its output; the carried-forward values
+# and the audit before it follow the order the sessions were CONFIRMED in, as
+# it walks them. The COUNT/FIRST_VALUE pair is "last non-null so far":
+# COUNT(x) goes up at each row that sets x, so each group opens with one.
+_LATEST_AUDIT_SQL = """
+WITH lines AS (
+    SELECT l.id, l.item_id, l.stock_counted, l.received_since_prior, l.nearest_expiry_date,
+           l.reorder_threshold, l.critical_item, l.target_coverage_days,
+           s.audit_date, s.confirmed_at,
+           COALESCE(s.confirmed_at, s.audit_date::timestamptz) AS confirmed_order
+    FROM audit_session_lines l JOIN audit_sessions s ON s.id = l.session_id
+    WHERE s.status = 'Confirmed' AND l.stock_counted IS NOT NULL {item_filter}
+), walked AS (
+    SELECT lines.*,
+           LAG(id) OVER w AS prior_id,
+           LAG(stock_counted) OVER w AS prior_stock,
+           LAG(audit_date) OVER w AS prior_audit_date,
+           COUNT(reorder_threshold) OVER w AS threshold_group,
+           COUNT(critical_item) OVER w AS critical_group,
+           COUNT(target_coverage_days) OVER w AS target_group,
+           ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY audit_date DESC, id DESC) AS recency
+    FROM lines
+    WINDOW w AS (PARTITION BY item_id ORDER BY confirmed_order, id)
+), carried AS (
+    SELECT walked.*,
+           FIRST_VALUE(reorder_threshold) OVER (PARTITION BY item_id, threshold_group ORDER BY confirmed_order, id)
+               AS effective_reorder_threshold,
+           FIRST_VALUE(critical_item) OVER (PARTITION BY item_id, critical_group ORDER BY confirmed_order, id)
+               AS effective_critical_item,
+           FIRST_VALUE(target_coverage_days) OVER (PARTITION BY item_id, target_group ORDER BY confirmed_order, id)
+               AS effective_target_coverage_days
+    FROM walked
+)
+SELECT * FROM carried WHERE recency = 1
+"""
+
+
+def latest_audit_state(db, item_ids=None):
+    """{item_id: its latest confirmed audit line} with the fields
+    inventory_status() reads: stock_counted, audit_date, confirmed_at,
+    nearest_expiry_date, and -- as confirmed_audit_rows_by_item() computes
+    them -- effective_reorder_threshold, effective_critical_item,
+    effective_target_coverage_days (30 when never set) and daily_usage_rate.
+    `item_ids` limits it to those items (audit D4)."""
+    item_filter, params = "", []
+    if item_ids is not None:
+        item_filter, params = "AND l.item_id = ANY(%s)", [list(item_ids)]
+    out = {}
+    for r in db.execute(_LATEST_AUDIT_SQL.format(item_filter=item_filter), params).fetchall():
+        r = dict(r)
+        if r["effective_target_coverage_days"] is None:
+            r["effective_target_coverage_days"] = 30
+        r["daily_usage_rate"] = None
+        if r["prior_id"] is not None:
+            usage = r["prior_stock"] + r["received_since_prior"] - r["stock_counted"]
+            days = (dates.as_date(r["audit_date"]) - dates.as_date(r["prior_audit_date"])).days
+            r["daily_usage_rate"] = round(usage / days, 4) if days > 0 else None
+        out[r["item_id"]] = r
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Inventory Status
 # ---------------------------------------------------------------------------
-def inventory_status(db):
+def inventory_status(db, item_ids=None):
+    """Every active item's stock, expiry and audit status -- or, with
+    `item_ids`, those items' (audit D4: the POS and the audit confirm needed
+    a handful and computed the whole catalogue)."""
     audit_overdue_days = settings.int_setting(db, "audit_overdue_days", 35)
     expiry_soon_days = settings.int_setting(db, "expiry_soon_days", 60)
     today = clock.today()
 
-    items = [dict(r) for r in db.execute("SELECT * FROM inventory_list WHERE active=true ORDER BY name").fetchall()]
-    all_confirmed = confirmed_audit_rows_by_item(db)
-    by_item = defaultdict(list)
-    for r in all_confirmed:
-        by_item[r["item_id"]].append(r)
+    if item_ids is None:
+        items = db.execute("SELECT * FROM inventory_list WHERE active=true ORDER BY name").fetchall()
+    else:
+        items = db.execute("SELECT * FROM inventory_list WHERE active=true AND id = ANY(%s) ORDER BY name",
+                           (list(item_ids),)).fetchall()
+    items = [dict(r) for r in items]
+    latest_by_item = latest_audit_state(db, item_ids)
 
     # Cutoff is confirmed_at (a full timestamp), never audit_date alone
     # (date-only) — a same-day sale/refund/shrinkage that happened
@@ -179,16 +249,14 @@ def inventory_status(db):
     # confirmed session that somehow has no confirmed_at.
     cutoffs = {}
     for it in items:
-        rows = by_item.get(it["id"], [])
-        if rows:
-            latest = rows[-1]
+        latest = latest_by_item.get(it["id"])
+        if latest:
             cutoffs[it["id"]] = latest["confirmed_at"] or dates.day_bounds(dates.as_date(latest["audit_date"]))[0]
     txn_since = _txn_qty_since_batch(db, cutoffs)
 
     status = []
     for it in items:
-        rows = by_item.get(it["id"], [])
-        latest = rows[-1] if rows else None
+        latest = latest_by_item.get(it["id"])
 
         base_stock = latest["stock_counted"] if latest else None
         latest_audit_date = dates.as_date(latest["audit_date"]) if latest else None
@@ -243,10 +311,8 @@ def inventory_status(db):
 
 
 def inventory_status_by_id(db, item_id):
-    for r in inventory_status(db):
-        if r["item_id"] == item_id:
-            return r
-    return None
+    rows = inventory_status(db, [item_id])
+    return rows[0] if rows else None
 
 
 # ---------------------------------------------------------------------------
@@ -317,5 +383,5 @@ def ordering_sheet(db):
 # Point of sale (Retail only)
 # ---------------------------------------------------------------------------
 def item_sale_price(db, item_id):
-    row = db.execute("SELECT sale_price FROM price_list WHERE linked_item_id=? AND active=true LIMIT 1", (item_id,)).fetchone()
+    row = db.execute("SELECT sale_price FROM price_list WHERE linked_item_id=%s AND active=true LIMIT 1", (item_id,)).fetchone()
     return row["sale_price"] if row else None

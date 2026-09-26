@@ -24,6 +24,7 @@ citation stops resolving.
 | `CODE_AUDIT_2026-09-25.md` | The last audit of the two predecessor apps: bugs, parity gaps, design. Every finding is tracked to where it is fixed in the merged system. |
 | `RELEASE_WORKFLOW.md` | How to version, tag and publish a release that the in-app updater will accept. |
 | `ARABIC_REVIEW.md` | Arabic written during the merge without clinic review — English and Arabic side by side, for a native speaker to confirm. Delete rows as they are confirmed. |
+| `decisions/` | Why the code is the way it is — one engineering decision per file, each with the test that holds it. |
 | `SEAM_RULES.md` | Rules that must hold on every sibling code path (the four payment surfaces, the date filters, …), the register of every time one did not, and the checklist for adding a rule. |
 
 ## Feature specifications — built

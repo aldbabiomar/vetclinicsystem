@@ -26,7 +26,7 @@ def _day(offset):
 
 
 def _retail_refunds(db, sale_id):
-    return db.execute("SELECT COUNT(*) c FROM refunds WHERE sale_id=?", (sale_id,)).fetchone()["c"]
+    return db.execute("SELECT COUNT(*) c FROM refunds WHERE sale_id=%s", (sale_id,)).fetchone()["c"]
 
 
 @pytest.mark.parametrize("offset", [-1, 1])
@@ -46,14 +46,14 @@ def test_control_a_retail_refund_dated_today(client, db, completed_sale):
 
 @pytest.fixture
 def paid_visit_five_days_ago(client, db, visit):
-    db.execute("UPDATE visits SET date=? WHERE id=?", (_day(-5), visit["visit_id"]))
+    db.execute("UPDATE visits SET date=%s WHERE id=%s", (_day(-5), visit["visit_id"]))
     db.commit()
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (?,?,?,?,?)",
+    db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
                (visit["visit_id"], D("50.000"), "Cash", _day(-5), ADMIN_ID))
     db.commit()
     yield visit
-    db.execute("DELETE FROM refunds WHERE visit_id=?", (visit["visit_id"],))
+    db.execute("DELETE FROM refunds WHERE visit_id=%s", (visit["visit_id"],))
     db.commit()
 
 
@@ -67,7 +67,7 @@ def test_a_service_refund_is_not_dated_before_the_visit_or_after_today(client, d
     """GUARD. The visit was five days ago."""
     vid = paid_visit_five_days_ago["visit_id"]
     assert _service_refund(client, vid, _day(offset)).status_code == 200
-    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE visit_id=?", (vid,)).fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) c FROM refunds WHERE visit_id=%s", (vid,)).fetchone()["c"] == 0
 
 
 @pytest.mark.parametrize("offset", [-5, 0])
@@ -80,5 +80,5 @@ def test_a_visit_payment_is_recorded_today_whatever_date_is_posted(client, db, v
     """GUARD. No form sends `date`; a crafted one no longer back-dates it."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
     assert _pay_visit(client, visit["visit_id"], amount="10.000", method="Cash", date="2001-01-01").status_code == 302
-    row = db.execute("SELECT date FROM payments WHERE visit_id=?", (visit["visit_id"],)).fetchone()
+    row = db.execute("SELECT date FROM payments WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["date"] == clock.today()

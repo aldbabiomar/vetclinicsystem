@@ -54,8 +54,8 @@ def cleanup_owners(db):
     created = []
     yield created
     for oid in created:
-        db.execute("DELETE FROM patients WHERE owner_id=?", (oid,))
-        db.execute("DELETE FROM owners WHERE id=?", (oid,))
+        db.execute("DELETE FROM patients WHERE owner_id=%s", (oid,))
+        db.execute("DELETE FROM owners WHERE id=%s", (oid,))
     db.commit()
 
 
@@ -65,7 +65,7 @@ def test_owner_can_be_created(client, db, cleanup_owners):
         "name": name, "phone": _phone(), "address": "Somewhere", "notes": ""},
         follow_redirects=False)
     assert resp.status_code == 302, "a successful create redirects"
-    row = db.execute("SELECT * FROM owners WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM owners WHERE name=%s", (name,)).fetchone()
     assert row is not None
     cleanup_owners.append(row["id"])
 
@@ -90,7 +90,7 @@ def test_a_duplicate_phone_sends_staff_to_the_existing_owner(client, db, cleanup
     name = f"First Owner {uuid.uuid4().hex[:6]}"
     client.post("/owners/new", data={"name": name, "phone": phone, "address": ""},
                 follow_redirects=False)
-    first = db.execute("SELECT * FROM owners WHERE name=?", (name,)).fetchone()
+    first = db.execute("SELECT * FROM owners WHERE name=%s", (name,)).fetchone()
     assert first is not None, "the first owner should have been created"
     cleanup_owners.append(first["id"])
 
@@ -106,7 +106,7 @@ def test_a_duplicate_phone_sends_staff_to_the_existing_owner(client, db, cleanup
     # Stored normalized to E.164, not as typed — query the stored form.
     from vcs.web.core import normalize_phone
     stored = normalize_phone(phone)
-    assert db.execute("SELECT count(*) AS c FROM owners WHERE phone=?",
+    assert db.execute("SELECT count(*) AS c FROM owners WHERE phone=%s",
                       (stored,)).fetchone()["c"] == 1
 
 
@@ -114,12 +114,12 @@ def test_owner_can_be_edited(client, db, cleanup_owners):
     name = f"Edit Owner {uuid.uuid4().hex[:6]}"
     client.post("/owners/new", data={"name": name, "phone": _phone(), "address": "Old"},
                 follow_redirects=False)
-    row = db.execute("SELECT * FROM owners WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM owners WHERE name=%s", (name,)).fetchone()
     cleanup_owners.append(row["id"])
     client.post(f"/owners/{row['id']}/edit", data={
         "name": name, "phone": row["phone"], "address": "New Address", "notes": "changed"},
         follow_redirects=False)
-    after = db.execute("SELECT * FROM owners WHERE id=?", (row["id"],)).fetchone()
+    after = db.execute("SELECT * FROM owners WHERE id=%s", (row["id"],)).fetchone()
     assert after["address"] == "New Address"
 
 
@@ -152,13 +152,13 @@ def chip_patient(db):
     than through the visit form: these tests are about the microchip field,
     not about visit creation."""
     oid, pid = _uid("OW"), _uid("PT")
-    db.execute("INSERT INTO owners (id,name) VALUES (?,?)", (oid, "Chip Test Owner"))
-    db.execute("INSERT INTO patients (id,owner_id,animal_name,species) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO owners (id,name) VALUES (%s,%s)", (oid, "Chip Test Owner"))
+    db.execute("INSERT INTO patients (id,owner_id,animal_name,species) VALUES (%s,%s,%s,%s)",
                (pid, oid, "Chip Test Pet", "Dog"))
     db.commit()
     yield pid
-    db.execute("DELETE FROM patients WHERE owner_id=?", (oid,))
-    db.execute("DELETE FROM owners WHERE id=?", (oid,))
+    db.execute("DELETE FROM patients WHERE owner_id=%s", (oid,))
+    db.execute("DELETE FROM owners WHERE id=%s", (oid,))
     db.commit()
 
 
@@ -176,7 +176,7 @@ def test_a_microchip_is_stored_normalized_not_as_typed(client, db, chip_patient)
     spaced = f"{chip[:3]} {chip[3:6]}-{chip[6:9]} {chip[9:]}"
     resp = _edit(client, chip_patient, microchip=spaced)
     assert resp.status_code == 302, "a valid save redirects"
-    stored = db.execute("SELECT microchip FROM patients WHERE id=?", (chip_patient,)).fetchone()["microchip"]
+    stored = db.execute("SELECT microchip FROM patients WHERE id=%s", (chip_patient,)).fetchone()["microchip"]
     assert stored == chip, f"expected the separators stripped, stored {stored!r}"
 
 
@@ -186,7 +186,7 @@ def test_a_patient_saves_with_no_microchip_at_all(client, db, chip_patient):
     them."""
     resp = _edit(client, chip_patient, microchip="", age_note="no chip on this one")
     assert resp.status_code == 302, "a patient with no microchip must still save"
-    row = db.execute("SELECT microchip, age_note FROM patients WHERE id=?", (chip_patient,)).fetchone()
+    row = db.execute("SELECT microchip, age_note FROM patients WHERE id=%s", (chip_patient,)).fetchone()
     assert row["microchip"] is None, "blank must store NULL, not an empty string"
     assert row["age_note"] == "no chip on this one", "the rest of the form must have saved"
 
@@ -199,22 +199,22 @@ def test_an_existing_microchip_can_be_cleared(client, db, chip_patient):
     anyone cleared could not be saved."""
     chip = _chip("77")
     assert _edit(client, chip_patient, microchip=chip).status_code == 302
-    assert db.execute("SELECT microchip FROM patients WHERE id=?",
+    assert db.execute("SELECT microchip FROM patients WHERE id=%s",
                       (chip_patient,)).fetchone()["microchip"] == chip
 
     assert _edit(client, chip_patient, microchip="").status_code == 302
-    assert db.execute("SELECT microchip FROM patients WHERE id=?",
+    assert db.execute("SELECT microchip FROM patients WHERE id=%s",
                       (chip_patient,)).fetchone()["microchip"] is None, (
         "clearing the field must remove the chip, not store a blank")
 
 
 def test_a_malformed_microchip_is_refused_and_nothing_is_written(client, db, chip_patient):
     _edit(client, chip_patient, microchip=_chip("22"))
-    before = db.execute("SELECT * FROM patients WHERE id=?", (chip_patient,)).fetchone()
+    before = db.execute("SELECT * FROM patients WHERE id=%s", (chip_patient,)).fetchone()
 
     resp = _edit(client, chip_patient, microchip="12", animal_name="Renamed By A Bad Save")
     assert resp.status_code == 200, "should redisplay the form, not save"
-    after = db.execute("SELECT * FROM patients WHERE id=?", (chip_patient,)).fetchone()
+    after = db.execute("SELECT * FROM patients WHERE id=%s", (chip_patient,)).fetchone()
     assert after["microchip"] == before["microchip"], "the old chip must survive a rejected save"
     assert after["animal_name"] == before["animal_name"], (
         "a rejected save must not write ANY field — not just the invalid one")
@@ -229,7 +229,7 @@ def test_resaving_a_patient_does_not_report_it_as_its_own_duplicate(client, db, 
     assert _edit(client, chip_patient, microchip=chip).status_code == 302
     resp = _edit(client, chip_patient, microchip=chip, age_note="second save")
     assert resp.status_code == 302, "re-saving a patient's own chip must be allowed"
-    assert db.execute("SELECT age_note FROM patients WHERE id=?",
+    assert db.execute("SELECT age_note FROM patients WHERE id=%s",
                       (chip_patient,)).fetchone()["age_note"] == "second save"
 
 
@@ -281,7 +281,7 @@ def appointment_cleanup(db):
     created = []
     yield created
     for aid in created:
-        db.execute("DELETE FROM appointments WHERE id=?", (aid,))
+        db.execute("DELETE FROM appointments WHERE id=%s", (aid,))
     db.commit()
 
 
@@ -309,7 +309,7 @@ def _book(client, **data):
 def test_appointment_can_be_booked(client, db, appointment_cleanup):
     pet = f"Pet{uuid.uuid4().hex[:6]}"
     resp = _book(client, pet_name=pet)
-    row = db.execute("SELECT * FROM appointments WHERE pet_name=?", (pet,)).fetchone()
+    row = db.execute("SELECT * FROM appointments WHERE pet_name=%s", (pet,)).fetchone()
     assert row is not None, "the booking was rejected — check the guards in _book()"
     appointment_cleanup.append(row["id"])
     assert resp.status_code == 302
@@ -323,7 +323,7 @@ def test_two_appointments_cannot_take_the_same_slot(client, db, appointment_clea
     slot, when = "10:30", (clock.today() + timedelta(days=2)).isoformat()
     first = f"Pet{uuid.uuid4().hex[:6]}"
     _book(client, pet_name=first, slot_label=slot, appt_date=when)
-    row = db.execute("SELECT * FROM appointments WHERE pet_name=?", (first,)).fetchone()
+    row = db.execute("SELECT * FROM appointments WHERE pet_name=%s", (first,)).fetchone()
     assert row is not None, "the first booking should have succeeded"
     appointment_cleanup.append(row["id"])
 
@@ -332,7 +332,7 @@ def test_two_appointments_cannot_take_the_same_slot(client, db, appointment_clea
     resp = _book(client, pet_name=second, slot_label=slot, appt_date=when)
     after = db.execute("SELECT count(*) AS c FROM appointments").fetchone()["c"]
     if after > before:
-        dup = db.execute("SELECT * FROM appointments WHERE pet_name=?", (second,)).fetchone()
+        dup = db.execute("SELECT * FROM appointments WHERE pet_name=%s", (second,)).fetchone()
         appointment_cleanup.append(dup["id"])
         pytest.fail("the same grooming slot was booked twice on the same day")
     assert resp.status_code == 200
@@ -391,10 +391,10 @@ def price_item(client, db):
     client.post("/price-list/new", data={
         "name": name, "category": "Service", "cost_price": "2.000", "sale_price": "10.000"},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE name=%s", (name,)).fetchone()
     assert row is not None, "price list item was not created"
     yield row
-    db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
+    db.execute("DELETE FROM price_list WHERE id=%s", (row["id"],))
     db.commit()
 
 
@@ -426,7 +426,7 @@ def test_price_list_item_can_be_edited(client, db, price_item):
     client.post(f"/price-list/{price_item['id']}/edit", data={
         "name": price_item["name"], "category": "Service",
         "cost_price": "3.000", "sale_price": "15.000"}, follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE id=?", (price_item["id"],)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE id=%s", (price_item["id"],)).fetchone()
     assert row["sale_price"] == Decimal("15.000")
 
 
@@ -435,7 +435,7 @@ def test_editing_a_price_to_something_invalid_leaves_it_alone(client, db, price_
     client.post(f"/price-list/{price_item['id']}/edit", data={
         "name": price_item["name"], "category": "Service",
         "cost_price": "3.000", "sale_price": "-1.000"}, follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE id=?", (price_item["id"],)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE id=%s", (price_item["id"],)).fetchone()
     assert row["sale_price"] == Decimal("10.000"), "the original price must survive a rejected edit"
 
 
@@ -444,13 +444,13 @@ def test_price_list_item_can_be_deleted(client, db):
     client.post("/price-list/new", data={
         "name": name, "category": "Service", "cost_price": "1.000", "sale_price": "5.000"},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM price_list WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM price_list WHERE name=%s", (name,)).fetchone()
     assert row is not None
     client.post(f"/price-list/{row['id']}/delete", data={}, follow_redirects=False)
-    after = db.execute("SELECT * FROM price_list WHERE id=?", (row["id"],)).fetchone()
+    after = db.execute("SELECT * FROM price_list WHERE id=%s", (row["id"],)).fetchone()
     if after is not None:
         # Some builds deactivate rather than delete; either is a valid answer
         # so long as the item stops being sellable.
         assert after["active"] is False, "a deleted item must not remain active"
-        db.execute("DELETE FROM price_list WHERE id=?", (row["id"],))
+        db.execute("DELETE FROM price_list WHERE id=%s", (row["id"],))
         db.commit()

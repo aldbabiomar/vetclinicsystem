@@ -39,13 +39,13 @@ def distributor(client, db):
         "name": name, "contact_person": "Someone", "phone": "", "email": "",
         "payment_terms": "30 days", "lead_time_days": "7", "notes": ""},
         follow_redirects=False)
-    row = db.execute("SELECT * FROM distributors WHERE name=?", (name,)).fetchone()
+    row = db.execute("SELECT * FROM distributors WHERE name=%s", (name,)).fetchone()
     assert row is not None, "the distributor was not created"
     yield row
     for sql in ("DELETE FROM distributor_bill_payments WHERE bill_id IN "
-                "(SELECT id FROM distributor_bills WHERE distributor_id=?)",
-                "DELETE FROM distributor_bills WHERE distributor_id=?",
-                "DELETE FROM distributors WHERE id=?"):
+                "(SELECT id FROM distributor_bills WHERE distributor_id=%s)",
+                "DELETE FROM distributor_bills WHERE distributor_id=%s",
+                "DELETE FROM distributors WHERE id=%s"):
         db.execute(sql, (row["id"],))
     db.commit()
 
@@ -56,14 +56,14 @@ def a_bill(client, db, distributor):
         "bill_reference": f"REF{uuid.uuid4().hex[:6]}",
         "bill_date": clock.today().isoformat(),
         "total_amount": "500.000", "notes": ""}, follow_redirects=False)
-    row = db.execute("SELECT * FROM distributor_bills WHERE distributor_id=? ORDER BY id DESC LIMIT 1",
+    row = db.execute("SELECT * FROM distributor_bills WHERE distributor_id=%s ORDER BY id DESC LIMIT 1",
                      (distributor["id"],)).fetchone()
     assert row is not None, "the bill was not created"
     return {"dist_id": distributor["id"], "bill": row}
 
 
 def _bill_payments(db, bill_id):
-    return db.execute("SELECT count(*) AS c FROM distributor_bill_payments WHERE bill_id=?",
+    return db.execute("SELECT count(*) AS c FROM distributor_bill_payments WHERE bill_id=%s",
                       (bill_id,)).fetchone()["c"]
 
 
@@ -72,13 +72,13 @@ def test_a_distributor_bill_is_recorded(client, db, a_bill):
 
 
 def test_a_distributor_bill_rejects_a_negative_total(client, db, distributor):
-    before = db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=?",
+    before = db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=%s",
                         (distributor["id"],)).fetchone()["c"]
     resp = client.post(f"/distributors/{distributor['id']}/bills/new", data={
         "bill_reference": "NEG", "bill_date": clock.today().isoformat(),
         "total_amount": "-500.000"}, follow_redirects=False)
     assert resp.status_code != 500
-    assert db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=?",
+    assert db.execute("SELECT count(*) AS c FROM distributor_bills WHERE distributor_id=%s",
                       (distributor["id"],)).fetchone()["c"] == before
 
 
@@ -109,7 +109,7 @@ def test_bill_payments_accumulate_against_one_total(client, db, a_bill):
     for _ in range(5):
         client.post(url, data={"amount": "100.000"}, follow_redirects=False)
     paid = db.execute("SELECT COALESCE(SUM(amount),0) AS s FROM distributor_bill_payments "
-                      "WHERE bill_id=?", (bill_id,)).fetchone()["s"]
+                      "WHERE bill_id=%s", (bill_id,)).fetchone()["s"]
     assert paid == D("500.000"), "the bill should now be settled exactly"
     before = _bill_payments(db, bill_id)
     resp = client.post(url, data={"amount": "100.000"}, follow_redirects=False)
@@ -137,7 +137,7 @@ def consignment_item(client, db, distributor):
     inv_id = _uid("INV")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "distributor_id, ownership_type, consignment_since, active) "
-               "VALUES (?,?,?,?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Consign {inv_id}", "Retail", "unit", False, D("2.000"),
                 distributor["id"], "Consignment",
                 clock.now().isoformat(timespec="seconds"), True))
@@ -147,7 +147,7 @@ def consignment_item(client, db, distributor):
     # test below is refused for the wrong reason and proves nothing, which
     # is exactly what a mutation check caught them doing.
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
-                     "VALUES (?,?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed",
                       clock.now().isoformat(timespec="seconds"),
                       clock.now().isoformat(timespec="microseconds")))
@@ -156,22 +156,22 @@ def consignment_item(client, db, distributor):
                # Decimal, not float — JO's money and quantity columns are
                # NUMERIC, and a float literal here is the contamination the
                # rest of this suite exists to prevent.
-               "VALUES (?,?,?,?)", (audit_id, inv_id, D("50.000"), D(0)))
+               "VALUES (%s,%s,%s,%s)", (audit_id, inv_id, D("50.000"), D(0)))
     db.commit()
     yield {"id": inv_id, "distributor_id": distributor["id"]}
-    db.execute("DELETE FROM audit_session_lines WHERE session_id=?", (audit_id,))
-    db.execute("DELETE FROM audit_sessions WHERE id=?", (audit_id,))
-    for sql in ("DELETE FROM consignment_shrinkage WHERE item_id=?",
-                "DELETE FROM consignment_returns WHERE item_id=?",
-                "DELETE FROM consignment_receipts WHERE item_id=?",
-                "DELETE FROM inventory_transactions WHERE item_id=?",
-                "DELETE FROM inventory_list WHERE id=?"):
+    db.execute("DELETE FROM audit_session_lines WHERE session_id=%s", (audit_id,))
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (audit_id,))
+    for sql in ("DELETE FROM consignment_shrinkage WHERE item_id=%s",
+                "DELETE FROM consignment_returns WHERE item_id=%s",
+                "DELETE FROM consignment_receipts WHERE item_id=%s",
+                "DELETE FROM inventory_transactions WHERE item_id=%s",
+                "DELETE FROM inventory_list WHERE id=%s"):
         db.execute(sql, (inv_id,))
     db.commit()
 
 
 def _receipts(db, item_id):
-    return db.execute("SELECT count(*) AS c FROM consignment_receipts WHERE item_id=?",
+    return db.execute("SELECT count(*) AS c FROM consignment_receipts WHERE item_id=%s",
                       (item_id,)).fetchone()["c"]
 
 
@@ -221,14 +221,14 @@ def test_shrinkage_cannot_exceed_what_was_received(client, db, consignment_item)
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
         "received_date": clock.today().isoformat()}, follow_redirects=False)
-    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                         (consignment_item["id"],)).fetchone()["c"]
     resp = client.post("/consignment/shrinkage/new", data={
         "item_id": consignment_item["id"], "quantity": "500",
         "reason": "Damaged", "liable_party": "Clinic", "notes": ""},
         follow_redirects=False)
     assert resp.status_code != 500
-    after = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    after = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                        (consignment_item["id"],)).fetchone()["c"]
     assert after == before, "shrinkage beyond what was received must not be recorded"
 
@@ -241,14 +241,14 @@ def test_a_valid_shrinkage_write_off_is_recorded(client, db, consignment_item):
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
         "received_date": clock.today().isoformat()}, follow_redirects=False)
-    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                         (consignment_item["id"],)).fetchone()["c"]
     resp = client.post("/consignment/shrinkage/new", data={
         "item_id": consignment_item["id"], "quantity": "2",
         "reason": "Damaged", "liable_party": "Clinic", "notes": ""},
         follow_redirects=False)
     assert resp.status_code != 500
-    after = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    after = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                        (consignment_item["id"],)).fetchone()["c"]
     assert after == before + 1, "a valid write-off must be recorded"
 
@@ -257,14 +257,14 @@ def test_shrinkage_rejects_zero_and_negative(client, db, consignment_item):
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
         "received_date": clock.today().isoformat()}, follow_redirects=False)
-    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                         (consignment_item["id"],)).fetchone()["c"]
     for bad in ("0", "-5"):
         resp = client.post("/consignment/shrinkage/new", data={
             "item_id": consignment_item["id"], "quantity": bad,
             "reason": "Damaged", "liable_party": "Clinic"}, follow_redirects=False)
         assert resp.status_code != 500
-    assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                       (consignment_item["id"],)).fetchone()["c"] == before
 
 
@@ -275,14 +275,14 @@ def test_shrinkage_rejects_an_unknown_reason_or_liable_party(client, db, consign
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "5", "unit_cost": "2.000",
         "received_date": clock.today().isoformat()}, follow_redirects=False)
-    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                         (consignment_item["id"],)).fetchone()["c"]
     for reason, liable in (("Vanished", "Clinic"), ("Damaged", "The Weather")):
         resp = client.post("/consignment/shrinkage/new", data={
             "item_id": consignment_item["id"], "quantity": "1",
             "reason": reason, "liable_party": liable}, follow_redirects=False)
         assert resp.status_code != 500
-    assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+    assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                       (consignment_item["id"],)).fetchone()["c"] == before, (
         "an unrecognised reason or liable party must not be recorded")
 
@@ -296,7 +296,7 @@ def test_an_unaudited_item_cannot_be_written_off(client, db, distributor):
     inv_id = _uid("INV")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "distributor_id, ownership_type, consignment_since, active) "
-               "VALUES (?,?,?,?,?,?,?,?,?,?)",
+               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Unaudited {inv_id}", "Retail", "unit", False, D("2.000"),
                 distributor["id"], "Consignment",
                 clock.now().isoformat(timespec="seconds"), True))
@@ -305,20 +305,20 @@ def test_an_unaudited_item_cannot_be_written_off(client, db, distributor):
         client.post("/consignment/receiving/new", data={
             "item_id": inv_id, "quantity": "5", "unit_cost": "2.000",
             "received_date": clock.today().isoformat()}, follow_redirects=False)
-        before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+        before = db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                             (inv_id,)).fetchone()["c"]
         resp = client.post("/consignment/shrinkage/new", data={
             "item_id": inv_id, "quantity": "1",
             "reason": "Damaged", "liable_party": "Clinic"}, follow_redirects=False)
         assert resp.status_code != 500
-        assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=?",
+        assert db.execute("SELECT count(*) AS c FROM consignment_shrinkage WHERE item_id=%s",
                           (inv_id,)).fetchone()["c"] == before, (
             "a never-audited item must not be writable off")
     finally:
-        for sql in ("DELETE FROM consignment_shrinkage WHERE item_id=?",
-                    "DELETE FROM consignment_receipts WHERE item_id=?",
-                    "DELETE FROM inventory_transactions WHERE item_id=?",
-                    "DELETE FROM inventory_list WHERE id=?"):
+        for sql in ("DELETE FROM consignment_shrinkage WHERE item_id=%s",
+                    "DELETE FROM consignment_receipts WHERE item_id=%s",
+                    "DELETE FROM inventory_transactions WHERE item_id=%s",
+                    "DELETE FROM inventory_list WHERE id=%s"):
             db.execute(sql, (inv_id,))
         db.commit()
 
@@ -343,7 +343,7 @@ def _cash_audits_left_as_found(db):
     yield
     after = {r["id"] for r in db.execute("SELECT id FROM cash_register_audits").fetchall()}
     for aid in after - before:
-        db.execute("DELETE FROM cash_register_audits WHERE id=?", (aid,))
+        db.execute("DELETE FROM cash_register_audits WHERE id=%s", (aid,))
     db.commit()
 
 
@@ -383,7 +383,7 @@ def test_a_cash_count_rejects_a_non_numeric_figure(client, db):
 # ---------------------------------------------------------------------------
 
 def _settlements(db, dist_id):
-    return db.execute("SELECT count(*) AS c FROM consignment_settlements WHERE distributor_id=?",
+    return db.execute("SELECT count(*) AS c FROM consignment_settlements WHERE distributor_id=%s",
                       (dist_id,)).fetchone()["c"]
 
 
@@ -403,10 +403,10 @@ def sell_consigned(client, db, consignment_item):
     made = {"price": False}
 
     def sell(qty, unit_cost, sale_price):
-        db.execute("UPDATE inventory_list SET cost_price=? WHERE id=?", (D(unit_cost), inv_id))
+        db.execute("UPDATE inventory_list SET cost_price=%s WHERE id=%s", (D(unit_cost), inv_id))
         if not made["price"]:
             db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, "
-                       "linked_item_id, can_discount) VALUES (?,?,?,?,?,?,?,?)",
+                       "linked_item_id, can_discount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                        (pl_id, f"Consign {inv_id}", "Retail", D(unit_cost), D(sale_price), True, inv_id, True))
             made["price"] = True
         db.commit()
@@ -417,12 +417,12 @@ def sell_consigned(client, db, consignment_item):
 
     yield sell
     sale_ids = [r["sale_id"] for r in db.execute(
-        "SELECT DISTINCT sale_id FROM sale_items WHERE item_id=?", (inv_id,)).fetchall()]
-    db.execute("DELETE FROM consignment_settlements WHERE distributor_id=?", (dist,))
-    db.execute("DELETE FROM sale_items WHERE item_id=?", (inv_id,))
+        "SELECT DISTINCT sale_id FROM sale_items WHERE item_id=%s", (inv_id,)).fetchall()]
+    db.execute("DELETE FROM consignment_settlements WHERE distributor_id=%s", (dist,))
+    db.execute("DELETE FROM sale_items WHERE item_id=%s", (inv_id,))
     for sid in sale_ids:
-        db.execute("DELETE FROM sales WHERE id=?", (sid,))
-    db.execute("DELETE FROM price_list WHERE id=?", (pl_id,))
+        db.execute("DELETE FROM sales WHERE id=%s", (sid,))
+    db.execute("DELETE FROM price_list WHERE id=%s", (pl_id,))
     db.commit()
 
 
@@ -433,7 +433,7 @@ def _settle(client, dist, amount):
 
 def _settled_amounts(db, dist):
     return [r["amount_paid"] for r in db.execute(
-        "SELECT amount_paid FROM consignment_settlements WHERE distributor_id=? ORDER BY id",
+        "SELECT amount_paid FROM consignment_settlements WHERE distributor_id=%s ORDER BY id",
         (dist,)).fetchall()]
 
 
@@ -520,13 +520,13 @@ def test_a_settlement_rejects_a_non_numeric_amount(client, db, consignment_item)
 def test_inventory_item_edit_rejects_a_negative_cost(client, db, consignment_item):
     """The edit form is the third way to set a cost, after the create form
     and the bulk editor. All three need the same guard."""
-    before = db.execute("SELECT cost_price FROM inventory_list WHERE id=?",
+    before = db.execute("SELECT cost_price FROM inventory_list WHERE id=%s",
                         (consignment_item["id"],)).fetchone()["cost_price"]
     resp = client.post(f"/inventory-catalog/{consignment_item['id']}/edit", data={
         "name": f"Consign {consignment_item['id']}", "category": "Retail",
         "unit": "unit", "cost_price": "-5.000"}, follow_redirects=False)
     assert resp.status_code != 500
-    after = db.execute("SELECT cost_price FROM inventory_list WHERE id=?",
+    after = db.execute("SELECT cost_price FROM inventory_list WHERE id=%s",
                        (consignment_item["id"],)).fetchone()["cost_price"]
     assert after == before, "a rejected edit must leave the cost as it was"
 
@@ -538,17 +538,17 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
     from vcs.domain import inventory
     inv_id = _uid("INV")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
-               "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
+               "ownership_type, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv_id, f"Count {inv_id}", "Retail", "unit", False, 1000.0, "Owned", True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
-                     "VALUES (?,?,?,?) RETURNING id",
+                     "VALUES (%s,%s,%s,%s) RETURNING id",
                      # 'Draft', not 'Open' — audit_sessions_status_check
                      # allows only Draft and Confirmed.
                      (clock.today().isoformat(), ADMIN_ID, "Draft",
                       clock.now().isoformat(timespec="seconds")))
     sid = cur.fetchone()["id"]
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
-               "VALUES (?,?,?,?)", (sid, inv_id, D("30.000"), D(0)))
+               "VALUES (%s,%s,%s,%s)", (sid, inv_id, D("30.000"), D(0)))
     db.commit()
     try:
         draft_status = inventory.inventory_status_by_id(db, inv_id)
@@ -558,7 +558,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
         resp = client.post(f"/audit-history/session/{sid}/confirm", data={},
                            follow_redirects=False)
         assert resp.status_code != 500
-        row = db.execute("SELECT status, confirmed_at FROM audit_sessions WHERE id=?",
+        row = db.execute("SELECT status, confirmed_at FROM audit_sessions WHERE id=%s",
                          (sid,)).fetchone()
         if row["status"] == "Confirmed":
             assert row["confirmed_at"], "a confirmed count must be stamped"
@@ -566,9 +566,9 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
             assert after is not None and after["current_stock"] == D("30.000"), (
                 "confirming must establish the counted figure")
     finally:
-        for sql in ("DELETE FROM inventory_transactions WHERE item_id=?",
-                    "DELETE FROM audit_session_lines WHERE item_id=?",
-                    "DELETE FROM inventory_list WHERE id=?"):
+        for sql in ("DELETE FROM inventory_transactions WHERE item_id=%s",
+                    "DELETE FROM audit_session_lines WHERE item_id=%s",
+                    "DELETE FROM inventory_list WHERE id=%s"):
             db.execute(sql, (inv_id,))
-        db.execute("DELETE FROM audit_sessions WHERE id=?", (sid,))
+        db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
         db.commit()

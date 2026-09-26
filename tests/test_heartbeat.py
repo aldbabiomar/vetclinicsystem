@@ -35,10 +35,10 @@ SECRET_URL = "https://hc-ping.example/00000000-1111-2222-3333-444444444444"
 
 def _set(db, key, value):
     if value is None:
-        db.execute("DELETE FROM settings WHERE key=?", (key,))
+        db.execute("DELETE FROM settings WHERE key=%s", (key,))
     else:
         db.execute(
-            "INSERT INTO settings (key,value) VALUES (?,?) "
+            "INSERT INTO settings (key,value) VALUES (%s,%s) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, value),
         )
@@ -48,7 +48,7 @@ def _set(db, key, value):
 @pytest.fixture
 def hb(db):
     saved = {
-        k: (db.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone() or {}).get("value")
+        k: (db.execute("SELECT value FROM settings WHERE key=%s", (k,)).fetchone() or {}).get("value")
         for k in ("heartbeat_url", "heartbeat_install_id")
     }
     _set(db, "heartbeat_url", None)
@@ -117,14 +117,14 @@ def test_payload_contains_no_names_phones_or_money(hb, db):
     marker_phone = "0791234567"
     owner_id = new_id()
 
-    db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
-    db.execute("INSERT INTO owners (id, name, phone) VALUES (?,?,?)",
+    db.execute("DELETE FROM owners WHERE id=%s", (owner_id,))
+    db.execute("INSERT INTO owners (id, name, phone) VALUES (%s,%s,%s)",
                (owner_id, marker_name, marker_phone))
     db.commit()
     try:
         # The control: prove the markers really are in the database, so that
         # "not in the payload" cannot quietly mean "not in the clinic either".
-        row = db.execute("SELECT name, phone FROM owners WHERE id=?", (owner_id,)).fetchone()
+        row = db.execute("SELECT name, phone FROM owners WHERE id=%s", (owner_id,)).fetchone()
         assert row["name"] == marker_name and row["phone"] == marker_phone
 
         payload = heartbeat.build_payload(db, OK_RESULT)
@@ -136,7 +136,7 @@ def test_payload_contains_no_names_phones_or_money(hb, db):
         # at this table rather than skipping it.
         assert payload["db"]["row_counts"].get("owners", 0) >= 1
     finally:
-        db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
+        db.execute("DELETE FROM owners WHERE id=%s", (owner_id,))
         db.commit()
 
 

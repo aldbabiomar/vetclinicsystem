@@ -44,72 +44,72 @@ def timed_rows(db):
     now = clock.now()
     o, p, v, dist, inv = new_id(), new_id(), new_id(), new_id(), new_id()
     ids = {"tag": tag}
-    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, f"Time Owner {tag}"))
-    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, f"Time Pet {tag}"))
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o, f"Time Owner {tag}"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, f"Time Pet {tag}"))
     db.execute("INSERT INTO visits (id, patient_id, date, case_status, updated_at, case_status_changed_at) "
-               "VALUES (?,?,?,?,?,?)", (v, p, clock.today(), "Ongoing", now, now))
+               "VALUES (%s,%s,%s,%s,%s,%s)", (v, p, clock.today(), "Ongoing", now, now))
     ids["case_id"] = db.execute(
         "INSERT INTO inpatient_cases (patient_id, visit_id, admission_date, dismissed, discount_percent, total, "
-        "cleanup_amount, updated_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
+        "cleanup_amount, updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (p, v, clock.today(), False, D(0), D(0), D(0), now)).fetchone()["id"]
-    db.execute("INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO inpatient_updates (case_id, timestamp, note, user_id) VALUES (%s,%s,%s,%s)",
                (ids["case_id"], now, "Eating well", ADMIN_ID))
-    db.execute("INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO inpatient_contact_log (case_id, timestamp, picked_up, staff_user_id) VALUES (%s,%s,%s,%s)",
                (ids["case_id"], now, 1, ADMIN_ID))
     ids["boarding_id"] = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, cleanup_amount, "
-        "discount_percent, dismissed, total, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "discount_percent, dismissed, total, updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (p, clock.today(), False, False, D(0), D(0), False, D(10), now)).fetchone()["id"]
-    db.execute("INSERT INTO boarding_incidents (boarding_id, timestamp, issue, user_id) VALUES (?,?,?,?)",
+    db.execute("INSERT INTO boarding_incidents (boarding_id, timestamp, issue, user_id) VALUES (%s,%s,%s,%s)",
                (ids["boarding_id"], now, "Scratched the door", ADMIN_ID))
-    db.execute("INSERT INTO distributors (id, name) VALUES (?,?)", (dist, f"Time Dist {tag}"))
+    db.execute("INSERT INTO distributors (id, name) VALUES (%s,%s)", (dist, f"Time Dist {tag}"))
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, distributor_id, "
-               "ownership_type, consignment_since, active) VALUES (?,?,?,?,?,?,?,?,?,?)",
+               "ownership_type, consignment_since, active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv, f"Time Item {tag}", "Retail", "unit", False, D(1), dist, "Consignment", now, True))
     db.execute("INSERT INTO consignment_shrinkage (item_id, distributor_id, quantity, reason, liable_party, "
-               "unit_cost, logged_by, logged_at) VALUES (?,?,?,?,?,?,?,?)",
+               "unit_cost, logged_by, logged_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                (inv, dist, D(1), "Damaged", "Clinic", D(1), ADMIN_ID, now))
     ids["settlement_id"] = db.execute(
         "INSERT INTO consignment_settlements (distributor_id, period_start, period_end, amount_owed, amount_paid, "
-        "payment_method, settled_by, created_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
+        "payment_method, settled_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (dist, now, now, D(5), D(5), "Cash", ADMIN_ID, now)).fetchone()["id"]
     ids["sale_id"] = db.execute(
         "INSERT INTO sales (sold_at, cashier_id, subtotal, discount_percent, total, payment_method) "
-        "VALUES (?,?,?,?,?,?) RETURNING id", (now, ADMIN_ID, D(5), D(0), D(5), "Card")).fetchone()["id"]
+        "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id", (now, ADMIN_ID, D(5), D(0), D(5), "Card")).fetchone()["id"]
     ids["backup_id"] = db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, triggered_by) VALUES (?,?,?,?) RETURNING id",
+        "INSERT INTO backup_log (started_at, finished_at, status, triggered_by) VALUES (%s,%s,%s,%s) RETURNING id",
         (now, now, "success", "manual")).fetchone()["id"]
     ids["restore_id"] = db.execute(
-        "INSERT INTO restore_log (started_at, finished_at, status, triggered_by) VALUES (?,?,?,?) RETURNING id",
+        "INSERT INTO restore_log (started_at, finished_at, status, triggered_by) VALUES (%s,%s,%s,%s) RETURNING id",
         (now, now, "success", "manual")).fetchone()["id"]
     ids["check_id"] = db.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?) RETURNING id",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s) RETURNING id",
         (now, "ok", "[]")).fetchone()["id"]
     ids["audit_id"] = db.execute(
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, counted_cash, "
-        "difference, status, performed_by, created_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
+        "difference, status, performed_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (clock.today(), D(0), D(0), D(0), D(0), D(0), "Perfect", ADMIN_ID, now)).fetchone()["id"]
     ids.update(owner=o, patient=p, visit=v, dist=dist, item=inv, now=now)
     db.commit()
     yield ids
     for sql, arg in (
-        ("DELETE FROM cash_register_audits WHERE id=?", ids["audit_id"]),
-        ("DELETE FROM self_check_log WHERE id=?", ids["check_id"]),
-        ("DELETE FROM restore_log WHERE id=?", ids["restore_id"]),
-        ("DELETE FROM backup_log WHERE id=?", ids["backup_id"]),
-        ("DELETE FROM sales WHERE id=?", ids["sale_id"]),
-        ("DELETE FROM consignment_settlements WHERE id=?", ids["settlement_id"]),
-        ("DELETE FROM consignment_shrinkage WHERE item_id=?", inv),
-        ("DELETE FROM inventory_list WHERE id=?", inv),
-        ("DELETE FROM distributors WHERE id=?", dist),
-        ("DELETE FROM boarding_incidents WHERE boarding_id=?", ids["boarding_id"]),
-        ("DELETE FROM boarding_sessions WHERE id=?", ids["boarding_id"]),
-        ("DELETE FROM inpatient_contact_log WHERE case_id=?", ids["case_id"]),
-        ("DELETE FROM inpatient_updates WHERE case_id=?", ids["case_id"]),
-        ("DELETE FROM inpatient_cases WHERE id=?", ids["case_id"]),
-        ("DELETE FROM visits WHERE id=?", v),
-        ("DELETE FROM patients WHERE id=?", p),
-        ("DELETE FROM owners WHERE id=?", o),
+        ("DELETE FROM cash_register_audits WHERE id=%s", ids["audit_id"]),
+        ("DELETE FROM self_check_log WHERE id=%s", ids["check_id"]),
+        ("DELETE FROM restore_log WHERE id=%s", ids["restore_id"]),
+        ("DELETE FROM backup_log WHERE id=%s", ids["backup_id"]),
+        ("DELETE FROM sales WHERE id=%s", ids["sale_id"]),
+        ("DELETE FROM consignment_settlements WHERE id=%s", ids["settlement_id"]),
+        ("DELETE FROM consignment_shrinkage WHERE item_id=%s", inv),
+        ("DELETE FROM inventory_list WHERE id=%s", inv),
+        ("DELETE FROM distributors WHERE id=%s", dist),
+        ("DELETE FROM boarding_incidents WHERE boarding_id=%s", ids["boarding_id"]),
+        ("DELETE FROM boarding_sessions WHERE id=%s", ids["boarding_id"]),
+        ("DELETE FROM inpatient_contact_log WHERE case_id=%s", ids["case_id"]),
+        ("DELETE FROM inpatient_updates WHERE case_id=%s", ids["case_id"]),
+        ("DELETE FROM inpatient_cases WHERE id=%s", ids["case_id"]),
+        ("DELETE FROM visits WHERE id=%s", v),
+        ("DELETE FROM patients WHERE id=%s", p),
+        ("DELETE FROM owners WHERE id=%s", o),
     ):
         db.execute(sql, (arg,))
     db.commit()

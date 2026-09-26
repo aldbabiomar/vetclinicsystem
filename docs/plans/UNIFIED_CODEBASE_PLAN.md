@@ -1081,3 +1081,43 @@ result under each money setting.
 
   **Suite:** IQ **1440 passed, 4 skipped**; JO **1440 passed, 4 skipped**;
   no database 581 passed.
+- **2026-09-26 — Restructure R4: the design findings D2, D3, D4, D7, D11, D12.**
+  - **D7, native placeholders.** 1,380 SQL literals went from `?` to
+    `%s`, and the translator is gone.
+    - The rewriter skipped docstrings and regex patterns, and changed only
+      a `?` in placeholder position.
+    - It also broke seven `",".join("?" * n)` sites, which silently became
+      `%,s,%`. The suite found them.
+    - `test_sql_placeholders.py` refuses a `?` placeholder, a bare `%` in
+      a parameterised query, and that join. Each is mutation-checked.
+  - **D3 and D4, the Dashboard reads only what it shows.**
+    - Active cases are a `COUNT`.
+    - Follow-ups are limited to today's and tomorrow's.
+    - Wellness is limited to the doses that can be due; Python still
+      decides.
+    - Each item's latest audit is worked out in SQL
+      (`inventory.latest_audit_state()`), and `inventory_status(db,
+      item_ids)` answers for a few items.
+    - Two tests prove it: one checks the SQL against the full-history walk
+      on crafted histories and on the whole test database; the other
+      checks the snapshot against the old unbounded reads across every
+      date boundary. Both are mutation-checked.
+  - **D2, one entry point.** `billing.bill_changed(db, kind, id)`
+    replaces the three refresh helpers at 14 sites. Seam rule 12 fails on
+    any function that writes a bill's inputs without calling it.
+    `SEAM_RULES.md` now lists rules 10–12.
+  - **D11, no hidden commits.** Four helpers commit on purpose and say so
+    in their docstrings. `test_no_hidden_commits.py` fails on any other.
+  - **D12, `docs/decisions/`.** Nine engineering decision records, each
+    naming the test that holds it. `CLAUDE.md` lists the new conventions.
+  - **Found on the way: an item with no sale price.**
+    - On a visit bill it caused a 500.
+    - On an inpatient bill it was stored with no price. The page then
+      repriced it later from the live Price List, while the stored total
+      stayed at 0.
+    - Both routes now skip it and say so (Arabic in `ARABIC_REVIEW.md`
+      §18), and `inpatient_billing.unit_price` is NOT NULL (baseline
+      edited, snapshot regenerated).
+
+  **Suite:** IQ **1457 passed, 4 skipped**; JO **1457 passed, 4 skipped**;
+  no database 589 passed (both test databases reset onto the new baseline).

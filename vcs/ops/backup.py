@@ -229,7 +229,7 @@ def resolve_restorable_backup(db, source_file):
     # backup_log.filepath, since dest_dir there is the backup_dir setting
     # as configured, not a canonicalized path.
     row = db.execute(
-        "SELECT id FROM backup_log WHERE filepath=? AND status='success'",
+        "SELECT id FROM backup_log WHERE filepath=%s AND status='success'",
         (source_file,),
     ).fetchone()
     if not row:
@@ -452,7 +452,7 @@ def _try_log_restore(get_fresh_db, status, dump_path, error, started, triggered_
         try:
             db.execute(
                 "INSERT INTO restore_log (started_at, finished_at, status, source_file, error, triggered_by) "
-                "VALUES (?,?,?,?,?,?)",
+                "VALUES (%s,%s,%s,%s,%s,%s)",
                 (started.isoformat(timespec="seconds"), clock.now().isoformat(timespec="seconds"),
                  status, dump_path, error, triggered_by),
             )
@@ -464,7 +464,7 @@ def _try_log_restore(get_fresh_db, status, dump_path, error, started, triggered_
 
 
 def recent_restores(db, limit=10):
-    return db.execute("SELECT * FROM restore_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return db.execute("SELECT * FROM restore_log ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
 
 
 def run_backup(db, dest_dir=None, retention=None, triggered_by=None, on_progress=None):
@@ -606,7 +606,7 @@ def _log(db, status, filepath, size, error, started=None, triggered_by=None):
     ts = (started or clock.now()).isoformat(timespec="seconds")
     row = db.execute(
         "INSERT INTO backup_log (started_at, status, filepath, filesize_bytes, error, triggered_by) "
-        "VALUES (?,?,?,?,?,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (ts, status, filepath, size, error, triggered_by),
     ).fetchone()
     db.commit()
@@ -615,7 +615,7 @@ def _log(db, status, filepath, size, error, started=None, triggered_by=None):
 
 def _finish_log(db, log_id, status, filepath, size, error):
     db.execute(
-        "UPDATE backup_log SET status=?, finished_at=?, filepath=?, filesize_bytes=?, error=? WHERE id=?",
+        "UPDATE backup_log SET status=%s, finished_at=%s, filepath=%s, filesize_bytes=%s, error=%s WHERE id=%s",
         (status, clock.now().isoformat(timespec="seconds"), filepath, size, error, log_id),
     )
     db.commit()
@@ -631,7 +631,7 @@ def reap_stale_running(db):
     so the Dashboard reports healthy backups for as long as that row sits
     there. Called once at app boot. See ORPHANED_RECORDS_AUDIT.md F-21."""
     n = db.execute(
-        "UPDATE backup_log SET status='failed', finished_at=?, "
+        "UPDATE backup_log SET status='failed', finished_at=%s, "
         "error='Backup did not finish — the app was stopped or the machine shut down "
         "while it was running.' "
         "WHERE status='running' RETURNING id",
@@ -646,4 +646,4 @@ def last_backup(db):
 
 
 def recent_backups(db, limit=10):
-    return db.execute("SELECT * FROM backup_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return db.execute("SELECT * FROM backup_log ORDER BY id DESC LIMIT %s", (limit,)).fetchall()

@@ -200,14 +200,14 @@ def ensure_first_admin():
         password = secrets.token_urlsafe(12)
         if users:
             username = users[0]["username"]
-            con.execute("UPDATE users SET password_hash=? WHERE id=?",
+            con.execute("UPDATE users SET password_hash=%s WHERE id=%s",
                         (auth.hash_password(password), users[0]["id"]))
         else:
             username = "admin"
             role = con.execute("SELECT id FROM roles WHERE is_system = true").fetchone()
             con.execute(
                 "INSERT INTO users (username, password_hash, full_name, role_id, active, "
-                "must_change_password, created_at) VALUES (?,?,?,?,true,true,now())",
+                "must_change_password, created_at) VALUES (%s,%s,%s,%s,true,true,now())",
                 (username, auth.hash_password(password), "Clinic Admin", role["id"]))
         con.commit()
     finally:

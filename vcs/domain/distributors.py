@@ -29,12 +29,12 @@ def distributor_ledger(db, distributor_id):
     """Bills for a distributor, each annotated with paid/balance/status,
     plus distributor-level totals. Used by the distributor detail page."""
     bills = [dict(r) for r in db.execute(
-        "SELECT * FROM distributor_bills WHERE distributor_id=? ORDER BY bill_date DESC, id DESC",
+        "SELECT * FROM distributor_bills WHERE distributor_id=%s ORDER BY bill_date DESC, id DESC",
         (distributor_id,)
     ).fetchall()]
     all_payments = db.execute(
         "SELECT * FROM distributor_bill_payments WHERE bill_id IN "
-        "(SELECT id FROM distributor_bills WHERE distributor_id=?) ORDER BY payment_date, id",
+        "(SELECT id FROM distributor_bills WHERE distributor_id=%s) ORDER BY payment_date, id",
         (distributor_id,)
     ).fetchall()
     by_bill = {}

@@ -353,7 +353,7 @@ def settings_page():
             if val is not None:
                 old = settings.get_setting(db, key)
                 db.execute(
-                    "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    "INSERT INTO settings (key,value) VALUES (%s,%s) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                     (key, val),
                 )
                 if old != val:
@@ -378,7 +378,7 @@ def settings_page():
             val = "1" if request.form.get("selfcheck_enabled") else "0"
             old = settings.get_setting(db, "selfcheck_enabled")
             db.execute(
-                "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                "INSERT INTO settings (key,value) VALUES (%s,%s) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 ("selfcheck_enabled", val),
             )
             if old != val:
@@ -386,18 +386,18 @@ def settings_page():
                                 {"selfcheck_enabled": (old, val)})
         if money_change:
             db.execute(
-                "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                "INSERT INTO settings (key,value) VALUES (%s,%s) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (money.SETTING_KEY, money_change[1]),
             )
             auth.log_change(db, "settings", money.SETTING_KEY, "update",
                             {money.SETTING_KEY: money_change})
         if tz_change:
             if tz_change[1]:
-                db.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+                db.execute("INSERT INTO settings (key,value) VALUES (%s,%s) "
                            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                            (clock.SETTING_KEY, tz_change[1]))
             else:
-                db.execute("DELETE FROM settings WHERE key=?", (clock.SETTING_KEY,))
+                db.execute("DELETE FROM settings WHERE key=%s", (clock.SETTING_KEY,))
             auth.log_change(db, "settings", clock.SETTING_KEY, "update", {clock.SETTING_KEY: tz_change})
         db.commit()
         if money_change:

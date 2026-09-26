@@ -22,7 +22,7 @@ pytestmark = needs_db
 
 def _last_login_row(db, username):
     return db.execute(
-        "SELECT ip, user_agent FROM login_log WHERE username=? ORDER BY id DESC LIMIT 1",
+        "SELECT ip, user_agent FROM login_log WHERE username=%s ORDER BY id DESC LIMIT 1",
         (username,),
     ).fetchone()
 

@@ -38,10 +38,10 @@ SETTING_KEYS = (
 
 def _set(db, key, value):
     if value is None:
-        db.execute("DELETE FROM settings WHERE key=?", (key,))
+        db.execute("DELETE FROM settings WHERE key=%s", (key,))
     else:
         db.execute(
-            "INSERT INTO settings (key,value) VALUES (?,?) "
+            "INSERT INTO settings (key,value) VALUES (%s,%s) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, value),
         )
@@ -60,7 +60,7 @@ def env(db, flask_app, tmp_path):
     """
     saved_rows = db.execute("SELECT * FROM backup_log ORDER BY id").fetchall()
     saved_settings = {
-        k: db.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone()
+        k: db.execute("SELECT value FROM settings WHERE key=%s", (k,)).fetchone()
         for k in SETTING_KEYS
     }
     saved_settings = {k: (r["value"] if r else None) for k, r in saved_settings.items()}
@@ -88,14 +88,14 @@ def env(db, flask_app, tmp_path):
     for row in saved_rows:
         db.execute(
             "INSERT INTO backup_log (id, started_at, finished_at, status, filepath, "
-            "filesize_bytes, error, triggered_by) VALUES (?,?,?,?,?,?,?,?)",
+            "filesize_bytes, error, triggered_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (row["id"], row["started_at"], row["finished_at"], row["status"],
              row["filepath"], row["filesize_bytes"], row["error"], row["triggered_by"]),
         )
     for row in saved_checks:
         db.execute(
             "INSERT INTO self_check_log (id, ran_at, status, findings, reported_at) "
-            "VALUES (?,?,?,?,?)",
+            "VALUES (%s,%s,%s,%s,%s)",
             (row["id"], row["ran_at"], row["status"], row["findings"], row["reported_at"]),
         )
     for k, v in saved_settings.items():
@@ -106,7 +106,7 @@ def env(db, flask_app, tmp_path):
 def add_backup(db, status, hours_ago=1, error=None):
     started = (clock.now() - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (%s,%s,%s,%s)",
         (started, started, status, error),
     )
     db.commit()
@@ -361,7 +361,7 @@ def _stamp(days_ago, minute=0):
 
 def _record(db, days_ago, status, minute=0):
     db.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
         (_stamp(days_ago, minute), status, "[]"),
     )
     db.commit()
@@ -518,7 +518,7 @@ def test_a_folder_that_held_backups_is_not_silently_recreated(env, tmp_path):
     _set(db, "backup_dir", str(gone))
     # a backup was written there, so this folder is an established destination
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),
@@ -557,7 +557,7 @@ def test_the_newest_backup_file_must_still_exist(env, tmp_path):
     from vcs.ops import selfcheck
     db = env["db"]
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success",
          str(tmp_path / "deleted_by_someone.dump")),
@@ -575,7 +575,7 @@ def test_a_backup_file_that_is_there_is_not_reported(env, tmp_path):
     real = tmp_path / "really_there.dump"
     real.write_text("x")
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success", str(real)),
     )
@@ -607,7 +607,7 @@ OLD_ALERT_TEXT = "The last database backup failed"
 
 def _record_check(db, *codes, status="fail"):
     db.execute(
-        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
+        "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"), status,
          json.dumps([{"code": c, "severity": "fail",
                       "message": f"finding {c} needs attention"} for c in codes])),
@@ -697,7 +697,7 @@ def test_backup_failing_drops_its_quote_when_the_folder_finding_explains_it(env,
     # a success inside the folder makes it an established destination, so
     # _check_backup_dir reports it as vanished rather than recreating it
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),
@@ -774,7 +774,7 @@ def test_a_flood_of_failures_does_not_bury_an_established_destination(env, db, t
     _set(db, "backup_dir", str(gone))
     db.execute("DELETE FROM backup_log")
     db.execute(
-        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
+        "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (%s,%s,%s,%s)",
         (clock.now().isoformat(timespec="seconds"),
          clock.now().isoformat(timespec="seconds"), "success",
          str(gone / "vetclinicsystem_backup.dump")),

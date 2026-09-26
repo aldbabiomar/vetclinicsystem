@@ -43,14 +43,14 @@ def _active_admin_count(db):
 # ---------------------------------------------------------------------------
 def _role_power(db, role_id):
     """(is_system, {permission ids}) of a role."""
-    row = db.execute("SELECT is_system FROM roles WHERE id=?", (role_id,)).fetchone()
+    row = db.execute("SELECT is_system FROM roles WHERE id=%s", (role_id,)).fetchone()
     perms = {r["permission_id"] for r in db.execute(
-        "SELECT permission_id FROM role_permissions WHERE role_id=?", (role_id,)).fetchall()}
+        "SELECT permission_id FROM role_permissions WHERE role_id=%s", (role_id,)).fetchall()}
     return (bool(row["is_system"]) if row else False), perms
 
 
 def _actor_power(db):
-    row = db.execute("SELECT role_id FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    row = db.execute("SELECT role_id FROM users WHERE id=%s", (session["user_id"],)).fetchone()
     return _role_power(db, row["role_id"]) if row else (False, set())
 
 
@@ -69,7 +69,7 @@ def _refuse_escalation():
 
 
 def _role_or_404(db, role_id):
-    row = db.execute("SELECT * FROM roles WHERE id=?", (role_id,)).fetchone()
+    row = db.execute("SELECT * FROM roles WHERE id=%s", (role_id,)).fetchone()
     if not row:
         abort(404)
     return row
@@ -84,7 +84,7 @@ def _future_appt_count(db, user_id):
     admin_user_role() (F-17), and admin_role_edit()/admin_role_delete()
     (F-25) so all four share one implementation."""
     return db.execute(
-        "SELECT COUNT(*) c FROM appointments WHERE resource_type='vet' AND resource_id=? AND appt_date >= ?",
+        "SELECT COUNT(*) c FROM appointments WHERE resource_type='vet' AND resource_id=%s AND appt_date >= %s",
         (user_id, clock.today().isoformat()),
     ).fetchone()["c"]
 
@@ -136,7 +136,7 @@ def admin_user_new():
     password = f.get("password", "")
     full_name = f.get("full_name", "").strip()
     role_id = parse_id(f.get("role_id"))
-    role = db.execute("SELECT id FROM roles WHERE id=?", (role_id,)).fetchone() if role_id else None
+    role = db.execute("SELECT id FROM roles WHERE id=%s", (role_id,)).fetchone() if role_id else None
     if not username or not full_name or not role:
         flash(_("Fill in a username, full name, and role."), "error")
         return redirect(url_for("admin.admin_users"))
@@ -146,7 +146,7 @@ def admin_user_new():
     if pw_error:
         flash(pw_error, "error")
         return redirect(url_for("admin.admin_users"))
-    if db.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+    if db.execute("SELECT 1 FROM users WHERE username=%s", (username,)).fetchone():
         flash(_("That username is already taken."), "error")
         return redirect(url_for("admin.admin_users"))
 
@@ -163,7 +163,7 @@ def admin_user_new():
 
     uid = db.execute(
         "INSERT INTO users (username,password_hash,full_name,role_id,custom_discount_cap,active,must_change_password,created_at) "
-        "VALUES (?,?,?,?,?,true,true,?) RETURNING id",
+        "VALUES (%s,%s,%s,%s,%s,true,true,%s) RETURNING id",
         (username, auth.hash_password(password), full_name, role_id, custom_cap, clock.now()),
     ).fetchone()["id"]
     auth.log_change(db, "users", uid, "create")
@@ -180,20 +180,20 @@ def admin_user_toggle(user_id):
         flash(_("You can't disable your own account."), "error")
         return redirect(url_for("admin.admin_users"))
     row = db.execute(
-        "SELECT u.active, r.is_system FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id=?",
+        "SELECT u.active, r.is_system FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id=%s",
         (user_id,),
     ).fetchone()
     if row is None:
         flash(_("User not found."), "error")
         return redirect(url_for("admin.admin_users"))
-    target_role = db.execute("SELECT role_id FROM users WHERE id=?", (user_id,)).fetchone()["role_id"]
+    target_role = db.execute("SELECT role_id FROM users WHERE id=%s", (user_id,)).fetchone()["role_id"]
     if _beyond_actor(db, *_role_power(db, target_role)):
         return _refuse_escalation()
     new_val = not row["active"]
     if new_val is False and row["is_system"] and _active_admin_count(db) <= 1:
         flash(_("Can't disable the last active Admin."), "error")
         return redirect(url_for("admin.admin_users"))
-    db.execute("UPDATE users SET active=? WHERE id=?", (new_val, user_id))
+    db.execute("UPDATE users SET active=%s WHERE id=%s", (new_val, user_id))
     auth.bump_permissions_version(db)
     auth.log_change(db, "users", user_id, "update", {"active": (row["active"], new_val)})
     db.commit()
@@ -208,14 +208,14 @@ def admin_user_toggle(user_id):
 def admin_user_role(user_id):
     db = get_db()
     new_role_id = parse_id(request.form.get("role_id"))
-    new_role = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?",
+    new_role = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=%s",
                           (new_role_id,)).fetchone() if new_role_id else None
     if not new_role:
         flash(_("Not a valid role."), "error")
         return redirect(url_for("admin.admin_users"))
     row = db.execute(
         "SELECT u.role_id, r.name AS role_name, r.is_system, r.is_vet_role FROM users u "
-        "JOIN roles r ON r.id = u.role_id WHERE u.id=?",
+        "JOIN roles r ON r.id = u.role_id WHERE u.id=%s",
         (user_id,),
     ).fetchone()
     if row is None:
@@ -226,7 +226,7 @@ def admin_user_role(user_id):
     if row["is_system"] and not new_role["is_system"] and _active_admin_count(db) <= 1:
         flash(_("Can't move the last active Admin out of the Admin role."), "error")
         return redirect(url_for("admin.admin_users"))
-    db.execute("UPDATE users SET role_id=? WHERE id=?", (new_role_id, user_id))
+    db.execute("UPDATE users SET role_id=%s WHERE id=%s", (new_role_id, user_id))
     auth.bump_permissions_version(db)
     auth.log_change(db, "users", user_id, "update", {"role": (row["role_name"], new_role["name"])})
     db.commit()
@@ -252,7 +252,7 @@ def admin_role_new():
     if not name:
         flash(_("Give the new role a name."), "error")
         return redirect(url_for("admin.admin_users"))
-    if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(?)", (name,)).fetchone():
+    if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(%s)", (name,)).fetchone():
         flash(_('A role named "%(name)s" already exists.', name=name), "error")
         return redirect(url_for("admin.admin_users"))
     try:
@@ -270,11 +270,11 @@ def admin_role_new():
     is_vet_role = bool(f.get("is_vet_role"))
     role_id = db.execute(
         "INSERT INTO roles (name,description,is_system,discount_cap,is_vet_role,created_at) "
-        "VALUES (?,?,false,?,?,?) RETURNING id",
+        "VALUES (%s,%s,false,%s,%s,%s) RETURNING id",
         (name, description, cap, is_vet_role, clock.now()),
     ).fetchone()["id"]
     for p in perms:
-        db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, p))
+        db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (%s,%s)", (role_id, p))
     auth.bump_permissions_version(db)
     auth.log_change(db, "roles", role_id, "create", {"name": (None, name)})
     db.commit()
@@ -300,7 +300,7 @@ def admin_role_edit(role_id):
     if not name:
         flash(_("A role needs a name."), "error")
         return redirect(url_for("admin.admin_users"))
-    if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(?) AND id<>?", (name, role_id)).fetchone():
+    if db.execute("SELECT 1 FROM roles WHERE lower(name)=lower(%s) AND id<>%s", (name, role_id)).fetchone():
         flash(_('A role named "%(name)s" already exists.', name=name), "error")
         return redirect(url_for("admin.admin_users"))
     try:
@@ -321,12 +321,12 @@ def admin_role_edit(role_id):
         "is_vet_role": role["is_vet_role"],
     }
     db.execute(
-        "UPDATE roles SET name=?, description=?, discount_cap=?, is_vet_role=? WHERE id=?",
+        "UPDATE roles SET name=%s, description=%s, discount_cap=%s, is_vet_role=%s WHERE id=%s",
         (name, description, cap, is_vet_role, role_id),
     )
-    db.execute("DELETE FROM role_permissions WHERE role_id=?", (role_id,))
+    db.execute("DELETE FROM role_permissions WHERE role_id=%s", (role_id,))
     for p in perms:
-        db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?,?)", (role_id, p))
+        db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (%s,%s)", (role_id, p))
     auth.bump_permissions_version(db)
     after = {"name": name, "description": description, "discount_cap": cap, "is_vet_role": is_vet_role}
     changes = {k: (before[k], after[k]) for k in before if before[k] != after[k]}
@@ -346,7 +346,7 @@ def admin_role_edit(role_id):
     # same-day parity pass, so this now applies here too. See
     # ORPHANED_RECORDS_AUDIT.md.
     if before["is_vet_role"] and not is_vet_role:
-        affected = db.execute("SELECT id FROM users WHERE role_id=? AND active=true", (role_id,)).fetchall()
+        affected = db.execute("SELECT id FROM users WHERE role_id=%s AND active=true", (role_id,)).fetchall()
         total = sum(_future_appt_count(db, u["id"]) for u in affected)
         if total:
             flash(_("Heads up: %(total)s upcoming appointment(s) across %(staff)s staff member(s) "
@@ -366,10 +366,10 @@ def admin_role_delete(role_id):
         return redirect(url_for("admin.admin_users"))
     if _beyond_actor(db, *_role_power(db, role_id)):
         return _refuse_escalation()
-    assigned = db.execute("SELECT id FROM users WHERE role_id=?", (role_id,)).fetchall()
+    assigned = db.execute("SELECT id FROM users WHERE role_id=%s", (role_id,)).fetchall()
     reassign_to = parse_id(request.form.get("reassign_to"))
     if assigned:
-        target = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=?",
+        target = db.execute("SELECT id, name, is_system, is_vet_role FROM roles WHERE id=%s",
                             (reassign_to,)).fetchone() if reassign_to else None
         if not target or target["id"] == role_id:
             flash(_("Pick a role to move the affected staff to before deleting this one."), "error")
@@ -379,8 +379,8 @@ def admin_role_delete(role_id):
         if _beyond_actor(db, *_role_power(db, target["id"])):
             return _refuse_escalation()
         for u in assigned:
-            db.execute("UPDATE users SET role_id=? WHERE id=?", (target["id"], u["id"]))
-        db.execute("DELETE FROM roles WHERE id=?", (role_id,))
+            db.execute("UPDATE users SET role_id=%s WHERE id=%s", (target["id"], u["id"]))
+        db.execute("DELETE FROM roles WHERE id=%s", (role_id,))
         auth.bump_permissions_version(db)
         auth.log_change(db, "roles", role_id, "delete",
                          {"reassigned_to": (None, target["name"]), "staff_moved": (None, len(assigned))})
@@ -398,7 +398,7 @@ def admin_role_delete(role_id):
                         'Check Appointments for the "need attention" list to reschedule them.',
                         total=display_number(total), staff=display_number(len(assigned))), "error")
     else:
-        db.execute("DELETE FROM roles WHERE id=?", (role_id,))
+        db.execute("DELETE FROM roles WHERE id=%s", (role_id,))
         auth.bump_permissions_version(db)
         auth.log_change(db, "roles", role_id, "delete", {"name": (role["name"], None)})
         db.commit()
@@ -415,7 +415,7 @@ def admin_role_delete(role_id):
 def admin_user_reset_password(user_id):
     db = get_db()
     new_pw = request.form.get("new_password", "")
-    target = db.execute("SELECT username, role_id FROM users WHERE id=?", (user_id,)).fetchone()
+    target = db.execute("SELECT username, role_id FROM users WHERE id=%s", (user_id,)).fetchone()
     if target is None:
         flash(_("User not found."), "error")
         return redirect(url_for("admin.admin_users"))
@@ -431,7 +431,7 @@ def admin_user_reset_password(user_id):
     # — the whole point of an admin resetting a password (e.g. a suspected
     # compromised account) is that it takes effect now, not up to 12 hours
     # from now once that session's cookie happens to expire on its own.
-    db.execute("UPDATE users SET password_hash=?, must_change_password=true, password_changed_at=? WHERE id=?",
+    db.execute("UPDATE users SET password_hash=%s, must_change_password=true, password_changed_at=%s WHERE id=%s",
                (auth.hash_password(new_pw), clock.now().isoformat(timespec="seconds"), user_id))
     auth.log_change(db, "users", user_id, "update", {"password": ("(hidden)", "(reset by admin)")})
     db.commit()
