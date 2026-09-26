@@ -1,0 +1,8 @@
+{# "← Back" to the page you came from, with its filters and page intact
+   (audit P5). Hidden until ui.js initBackLinks() finds a same-origin
+   referrer to point at -- which is why the style is inline: the script
+   reveals it by clearing it. #}
+<a href="#" class="back-link js-back-link" style="display:none;">
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+  <span class="js-back-link-label">{{ _('Back') }}</span>
+</a>

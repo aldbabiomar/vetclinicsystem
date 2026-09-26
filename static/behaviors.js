@@ -86,9 +86,23 @@
     return start.closest('[data-vz-href]');
   }
 
+  // A touch scroll that happens to start on a row is not a tap on it (audit
+  // P6): more than 10px of movement between press and release, and the row
+  // stays put. On a phone, scrolling a long list used to open whatever row
+  // the finger landed on. (The predecessor IQ app's ui.js had this; it now
+  // lives here, in the one row mechanism both apps' pages use.)
+  var press = null;
+  document.addEventListener('pointerdown', function (event) {
+    press = { x: event.clientX, y: event.clientY };
+  }, true);
+  function wasDragged(event) {
+    if (!press || event.clientX === undefined) { return false; }
+    return Math.abs(event.clientX - press.x) > 10 || Math.abs(event.clientY - press.y) > 10;
+  }
+
   document.addEventListener('click', function (event) {
     var el = rowTarget(event);
-    if (el) { window.location = el.getAttribute('data-vz-href'); }
+    if (el && !wasDragged(event)) { window.location = el.getAttribute('data-vz-href'); }
   });
 
   document.addEventListener('keydown', function (event) {

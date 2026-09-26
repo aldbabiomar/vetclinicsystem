@@ -2,6 +2,7 @@
 {% from "_member_discount.html" import member_discount_line with context %}
 {% block title %}{{ case.animal_name }} — {{ _('Inpatient') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head">
   <div>
     <h1>{{ case.animal_name }} <span class="muted" style="font-weight:400;font-size:16px;">— {{ case.owner_name }}</span></h1>
@@ -10,15 +11,15 @@
   <a class="btn secondary" href="{{ url_for('clinical.inpatient_export_pdf', case_id=case.id) }}">{{ _('Export Inpatient (PDF)') }}</a>
 </div>
 
-<div class="tabs">
-  <a href="#" class="tab-link active" data-tab="info" data-vzh="inpatient-detail-1">{{ _('Info') }}</a>
-  <a href="#" class="tab-link" data-tab="updates" data-vzh="inpatient-detail-2">{{ _('Daily Updates') }}</a>
-  <a href="#" class="tab-link" data-tab="contact" data-vzh="inpatient-detail-3">{{ _('Contact Log') }}</a>
-  <a href="#" class="tab-link" data-tab="billing" data-vzh="inpatient-detail-4">{{ _('Billing') }}</a>
-  <a href="#" class="tab-link" data-tab="files" data-vzh="inpatient-detail-5">{{ _('Attachments') }}</a>
+<div class="tabs" role="tablist">
+  <a href="#info" class="tab-link active" data-tab="info" role="tab" aria-selected="true" aria-controls="tab-info" data-vzh="inpatient-detail-1">{{ _('Info') }}</a>
+  <a href="#updates" class="tab-link" data-tab="updates" role="tab" aria-selected="false" aria-controls="tab-updates" data-vzh="inpatient-detail-2">{{ _('Daily Updates') }}</a>
+  <a href="#contact" class="tab-link" data-tab="contact" role="tab" aria-selected="false" aria-controls="tab-contact" data-vzh="inpatient-detail-3">{{ _('Contact Log') }}</a>
+  <a href="#billing" class="tab-link" data-tab="billing" role="tab" aria-selected="false" aria-controls="tab-billing" data-vzh="inpatient-detail-4">{{ _('Billing') }}</a>
+  <a href="#files" class="tab-link" data-tab="files" role="tab" aria-selected="false" aria-controls="tab-files" data-vzh="inpatient-detail-5">{{ _('Attachments') }}</a>
 </div>
 
-<div class="tab-pane" id="tab-info">
+<div class="tab-pane" id="tab-info" role="tabpanel">
   <div class="card">
     <form method="post" action="{{ url_for('clinical.inpatient_edit', case_id=case.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -49,7 +50,7 @@
   </div>
 </div>
 
-<div class="tab-pane" id="tab-updates" style="display:none;">
+<div class="tab-pane" id="tab-updates" role="tabpanel" style="display:none;">
   <div class="card" style="margin-bottom:16px;">
     <form method="post" action="{{ url_for('clinical.inpatient_update_add', case_id=case.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -65,7 +66,7 @@
         <div class="small muted">{{ u.timestamp|localtime }} · {{ u.full_name or "—" }}</div>
         <div class="update-note-text">{{ u.note }}</div>
       </div>
-      <button class="btn small secondary" type="button" data-vzh="inpatient-detail-7">{{ _('Edit') }}</button>
+      <button class="btn small secondary" type="button" aria-expanded="false" data-vzh="inpatient-detail-7">{{ _('Edit') }}</button>
     </div>
     <form method="post" action="{{ url_for('clinical.inpatient_update_edit', case_id=case.id, update_id=u.id) }}" class="update-edit-form" style="display:none; margin-top:10px;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -76,7 +77,7 @@
   {% else %}<div class="empty-note">{{ _('No updates logged yet.') }}</div>{% endfor %}
   {% if updates|length > 3 %}
   <div style="margin-top:14px;">
-    <button class="btn secondary" type="button" id="fullLogBtn"
+    <button class="btn secondary" type="button" id="fullLogBtn" aria-expanded="false" aria-controls="fullDailyLog"
             data-vzh="inpatient-detail-8">
       {{ _('View Full Daily Log History (%(updates)s entries)', updates=updates|length) }}
     </button>
@@ -89,7 +90,7 @@
             <div class="small muted">{{ u.timestamp|localtime }} · {{ u.full_name or "—" }}</div>
             <div class="update-note-text">{{ u.note }}</div>
           </div>
-          <button class="btn small secondary" type="button" data-vzh="inpatient-detail-7">{{ _('Edit') }}</button>
+          <button class="btn small secondary" type="button" aria-expanded="false" data-vzh="inpatient-detail-7">{{ _('Edit') }}</button>
         </div>
         <form method="post" action="{{ url_for('clinical.inpatient_update_edit', case_id=case.id, update_id=u.id) }}" class="update-edit-form" style="display:none; margin-top:10px;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -103,7 +104,7 @@
   {% endif %}
 </div>
 
-<div class="tab-pane" id="tab-contact" style="display:none;">
+<div class="tab-pane" id="tab-contact" role="tabpanel" style="display:none;">
   <div class="card" style="margin-bottom:16px;">
     <form method="post" action="{{ url_for('clinical.inpatient_contact_add', case_id=case.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -127,24 +128,23 @@
   {% endif %}
 </div>
 
-<div class="tab-pane" id="tab-billing" style="display:none;">
+<div class="tab-pane" id="tab-billing" role="tabpanel" style="display:none;">
   <div class="card" style="margin-bottom:16px;">
-    <form method="post" action="{{ url_for('clinical.inpatient_billing_add', case_id=case.id) }}">
+    {# Search the Price List -- services AND medicines -- and add to a cart
+       (audit P2; the same pattern as the visit bill). It used to be a
+       checkbox list of services only, rendered into every case page: a
+       medicine could not be billed to an inpatient case at all. #}
+    <form method="post" action="{{ url_for('clinical.inpatient_billing_add', case_id=case.id) }}" id="inpatientBillingForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <p class="small muted">{{ _('Check any procedure used and enter how many times it was given.') }}</p>
-      <input type="text" id="procSearch" placeholder="{{ _('Search by code or service name…') }}"
-             data-vzh="inpatient-detail-9" style="width:100%; margin-bottom:10px;">
-      <div id="procList" style="display:flex; flex-direction:column; gap:8px; margin:10px 0;">
-        {% for p in proc_items %}
-        <label class="checkbox-row small" data-search="{{ (p.id ~ ' ' ~ p.name)|lower }}" style="text-transform:none; font-weight:500; gap:10px;">
-          <input type="checkbox" name="price_id" value="{{ p.id }}" data-vzh="inpatient-detail-10" data-vz-arg="{{ p.id }}">
-          <span class="muted small">{{ p.id|code('PL') }}</span> {{ p.name }} <span class="muted">({{ p.sale_price|money }} {{ currency_label() }})</span>
-          <input type="number" id="qty_{{ p.id }}" name="qty_{{ p.id }}" min="1" value="1" style="display:none; width:60px;">
-        </label>
-        {% endfor %}
-        <p id="procEmpty" class="small muted" style="display:none;">{{ _('No matching items.') }}</p>
+      <div class="field full">
+        <label for="inpatientBillSearch">{{ _('Add to Bill') }}</label>
+        <input type="text" id="inpatientBillSearch" autocomplete="off"
+               placeholder="{{ _('Search by service, medicine, or item name…') }}">
+        <div id="inpatientBillResults"></div>
+        <div id="inpatientBillCart" class="u-mt-4"></div>
+        <div id="inpatientBillFieldsHidden"></div>
       </div>
-      <div class="form-actions form-actions-end"><button class="btn small" type="submit">{{ _('Add to Bill') }}</button></div>
+      <div class="form-actions form-actions-end"><button class="btn small" type="submit" data-vzh="inpatient-detail-9">{{ _('Add to Bill') }}</button></div>
     </form>
   </div>
 
@@ -193,15 +193,15 @@
   </div>
 </div>
 
-<div class="tab-pane" id="tab-files" style="display:none;">
+<div class="tab-pane" id="tab-files" role="tabpanel" style="display:none;">
   <div class="card">
     {% for file in files %}
     <div class="list-line">
       <a href="{{ url_for('clinical.serve_attachment', relpath=file.relative_path) }}" target="_blank">{{ file.original_name }}</a>
       <span class="meta">{{ file.uploaded_at|localdate }}
-        <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="Delete {{ file.original_name }}?">
+        <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="{{ _('Delete %(name)s? This removes the file permanently, including the copy on disk.', name=file.original_name) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small danger" type="submit" style="margin-left:8px;">{{ _('Delete') }}</button>
+          <button class="btn small danger" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
         </form>
       </span>
     </div>
@@ -218,9 +218,24 @@
 function showTab(name) {
   document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
   document.getElementById('tab-' + name).style.display = 'block';
-  document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
-  document.querySelector(`.tab-link[data-tab="${name}"]`).classList.add('active');
+  document.querySelectorAll('.tab-link').forEach(l => { l.classList.remove('active'); l.setAttribute('aria-selected', 'false'); });
+  const link = document.querySelector(`.tab-link[data-tab="${name}"]`);
+  link.classList.add('active');
+  link.setAttribute('aria-selected', 'true');
+  if (history.replaceState) history.replaceState(null, '', '#' + name);
+  // Every form on this page posts back here. Its action carries the current
+  // tab as a #fragment, which the browser keeps across the server's redirect
+  // (and shows on a redisplayed error), so a save lands on the tab the person
+  // was working in rather than always on Info (audit P3).
+  document.querySelectorAll('.tab-pane form').forEach(f => {
+    f.action = f.action.split('#')[0] + '#' + name;
+  });
 }
+(function () {
+  const validTabs = ['info', 'updates', 'contact', 'billing', 'files'];
+  const initial = (location.hash || '').replace('#', '');
+  showTab(validTabs.includes(initial) ? initial : 'info');
+})();
 function toggleDismissal() {
   // Toggling visibility alone isn't enough: a `required` input inside a
   // display:none container is skipped by HTML5 validation in most
@@ -234,16 +249,82 @@ function toggleDismissal() {
 }
 toggleDismissal();
 
-function filterProcList() {
-  const q = document.getElementById('procSearch').value.trim().toLowerCase();
-  const rows = document.querySelectorAll('#procList label[data-search]');
-  let visible = 0;
-  rows.forEach(row => {
-    const match = row.dataset.search.includes(q);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
+// The billing cart: always starts empty -- "Bill so Far" below shows what is
+// already on the bill -- and is submitted as price_id / qty_<id> pairs.
+let inpatientBillCart = [];
+const inpatientBillSearchInput = document.getElementById('inpatientBillSearch');
+const inpatientBillResultsDiv = document.getElementById('inpatientBillResults');
+const INPATIENT_BILL_CATEGORIES = {{ {'Service': _('Service'), 'Medicine': _('Medicine')}|tojson }};
+let inpatientBillDebounce;
+
+inpatientBillSearchInput.addEventListener('input', () => {
+  clearTimeout(inpatientBillDebounce);
+  const q = inpatientBillSearchInput.value.trim();
+  if (!q) { inpatientBillResultsDiv.innerHTML = ''; return; }
+  inpatientBillDebounce = setTimeout(() => {
+    fetch(`{{ url_for('inventory.api_price_list_lookup') }}?q=${encodeURIComponent(q)}&category=Service&category=Medicine`)
+      .then(r => r.json())
+      .then(list => {
+        if (!list.length) { inpatientBillResultsDiv.innerHTML = '<div class="empty-note">' + {{ _('No matches.')|tojson }} + '</div>'; return; }
+        window.__inpatientBillResults = list;
+        inpatientBillResultsDiv.innerHTML = list.map((i, idx) =>
+          `<div class="list-line pickable" data-idx="${idx}" data-vz-act="inpatient-detail-10">
+             <div class="who">${escapeHtml(i.name)}</div><div class="meta">${escapeHtml(INPATIENT_BILL_CATEGORIES[i.category] || i.category)} · ${i.price != null ? window.VZMoney.format(i.price) + ' {{ currency_label() }}' : {{ _('no price set')|tojson }}}</div>
+           </div>`
+        ).join('');
+      })
+      .catch(() => { inpatientBillResultsDiv.innerHTML = '<div class="empty-note">' + {{ _('Could not search the Price List; check server connection.')|tojson }} + '</div>'; });
+  }, 200);
+});
+
+function addToInpatientBillCart(item) {
+  if (item.price == null) { window.VZToast.show({{ _('{name} has no sale price set in the Price List.')|tojson }}.replace('{name}', item.name), 'error'); return; }
+  const existing = inpatientBillCart.find(c => String(c.id) === String(item.id));
+  if (existing) { existing.qty += 1; } else { inpatientBillCart.push({id: item.id, name: item.name, price: item.price, qty: 1}); }
+  inpatientBillSearchInput.value = '';
+  inpatientBillResultsDiv.innerHTML = '';
+  renderInpatientBillCart();
+}
+function changeInpatientBillQty(id, delta) {
+  const line = inpatientBillCart.find(c => String(c.id) === String(id));
+  line.qty = Math.max(1, line.qty + delta);
+  renderInpatientBillCart();
+}
+function setInpatientBillQty(id, value) {
+  const line = inpatientBillCart.find(c => String(c.id) === String(id));
+  let qty = parseFloat(value);
+  if (!Number.isFinite(qty) || qty <= 0) qty = 1;
+  line.qty = qty;
+  renderInpatientBillCart();
+}
+function removeInpatientBillLine(id) {
+  inpatientBillCart = inpatientBillCart.filter(c => String(c.id) !== String(id));
+  renderInpatientBillCart();
+}
+function renderInpatientBillCart() {
+  const cartDiv = document.getElementById('inpatientBillCart');
+  if (!inpatientBillCart.length) { cartDiv.innerHTML = '<div class="empty-note">' + {{ _('No items added yet.')|tojson }} + '</div>'; return; }
+  cartDiv.innerHTML = inpatientBillCart.map(c => `
+    <div class="pos-cart-line">
+      <div>${escapeHtml(c.name)}<div class="meta small">${ {{ _('{price} %(currency)s each', currency=currency_label())|tojson }}.replace('{price}', window.VZMoney.format(c.price)) }</div></div>
+      <div class="u-row-center">
+        <button class="btn small secondary" type="button" data-vz-act="inpatient-detail-11" data-line-id="${c.id}">-</button>
+        <input type="number" min="1" value="${c.qty}" class="cart-qty" data-vz-change="inpatient-detail-12" data-line-id="${c.id}">
+        <button class="btn small secondary" type="button" data-vz-act="inpatient-detail-13" data-line-id="${c.id}">+</button>
+        <button class="btn small danger" type="button" data-vz-act="inpatient-detail-14" data-line-id="${c.id}">×</button>
+      </div>
+    </div>`).join('');
+}
+renderInpatientBillCart();
+
+function prepareInpatientBillingSubmit() {
+  if (!inpatientBillCart.length) { window.VZToast.show({{ _('Add at least one billed item.')|tojson }}, 'error'); return false; }
+  const container = document.getElementById('inpatientBillFieldsHidden');
+  container.innerHTML = '';
+  inpatientBillCart.forEach(c => {
+    container.innerHTML += `<input type="hidden" name="price_id" value="${c.id}"><input type="hidden" name="qty_${c.id}" value="${c.qty}">`;
   });
-  document.getElementById('procEmpty').style.display = visible ? 'none' : '';
+  return true;
 }
 </script>
 <script nonce="{{ csp_nonce }}">
@@ -253,9 +334,13 @@ VZ.bind('inpatient-detail-3', 'click', function (event) { showTab('contact');ret
 VZ.bind('inpatient-detail-4', 'click', function (event) { showTab('billing');return false; });
 VZ.bind('inpatient-detail-5', 'click', function (event) { showTab('files');return false; });
 VZ.bind('inpatient-detail-6', 'change', function (event) { toggleDismissal(); });
-VZ.bind('inpatient-detail-7', 'click', function (event) { const c=this.closest('.card'); c.querySelector('.update-note-text').style.display='none'; c.querySelector('.update-edit-form').style.display='block'; this.style.display='none'; });
-VZ.bind('inpatient-detail-8', 'click', function (event) { document.getElementById('fullDailyLog').style.display='block'; this.style.display='none'; });
-VZ.bind('inpatient-detail-9', 'input', function (event) { filterProcList(); });
-VZ.bind('inpatient-detail-10', 'change', function (event) { document.getElementById('qty_' + this.dataset.vzArg).style.display = this.checked ? 'inline-block' : 'none'; });
+VZ.bind('inpatient-detail-7', 'click', function (event) { const c=this.closest('.card'); c.querySelector('.update-note-text').style.display='none'; c.querySelector('.update-edit-form').style.display='block'; this.style.display='none'; this.setAttribute('aria-expanded','true'); });
+VZ.bind('inpatient-detail-8', 'click', function (event) { document.getElementById('fullDailyLog').style.display='block'; this.setAttribute('aria-expanded','true'); this.style.display='none'; });
+VZ.bind('inpatient-detail-9', 'click', function (event) { return prepareInpatientBillingSubmit(); });
+VZ.action('inpatient-detail-10', function (event) { addToInpatientBillCart(window.__inpatientBillResults[this.dataset.idx]); });
+VZ.action('inpatient-detail-11', function (event) { changeInpatientBillQty(this.dataset.lineId, -1); });
+VZ.action('inpatient-detail-12', function (event) { setInpatientBillQty(this.dataset.lineId, this.value); });
+VZ.action('inpatient-detail-13', function (event) { changeInpatientBillQty(this.dataset.lineId, 1); });
+VZ.action('inpatient-detail-14', function (event) { removeInpatientBillLine(this.dataset.lineId); });
 </script>
 {% endblock %}

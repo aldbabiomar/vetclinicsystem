@@ -2,6 +2,7 @@
 {% from "_member_discount.html" import member_discount_line with context %}
 {% block title %}{{ visit.id|code('V') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head">
   <div>
     <h1>{{ visit.animal_name }} <span class="muted" style="font-weight:400;font-size:16px;">— {{ visit.date|localdate }}</span></h1>
@@ -30,7 +31,7 @@
     <div class="detail-item"><div class="k">{{ _('Updates Log') }}</div><div class="v updates-log">{{ visit.updates_log or "—" }}</div></div>
 
     <div style="margin-top:10px;">
-      <button class="btn small secondary" type="button" data-vzh="visit-detail-1">{{ _('Additional Tests / X-Rays') }}</button>
+      <button class="btn small secondary" type="button" aria-expanded="false" aria-controls="uploadBox" data-vzh="visit-detail-1">{{ _('Additional Tests / X-Rays') }}</button>
       <span class="small muted">{{ _('(%(files)s file(s) on record)', files=files|length) }}</span>
     </div>
     <div id="uploadBox" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);">
@@ -38,9 +39,9 @@
       <div class="list-line">
         <a href="{{ url_for('clinical.serve_attachment', relpath=file.relative_path) }}" target="_blank">{{ file.original_name }}</a>
         <span class="meta">{{ file.uploaded_at|localdate }}
-          <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="Delete {{ file.original_name }}?">
+          <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="{{ _('Delete %(name)s? This removes the file permanently, including the copy on disk.', name=file.original_name) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn small danger" type="submit" style="margin-left:8px;">{{ _('Delete') }}</button>
+            <button class="btn small danger" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
           </form>
         </span>
       </div>
@@ -253,8 +254,8 @@ function prepareBillingSubmit() {
 }
 </script>
 <script nonce="{{ csp_nonce }}">
-VZ.bind('visit-detail-1', 'click', function (event) { var b=document.getElementById('uploadBox'); b.style.display = (b.style.display==='none' ? 'block' : 'none'); });
-VZ.bind('visit-detail-2', 'click', function (event) { document.getElementById('uploadBox').style.display='none'; });
+VZ.bind('visit-detail-1', 'click', function (event) { var b=document.getElementById('uploadBox'); var open = b.style.display==='none'; b.style.display = open ? 'block' : 'none'; this.setAttribute('aria-expanded', String(open)); });
+VZ.bind('visit-detail-2', 'click', function (event) { document.getElementById('uploadBox').style.display='none'; var t = document.querySelector('[data-vzh="visit-detail-1"]'); if (t) t.setAttribute('aria-expanded', 'false'); });
 VZ.bind('visit-detail-3', 'change', function (event) { toggleBillingType(); });
 VZ.bind('visit-detail-4', 'click', function (event) { return prepareBillingSubmit(); });
 VZ.action('visit-detail-5', function (event) { addToVisitBillCart(window.__visitBillResults[this.dataset.idx]); });

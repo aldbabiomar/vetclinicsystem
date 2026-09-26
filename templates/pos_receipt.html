@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Sale #%(sale_id)s', sale_id=sale.id) }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head"><div><h1>{{ _('Sale #%(sale_id)s', sale_id=sale.id) }}</h1><p class="page-sub">{{ sale.sold_at|localtime }}</p></div>
   <a class="btn secondary" href="{{ url_for('sales.pos_page') }}">{{ _('New Sale') }}</a>
 </div>

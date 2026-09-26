@@ -1003,3 +1003,103 @@ def test_a_saved_bill_line_counts_up_as_a_number(browser, db, billable_visit):
         assert page.evaluate("() => visitBillCart[0].qty") == 3
     finally:
         ctx.close()
+
+
+@pytest.fixture
+def ward_case(db):
+    """An inpatient case and a medicine on the Price List."""
+    o, p, pl = new_id(), new_id(), new_id()
+    name = f"Ward Medicine {pl}"
+    db.execute("INSERT INTO owners (id, name) VALUES (?,?)", (o, "Ward Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (?,?,?)", (p, o, "Ward Pet"))
+    case = db.execute("INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, created_by) "
+                      "VALUES (?,?,false,?) RETURNING id", (p, clock.today(), ADMIN_ID)).fetchone()["id"]
+    db.execute("INSERT INTO price_list (id, name, category, sale_price, cost_price, active, can_discount) "
+               "VALUES (?,?,?,?,?,?,?)", (pl, name, "Medicine", Decimal("4.000"), Decimal("1.000"), True, True))
+    db.commit()
+    yield {"case": case, "name": name}
+    for sql, arg in (("DELETE FROM inpatient_billing WHERE case_id=?", case), ("DELETE FROM audit_log WHERE table_name='inpatient_billing' AND record_id=?", str(case)),
+                     ("DELETE FROM inpatient_cases WHERE id=?", case), ("DELETE FROM patients WHERE id=?", p),
+                     ("DELETE FROM owners WHERE id=?", o), ("DELETE FROM price_list WHERE id=?", pl)):
+        db.execute(sql, (arg,))
+    db.commit()
+
+
+def test_a_medicine_is_billed_to_a_case_and_the_page_stays_on_billing(browser, ward_case):
+    """GUARD (audit P2 and P3). From the Billing tab: search a MEDICINE —
+    the old tab listed services only — add it, and save. The page comes back
+    on Billing, with the medicine on the bill; it used to land on Info."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/inpatient/{ward_case['case']}", wait_until="networkidle")
+        page.click('.tab-link[data-tab="billing"]')
+        page.fill("#inpatientBillSearch", ward_case["name"])
+        hit = f'#inpatientBillResults [data-vz-act="inpatient-detail-10"]:has-text("{ward_case["name"]}")'
+        page.wait_for_selector(hit, timeout=10000)
+        page.click(hit)
+        page.click('#inpatientBillCart [data-vz-act="inpatient-detail-13"]')      # + : two of them
+        with page.expect_navigation():
+            page.click('#inpatientBillingForm button[type="submit"]')
+        page.wait_for_load_state("networkidle")
+        assert page.url.endswith("#billing"), page.url
+        assert page.is_visible("#tab-billing") and not page.is_visible("#tab-info"), "landed on another tab"
+        assert f"{ward_case['name']} × 2" in page.inner_text("#tab-billing")
+        assert not errors, f"JavaScript errors: {errors}"
+    finally:
+        ctx.close()
+
+
+def test_a_detail_page_offers_the_way_back_to_the_list_it_came_from(browser, billable_visit):
+    """GUARD (audit P5). Opened from a filtered list, a visit's page offers
+    "Back" to that exact list — the filter kept."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    try:
+        _login(page)
+        came_from = f"{APP_URL}/visits?date={clock.today().isoformat()}"
+        page.goto(f"{APP_URL}/visits/{billable_visit['visit']}", referer=came_from, wait_until="networkidle")
+        back = page.locator(".js-back-link")
+        assert back.is_visible(), "no way back"
+        assert back.get_attribute("href") == came_from
+    finally:
+        ctx.close()
+
+
+def test_control_no_back_link_without_a_page_to_go_back_to(browser, billable_visit):
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/visits/{billable_visit['visit']}", referer="", wait_until="networkidle")
+        assert not page.locator(".js-back-link").is_visible()
+    finally:
+        ctx.close()
+
+
+def test_a_drag_that_starts_on_a_row_does_not_open_it(browser, billable_visit):
+    """GUARD (audit P6). A press that moves more than 10px before it is
+    released is a scroll, not a tap — scrolling a list on a phone used to
+    open whichever row the finger started on. The click is the control."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    try:
+        _login(page)
+        page.goto(f"{APP_URL}/visits", wait_until="networkidle")
+        row = page.locator(f'tr[data-vz-href$="/visits/{billable_visit["visit"]}"]')
+        box = row.bounding_box()
+        x, y = box["x"] + 40, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x + 60, y, steps=6)
+        page.mouse.up()
+        page.wait_for_timeout(400)
+        assert page.url.rstrip("/").endswith("/visits"), f"a drag opened the row: {page.url}"
+        with page.expect_navigation():
+            row.click(position={"x": 40, "y": box["height"] / 2})
+        assert page.url.endswith(f"/visits/{billable_visit['visit']}")
+    finally:
+        ctx.close()

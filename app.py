@@ -47,6 +47,7 @@ import clock
 import money
 import backup
 import js_strings
+import nav
 
 # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
 # live in core.py so the route blueprints under routes/ can reach them
@@ -772,6 +773,13 @@ def inject_money_setting():
 
 
 @app.context_processor
+def inject_nav():
+    """The sidebar's groups and links this person can open (nav.py, audit
+    P1). From the session's permissions -- no table read."""
+    return dict(nav_groups=nav.visible(session.get("permissions") or []))
+
+
+@app.context_processor
 def inject_js_strings():
     """The static scripts' sentences, in the clinic's language, for base.html
     to hand them as window.VZ_I18N (audit F2; js_strings.py)."""
@@ -842,7 +850,11 @@ def require_login():
                                                                user["password_changed_at"]):
         session.clear()
         flash(_("Your password was changed — please log in again."), "error")
-        return redirect(url_for("login"))
+        _warn_if_submission_will_be_lost()
+        # Back to the page they were on after signing in again, as the
+        # signed-out path above does (audit P14: the predecessor apps did
+        # one or the other -- a reason, or the way back -- never both).
+        return redirect(url_for("login", next=request.path))
     auth.refresh_session_permissions(db, user)
     if user["must_change_password"] and request.endpoint != "change_password":
         return redirect(url_for("change_password"))

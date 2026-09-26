@@ -45,7 +45,9 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         # A macro file, imported by the three bill screens.
                         "_member_discount.html",
                         # Included inside the three edit forms (audit B4).
-                        "_edit_conflict.html"}
+                        "_edit_conflict.html",
+                        # Included at the top of 15 detail pages (audit P5).
+                        "_back_link.html"}
 
 
 @pytest.fixture(scope="module")

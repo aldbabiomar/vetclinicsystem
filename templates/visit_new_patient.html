@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Log Visit — New Patient') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head"><div><h1>{{ _('Log Visit — New Patient') }}</h1></div></div>
 <div class="card">
 <form method="post" data-track-unsaved>

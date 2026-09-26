@@ -79,7 +79,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B19** | Low | both | Wellness "due" never expires; the two apps sort it in opposite orders | **Fixed** — owner decision D-16; `test_wellness_reminders.py` |
 | **S4** | Low | JO | Dev mode runs the Werkzeug debugger on `0.0.0.0` | **Fixed** — `listen_host()`: dev mode is loopback only |
 | **S5** | Low | JO | `/reports/rebuild` redirects to an unvalidated `return_to` | **Fixed** — phase 3: the route was the Rebuild button's, and it is gone |
-| **P1–P20** | — | — | Parity gaps, non-money | see §4 |
+| **P1–P20** | — | — | Parity gaps, non-money | **Done** — see §4 |
 | **D1–D12** | — | — | Design that could be simplified | see §5 |
 | **M1–M10** | — | — | Found while merging, after this audit | see §10 |
 
@@ -877,28 +877,28 @@ step sizes and currency formatting, IQ's two palettes and branded images,
 country phone constants, IQ-only `test_arabic_wrapping.py` (`COMPARISON.md`
 §62.2). B3, B6 and B7 above are JO bugs, not parity items.
 
-| # | Area | IQ | JO | Suggested direction |
-|---|---|---|---|---|
-| P1 | **Sidebar gating** | every link wrapped in `has_permission` | every clinical/inventory/POS link shown to everyone — a `manage_settings`-only user saw **20** links vs IQ's 4, all but 4 leading to 403 (**verified**) | port IQ |
-| P2 | **Inpatient billing** | search API, Service **and Medicine** | server-rendered checkbox list of `category='Service'` only — **Medicine cannot be billed to an inpatient case from the UI**; the whole service catalogue is rendered into every case page (`_inpatient_detail_context`) | port IQ |
-| P3 | Inpatient tabs | tab kept in the URL hash across submits; ARIA tab roles | every submit lands back on "Info"; no ARIA | port IQ |
-| P4 | Patient history | `patient_outpatient_visits()` drops the "Inpatient" admitting visit already represented by the case | shows the same encounter twice | port IQ |
-| P5 | Back link | `_back_link.html` on 16 detail pages | none (the `ui.js` code that drives it is dead in JO) | port IQ |
-| P6 | Row navigation | `data-row-href` (ui.js): 10px drag threshold, press feedback, aria-label | `data-vz-href` (behaviors.js): plain click — a touch scroll that starts on a row opens it; inline `cursor` style | pick one mechanism for both (D8) |
-| P7 | Audit confirm | warns when a consignment item is counted below expected and suggests logging shrinkage | no warning | port IQ |
-| P8 | `inpatient_billing_add` with a staff discount and a non-discountable item | refuses the whole submission | adds the rest and skips the blocked ones | decide once |
-| P9 | `inpatient_new` | audit-logs exam findings, admitted items, vets | logs only the create | port IQ |
-| P10 | Edit conflicts (B4) | visit/boarding redirect; inpatient redisplays | all three redisplay | one behaviour, fixed per B4 |
-| P11 | Date filters (B1) | inline `parse_date()` ×7 | `date_filter_arg()` helper (strict), except cash register/appointments | port JO's helper, then fix both |
-| P12 | Report rebuild | background job + progress bar (`rebuild.js`) | synchronous POST, unvalidated `return_to` | port IQ |
-| P13 | POS name search | `inventory_status_by_id()` per result — up to 10 full catalogue recomputes per keystroke | computed once | port JO |
-| P14 | Signed out after a password change | no message, keeps `next` | flashes why, drops `next` | combine: message **and** `next` |
-| P15 | Wellness sort (B19) | newest first | oldest first | decide once |
-| P16 | Appointment booking error (B17) | keeps the booked day | jumps to today | port IQ |
-| P17 | Distributor bill/payment redisplay for a deleted distributor | 404 | 500 (B11) | port IQ |
-| P18 | Migrations (`INCREMENTAL_SCHEMA_STATEMENTS`) | bumps `permissions_version` on **every launch**; lacks `backup_log.triggered_by` and `barcode_source` ALTERs | lacks the `manage_cash_register` retro-grant and the `consignment_since`/`refund_method` ALTERs and "Bank Transfer" normalisation | legacy-upgrade paths only; converge the list |
-| P19 | Vet lookup | one `logic.vet_users()` | the same query inlined 3× (`day_grid`, `orphaned_appointments`, routes) | port IQ |
-| P20 | Small UI | attachment delete "×" with aria-label and a fuller confirm; `aria-expanded` on toggles | plain "Delete"; per-item "print" barcode link in the catalogue that IQ lacks | converge |
+| # | Area | IQ | JO | Suggested direction | Status |
+|---|---|---|---|---|---|
+| P1 | **Sidebar gating** | every link wrapped in `has_permission` | every clinical/inventory/POS link shown to everyone — a `manage_settings`-only user saw **20** links vs IQ's 4, all but 4 leading to 403 (**verified**) | port IQ | **Done** — `nav.py`: a link is drawn when its page's own `permission_required` lets you in; `test_nav_registry.py` |
+| P2 | **Inpatient billing** | search API, Service **and Medicine** | server-rendered checkbox list of `category='Service'` only — **Medicine cannot be billed to an inpatient case from the UI**; the whole service catalogue is rendered into every case page (`_inpatient_detail_context`) | port IQ | **Done** — search-and-cart over Service and Medicine; the catalogue no longer rendered into the page; `test_inpatient_billing_ui.py`, browser test |
+| P3 | Inpatient tabs | tab kept in the URL hash across submits; ARIA tab roles | every submit lands back on "Info"; no ARIA | port IQ | **Done** — tabs kept across submits via the form action's fragment; ARIA roles; browser test |
+| P4 | Patient history | `patient_outpatient_visits()` drops the "Inpatient" admitting visit already represented by the case | shows the same encounter twice | port IQ | **Done** — `logic.patient_outpatient_visits()` (by `inpatient_cases.visit_id`, else IQ's same-day rule), history page and patient-file PDF; `test_patient_history.py` |
+| P5 | Back link | `_back_link.html` on 16 detail pages | none (the `ui.js` code that drives it is dead in JO) | port IQ | **Done** — `_back_link.html` on the 15 detail pages; browser test |
+| P6 | Row navigation | `data-row-href` (ui.js): 10px drag threshold, press feedback, aria-label | `data-vz-href` (behaviors.js): plain click — a touch scroll that starts on a row opens it; inline `cursor` style | pick one mechanism for both (D8) | **Done** — one mechanism (`data-vz-href`), IQ's 10px drag threshold, CSS cursor and press feedback; `initRowNav` removed; browser test |
+| P7 | Audit confirm | warns when a consignment item is counted below expected and suggests logging shrinkage | no warning | port IQ | **Done** — shortfall warning at confirm, translated; `test_audit_shortfall.py` |
+| P8 | `inpatient_billing_add` with a staff discount and a non-discountable item | refuses the whole submission | adds the rest and skips the blocked ones | decide once | **Done** — owner decision D-5: the whole submission refused, items named; `test_money_routes.py::test_d5_*` |
+| P9 | `inpatient_new` | audit-logs exam findings, admitted items, vets | logs only the create | port IQ | **Done** — the admission's fields in the change log; `test_patient_history.py` |
+| P10 | Edit conflicts (B4) | visit/boarding redirect; inpatient redisplays | all three redisplay | one behaviour, fixed per B4 | **Done** — B4 |
+| P11 | Date filters (B1) | inline `parse_date()` ×7 | `date_filter_arg()` helper (strict), except cash register/appointments | port JO's helper, then fix both | **Done** — B1 |
+| P12 | Report rebuild | background job + progress bar (`rebuild.js`) | synchronous POST, unvalidated `return_to` | port IQ | **Moot** — no Rebuild (phase 3) |
+| P13 | POS name search | `inventory_status_by_id()` per result — up to 10 full catalogue recomputes per keystroke | computed once | port JO | **Done** — already JO's shape; the checkout now computes stock once too |
+| P14 | Signed out after a password change | no message, keeps `next` | flashes why, drops `next` | combine: message **and** `next` | **Done** — the reason and `next`; `test_privileges.py` |
+| P15 | Wellness sort (B19) | newest first | oldest first | decide once | **Done** — D-16 / B19 |
+| P16 | Appointment booking error (B17) | keeps the booked day | jumps to today | port IQ | **Done** — B17 |
+| P17 | Distributor bill/payment redisplay for a deleted distributor | 404 | 500 (B11) | port IQ | **Done** — B11 |
+| P18 | Migrations (`INCREMENTAL_SCHEMA_STATEMENTS`) | bumps `permissions_version` on **every launch**; lacks `backup_log.triggered_by` and `barcode_source` ALTERs | lacks the `manage_cash_register` retro-grant and the `consignment_since`/`refund_method` ALTERs and "Bank Transfer" normalisation | legacy-upgrade paths only; converge the list | **Moot** — one numbered migration history replaced both apps' upgrade lists (phase 2) |
+| P19 | Vet lookup | one `logic.vet_users()` | the same query inlined 3× (`day_grid`, `orphaned_appointments`, routes) | port IQ | **Done** — `logic.vet_users()`; seam rule 11 |
+| P20 | Small UI | attachment delete "×" with aria-label and a fuller confirm; `aria-expanded` on toggles | plain "Delete"; per-item "print" barcode link in the catalogue that IQ lacks | converge | **Done** — translated × with aria-label and a full confirm; `aria-expanded` on the toggles |
 
 Also: seven indexes have different names in the two schemas
 (`idx_consreceipts_dist` vs `idx_consreceipts_distributor`, …) — harmless, but
@@ -908,11 +908,23 @@ JO's `boarding_payment` still carries the Clean Up checks that
 `cleanup_amount_error()` now performs (`FULL_APP_REVIEW` M5 remnant); JO's
 schema comment on `inventory_transactions.reason` lists two of the six reasons.
 
+**Done (merge).**
+
+- **Index names** have no two versions to reconcile now, as there is one
+  schema.
+- **`list_audit_sessions()`** always returns `(rows, total)`.
+- **`boarding_payment`** uses the shared `cleanup_amount_error()`.
+- **`inventory_transactions.reason`** has a correct comment and a CHECK on
+  the five reasons that are actually written. `manual_adjustment` was never
+  written by anything.
+
 ---
 
 # 5. Design that could be simplified
 
 ## D1 — Two forks that are 83% the same file
+
+**Status:** being resolved by the merge itself — one tree, one money model, one schema.
 
 83.1% of IQ's Python/HTML/JS/CSS lines exist verbatim in JO. The real
 differences are a money module, two phone constants, a palette, branding, a
@@ -931,6 +943,8 @@ generate them from one source.
 
 ## D2 — Denormalised totals kept in sync by hand at ~30 call sites
 
+**Status:** partly done. The P&L summary table and its ~16 hand-kept call sites are gone (phase 3). The bills' own stored totals are still refreshed by per-bill helpers, and folding them into one `bill_changed()` entry point is part of the `vcs/` restructure (owner decision D-15).
+
 `billing.total`, `inpatient_cases.total`, `boarding_sessions.billed_total` and
 `monthly_financial_summary` are caches. They are refreshed by explicit calls:
 14 `refresh_*_total()` sites and 16 `recompute_month_summary()` sites in IQ
@@ -944,6 +958,8 @@ affected month together.
 
 ## D3 — The whole dashboard is computed on every page
 
+**Status:** open. To be done in the `vcs/` restructure: the sidebar badge from `COUNT(*)` queries.
+
 `inject_globals()` (IQ `app.py:718`) calls `dashboard_snapshot()` on every
 rendered page for the sidebar badge. That function fetches **every visit row**
 to count active cases in Python (`SELECT case_status FROM visits`,
@@ -954,6 +970,8 @@ all confirmed audit lines). It grows with history on every click. Use
 
 ## D4 — `inventory_status_by_id()` recomputes the catalogue to answer for one item
 
+**Status:** partly done. The POS search, the checkout and the audit confirm compute stock once. `inventory_status_by_id()` itself is still catalogue-wide, and is left to the restructure.
+
 It runs `inventory_status()` (every active item, every confirmed audit line,
 one transaction aggregate) and scans the result. POS checkout calls it once
 per cart line **while holding the row locks**; shrinkage and returns call it
@@ -961,6 +979,8 @@ under a lock; IQ's POS search calls it per result (P13). Add
 `inventory_status_for(db, item_ids)` that scopes the three queries.
 
 ## D5 — Migrations re-run in full on every launch
+
+**Status:** done (phase 2): numbered migrations, each applied once (`schema.py`).
 
 > **Fixed — phase 2a.** `schema.py` + `migrations/`: each file runs once, in its own transaction; a failure stops the install or update instead of being recorded and started past. P18's IQ/JO list differences are moot — there is one baseline, and IQ's schema was checked against it (identical apart from index names).
 
@@ -975,6 +995,8 @@ as missing numbers.
 
 ## D6 — Three date validators and TEXT timestamps
 
+**Status:** done. `timestamptz` everywhere (phase 2). One strict parser for request dates, and `logic.as_date` for stored ones (B1).
+
 > **TEXT timestamps: fixed — phase 2c.** 39 event-time columns are `timestamptz`, `sales.sale_date` is `sold_at`, and "now"/"today" come from one clock in the clinic's zone (`clock.py`, the Time Zone setting). The three date validators remain — that is B1's fix.
 
 `parse_date()` (lenient), `clean_date()` (strict, raises), `clean_date_filter()`
@@ -987,12 +1009,16 @@ would make range filters indexable and B13 impossible.
 
 ## D7 — A SQLite-era placeholder translator
 
+**Status:** open. It goes with the restructure's `db/pool.py` (native `%s`).
+
 `db.Connection.execute()` rewrites every `?` to `%s` with a regex that is not
 quote-aware (its own comment says so). psycopg supports `%s` natively; a
 one-time rewrite of the SQL strings would delete the translator and the class
 of bug it documents.
 
 ## D8 — Two ways to do the same thing, in the same app
+
+**Status:** largely done. One row-navigation mechanism (P6) and one date parser (B1). Anything left gets swept up in the restructure.
 
 - Row navigation: `ui.js` (`data-row-href`) **and** `behaviors.js`
   (`data-vz-href`) ship in both apps; each app uses one, the other is dead
@@ -1003,6 +1029,8 @@ of bug it documents.
 - Date filters (P11), vet lookup (P19), conflict handling (P10).
 
 ## D9 — Missing indexes for the filters the app actually runs
+
+**Status:** done (phase 2).
 
 > **Fixed — phases 2b and 2c**: every index listed (plus refunds by visit / case / stay), and the `substr(timestamp,1,10)=?` / `LIKE 'YYYY-MM%'` filters are now indexed ranges over `timestamptz`.
 
@@ -1016,6 +1044,8 @@ each is a full scan that grows with years of data.
 
 ## D10 — Inconsistent constraints on money
 
+**Status:** done (phase 1/2): `NUMERIC` with NaN-excluding CHECKs on every money column, and CHECKs on the method columns (B10).
+
 > **Fixed — phase 2b.** Every NUMERIC column has a CHECK — its sign as the routes already enforce it, percentages 0–100, and never NaN (which passes `>= 0` in Postgres) — pinned for future columns by `tests/test_quantities.py::test_every_numeric_column_refuses_nan`. Quantization before validation was phase 1 (B6).
 
 Only `distributor_bill_payments.amount` has `CHECK (amount > 0)`; `payments`,
@@ -1026,12 +1056,16 @@ table and not the others. In JO, NUMERIC scale and Python validation disagree
 
 ## D11 — Helpers that commit
 
+**Status:** partly done. `get_or_create_draft_session()` no longer commits (B20). The rest goes into the restructure's services-own-the-rules layout.
+
 `get_or_create_draft_session()` and `_ensure_summary_populated()` call
 `db.commit()` from inside `logic.py`, whose own convention (and
 `close_db()`'s design) is that the request commits once. A helper commit
 splits a request into two transactions without its caller knowing.
 
 ## D12 — Comment volume, and comments that are now wrong
+
+**Status:** ongoing. Wrong comments are corrected where code is touched, and the "why" documents move to `docs/decisions/` in the restructure.
 
 Comments and docstrings are **29%** of non-blank Python lines in both apps.
 Much of that is history ("this used to…", finding numbers, dates) that belongs

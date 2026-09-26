@@ -299,3 +299,20 @@ def test_they_cannot_delete_a_role_that_holds_more_than_they_do(db, as_role):
     me["client"].post(f"/admin/roles/{stronger['role_id']}/delete", data={"reassign_to": me["role_id"]})
     assert db.execute("SELECT 1 FROM roles WHERE id=?", (stronger["role_id"],)).fetchone() is not None
     assert _role_of(db, stronger["user_id"]) == stronger["role_id"]
+
+
+def test_signed_out_by_a_password_change_is_told_why_and_brought_back(db, as_role):
+    """GUARD (audit P14). One predecessor app said why and lost the page; the
+    other kept the page and said nothing."""
+    me = as_role({"manage_owners"})
+    db.execute("UPDATE users SET password_changed_at = now() WHERE id=?", (me["user_id"],))
+    db.commit()
+    resp = me["client"].get("/owners")
+    location = resp.headers["Location"]
+    assert resp.status_code == 302 and ("next=/owners" in location or "next=%2Fowners" in location), location
+    login_page = me["client"].get(resp.headers["Location"]).get_data(as_text=True)
+    assert "Your password was changed" in login_page
+    username = db.execute("SELECT username FROM users WHERE id=?", (me["user_id"],)).fetchone()["username"]
+    back = me["client"].post(resp.headers["Location"], data={"username": username, "password": PASSWORD},
+                             environ_base={"REMOTE_ADDR": "10.78.1.1"})
+    assert back.status_code == 302 and back.headers["Location"].endswith("/owners"), back.headers.get("Location")

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ patient.animal_name }} {{ _('History') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head">
   <div><h1>{{ _('%(patient)s — Full History', patient=patient.animal_name) }}</h1><p class="page-sub">{{ patient.id|code('PT') }} · {{ _('Owner: %(owner)s', owner=patient.owner_name) }}</p></div>
   <a class="btn secondary" href="{{ url_for('clinical.patient_detail', patient_id=patient.id) }}">{{ _('Back to Patient') }}</a>

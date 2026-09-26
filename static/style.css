@@ -991,6 +991,23 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
 .restoring { max-width: 640px; margin: 12vh auto 0; padding: 0 var(--space-6); }
 .restoring [dir="rtl"] { margin-top: var(--space-6); }
 
+/* A table row that opens its record (behaviors.js, data-vz-href): looks
+   clickable, and answers a press (audit P6). */
+[data-vz-href] { cursor: pointer; }
+[data-vz-href]:active > td { background: var(--line-soft); }
+
+/* "← Back" to where you came from (templates/_back_link.html, audit P5). */
+.back-link {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600;
+  color: var(--ink-soft); margin-bottom: 10px;
+}
+.back-link:hover { color: var(--primary); opacity: 1; }
+[dir="rtl"] .back-link svg { transform: scaleX(-1); }
+
+/* A search result you click to add (the bill carts), and a cart's quantity box. */
+.list-line.pickable { cursor: pointer; }
+.cart-qty { width: 56px; text-align: center; }
+
 /* The edit-conflict panel (templates/_edit_conflict.html): spans the whole
    row when the edit form is itself a grid (the boarding row editor). */
 .form-grid > .edit-conflict { grid-column: 1 / -1; }

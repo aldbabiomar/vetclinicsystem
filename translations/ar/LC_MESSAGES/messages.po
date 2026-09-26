@@ -7682,3 +7682,24 @@ msgstr "لديك تغييرات غير محفوظة في عنصر واحد (%(na
 #: audit F2
 msgid "You have unsaved changes on this page. Leave without saving?"
 msgstr "لديك تغييرات غير محفوظة في هذه الصفحة. هل تريد المغادرة دون حفظ؟"
+
+#: routes/clinical.py (reviewed Arabic, from the predecessor IQ app)
+#, python-format
+msgid "Can't add — this case has a %(discount_percent)s%% discount applied, but includes item(s) marked as not discountable: %(join)s. Remove the discount first, or leave these items off this bill."
+msgstr "تعذّرت الإضافة — على هذه الحالة خصم %(discount_percent)s٪، لكنها تتضمن أصنافًا غير قابلة للخصم: %(join)s. أزل الخصم أولًا، أو استبعد هذه الأصناف من الفاتورة."
+
+#: parity ports
+msgid "%(name)s (%(distributor)s): short %(quantity)s"
+msgstr "%(name)s (%(distributor)s): ناقص %(quantity)s"
+
+#: parity ports
+msgid "Consignment item(s) came in under the expected count — %(items)s. If this wasn't just a counting difference, log it as shrinkage from Consignment > Shrinkage so it's reflected in what's owed."
+msgstr "جاء عدّ بعض أصناف الأمانة أقل من المتوقع — %(items)s. إن لم يكن ذلك مجرد فرق في العدّ، فسجّله كهالك من الأمانة > الهالك ليظهر في المستحق للمورد."
+
+#: parity ports
+msgid "Delete %(name)s"
+msgstr "حذف %(name)s"
+
+#: parity ports
+msgid "Delete %(name)s? This removes the file permanently, including the copy on disk."
+msgstr "حذف %(name)s؟ سيؤدي ذلك إلى حذف الملف نهائيًا، بما في ذلك النسخة المحفوظة على القرص."

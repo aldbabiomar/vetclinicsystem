@@ -134,37 +134,9 @@
     });
   }, true);
 
-  // ---------------------------------------------------------------
-  // 1.6 — Row press feedback + 10px movement threshold + focus + aria-label
-  // for every tabindex="0" role="link" table row. Rows carry data-row-href
-  // instead of inline onclick, so a press-and-drag scroll on a touchscreen
-  // doesn't also trigger the row underneath (§10).
-  // ---------------------------------------------------------------
-  function initRowNav() {
-    document.querySelectorAll("tr[data-row-href]").forEach(function (tr) {
-      if (tr.dataset.rowNavBound === "1") return;
-      tr.dataset.rowNavBound = "1";
-      let startX = 0,
-        startY = 0,
-        dragged = false;
-      tr.addEventListener("pointerdown", function (e) {
-        startX = e.clientX;
-        startY = e.clientY;
-        dragged = false;
-      });
-      tr.addEventListener("pointermove", function (e) {
-        if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) dragged = true;
-      });
-      tr.addEventListener("pointerup", function (e) {
-        if (dragged) return;
-        if (e.target.closest("a, button, input, select, textarea")) return;
-        window.location = tr.dataset.rowHref;
-      });
-      tr.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") window.location = tr.dataset.rowHref;
-      });
-    });
-  }
+  // (1.6 — clickable table rows now live in behaviors.js, data-vz-href,
+  // with the 10px drag threshold that used to be here: one mechanism for
+  // every page, audit P6.)
 
   // ---------------------------------------------------------------
   // 1.4 — Sidebar group collapsing, remembers last open/closed state per
@@ -277,8 +249,7 @@
       if (meta) e.detail.headers["X-CSRFToken"] = meta.content;
     });
     document.body.addEventListener("htmx:afterSwap", function () {
-      initRowNav();
-      initScrollFade();
+        initScrollFade();
       initModals();
     });
     document.body.addEventListener("htmx:beforeRequest", function (e) {
@@ -324,7 +295,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    initRowNav();
     initCollapsibleGroups();
     initScrollFade();
     initModals();

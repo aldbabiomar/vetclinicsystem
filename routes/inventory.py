@@ -23,7 +23,7 @@ from flask import (
     Blueprint, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import flash, BadDate, BadNumber, PER_PAGE, list_join, strict_date, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
+from core import flash, BadDate, BadNumber, PER_PAGE, display_quantity, list_join, strict_date, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
 import clock
 
 def _picked_id(raw):
@@ -69,9 +69,8 @@ def api_inventory_lookup():
         # otherwise). Computed once up front and looked up by item_id
         # instead.
         status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
-        # Batched the same way status_by_item is, one query for the page of
-        # results rather than one per row. JO precomputes here where IQ calls
-        # per row — each app's own shape, same field on the wire.
+        # Batched the same way status_by_item is: one query for the page of
+        # results rather than one per row (audit P13).
         discountable_by_item = logic.discountable_by_item_ids(db, [r["id"] for r in rows])
         out = []
         for r in rows:
@@ -953,6 +952,7 @@ def audit_session_confirm(session_id):
         flash(_("Nothing has been counted in this audit yet — fill in at least one item "
               "before confirming."), "error")
         return redirect(url_for("inventory.audit_session_view", session_id=session_id))
+    shortfalls = _consignment_shortfalls(db, session_id)
     # Microsecond precision (not seconds) — inventory_status()'s stock
     # calculation compares inventory_transactions.timestamp against this
     # column with a strict '>' on whole-second-precision TEXT strings; a
@@ -967,7 +967,38 @@ def audit_session_confirm(session_id):
     auth.log_change(db, "audit_sessions", str(session_id), "update", {"status": ("Draft", "Confirmed")})
     db.commit()
     flash(_("Audit confirmed and locked. Inventory Status and Ordering Sheet now reflect these counts."), "success")
+    if shortfalls:
+        flash(_("Consignment item(s) came in under the expected count — %(items)s. If this wasn't just a "
+                "counting difference, log it as shrinkage from Consignment > Shrinkage so it's reflected in "
+                "what's owed.", items=list_join(shortfalls)), "error")
     return redirect(url_for("inventory.audit_session_view", session_id=session_id))
+
+
+def _consignment_shortfalls(db, session_id):
+    """Consignment items this count puts BELOW the stock expected (audit P7):
+    the distributor is owed for units sold, so a unit that vanished rather
+    than sold is money nobody accounts for unless it is logged as shrinkage.
+    Informational only -- it changes nothing about what is confirmed. Read
+    before the confirm, since after it these counts ARE the expected stock."""
+    consignment = {r["id"]: r for r in db.execute(
+        "SELECT i.id, i.name, d.name AS distributor_name FROM inventory_list i "
+        "JOIN distributors d ON d.id = i.distributor_id WHERE i.ownership_type='Consignment'").fetchall()}
+    if not consignment:
+        return []
+    status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
+    out = []
+    for line in db.execute("SELECT item_id, stock_counted FROM audit_session_lines "
+                           "WHERE session_id=? AND stock_counted IS NOT NULL ORDER BY item_id", (session_id,)).fetchall():
+        item = consignment.get(line["item_id"])
+        if not item:
+            continue
+        status = status_by_item.get(line["item_id"])
+        expected = (status["current_stock"] if status else 0) or 0
+        if line["stock_counted"] < expected:
+            out.append(_("%(name)s (%(distributor)s): short %(quantity)s", name=item["name"],
+                         distributor=item["distributor_name"],
+                         quantity=display_quantity(expected - line["stock_counted"])))
+    return out
 
 
 @bp.route("/audit-history/session/<int:session_id>/delete", methods=["POST"])

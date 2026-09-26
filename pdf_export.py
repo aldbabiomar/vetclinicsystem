@@ -139,8 +139,10 @@ def export_patient_file(db, patient_id):
         "SELECT p.*, o.name as owner_name, o.phone as owner_phone FROM patients p "
         "JOIN owners o ON o.id=p.owner_id WHERE p.id=?", (patient_id,)
     ).fetchone()
-    visits = db.execute("SELECT * FROM visits WHERE patient_id=? ORDER BY date", (patient_id,)).fetchall()
     cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date", (patient_id,)).fetchall()
+    # Without the admitting visit of each stay, which the stay's own section
+    # already covers (audit P4).
+    visits = logic.patient_outpatient_visits(db, patient_id, cases, order="ASC")
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,

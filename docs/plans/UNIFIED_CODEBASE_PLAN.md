@@ -955,3 +955,28 @@ result under each money setting.
 
   **Suite:** IQ **1414 passed, 4 skipped**; JO **1414 passed, 4 skipped**.
   Every finding in the audit's §1 and §2 is now closed.
+- **2026-09-26 — Parity P1–P20.**
+  - **P1.** The sidebar is `nav.py`. Each link is drawn when its page's own
+    `permission_required` lets the person in. A Settings-only role saw 20
+    links; it now sees one.
+  - **P2.** Inpatient billing is a search-and-cart over services AND
+    medicines; medicine could not be billed to a case before.
+  - **P3.** Tabs survive a save.
+  - **P4.** A stay is not listed twice in history or the patient-file PDF.
+  - **P5.** A back link on 15 detail pages.
+  - **P6.** One row-navigation mechanism, which a scroll no longer triggers.
+  - **P7.** A consignment shortfall is flagged when an audit is confirmed.
+  - **P8 / D-5.** A blocked item refuses the whole inpatient submission.
+  - **P9.** The admission's fields are logged.
+  - **P13.** Checkout computes stock once.
+  - **P14.** A password-change sign-out gives the reason and keeps the way
+    back.
+  - **P19.** One vet query (seam rule 11).
+  - **P20.** Accessible delete and toggle buttons.
+  - **Covered or moot.** P10–P12 and P15–P18 were covered by earlier fixes
+    or are moot.
+  - **§4's footnotes.** A CHECK on `inventory_transactions.reason`, and
+    `list_audit_sessions()` always pages.
+  - **Tests.** Each port has guard tests with controls; the browser ones
+    ran against the live app, and each was mutation-checked.
+  **Suite:** IQ **1435 passed, 4 skipped**; JO **1435 passed, 4 skipped**.

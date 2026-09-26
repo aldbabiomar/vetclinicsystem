@@ -320,12 +320,16 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     # One query for the whole cart rather than one per line, and read from
     # the same active price_list row item_sale_price() prices from.
     discountable_by_item = logic.discountable_by_item_ids(db, list(qty_by_item))
+    # Stock for the whole cart in one pass, not the whole catalogue's status
+    # recomputed once per line (audit P13's shape). Read here, after
+    # _lock_and_snapshot_cart_items() has locked the rows it describes.
+    status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
     for iid, qty in qty_by_item.items():
         price = logic.item_sale_price(db, iid)
         if price is None:
             notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=logic.code("INV", iid)))
             continue
-        status = logic.inventory_status_by_id(db, iid)
+        status = status_by_item.get(iid)
         # Fail closed (audit B5). inventory_status() covers ACTIVE items only,
         # so no status means the item was deactivated in the catalogue --
         # while its Price List row, a separate record, can still be active and

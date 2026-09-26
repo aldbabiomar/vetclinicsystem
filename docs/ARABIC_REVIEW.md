@@ -376,3 +376,16 @@ the toast's close button, and a few inline page scripts. Reuses
 | 31 | You have unsaved changes on %(n)s items (%(names)s). Save them before leaving, or discard them? | لديك تغييرات غير محفوظة في %(n)s عنصر (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟ |
 | 32 | You have unsaved changes on 1 item (%(names)s). Save them before leaving, or discard them? | لديك تغييرات غير محفوظة في عنصر واحد (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟ |
 | 33 | You have unsaved changes on this page. Leave without saving? | لديك تغييرات غير محفوظة في هذه الصفحة. هل تريد المغادرة دون حفظ؟ |
+
+## 17. Parity ports (4)
+
+Audit P7 (the consignment shortfall on confirming an audit) and P20 (the
+attachment delete button). Built from الأمانة / الهالك / المستحق للمورد and
+the reviewed "حذف".
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | %(name)s (%(distributor)s): short %(quantity)s | %(name)s (%(distributor)s): ناقص %(quantity)s |
+| 2 | Consignment item(s) came in under the expected count — %(items)s. If this wasn't just a counting difference, log it as shrinkage from Consignment > Shrinkage so it's reflected in what's owed. | جاء عدّ بعض أصناف الأمانة أقل من المتوقع — %(items)s. إن لم يكن ذلك مجرد فرق في العدّ، فسجّله كهالك من الأمانة > الهالك ليظهر في المستحق للمورد. |
+| 3 | Delete %(name)s | حذف %(name)s |
+| 4 | Delete %(name)s? This removes the file permanently, including the copy on disk. | حذف %(name)s؟ سيؤدي ذلك إلى حذف الملف نهائيًا، بما في ذلك النسخة المحفوظة على القرص. |

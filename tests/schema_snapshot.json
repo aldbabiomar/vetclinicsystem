@@ -1793,6 +1793,7 @@
    "inventory_transactions_change_qty_check": "CHECK ((change_qty <> 'NaN'::numeric))",
    "inventory_transactions_item_id_fkey": "FOREIGN KEY (item_id) REFERENCES inventory_list(id)",
    "inventory_transactions_pkey": "PRIMARY KEY (id)",
+   "inventory_transactions_reason_check": "CHECK ((reason = ANY (ARRAY['sale'::text, 'refund'::text, 'consignment_receipt'::text, 'shrinkage'::text, 'consignment_return'::text])))",
    "inventory_transactions_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT"
   },
   "indexes": {

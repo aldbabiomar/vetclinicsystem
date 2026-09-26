@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ distributor.name }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head">
   <div>
     <h1>{{ distributor.name }}</h1>

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Edit Visit') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head"><div><h1>{{ _('Edit Visit') }}</h1><p class="page-sub">{{ visit.id|code('V') }}</p></div></div>
 <div class="card">
 <form method="post" data-track-unsaved>

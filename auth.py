@@ -190,6 +190,9 @@ def permission_required(*perm_keys):
             if not any(p in granted for p in perm_keys):
                 abort(403)
             return view(*args, **kwargs)
+        # Recorded, so the sidebar can offer exactly the pages a person can
+        # open (nav.py). functools.wraps carries it through outer decorators.
+        wrapped.vz_permissions = tuple(perm_keys)
         return wrapped
     return decorator
 

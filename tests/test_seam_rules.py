@@ -496,3 +496,22 @@ def test_rule8_discount_arithmetic_only_happens_where_it_is_allowed():
         "discount arithmetic outside the allow-list — use "
         "logic.discounted_raw_total() or read the stored total:\n  "
         + "\n  ".join(offenders))
+
+
+# ---------------------------------------------------------------------------
+# Rule 11 — who is a vet is decided in one place (audit P19)
+#
+# The appointment grid, the orphaned-appointment check and the vet pickers
+# each ran their own copy of the query; a change to one would have made the
+# grid and the pickers disagree about who can be booked.
+# ---------------------------------------------------------------------------
+
+def test_the_vet_query_exists_once():
+    pattern = re.compile(r"FROM users WHERE role_id IN \(SELECT id FROM roles WHERE is_vet_role")
+    found = []
+    for path in _route_modules() + [ROOT / "logic.py", ROOT / "pdf_export.py"]:
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                found.append(f"{path.name}:{n}")
+    assert len(found) == 1 and found[0].startswith("logic.py"), (
+        "the vet query must live only in logic.vet_users():\n  " + "\n  ".join(found))

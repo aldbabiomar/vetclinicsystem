@@ -16,7 +16,7 @@
     {% if balance_due %}<th scope="col" class="num-col">{{ _('Balance (%(currency_label)s)', currency_label=currency_label()) }}</th>{% endif %}</tr></thead>
   <tbody>
     {% for c in cases %}
-    <tr data-vz-href="{{ url_for('clinical.inpatient_detail', case_id=c.id) }}" tabindex="0" role="link" style="cursor:pointer;">
+    <tr data-vz-href="{{ url_for('clinical.inpatient_detail', case_id=c.id) }}" tabindex="0" role="link">
       <td>{{ c.admission_date|localdate }}</td><td><strong>{{ c.animal_name }}</strong></td><td>{{ c.owner_name }}</td>
       <td>{{ c.complaint or "—" }}</td>
       <td><span class="badge {{ 'ok' if c.dismissed else 'warn' }}">{{ _('Discharged') if c.dismissed else _('Admitted') }}</span></td>

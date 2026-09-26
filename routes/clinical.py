@@ -25,7 +25,7 @@ from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 import clock
 
 bp = Blueprint("clinical", __name__)
@@ -186,7 +186,7 @@ def microchip_taken_message(microchip, row):
 
 
 def vet_users(db):
-    return db.execute("SELECT id, full_name FROM users WHERE role_id IN (SELECT id FROM roles WHERE is_vet_role=true) AND active=true ORDER BY full_name").fetchall()
+    return logic.vet_users(db)
 
 
 # ---------------------------------------------------------------------------
@@ -2055,12 +2055,22 @@ def inpatient_new():
             return redisplay()
         case_id = _create_inpatient_case(db, patient_id, None, f.get("complaint"), new_admission_date,
                                           new_weight_kg, new_bcs)
+        admit_fields = {
+            "exam_findings": f.get("exam_findings") or None, "admitted_items": f.get("admitted_items") or None,
+            "attending_vet_id": _user_field(db, f.get("attending_vet_id")),
+            "supervising_vet_id": _user_field(db, f.get("supervising_vet_id")),
+        }
+        now = clock.now()
         db.execute(
             "UPDATE inpatient_cases SET exam_findings=?, admitted_items=?, attending_vet_id=?, supervising_vet_id=?, "
             "updated_at=? WHERE id=?",
-            (f.get("exam_findings"), f.get("admitted_items"), _user_field(db, f.get("attending_vet_id")),
-             _user_field(db, f.get("supervising_vet_id")), clock.now(), case_id),
+            (*admit_fields.values(), now, case_id),
         )
+        # The admission's own findings, items and vets, in the change log as
+        # well as the bare "created" (audit P9) -- they were written here and
+        # recorded nowhere, so the log could not say who entered them.
+        auth.log_change(db, "inpatient_cases", str(case_id), "update",
+                        {k: (None, v) for k, v in admit_fields.items() if v is not None}, at=now)
         db.commit()
         flash(_("Patient admitted."), "success")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
@@ -2081,12 +2091,11 @@ def _inpatient_detail_context(db, case_id):
                           "WHERE case_id=? ORDER BY timestamp DESC", (case_id,)).fetchall()
     billing = logic.inpatient_billing_summary(db, case_id)
     payments = db.execute("SELECT * FROM payments WHERE inpatient_case_id=? ORDER BY date DESC", (case_id,)).fetchall()
-    proc_items = db.execute("SELECT * FROM price_list WHERE category='Service' AND active=true ORDER BY id").fetchall()
     files = attach_mod.list_attachments(db, "inpatient", case_id)
     cap = auth.discount_cap_for()
     return dict(case=case, updates=updates, recent_updates=updates[:3],
                 contacts=contacts, recent_contacts=contacts[:3], billing=billing, payments=payments,
-                proc_items=proc_items, vets=vet_users(db), files=files, discount_cap=cap)
+                vets=vet_users(db), files=files, discount_cap=cap)
 
 
 @bp.route("/inpatient/<int:case_id>")
@@ -2231,16 +2240,14 @@ def inpatient_billing_add(case_id):
         flash(_("Inpatient case not found."), "error")
         return redirect(url_for("clinical.inpatient_list"))
     # (the raw value, which names this line's qty_<id> field; the id itself).
-    # Numbers, not the submitted text: blocked_pids below holds ids read from
-    # the database, and a text id is never `in` a set of ints — the
-    # non-discountable block would have let every line through.
+    # Numbers, not the submitted text: the non-discountable check below
+    # queries by id, and a text id matches no integer column.
     picked = [(raw, parse_id(raw)) for raw in request.form.getlist("price_id")]
     price_ids = [pid for _, pid in picked if pid is not None]
     now = clock.now().isoformat(timespec="seconds")
     added = 0
     had_bad_number = False
     had_bad_price = False
-    had_blocked = False
     # inpatient_discount_save() only checks non-discountable items against
     # whatever's on the bill *at the moment a discount is applied* — it
     # has no way to know the bill will change later. Re-checking here too
@@ -2251,15 +2258,20 @@ def inpatient_billing_add(case_id):
     existing_case = db.execute("SELECT discount_percent, discount_source FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
     existing_discount = (existing_case["discount_percent"] or 0) if existing_case else 0
     existing_source = (existing_case["discount_source"] if existing_case else "staff") or "staff"
-    blocked_pids = set()
-    # Scoped to STAFF discounts, same reasoning as visit_billing_save(). Note
-    # JO skips the individual blocked line where IQ refuses the whole
-    # submission — same rule, each app's own shape (CLAUDE.md §1).
-    if existing_discount > 0 and existing_source == "staff":
-        blocked_pids = {r["id"] for r in db.execute(
-            f"SELECT id FROM price_list WHERE id IN ({','.join('?' * len(price_ids))}) AND can_discount=false",
-            price_ids,
-        ).fetchall()} if price_ids else set()
+    # Scoped to STAFF discounts, same reasoning as visit_billing_save(). The
+    # whole submission is refused, naming the items (owner decision D-5, audit
+    # P8): the predecessor JO app added the rest and skipped these, which left
+    # a bill that was neither what was entered nor obviously short of it.
+    if existing_discount > 0 and existing_source == "staff" and price_ids:
+        blocked = [r["name"] for r in db.execute(
+            f"SELECT name FROM price_list WHERE id IN ({','.join('?' * len(price_ids))}) AND can_discount=false "
+            "ORDER BY name", price_ids).fetchall()]
+        if blocked:
+            flash(_("Can't add — this case has a %(discount_percent)s%% discount applied, but includes item(s) "
+                    "marked as not discountable: %(join)s. Remove the discount first, or leave these items off "
+                    "this bill.", discount_percent=display_number(f"{existing_discount:.0f}"),
+                    join=list_join(blocked)), "error")
+            return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
     for raw_pid, pid in picked:
         raw_qty = request.form.get(f"qty_{raw_pid}", "").strip()
         try:
@@ -2271,9 +2283,6 @@ def inpatient_billing_add(case_id):
             continue
         if pid is None:
             had_bad_price = True
-            continue
-        if pid in blocked_pids:
-            had_blocked = True
             continue
         # Snapshot the current Price List sale price/cost right now, at
         # the moment this procedure is added to the bill — so a price
@@ -2298,9 +2307,6 @@ def inpatient_billing_add(case_id):
         flash(_("Some quantities weren't valid numbers and were skipped."), "error")
     if had_bad_price:
         flash(_("Some selected items no longer exist in the Price List and were skipped."), "error")
-    if had_blocked:
-        flash(_("Some selected items are marked as not discountable and can't be added to a bill "
-              "that already has a discount applied — remove the discount first, or leave them off this bill."), "error")
     if added:
         flash(_("%(added)s procedure(s) added to the bill.", added=added), "success")
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))

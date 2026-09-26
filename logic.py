@@ -461,19 +461,15 @@ def get_or_create_draft_session(db, audit_date, user_id):
                       (audit_date,)).fetchone()["id"]
 
 
-def list_audit_sessions(db, limit=None, offset=0):
-    """Paginated at the database level when limit is given (its only
-    caller, audit_history_list(), always paginates — no unpaginated
-    caller needs every row the way followups()/wellness_reminders()/
-    grooming_queue() do for the dashboard). Returns (rows, total_count)
-    when limit is given, else the plain row list."""
+def list_audit_sessions(db, limit, offset=0):
+    """One page of audit sessions, newest first: (rows, total_count). It
+    used to return a tuple or a plain list depending on whether `limit` was
+    given (audit §4); its one caller always pages."""
     q = (
         "SELECT s.*, u.full_name as performed_by_name, "
         "(SELECT COUNT(*) FROM audit_session_lines l WHERE l.session_id=s.id AND l.stock_counted IS NOT NULL) as lines_filled "
         "FROM audit_sessions s LEFT JOIN users u ON u.id=s.performed_by ORDER BY s.audit_date DESC, s.id DESC"
     )
-    if limit is None:
-        return db.execute(q).fetchall()
     total = db.execute("SELECT COUNT(*) c FROM audit_sessions").fetchone()["c"]
     rows = db.execute(q + " LIMIT ? OFFSET ?", [limit, offset]).fetchall()
     return rows, total
@@ -1605,9 +1601,29 @@ def search_patients(db, term):
     ).fetchall()
 
 
+def patient_outpatient_visits(db, patient_id, cases, order="DESC"):
+    """A patient's visits, minus each one that is just the admitting
+    encounter of an inpatient stay listed beside it (audit P4). The stay
+    already shows that encounter -- same complaint, exam and treatment -- so
+    the patient's history showed it twice.
+
+    A case opened from a visit names it (inpatient_cases.visit_id), which is
+    exact. A case opened directly has no link, so as the predecessor IQ app
+    did, a visit marked "Inpatient" on that case's admission date is the
+    same encounter. A visit marked "Inpatient" with no stay to match stays in
+    the list rather than disappearing."""
+    linked = {c["visit_id"] for c in cases if c["visit_id"]}
+    unlinked_dates = {c["admission_date"] for c in cases if not c["visit_id"]}
+    order = "ASC" if str(order).upper() == "ASC" else "DESC"
+    visits = db.execute(f"SELECT * FROM visits WHERE patient_id=? ORDER BY date {order}, id {order}",
+                        (patient_id,)).fetchall()
+    return [v for v in visits
+            if v["id"] not in linked and not (v["visit_type"] == "Inpatient" and v["date"] in unlinked_dates)]
+
+
 def patient_history(db, patient_id):
-    visits = db.execute("SELECT * FROM visits WHERE patient_id=? ORDER BY date DESC", (patient_id,)).fetchall()
     cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date DESC", (patient_id,)).fetchall()
+    visits = patient_outpatient_visits(db, patient_id, cases)
     boarding = boarding_sessions_for_patient(db, patient_id)
     events = []
     for v in visits:
@@ -2293,8 +2309,18 @@ def week_dates(anchor_iso):
     return [monday + timedelta(days=i) for i in range(7)]
 
 
+def vet_users(db):
+    """The staff who can be booked or assigned as the vet: active users whose
+    role is marked "can be assigned as a vet". One query for the appointment
+    grid, the orphaned-appointment check and every vet picker (audit P19) --
+    it was written out three times, and a change to one would have made the
+    grid and the pickers disagree about who is a vet."""
+    return db.execute("SELECT id, full_name FROM users WHERE role_id IN (SELECT id FROM roles WHERE is_vet_role=true) "
+                      "AND active=true ORDER BY full_name").fetchall()
+
+
 def day_grid(db, day_iso):
-    vets = db.execute("SELECT id, full_name FROM users WHERE role_id IN (SELECT id FROM roles WHERE is_vet_role=true) AND active=true ORDER BY full_name").fetchall()
+    vets = vet_users(db)
     slots = generate_slots(db)
     appts = db.execute("SELECT * FROM appointments WHERE appt_date=?", (day_iso,)).fetchall()
 
@@ -2337,9 +2363,7 @@ def orphaned_appointments(db, include_past=False):
     # invisible permanently, with no other page listing appointments by
     # id. See ORPHANED_RECORDS_AUDIT.md F-18.
     valid_labels = {s["label"] for s in generate_slots(db)}
-    active_vet_ids = {v["id"] for v in db.execute(
-        "SELECT id FROM users WHERE role_id IN (SELECT id FROM roles WHERE is_vet_role=true) AND active=true"
-    ).fetchall()}
+    active_vet_ids = {v["id"] for v in vet_users(db)}
     date_filter = "" if include_past else "WHERE a.appt_date >= ?"
     params = () if include_past else (clock.today().isoformat(),)
     rows = db.execute(

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Audit') }} — {{ sess.audit_date|localdate }} — {{ clinic_name }}{% endblock %}
 {% block content %}
+{% include "_back_link.html" %}
 <div class="page-head">
   <div>
     <h1>{{ _('Audit — %(audit_date)s', audit_date=sess.audit_date|localdate) }}</h1>

@@ -884,6 +884,23 @@ def test_a_non_discountable_procedure_never_lands_on_a_staff_discounted_case(
     assert blocked_service["id"] not in billed, "a non-discountable procedure was added under a staff discount"
 
 
+def test_d5_a_blocked_item_refuses_the_whole_submission(client, db, inpatient_case, priced_service, blocked_service):
+    """GUARD (owner decision D-5, audit P8). Nothing from the submission is
+    billed — not even its discountable line — and the message names the
+    item. The predecessor JO app added the rest and skipped this one."""
+    db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_source='staff' WHERE id=?",
+               (D(10), inpatient_case["id"]))
+    db.commit()
+    resp = client.post(f"/inpatient/{inpatient_case['id']}/billing",
+                       data={"price_id": [priced_service["id"], blocked_service["id"]],
+                             f"qty_{priced_service['id']}": "1", f"qty_{blocked_service['id']}": "1"},
+                       follow_redirects=True)
+    billed = db.execute("SELECT price_id FROM inpatient_billing WHERE case_id=?", (inpatient_case["id"],)).fetchall()
+    assert billed == [], "part of a refused submission was billed"
+    name = db.execute("SELECT name FROM price_list WHERE id=?", (blocked_service["id"],)).fetchone()["name"]
+    assert name in resp.get_data(as_text=True)
+
+
 def test_control_without_a_discount_the_same_procedure_is_billed(
         client, db, inpatient_case, blocked_service):
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
