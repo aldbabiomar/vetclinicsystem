@@ -118,7 +118,7 @@ above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 | 6 | every call to `compute_bill_totals()` passes `discountable_subtotal` (AST walk) | rewards card |
 | 7 | every function writing a request-supplied `discount_percent` also reads `discount_source` | rewards card |
 | 8 | discount-percentage arithmetic appears only at the allow-listed sites | rewards card |
-| 9 | the request layer (`app.py`, `routes/`) never calls `as_date`, `parse_date` or `fromisoformat` — request dates go through `core.strict_date` | audit B1 |
+| 9 | the request layer (`vcs/web/` and its blueprints) never calls `as_date`, `parse_date` or `fromisoformat` — request dates go through `core.strict_date` | audit B1 |
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already
@@ -148,8 +148,8 @@ independent near-misses in one line, which is how F4 shipped.
 
 ### Three things about these tests worth keeping
 
-- **They discover their subject live** — `app.py` plus a glob over `routes/*.py`
-  — and every one asserts a **floor** on how much it inspected. A "no matches"
+- **They discover their subject live** — a glob over the blueprints plus the
+  rest of the request layer (`tests/source_files.py`) — and every one asserts a **floor** on how much it inspected. A "no matches"
   assertion passes hardest when it is scanning nothing, which is how four
   guards in this codebase came to pass while checking nothing
   (`COMPARISON.md` §51).

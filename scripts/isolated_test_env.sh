@@ -116,7 +116,7 @@ launch_app() {
   # runtime, after expansion, so it works for a variable name built at runtime.
   # `exec` is load-bearing, and this used to be wrong. Written as
   #
-  #     ( cd "$REPO_DIR" && nohup env ... app.py > log 2>&1 &
+  #     ( cd "$REPO_DIR" && nohup env ... run.py > log 2>&1 &
   #       echo $! > "$PID_FILE" )
   #
   # the trailing `&` backgrounds the whole `cd && nohup ...` AND-list, so `$!`
@@ -135,7 +135,7 @@ launch_app() {
       "${ENV_PREFIX}_HOST=127.0.0.1" \
       "${ENV_PREFIX}_PORT=$APP_PORT" \
       SECRET_KEY="$SECRET_KEY" \
-      "$VENV_DIR/bin/python3" app.py > "$DATA_DIR/app_stdout.log" 2>&1 ) &
+      "$VENV_DIR/bin/python3" run.py > "$DATA_DIR/app_stdout.log" 2>&1 ) &
   echo $! > "$PID_FILE"
   sleep 3
 
@@ -181,7 +181,7 @@ launch_app() {
 # disk — Flask-Babel and every imported module are loaded once, at start.
 #
 # Kills by PORT, never by a command pattern: the launch `exec`s into the
-# resolved Python.app path, so a `pkill -f ".../bin/python3 app.py"` matches
+# resolved Python.app path, so a `pkill -f ".../bin/python3 run.py"` matches
 # nothing, exits 0, and leaves the old process serving — an afternoon of
 # "verified" against code that predates the change. And then asserts that the
 # listening pid actually CHANGED, because a restart that silently did not

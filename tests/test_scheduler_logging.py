@@ -24,17 +24,17 @@ import logging
 
 import pytest
 
+from vcs import errorlog
 from vcs.ops import scheduler
+
+
 @pytest.fixture
 def captured(monkeypatch):
     """Capture what _log_failure would write, without touching errors.log.
 
-    _log_failure imports `app` lazily and calls app.error_logger, so a stub
-    module object placed in sys.modules is what the code under test picks up.
+    _log_failure calls errorlog.error_logger, so a stub put there is what the
+    code under test picks up.
     """
-    import sys
-    import types
-
     records = []
 
     class _Recorder:
@@ -44,9 +44,7 @@ def captured(monkeypatch):
         def warning(self, msg):
             records.append(("warning", msg))
 
-    stub = types.ModuleType("app")
-    stub.error_logger = _Recorder()
-    monkeypatch.setitem(sys.modules, "app", stub)
+    monkeypatch.setattr(errorlog, "error_logger", _Recorder())
     return records
 
 
@@ -119,9 +117,6 @@ def test_backup_catchup_still_reports_false_on_failure(captured):
 def test_logging_failure_cannot_break_the_job(monkeypatch):
     """CONTROL. Telemetry must never be the thing that breaks the job it is
     describing — so _log_failure swallows its own failures too."""
-    import sys
-    import types
-
     class _Exploding:
         def error(self, msg):
             raise OSError("errors.log is unwritable")
@@ -129,9 +124,7 @@ def test_logging_failure_cannot_break_the_job(monkeypatch):
         def warning(self, msg):
             raise OSError("errors.log is unwritable")
 
-    stub = types.ModuleType("app")
-    stub.error_logger = _Exploding()
-    monkeypatch.setitem(sys.modules, "app", stub)
+    monkeypatch.setattr(errorlog, "error_logger", _Exploding())
 
     assert scheduler._run_backup_if_due(_boom, lambda c: None) is False
 

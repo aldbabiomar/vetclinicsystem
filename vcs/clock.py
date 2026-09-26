@@ -12,8 +12,8 @@ disagree with the setting the moment the two differ. Stored event times are
 `timestamptz`; the database session is put in the same zone (apply_to), so a
 `::date` cast in SQL and clock.today() in Python name the same day.
 
-Active per request (app.py loads it with the money setting) and copied into
-background job threads with the rest of the context, like money.py.
+Active per request (vcs/web/hooks.py loads it with the money setting) and
+copied into background job threads with the rest of the context, like money.py.
 """
 import contextvars
 from datetime import datetime, timezone

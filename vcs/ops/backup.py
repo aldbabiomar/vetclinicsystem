@@ -19,7 +19,6 @@ import shutil
 import subprocess
 from urllib.parse import unquote, urlsplit
 import threading
-from datetime import datetime
 
 from vcs.domain import logic
 from vcs import clock
@@ -75,7 +74,7 @@ def read_restore_marker():
 
 
 def ensure_no_restore_marker():
-    """Called once at app boot (app.py). Writes a 'no_restore_since_boot'
+    """Called once at app boot (run.py). Writes a 'no_restore_since_boot'
     marker unless the existing marker already records a real restore
     ('in_progress'/'success') — never overwrites actual restore evidence.
     This is what makes 'no restore has happened' a provable fact an
@@ -97,12 +96,12 @@ def ensure_no_restore_marker():
 # first step; a plain Lock would fail to re-acquire itself there.
 maintenance_lock = threading.RLock()
 
-# Set for the whole of a restore (audit S3). pg_restore drops and reloads
-# every table, and the app went on serving the other workstations from them
-# meanwhile: a POS sale in that window either failed or wrote a row the
-# restore then collided with. While this is set, app.py answers every
-# request -- except the restoring admin's progress poll -- with a "restoring,
-# back in a moment" page that touches no table.
+# Set for the whole of a restore (audit S3). pg_restore drops and reloads every
+# table, and the app went on serving the other workstations from them
+# meanwhile: a POS sale in that window either failed or wrote a row the restore
+# then collided with. While this is set, the restore gate (vcs/web/hooks.py)
+# answers every request -- except the restoring admin's progress poll -- with a
+# "restoring, back in a moment" page that touches no table.
 restore_in_progress = threading.Event()
 
 
@@ -178,12 +177,12 @@ def _run_pg_dump(out_path):
 
 def resolve_restorable_backup(db, source_file):
     """
-    Confines what settings_restore_now() (app.py) will accept as a restore
-    source. Without this, any user with manage_settings could point the
-    restore endpoint at *any* readable .dump file path on the machine —
-    the folder browser used to pick one can browse the whole filesystem,
-    and a naive check would only be "does this path exist and end in
-    .dump". That's full data-loss capability from an arbitrary path.
+    Confines what settings_restore_now() (the settings blueprint) will accept
+    as a restore source. Without this, any user with manage_settings could
+    point the restore endpoint at *any* readable .dump file path on the machine
+    — the folder browser used to pick one can browse the whole filesystem, and
+    a naive check would only be "does this path exist and end in .dump". That's
+    full data-loss capability from an arbitrary path.
 
     Two independent checks, both required:
       1. Path confinement — the file must resolve (symlinks included) to
@@ -289,13 +288,13 @@ def _run_pg_restore(dump_path, on_count=None):
     failed), in which case the caller just doesn't get sub-step detail."""
     user, password, dbname, host, port = _pg_conn_parts()
     env = _pg_env(password)
-    # A safety net, not the primary fix (that's closing the calling
-    # request's own connection before this runs — see settings_restore_now
-    # in app.py). This just makes sure that if some OTHER connection ever
-    # holds a lock during a restore — a second admin with Settings open in
+    # A safety net, not the primary fix (that's closing the calling request's
+    # own connection before this runs — see settings_restore_now in the
+    # settings blueprint). This just makes sure that if some OTHER connection
+    # ever holds a lock during a restore — a second admin with Settings open in
     # another tab, say — pg_restore fails fast with a clear "canceling
-    # statement due to lock timeout" error instead of hanging silently
-    # for hours with nothing to show for it.
+    # statement due to lock timeout" error instead of hanging silently for
+    # hours with nothing to show for it.
     env["PGOPTIONS"] = "-c lock_timeout=30000"
 
     if shutil.which("pg_restore"):

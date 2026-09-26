@@ -32,15 +32,12 @@ from conftest import needs_db
 
 pytestmark = needs_db
 
-ROOT = pathlib.Path(__file__).parent.parent
-APP_PY = ROOT / "app.py"
-
-
 def route_source_files():
     """Every file that can carry a route decorator.
 
-    app.py plus the blueprint modules under routes/. Reading only app.py was
-    correct until the routes moved; after the split it would have quietly
+    The blueprints and the rest of the request layer (source_files.web_modules).
+    Reading only app.py was correct until the routes moved; after the split it
+    would have quietly
     discovered a fraction of the surface and every test in this file would have
     passed while checking almost nothing.
     test_route_discovery_matches_the_live_url_map() is what makes that
@@ -54,7 +51,7 @@ SKIP_RULES = {"/logout"}
 
 
 def _route_permissions():
-    """[(rule, methods, required_permission_keys)] parsed from app.py.
+    """[(rule, methods, required_permission_keys)] parsed from the source.
 
     Read from the source rather than the live url_map because
     permission_required() closes over its keys — the wrapped view does not
@@ -65,7 +62,7 @@ def _route_permissions():
         pending = []
         for line in io.open(path, encoding="utf-8").read().split("\n"):
             stripped = line.strip()
-            # @app.route(...) in app.py, @bp.route(...) in a blueprint module.
+            # @bp.route(...) in a blueprint module.
             m = re.match(r'@\w+\.route\("([^"]+)"(?:,\s*methods=\[([^\]]+)\])?\)', stripped)
             if m:
                 methods = re.findall(r'"(\w+)"', m.group(2) or '"GET"')

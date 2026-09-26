@@ -22,10 +22,11 @@ which is the point: a silent float in money arithmetic is the bug this module
 exists to make impossible. Every amount is stored at three decimal places
 (NUMERIC(15,3)); IQ amounts are simply whole numbers at that scale.
 
-The active setting lives in a ContextVar set once per request (app.py) and
-copied into background jobs (jobs.py), so formatting and rounding helpers can
-be called anywhere without threading a parameter through every call site.
-Code that must not run before a setting is chosen calls `require()`.
+The active setting lives in a ContextVar set once per request
+(vcs/web/hooks.py) and copied into background jobs (jobs.py), so formatting and
+rounding helpers can be called anywhere without threading a parameter through
+every call site. Code that must not run before a setting is chosen calls
+`require()`.
 
 This module has no Flask imports.
 """

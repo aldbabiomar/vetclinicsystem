@@ -39,6 +39,7 @@ comparing the wall clock against what the database says already happened.**
 """
 import functools
 import threading
+import traceback
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -49,6 +50,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from vcs.domain import logic
 from vcs import money
 from vcs import clock
+from vcs import errorlog
 _scheduler = None
 
 # Serialises every scheduled job that writes. The cron triggers and the tick
@@ -132,16 +134,13 @@ def _log_failure(what, level="error"):
     why, so detection fell back to staleness instead of the error already in
     hand.
 
-    Writes to app.py's existing rotating errors.log rather than opening a
-    second log. Imported lazily inside the function because app.py imports
-    this module, matching heartbeat.py's own lazy `import app as app_module`.
-    Any failure of the logging itself is swallowed too -- telemetry must never
-    be the thing that breaks the job it is describing.
+    Writes to the app's rotating errors.log (vcs/errorlog.py) rather than
+    opening a second log. Any failure of the logging itself is swallowed too
+    -- telemetry must never be the thing that breaks the job it is
+    describing.
     """
     try:
-        import traceback
-        import app as app_module
-        getattr(app_module.error_logger, level)(
+        getattr(errorlog.error_logger, level)(
             f"scheduler: {what} failed\n" + traceback.format_exc())
     except Exception:
         pass

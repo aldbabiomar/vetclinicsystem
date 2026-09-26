@@ -2,10 +2,10 @@
 Lightweight in-process background job tracker, used by anything slow
 enough to need a visible progress bar — currently the in-app updater's
 Update Now / Rollback flow (see updater.py, and the Settings -> Updates
-section of app.py).
+section of the settings blueprint).
 
 This app runs as a single Python process (see the launcher scripts and
-serve()/app.run() in app.py) with no task queue or multi-worker
+serve()/app.run() in run.py) with no task queue or multi-worker
 deployment, so an in-memory registry protected by a lock is the
 right-sized tool here — it doesn't need to survive a process restart, and
 it doesn't need to coordinate across worker processes that don't exist.

@@ -102,14 +102,14 @@ def test_pg_restore_runs_as_one_transaction(monkeypatch, local_tools):
 def test_dev_mode_listens_on_this_computer_only_whatever_the_setting(monkeypatch):
     """GUARD. Werkzeug's debugger console runs Python for anyone past its
     PIN; bound to 0.0.0.0 that was anyone on the clinic network."""
-    import app as app_module
+    from vcs import config
     monkeypatch.setenv("VETCLINICSYSTEM_HOST", "0.0.0.0")
-    assert app_module.listen_host(dev=True) == "127.0.0.1"
+    assert config.listen_host(dev=True) == "127.0.0.1"
 
 
 def test_control_the_clinic_server_listens_where_it_is_told(monkeypatch):
-    import app as app_module
+    from vcs import config
     monkeypatch.setenv("VETCLINICSYSTEM_HOST", "0.0.0.0")
-    assert app_module.listen_host(dev=False) == "0.0.0.0"
+    assert config.listen_host(dev=False) == "0.0.0.0"
     monkeypatch.delenv("VETCLINICSYSTEM_HOST")
-    assert app_module.listen_host(dev=False) == "0.0.0.0"
+    assert config.listen_host(dev=False) == "0.0.0.0"

@@ -12,8 +12,8 @@ invisible to a non-speaker.
 Placeholders such as `%(currency)s` and `{price}` are filled in by the app
 (`%(currency)s` becomes د.ع or د.أ) and must stay exactly as written.
 
-To change one: edit its `msgstr` in `translations/ar/LC_MESSAGES/messages.po`,
-run `pybabel compile -d translations`, and delete its row here. When this file
+To change one: edit its `msgstr` in `vcs/translations/ar/LC_MESSAGES/messages.po`,
+run `pybabel compile -d vcs/translations`, and delete its row here. When this file
 has no rows left, delete the file and its line in `README.md` and `CLAUDE.md`.
 
 ## 1. The money setting — new text (15)
@@ -199,7 +199,7 @@ from Consignment Receiving, and says so. Built from the reviewed
 
 ## 14. The "restoring a backup" page (2)
 
-Audit S3 (2026-09-25). `static/restoring.html` is shown to every workstation
+Audit S3 (2026-09-25). `vcs/static/restoring.html` is shown to every workstation
 while a backup is restored. It is a static file, not a template, because
 rendering a template reads the clinic's language from a table that is being
 reloaded. So it carries both languages, and **its Arabic is edited in that

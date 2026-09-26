@@ -89,12 +89,32 @@ def browser():
         b.close()
 
 
+# The admin's session cookie, from the first sign-in of the run.
+_ADMIN_COOKIES = []
+
+
 def _login(page):
+    """Sign in as the admin: through the form the first time, with that
+    session's cookie after it.
+
+    The app lets one address try to sign in 20 times in five minutes, counting
+    the refused tries (main._login_rate_limit_check). This tier signed in
+    through the form for every test, about fifteen times a run, so a second
+    run within five minutes was refused at the login page, and every test
+    after that failed as a 30-second timeout on a page that never came.
+    Signing in once also means a refused sign-in fails here, saying why."""
+    if _ADMIN_COOKIES:
+        page.context.add_cookies(_ADMIN_COOKIES)
+        return
     page.goto(f"{APP_URL}/login", wait_until="domcontentloaded")
     page.fill('input[name="username"]', ADMIN_USER)
     page.fill('input[name="password"]', ADMIN_PASS)
     page.click('button[type="submit"], input[type="submit"]')
     page.wait_for_load_state("domcontentloaded")
+    if "/login" in page.url:
+        flashes = page.locator(".flash, .vz-toast-msg").all_inner_texts()   # toast.js turns one into the other
+        pytest.fail(f"the admin could not sign in to {APP_URL}: {flashes or page.url}")
+    _ADMIN_COOKIES.extend(page.context.cookies())
 
 
 @pytest.fixture(scope="module")

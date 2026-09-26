@@ -40,12 +40,12 @@ describe a clinic's business.
 """
 import json
 import time
-from datetime import datetime
 
 import requests
 
 from vcs.domain import logic
 from vcs import clock
+from vcs import config
 APP = "jo"
 
 TIMEOUT_SECONDS = 10
@@ -94,12 +94,9 @@ def install_id(db):
 
 
 def _uptime_hours():
+    """Hours since this process started (config.STARTED_MONOTONIC)."""
     try:
-        import app as app_module
-        started = getattr(app_module, "APP_STARTED_AT", None)
-        if started is None:
-            return None
-        return round((clock.now() - started).total_seconds() / 3600.0, 1)
+        return round((time.monotonic() - config.STARTED_MONOTONIC) / 3600.0, 1)
     except Exception:
         return None
 

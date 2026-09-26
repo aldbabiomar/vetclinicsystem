@@ -45,7 +45,7 @@ than re-copying.**
 import json
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from vcs.domain import logic
 from vcs.db import migrate as schema
@@ -86,9 +86,9 @@ def _finding(code, severity, msgid, args=None):
     possibly in another language — translating at write time would freeze
     whichever language happened to be active when the scheduler ran.
 
-    Rows written before this existed have no `msgid`, and app.py's `finding`
-    filter falls back to `message` — which is English, which is exactly what
-    those rows already were.
+    Rows written before this existed have no `msgid`, and the `finding` filter
+    (vcs/web/templating.py) falls back to `message` — which is English, which
+    is exactly what those rows already were.
     """
     args = args or {}
     try:

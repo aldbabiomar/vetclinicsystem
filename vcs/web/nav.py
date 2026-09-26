@@ -14,7 +14,7 @@ A link:  Link(label, endpoint, active=(...), also=(...), href=None)
           the overview is its way in, but settling needs its own permission);
   href    a different endpoint to open, when the link's page needs an id.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from flask import current_app
 
@@ -84,10 +84,10 @@ NAV = (
         Link(N_("Price List"), "inventory.price_list"),
         Link(N_("Refunds"), "sales.refunds_page"),
         Link(N_("Cash Register"), "sales.cash_register_page"),
-        Link(N_("Monthly P&L"), "reports"),
-        Link(N_("Yearly P&L"), "reports_yearly"),
-        Link(N_("Insights"), "insights"),
-        Link(N_("Retention"), "retention"),
+        Link(N_("Monthly P&L"), "reports.monthly"),
+        Link(N_("Yearly P&L"), "reports.yearly"),
+        Link(N_("Insights"), "reports.insights"),
+        Link(N_("Retention"), "reports.retention"),
     )),
     Group("admin", N_("Admin"), links=(
         Link(N_("Users & Roles"), "admin.admin_users"),

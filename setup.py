@@ -65,14 +65,14 @@ def _env_dir():
     """Where this install's real .env lives.
 
     On the versioned-release layout that is the data directory, NOT the release
-    folder — app.py resolves it the same way. setup.py used to look only in
-    BASE_DIR, with two consequences on a managed install: load_dotenv_now()
+    folder — vcs/config.py resolves it the same way. setup.py used to look only
+    in BASE_DIR, with two consequences on a managed install: load_dotenv_now()
     loaded nothing, so DATABASE_URL was absent and the database work ran
     against defaults; and ensure_env_file() found no .env and helpfully created
     one, inventing a fresh SECRET_KEY and a DATABASE_URL on the default port.
     That second file sat in the release folder shadowing nothing in normal
     operation (the launcher exports the data dir) but ready to be picked up by
-    anyone running `python3 app.py` from that folder — pointing at the wrong
+    anyone running `python3 run.py` from that folder — pointing at the wrong
     port, with a secret key that would sign everybody out.
     """
     data_dir = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
@@ -278,7 +278,7 @@ def main():
             ensure_desktop_shortcut()
         print(
             "\nAll set. Start the app with:\n"
-            "  python3 app.py\n"
+            "  python3 run.py\n"
             "\n(macOS: double-click 'Start VetClinicSystem.command'."
             "  Windows: double-click 'Start VetClinicSystem.bat'.)\n"
         )
@@ -374,7 +374,7 @@ while true; do
 
   echo "Starting $ACTIVE..."
   VETCLINICSYSTEM_DATA_DIR="$DATA_DIR" VETCLINICSYSTEM_RELEASES_DIR="$RELEASES_DIR" VETCLINICSYSTEM_PORT="$PORT" \\
-    "$RELEASE_DIR/venv/bin/python3" "$RELEASE_DIR/app.py" &
+    "$RELEASE_DIR/venv/bin/python3" "$RELEASE_DIR/run.py" &
   APP_PID=$!
 
   if [ "$opened_browser" = false ]; then
@@ -434,7 +434,7 @@ if "%OPENED_BROWSER%"=="0" (
   start "" http://127.0.0.1:%VETCLINICSYSTEM_PORT%
   set "OPENED_BROWSER=1"
 )
-"%RELEASE_DIR%\\venv\\Scripts\\python.exe" "%RELEASE_DIR%\\app.py"
+"%RELEASE_DIR%\\venv\\Scripts\\python.exe" "%RELEASE_DIR%\\run.py"
 echo VetClinicSystem exited — restarting in 2 seconds...
 timeout /t 2 /nobreak >nul
 goto loop

@@ -1000,3 +1000,54 @@ result under each money setting.
 
   **Suite:** IQ **1435 passed, 4 skipped**; JO **1435 passed, 4 skipped**;
   no database 577 passed.
+- **2026-09-26 — Restructure R2 (D-15): `app.py` becomes `create_app()`.**
+  - **No module-level app.** `vcs.create_app()` (built in
+    `vcs/web/factory.py`) makes the app. `run.py` is the launcher;
+    `app.py` is gone.
+  - **`app.py`'s contents** went to five places:
+    - `vcs/config.py`: `.env` and the environment settings. The package
+      imports it first, so no module has to come "after load_dotenv()".
+    - `vcs/errorlog.py`: the crash log.
+    - `vcs/web/hooks.py`: the before/after-request hooks, in the order
+      they ran.
+    - `vcs/web/errors.py`: the error handlers.
+    - `vcs/web/templating.py`: the locale, filters, globals and context
+      processors.
+  - **Blueprints.**
+    - `routes/*.py` moved to `vcs/web/blueprints/`.
+    - Two new ones: `main` (login, logout, password, dashboard, `/health`,
+      favicon, job poll) and `reports` (P&L, operating costs, Insights,
+      Retention).
+    - Their endpoints are renamed `main.*` and `reports.monthly` /
+      `yearly` / `opex_save` / `insights` / `retention`.
+    - `templates/`, `static/` and `translations/` moved into `vcs/`.
+  - **Proof of a pure move.** The old tree was checked out beside the new
+    one and both apps were dumped:
+    - The 152 URL rules and their methods were identical.
+    - So were the hook order, error handlers, filters, template globals,
+      config and extensions.
+  - **Also updated.**
+    - The launchers, `setup.py`'s generated launchers and both test-env
+      scripts.
+    - The updater: it requires `run.py`, builds the app with
+      `create_app()` and probes `run.py`.
+    - The heartbeat's uptime now uses a monotonic start.
+    - The scheduler logs through `errorlog`.
+    - `babel.cfg`, the Arabic catalogue's source references (no
+      translation changed; verified entry by entry), the docs and
+      `CLAUDE.md`.
+  - **Found on the way.** The smoke test's skip entry
+    `"settings_updates_check"` had lost its prefix in the blueprint split.
+    It skipped nothing, so every run called the GitHub releases API. The
+    entry is fixed, and a guard now fails on any skip entry that names no
+    endpoint (mutation-checked).
+  - **Also found: the browser tier failed on a second run.** It signed in
+    through the form about fifteen times a run. The app allows 20 sign-ins
+    per address in five minutes, and refused tries count too. A second run
+    within five minutes was refused at the login page, and every test then
+    failed as a 30-second timeout. The tier now signs in once per run and
+    reuses that session's cookie. A refused sign-in fails at once, quoting
+    the page's message. Two back-to-back runs now both pass.
+
+  **Suite:** IQ **1436 passed, 4 skipped**; JO **1436 passed, 4 skipped**;
+  no database 577 passed.

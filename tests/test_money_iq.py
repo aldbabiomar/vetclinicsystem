@@ -23,7 +23,7 @@ from decimal import Decimal as D
 
 import pytest
 
-import app
+from vcs.web import core
 from vcs.domain import logic
 from vcs import money
 pytestmark = pytest.mark.money("IQ")
@@ -36,40 +36,40 @@ NOTE = money.IQ.cash_unit
 # ---------------------------------------------------------------------------
 
 def test_parse_money_blank_is_none():
-    assert app.parse_money("") is None
-    assert app.parse_money("   ") is None
-    assert app.parse_money(None) is None
+    assert core.parse_money("") is None
+    assert core.parse_money("   ") is None
+    assert core.parse_money(None) is None
 
 
 def test_parse_money_blank_but_required_raises():
-    with pytest.raises(app.BadNumber):
-        app.parse_money("", required=True)
+    with pytest.raises(core.BadNumber):
+        core.parse_money("", required=True)
 
 
 def test_parse_money_accepts_ordinary_amounts():
-    assert app.parse_money("10000") == 10000
-    assert app.parse_money("0") == 0
-    assert app.parse_money(" 250 ") == 250
+    assert core.parse_money("10000") == 10000
+    assert core.parse_money("0") == 0
+    assert core.parse_money(" 250 ") == 250
 
 
 def test_parse_money_rounds_to_whole_dinars():
     """IQ amounts are entered in whole dinars: a fraction is rounded at the
     door (half-up), so every check downstream sees what will be stored."""
-    assert app.parse_money("1234.4") == 1234
-    assert app.parse_money("1234.5") == 1235
-    assert app.parse_money("0.4") == 0
+    assert core.parse_money("1234.4") == 1234
+    assert core.parse_money("1234.5") == 1235
+    assert core.parse_money("0.4") == 0
 
 
 @pytest.mark.parametrize("hostile", ["nan", "NaN", "inf", "-inf", "Infinity"])
 def test_parse_money_rejects_nan_and_infinity(hostile):
-    with pytest.raises(app.BadNumber):
-        app.parse_money(hostile)
+    with pytest.raises(core.BadNumber):
+        core.parse_money(hostile)
 
 
 @pytest.mark.parametrize("garbage", ["abc", "1,000", "10.0.0", "$50", "12 34"])
 def test_parse_money_rejects_non_numeric(garbage):
-    with pytest.raises(app.BadNumber):
-        app.parse_money(garbage)
+    with pytest.raises(core.BadNumber):
+        core.parse_money(garbage)
 
 
 @pytest.mark.parametrize("arabic,expected", [("١٠٠", 100), ("٢٥٠", 250), ("1٠0", 100)])
@@ -77,22 +77,22 @@ def test_parse_money_accepts_arabic_indic_digits(arabic, expected):
     """Decimal() parses Arabic-Indic digits, so a clinic can type ٢٥٠ into a
     price field and get 250. Locked in so restricting input to ASCII later is
     a deliberate decision with a failing test to justify it."""
-    assert app.parse_money(arabic) == expected
+    assert core.parse_money(arabic) == expected
 
 
 def test_parse_money_allows_negative_by_design():
     """has_negative() is the separate guard where negative is never valid."""
-    assert app.parse_money("-500") == -500
+    assert core.parse_money("-500") == -500
 
 
 def test_parse_money_rejects_absurd_values():
     """The IQ bound is a typo guard (~760,000 USD), not a column limit."""
     cap = money.IQ.max_amount
-    assert app.parse_money(str(cap)) == cap
-    with pytest.raises(app.BadNumber):
-        app.parse_money(str(cap + 1))
-    with pytest.raises(app.BadNumber):
-        app.parse_money("1000000000000000000")
+    assert core.parse_money(str(cap)) == cap
+    with pytest.raises(core.BadNumber):
+        core.parse_money(str(cap + 1))
+    with pytest.raises(core.BadNumber):
+        core.parse_money("1000000000000000000")
 
 
 def test_the_iq_bound_fits_the_money_column():
@@ -103,9 +103,9 @@ def test_the_iq_bound_fits_the_money_column():
 
 
 def test_negative_values_are_bounded_by_magnitude_too():
-    assert app.parse_money("-1000") == -1000
-    with pytest.raises(app.BadNumber):
-        app.parse_money("-1000000000000000000")
+    assert core.parse_money("-1000") == -1000
+    with pytest.raises(core.BadNumber):
+        core.parse_money("-1000000000000000000")
 
 
 # ---------------------------------------------------------------------------

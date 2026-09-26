@@ -193,7 +193,7 @@ def test_the_check_button_still_asks_the_route_that_calls_github():
 # ---------------------------------------------------------------------------
 
 def _fake_release(tmp_path, version="1.0.1", skip=()):
-    files = {"VERSION": version, "app.py": "", "requirements.txt": "", "vcs/db/migrate.py": "",
+    files = {"VERSION": version, "run.py": "", "requirements.txt": "", "vcs/db/migrate.py": "",
              "vcs/db/migrations/0001_baseline.sql": ""}
     for rel, text in files.items():
         if rel in skip:
@@ -216,7 +216,7 @@ def test_the_repository_itself_would_pass_validation():
     assert updater._validate_release(str(root), f"v{version}") == (True, None)
 
 
-@pytest.mark.parametrize("missing", ["app.py", "vcs/db/migrate.py", "vcs/db/migrations/0001_baseline.sql"])
+@pytest.mark.parametrize("missing", ["run.py", "vcs/db/migrate.py", "vcs/db/migrations/0001_baseline.sql"])
 def test_a_release_missing_a_file_it_needs_is_refused(tmp_path, missing):
     ok, reason = updater._validate_release(_fake_release(tmp_path, skip=(missing,)), "v1.0.1")
     assert not ok and pathlib.Path(missing).name in reason

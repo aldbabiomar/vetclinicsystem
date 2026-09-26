@@ -825,12 +825,11 @@ def discountable_by_item_ids(db, inventory_item_ids):
 
 def save_visit_billing_lines(db, visit_id, lines):
     """
-    Replaces every visit_billing_lines row for this visit with a fresh
-    snapshot of what's in the cart at Save time \u2014 price_id/name/category/
-    quantity/unit_price/unit_cost per line, from the search-and-add
-    billing UI (visit_billing_save() in app.py builds this list). Does
-    not commit (caller's job, same convention as every other write in
-    this module).
+    Replaces every visit_billing_lines row for this visit with a fresh snapshot
+    of what's in the cart at Save time \u2014 price_id/name/category/
+    quantity/unit_price/unit_cost per line, from the search-and-add billing UI
+    (visit_billing_save() in the clinical blueprint builds this list). Does not
+    commit (caller's job, same convention as every other write in this module).
     """
     db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
     now_str = clock.now().isoformat(timespec="seconds")
@@ -1032,12 +1031,12 @@ def boarding_suggested_total(price_per_day, entry_date, dismissal_date):
 
 def boarding_billing_summary_from_fields(b, paid):
     """Same computation as boarding_billing_summary(), factored out so a
-    caller that already has the boarding_sessions row in hand (e.g. a list
-    page rendering many rows at once) can skip re-fetching it and the
-    per-row payments query — see boarding_page() in app.py, which batches
-    `paid` across the whole page in one query instead of one per row.
-    `b` needs total, total_is_auto, price_per_day, entry_date,
-    dismissal_date, dismissed, cleanup_amount, discount_percent,
+    caller that already has the boarding_sessions row in hand (e.g. a list page
+    rendering many rows at once) can skip re-fetching it and the per-row
+    payments query — see boarding_page() in the clinical blueprint, which
+    batches `paid` across the whole page in one query instead of one per row.
+    `b` needs total, total_is_auto, price_per_day, entry_date, dismissal_date,
+    dismissed, cleanup_amount, discount_percent,
     discount_source."""
     if not b:
         subtotal = 0
@@ -1546,9 +1545,9 @@ def recent_refunds(db, limit=100, offset=0, date_filter=None):
 # ---------------------------------------------------------------------------
 # Owners / Patients
 # ---------------------------------------------------------------------------
-# The one definition of what counts as noise inside a microchip number:
-# spaces, hyphens (including the en/em dashes a paste can carry) and dots.
-# app.py's normalize_microchip() strips exactly this before storing, and
+# The one definition of what counts as noise inside a microchip number: spaces,
+# hyphens (including the en/em dashes a paste can carry) and dots. The clinical
+# blueprint's normalize_microchip() strips exactly this before storing, and
 # search_patients() strips exactly this before matching -- the two must agree
 # or a chip typed the way it is printed would not find the record it is on.
 _MICROCHIP_SEPARATORS = re.compile(r"[\s\-\u2013\u2014.]")
@@ -1778,8 +1777,8 @@ def record_consignment_receipt(db, item_id, distributor_id, quantity, unit_cost_
     immediately visible on Inventory Status and the next audit walk with
     zero changes to inventory_status(). Does not commit."""
     # Microsecond precision — see the comment on audit_session_confirm()'s
-    # confirmed_at write in app.py; this writes an inventory_transactions
-    # row too, which that column gets compared against.
+    # confirmed_at write in the inventory blueprint; this writes an
+    # inventory_transactions row too, which that column gets compared against.
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_receipts (item_id, distributor_id, quantity, unit_cost_at_receipt, "
@@ -1827,8 +1826,8 @@ def record_consignment_shrinkage(db, item_id, distributor_id, quantity, reason, 
     item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s
-    # confirmed_at write in app.py; this writes an inventory_transactions
-    # row too, which that column gets compared against.
+    # confirmed_at write in the inventory blueprint; this writes an
+    # inventory_transactions row too, which that column gets compared against.
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_shrinkage (item_id, distributor_id, quantity, reason, liable_party, "
@@ -1871,8 +1870,8 @@ def record_consignment_return(db, item_id, distributor_id, quantity, return_date
     item = db.execute("SELECT cost_price FROM inventory_list WHERE id=?", (item_id,)).fetchone()
     unit_cost = (item["cost_price"] or 0) if item else 0
     # Microsecond precision — see the comment on audit_session_confirm()'s
-    # confirmed_at write in app.py; this writes an inventory_transactions
-    # row too, which that column gets compared against.
+    # confirmed_at write in the inventory blueprint; this writes an
+    # inventory_transactions row too, which that column gets compared against.
     now = clock.now().isoformat(timespec="microseconds")
     cur = db.execute(
         "INSERT INTO consignment_returns (item_id, distributor_id, quantity, unit_cost_at_return, "

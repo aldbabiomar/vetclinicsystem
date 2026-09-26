@@ -29,7 +29,6 @@ def _uid(prefix):
 
 
 def _phone():
-    import app as app_module
     body = str(uuid.uuid4().int)[:money.JO.phone_local_length - 1].ljust(
         money.JO.phone_local_length - 1, "0")
     return "07" + body

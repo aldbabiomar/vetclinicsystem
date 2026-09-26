@@ -47,7 +47,7 @@ python3 -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python3 setup.py              # starts Postgres in Docker, builds the schema, loads data
-python3 app.py
+python3 run.py
 ```
 
 Open **http://127.0.0.1:5050** on the server machine.
@@ -58,7 +58,7 @@ The app binds to the network, not just the one computer, so any phone,
 tablet, or laptop on the same WiFi can reach it. Once running, the exact
 address to use is shown on the **Dashboard** and **Settings** pages to admins
 (something like `http://192.168.1.X:5050`) — type that into a browser on any
-other device. The computer running `python3 app.py` is acting as the server,
+other device. The computer running `python3 run.py` is acting as the server,
 so it needs to stay on and running during clinic hours for other devices to
 reach it. macOS may prompt to allow incoming connections the first time —
 click **Allow**.
@@ -293,27 +293,31 @@ Docker container — nothing else in the app needs to change.
 
 ## How the code is organised
 
-Since 2026-09-10 the routes live in a package rather than in one file:
+Everything is in the `vcs/` package; `run.py` starts it.
 
 ```
-app.py        1,277 lines — creates the Flask app, wires config and the
-              scheduler, registers the blueprints, and keeps the handful of
-              cross-cutting routes (login, health, dashboard, reports)
-core.py       456 lines — the seam: get_db(), the parsers and validators
-              (parse_money, parse_int, clean_date, normalize_phone), the
-              MAX_* bounds and the shared exception types
-routes/       5,658 lines across six blueprints — settings, admin,
-              consignment, inventory, sales, clinical
+vcs/config.py       .env and the settings read from the environment
+vcs/money.py, clock.py, auth.py, ...   the rules every part shares
+vcs/db/             the connection pool and the numbered schema migrations
+vcs/domain/         the queries and calculations (no Flask)
+vcs/web/            the request layer: factory.py (create_app), hooks.py,
+                    errors.py, templating.py, core.py (the blueprints' shared
+                    seam: get_db(), the parsers and validators, the MAX_*
+                    bounds, the shared exception types), nav.py
+vcs/web/blueprints/ one per area: main, reports, settings, admin, clinical,
+                    sales, inventory, consignment
+vcs/ops/            backups, the updater, the scheduler, self-checks
+vcs/templates/, vcs/static/, vcs/translations/
 ```
 
 Three rules follow from that:
 
-- **A new route goes in the blueprint that owns its area**, not in `app.py`.
-- **Anything two blueprints both need goes in `core.py`.** A helper imported
-  from a sibling blueprint is a circular import waiting to happen.
-- **`core.py` reads its configuration from the environment at import time**,
-  so it must be imported *after* `load_dotenv()`. Move that import up and the
-  database timeout silently falls back to its default.
+- **A new route goes in the blueprint that owns its area.**
+- **Anything two blueprints both need goes in `vcs/web/core.py`** (or the rest
+  of `vcs`). A helper imported from a sibling blueprint is a circular import
+  waiting to happen, and a blueprint never imports the factory.
+- **Importing the package loads `.env` first** (`vcs/config.py`), so a module
+  may read the environment at import time.
 
 Endpoint names are blueprint-prefixed — `settings.settings_page`, not
 `settings_page` — so a stale `url_for()` fails loudly when the page renders
@@ -321,7 +325,7 @@ rather than producing a broken link.
 
 ### Styling conventions
 
-Styles live in `static/style.css`, not in `style=` attributes. The foot of that
+Styles live in `vcs/static/style.css`, not in `style=` attributes. The foot of that
 file holds a small set of utilities (spacing, flex rows, a few component
 classes) built on the palette variables — use those rather than typing a pixel
 value into a template.
@@ -357,7 +361,7 @@ already paid. `tests/test_money.py` covers it.
 
 `tests/test_frontend.py` is the other one worth knowing by name — the rest
 of the suite is described by tier below. It reads `style.css` and
-`templates/` and fails on the kinds of breakage that used to be found only
+the templates and fails on the kinds of breakage that used to be found only
 by someone noticing them — a colour hardcoded instead of taken from the
 palette (so it stays wrong in dark mode), a `var(--token)` that no longer
 resolves (which renders as *nothing*, not as an obviously wrong colour), a
@@ -386,8 +390,8 @@ venv/bin/python -m pytest tests/ -q
 | **Database** — routes, permissions, backups, migrations, concurrency | a throwaway Postgres in `TEST_DATABASE_URL` | ~15 seconds |
 | **Browser** — `test_browser.py` | Playwright and a running app in `APP_URL` | ~2 minutes |
 
-(They import `app.py`, so they need the app's own dependencies — which is
-why they run from that venv rather than a bare Python.)
+(They import the `vcs` package, so they need the app's own dependencies —
+which is why they run from that venv rather than a bare Python.)
 
 **A clean skip is not a pass, and the skip count will not tell you which.** A
 tier whose import is missing collects *zero* tests and prints as a single

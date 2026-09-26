@@ -1,17 +1,14 @@
 """
-The few pieces of VetClinicSystem that both `app.py` and the route blueprints
-under `routes/` need.
+The request layer's shared pieces: what the blueprints and the app's own
+modules (hooks, errors, templating) all need -- the request's database
+connection, form parsing and validation (parse_money, clean_date,
+normalize_phone, the Bad* exceptions, the MAX_* bounds), pagination,
+flashing and display helpers.
 
-This module exists to break what would otherwise be a circular import: app.py
-creates the Flask app and registers the blueprints, so a blueprint cannot
-import from app.py. Everything here is deliberately small and dependency-free
-in that direction — it imports Flask and `db`, and nothing from this
-application's own request layer.
-
-Nothing here changed behaviour when it moved out of app.py; these are the same
-definitions, in a place both sides can reach.
+A blueprint imports from here and from the rest of `vcs`, never from the
+factory that registers it (vcs/web/factory.py): that direction would be
+circular.
 """
-import math
 import os
 
 from vcs.paths import ROOT
@@ -21,7 +18,7 @@ import socket
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from flask_babel import lazy_gettext as _l, gettext as _
+from flask_babel import gettext as _
 from flask import flash as _flask_flash, g, render_template, request, url_for
 
 from vcs.db import pool as dbmod
@@ -51,7 +48,7 @@ DB_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("DB_REQUEST_TIMEOUT_SECONDS", 
 
 def get_db():
     """The request-scoped connection. Borrowed from the pool on first use and
-    returned by app.py's close_db() teardown."""
+    returned by close_db() (vcs/web/hooks.py)."""
     if "db" not in g:
         g.db = dbmod.getconn(timeout=DB_REQUEST_TIMEOUT_SECONDS)
     return g.db
@@ -75,8 +72,8 @@ def lan_address():
 # Shared request-layer helpers
 # ---------------------------------------------------------------------------
 # Form parsing and validation, pagination, and the background-job render shell.
-# These were in app.py, where every blueprint would have had to import from the
-# module that registers it. They are pure helpers over `request` and the parsed
+# They live here, not beside the factory, because a blueprint must never import
+# the module that registers it. They are pure helpers over `request` and the parsed
 # values -- no route, no database of their own.
 #
 # Money is parsed through money.py, which takes its precision, bounds and
@@ -102,7 +99,7 @@ def parse_money(raw, required=False):
 
     Raises money.MoneySettingNotChosen if no money setting has been chosen —
     money routes are gated before this (requires_money_setting), so reaching
-    it means a route was missed; app.py turns it into a prompt, not a 500.
+    it means a route was missed; vcs/web/errors.py turns it into a prompt, not a 500.
 
     Only for MONEY. Percentages go through parse_percent(), and counts and
     measurements (quantities, weights, stock) through parse_quantity() —
@@ -544,7 +541,7 @@ def requires_money_setting(view):
 
 def money_setting_prompt():
     """The response for a money screen opened before the money setting is
-    chosen. Shared by requires_money_setting and app.py's handler for
+    chosen. Shared by requires_money_setting and the error handler (vcs/web/errors.py) for
     money.MoneySettingNotChosen, so both say the same thing."""
     from flask import redirect, session
     if "manage_settings" in (session.get("permissions") or []):
@@ -553,7 +550,7 @@ def money_setting_prompt():
         return redirect(url_for("settings.settings_page") + "#money-setting")
     flash(_("Billing, payments and prices aren't available yet: an admin needs to choose the "
             "clinic's money setting in Settings first."), "error")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("main.dashboard"))
 
 
 def parse_quantity(raw, required=False):
@@ -704,3 +701,25 @@ def display_number(v):
     except RuntimeError:
         pass          # outside a request context: plain digits
     return v
+
+
+def is_safe_local_path(path):
+    """Only allow redirects to relative, in-app paths (no scheme/host)."""
+    if not path:
+        return False
+    if not path.startswith("/"):
+        return False
+    if path.startswith("//"):
+        return False
+    if "\\" in path:
+        return False
+    return True
+
+
+def cached_dashboard_snapshot(db):
+    """dashboard_snapshot() scans several tables. It's needed on every page
+    (for the nav alert badge) and again on the dashboard route itself —
+    cache it per-request so it only runs once."""
+    if "dash_snap" not in g:
+        g.dash_snap = logic.dashboard_snapshot(db)
+    return g.dash_snap

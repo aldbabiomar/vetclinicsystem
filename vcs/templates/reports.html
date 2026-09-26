@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Monthly P&L') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Monthly P&L') }}</h1><p class="page-sub">{{ _('Revenue from billing & retail sales, COGS from measured usage. Admin only.') }}</p></div>
+  <div style="display:flex; gap:10px;">
+    <a class="btn secondary" href="{{ url_for('reports.yearly') }}">{{ _('Yearly P&L →') }}</a>
+  </div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+<table>
+  <thead><tr>
+    <th scope="col">{{ _('Month') }}</th><th scope="col" class="num-col">{{ _('Revenue') }}</th><th scope="col" class="num-col">{{ _('COGS') }}</th><th scope="col" class="num-col">{{ _('Gross Profit') }}</th>
+    <th scope="col" class="num-col">{{ _('OpEx') }}</th><th scope="col" class="num-col">{{ _('Net Profit') }}</th><th scope="col" class="num-col">{{ _('Net Margin') }}</th><th scope="col" class="num-col">{{ _('MoM Change') }}</th>
+  </tr></thead>
+  <tbody>
+    {% for r in pl %}
+    <tr>
+      <td><strong>{{ r.month }}</strong></td>
+      <td class="num-col">{{ r.revenue|money }}</td>
+      <td class="num-col">{{ r.cogs|money }}</td>
+      <td class="num-col">{{ r.gross_profit|money }}</td>
+      <td class="num-col">{{ r.total_opex|money }}</td>
+      <td class="num-col" style="font-weight:700; color: {{ 'var(--ok)' if r.net_profit >= 0 else 'var(--danger)' }};">{{ r.net_profit|money }}</td>
+      <td class="num-col">{{ (r.net_margin*100)|round(0)|int if r.net_margin is not none else "—" }}{% if r.net_margin is not none %}%{% endif %}</td>
+      <td class="num-col" style="color: {{ 'var(--ok)' if r.mom_change and r.mom_change >= 0 else ('var(--danger)' if r.mom_change and r.mom_change < 0 else 'var(--ink-soft)') }};">
+        {% if r.mom_change is not none %}{{ '+' if r.mom_change >= 0 }}{{ r.mom_change }}%{% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="section-title">{{ _('Enter Operating Costs for a Month') }}</div>
+<div class="card">
+  <form method="post" action="{{ url_for('reports.opex_save') }}" id="opexForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label for="opexMonth">{{ _('Month') }}</label><input required type="month" name="month" id="opexMonth" value="{{ fv(form, 'month', today[:7]) }}" data-vzh="reports-1"></div>
+      <div class="field"><label for="opexRent">{{ _('Rent (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="{{ money_step() }}" name="rent" id="opexRent" value="{{ fv(form, 'rent', '0') }}"></div>
+      <div class="field"><label for="opexSalaries">{{ _('Salaries / Payroll (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="{{ money_step() }}" name="salaries" id="opexSalaries" value="{{ fv(form, 'salaries', '0') }}"></div>
+      <div class="field"><label for="opexUtilities">{{ _('Utilities (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="{{ money_step() }}" name="utilities" id="opexUtilities" value="{{ fv(form, 'utilities', '0') }}"></div>
+      <div class="field"><label for="opexMarketing">{{ _('Marketing (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="{{ money_step() }}" name="marketing" id="opexMarketing" value="{{ fv(form, 'marketing', '0') }}"></div>
+      <div class="field"><label for="opexOther">{{ _('Other OpEx (%(currency_label)s)', currency_label=currency_label()) }}</label><input type="number" step="{{ money_step() }}" name="other" id="opexOther" value="{{ fv(form, 'other', '0') }}"></div>
+    </div>
+    <p class="small muted" id="opexHint" style="margin:6px 0 0;"></p>
+    <div class="form-actions form-actions-end"><button class="btn" type="submit">{{ _('Save Operating Costs') }}</button></div>
+  </form>
+</div>
+<script nonce="{{ csp_nonce }}">
+const OPEX_BY_MONTH = {{ opex_by_month|tojson }};
+function loadOpexForMonth() {
+  const month = document.getElementById('opexMonth').value;
+  const existing = OPEX_BY_MONTH[month];
+  const hint = document.getElementById('opexHint');
+  document.getElementById('opexRent').value = existing ? existing.rent : 0;
+  document.getElementById('opexSalaries').value = existing ? existing.salaries : 0;
+  document.getElementById('opexUtilities').value = existing ? existing.utilities : 0;
+  document.getElementById('opexMarketing').value = existing ? existing.marketing : 0;
+  document.getElementById('opexOther').value = existing ? existing.other : 0;
+  hint.textContent = (existing
+    ? {{ _('Showing saved values for {month}. Saving will overwrite them.')|tojson }}
+    : {{ _('No operating costs saved yet for {month}.')|tojson }}).replace('{month}', month);
+}
+{% if not form %}loadOpexForMonth();{% endif %}
+</script>
+<script nonce="{{ csp_nonce }}">
+VZ.bind('reports-1', 'change', function (event) { loadOpexForMonth(); });
+</script>
+{% endblock %}

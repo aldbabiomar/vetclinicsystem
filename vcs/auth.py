@@ -3,7 +3,7 @@ Authentication, roles, permissions, audit trail, and discount-cap logic for
 VetClinicSystem.
 """
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from functools import wraps
 
 from flask import session, redirect, url_for, request, abort
@@ -183,7 +183,7 @@ def permission_required(*perm_keys):
         @wraps(view)
         def wrapped(*args, **kwargs):
             if not session.get("user_id"):
-                return redirect(url_for("login", next=request.path))
+                return redirect(url_for("main.login", next=request.path))
             granted = session.get("permissions") or []
             if not any(p in granted for p in perm_keys):
                 abort(403)
@@ -333,10 +333,10 @@ def log_login(db, user_id, username, success):
     # front, so reading that header meant any client could choose the address
     # written into login_log.ip and shown on Admin > Logins and Changes: the
     # audit trail recorded whatever an attacker typed. When there IS a proxy,
-    # BEHIND_TLS_PROXY=1 installs ProxyFix (see app.py), which rewrites
-    # remote_addr from the header for us -- so the proxied case keeps working
-    # and the unproxied case stops being forgeable. Do not reinstate the
-    # header read here.
+    # BEHIND_TLS_PROXY=1 installs ProxyFix (see vcs/web/factory.py), which
+    # rewrites remote_addr from the header for us -- so the proxied case keeps
+    # working and the unproxied case stops being forgeable. Do not reinstate
+    # the header read here.
     ip = request.remote_addr
     db.execute(
         "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (?,?,?,?,?,?)",
@@ -350,23 +350,23 @@ def log_login(db, user_id, username, success):
 # failed attempts, so a brute-force password guesser can't hammer an
 # account indefinitely.
 #
-# Escalating (not sliding): the old version computed unlock_at as
-# MAX(recent failure timestamp) + LOCKOUT_BASE_MINUTES, which sounds like a
-# fixed-length lockout but wasn't one in practice — since a locked account
-# never reaches verify_password()/log_login() (see login() in app.py), an
+# Escalating (not sliding): the old version computed unlock_at as MAX(recent
+# failure timestamp) + LOCKOUT_BASE_MINUTES, which sounds like a fixed-length
+# lockout but wasn't one in practice — since a locked account never reaches
+# verify_password()/log_login() (see login() in vcs/web/blueprints/main.py), an
 # attacker can't extend an *active* lock by guessing more, but they CAN
 # trivially re-arm a new one the instant the old one expires: fire a fresh
 # burst of exactly LOCKOUT_THRESHOLD wrong guesses right at unlock_at (which
 # the login page tells them exactly), and the account is locked for another
-# full window. That's a permanent-DoS knob costing only ~5 requests every
-# 15 minutes, indefinitely, against any known username (admin's is in the
-# README). Fixed by escalating: each fresh lockout episode within
-# LOCKOUT_LOOKBACK_HOURS doubles the previous one's duration (capped), so
-# repeatedly re-arming gets exponentially more expensive to maintain rather
-# than staying flat-rate forever. A successful login clears the slate —
-# only failures *after* the most recent success (within the lookback) count
-# toward escalation, so a legitimate user who eventually gets back in isn't
-# penalized for guesses that happened before that.
+# full window. That's a permanent-DoS knob costing only ~5 requests every 15
+# minutes, indefinitely, against any known username (admin's is in the README).
+# Fixed by escalating: each fresh lockout episode within LOCKOUT_LOOKBACK_HOURS
+# doubles the previous one's duration (capped), so repeatedly re-arming gets
+# exponentially more expensive to maintain rather than staying flat-rate
+# forever. A successful login clears the slate — only failures *after* the most
+# recent success (within the lookback) count toward escalation, so a legitimate
+# user who eventually gets back in isn't penalized for guesses that happened
+# before that.
 # ---------------------------------------------------------------------------
 LOCKOUT_THRESHOLD = 5
 LOCKOUT_BASE_MINUTES = 15

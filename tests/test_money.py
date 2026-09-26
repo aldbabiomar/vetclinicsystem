@@ -28,7 +28,7 @@ from decimal import Decimal
 from vcs import money
 import pytest
 
-import app
+from vcs.web import core
 from vcs.domain import logic
 D = Decimal
 
@@ -41,7 +41,7 @@ def test_parse_money_returns_decimal_never_float():
     """The load-bearing assertion of the whole JO money model. If this ever
     returns a float, every Decimal guard downstream silently stops guarding
     and 3-decimal precision is lost without anything raising."""
-    value = app.parse_money("10.500")
+    value = core.parse_money("10.500")
     assert isinstance(value, Decimal)
     assert not isinstance(value, float)
 
@@ -49,20 +49,20 @@ def test_parse_money_returns_decimal_never_float():
 def test_parse_money_preserves_fils_precision():
     """0.1 + 0.2 != 0.3 in binary floating point. This is the entire reason
     JO does not use float: a fils must survive the round trip exactly."""
-    assert app.parse_money("0.001") == D("0.001")
-    assert app.parse_money("10.505") == D("10.505")
-    assert app.parse_money("0.1") + app.parse_money("0.2") == D("0.3")
+    assert core.parse_money("0.001") == D("0.001")
+    assert core.parse_money("10.505") == D("10.505")
+    assert core.parse_money("0.1") + core.parse_money("0.2") == D("0.3")
 
 
 def test_parse_money_blank_is_none():
-    assert app.parse_money("") is None
-    assert app.parse_money("   ") is None
-    assert app.parse_money(None) is None
+    assert core.parse_money("") is None
+    assert core.parse_money("   ") is None
+    assert core.parse_money(None) is None
 
 
 def test_parse_money_blank_but_required_raises():
-    with pytest.raises(app.BadNumber):
-        app.parse_money("", required=True)
+    with pytest.raises(core.BadNumber):
+        core.parse_money("", required=True)
 
 
 @pytest.mark.parametrize("hostile", ["nan", "NaN", "inf", "-inf", "Infinity"])
@@ -71,14 +71,14 @@ def test_parse_money_rejects_nan_and_infinity(hostile):
     happily, and every bound check downstream (`x > cap`, `x < 0`) is False
     against NaN — so an unchecked NaN doesn't merely slip past validation,
     it appears to *pass* every check. Must be rejected at the door."""
-    with pytest.raises(app.BadNumber):
-        app.parse_money(hostile)
+    with pytest.raises(core.BadNumber):
+        core.parse_money(hostile)
 
 
 @pytest.mark.parametrize("garbage", ["abc", "1,000", "10.0.0", "JD50", "12 34"])
 def test_parse_money_rejects_non_numeric(garbage):
-    with pytest.raises(app.BadNumber):
-        app.parse_money(garbage)
+    with pytest.raises(core.BadNumber):
+        core.parse_money(garbage)
 
 
 @pytest.mark.parametrize("arabic,expected", [("١٠٠", 100), ("٢٥٠", 250), ("1٠0", 100)])
@@ -88,23 +88,23 @@ def test_parse_money_accepts_arabic_indic_digits(arabic, expected):
     behaves identically. Locked in so that restricting input to ASCII digits
     later is a deliberate decision with a failing test to justify it, rather
     than a silent regression for the people this app was built for."""
-    assert app.parse_money(arabic) == expected
+    assert core.parse_money(arabic) == expected
 
 
 def test_parse_money_rejects_values_too_large_for_the_column():
     """NUMERIC(12,3) has a real ceiling. Proactive rejection gives a usable
     message instead of a Postgres error. (IQ has no equivalent cap — a
     documented divergence, see its own test file.)"""
-    assert app.parse_money(str(money.JO.max_amount)) == money.JO.max_amount
-    with pytest.raises(app.BadNumber):
-        app.parse_money("1000000000000000000")
+    assert core.parse_money(str(money.JO.max_amount)) == money.JO.max_amount
+    with pytest.raises(core.BadNumber):
+        core.parse_money("1000000000000000000")
 
 
 def test_parse_money_allows_negative_by_design():
     """Negative is not rejected here — has_negative() is the separate guard
     for the fields where negative is never valid. Locking this in so nobody
     "helpfully" adds a sign check here and silently breaks refunds."""
-    assert app.parse_money("-500.250") == D("-500.250")
+    assert core.parse_money("-500.250") == D("-500.250")
 
 
 # ---------------------------------------------------------------------------
@@ -114,31 +114,31 @@ def test_parse_money_allows_negative_by_design():
 def test_parse_quantity_returns_decimal_and_bounds_at_its_own_ceiling():
     """Quantities are NUMERIC(10,3) — a narrower column than money, so it
     has its own, lower cap rather than borrowing MAX_MONEY's."""
-    assert isinstance(app.parse_quantity("2.5"), Decimal)
-    assert app.parse_quantity(str(app.MAX_QUANTITY)) == app.MAX_QUANTITY
-    with pytest.raises(app.BadNumber):
-        app.parse_quantity(str(app.MAX_QUANTITY + 1))
+    assert isinstance(core.parse_quantity("2.5"), Decimal)
+    assert core.parse_quantity(str(core.MAX_QUANTITY)) == core.MAX_QUANTITY
+    with pytest.raises(core.BadNumber):
+        core.parse_quantity(str(core.MAX_QUANTITY + 1))
 
 
 def test_parse_quantity_rejects_nan():
-    with pytest.raises(app.BadNumber):
-        app.parse_quantity("nan")
+    with pytest.raises(core.BadNumber):
+        core.parse_quantity("nan")
 
 
 def test_parse_int_blank_and_bounds():
-    assert app.parse_int("") is None
-    with pytest.raises(app.BadNumber):
-        app.parse_int("", required=True)
-    assert app.parse_int(str(app.MAX_INT)) == app.MAX_INT
-    with pytest.raises(app.BadNumber):
-        app.parse_int(str(app.MAX_INT + 1))
+    assert core.parse_int("") is None
+    with pytest.raises(core.BadNumber):
+        core.parse_int("", required=True)
+    assert core.parse_int(str(core.MAX_INT)) == core.MAX_INT
+    with pytest.raises(core.BadNumber):
+        core.parse_int(str(core.MAX_INT + 1))
 
 
 def test_has_negative():
-    assert app.has_negative(D("-1")) is True
-    assert app.has_negative(D(0), D(5), D(100)) is False
-    assert app.has_negative(None, D(5)) is False   # absent is not negative
-    assert app.has_negative(D(5), None, D("-0.001")) is True
+    assert core.has_negative(D("-1")) is True
+    assert core.has_negative(D(0), D(5), D(100)) is False
+    assert core.has_negative(None, D(5)) is False   # absent is not negative
+    assert core.has_negative(D(5), None, D("-0.001")) is True
 
 
 # ---------------------------------------------------------------------------

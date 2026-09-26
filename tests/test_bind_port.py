@@ -8,22 +8,22 @@ two installs on this machine collide on the default ports and JO had to be
 moved to 5051 (COMPARISON.md §54). A wrong address is worse than no address,
 because staff will try it and conclude the app is down.
 """
-import source_files
+import importlib
 import re
-from pathlib import Path
 
-import app as app_module
+import source_files
+from vcs import config
 
 TEMPLATES = source_files.TEMPLATES_DIR
 
 
 def _port_env_var():
-    """The env var this app actually reads, taken from app.py rather than
-    guessed — the two apps use different prefixes and a guess would silently
-    test the sibling's variable, which is never set here."""
-    src = (Path(app_module.__file__)).read_text(encoding="utf-8")
+    """The env var this app actually reads, taken from vcs/config.py rather
+    than guessed — the two predecessor apps used different prefixes, and a
+    guess would silently test a variable that is never set here."""
+    src = source_files.module("config").read_text(encoding="utf-8")
     m = re.search(r'BIND_PORT = int\(os\.environ\.get\("([A-Z_]+)"', src)
-    assert m, "app.py no longer derives BIND_PORT from the environment"
+    assert m, "vcs/config.py no longer derives BIND_PORT from the environment"
     return m.group(1)
 
 
@@ -39,22 +39,19 @@ def test_no_template_hard_codes_a_port():
     )
 
 
-def test_bind_port_is_exposed_to_templates():
-    assert app_module.app.jinja_env.globals.get("bind_port") == app_module.BIND_PORT
+def test_bind_port_is_exposed_to_templates(bare_app):
+    assert bare_app.jinja_env.globals.get("bind_port") == config.BIND_PORT
 
 
 def test_bind_port_follows_the_environment(monkeypatch):
     """Control: the constant is read from the environment, not a literal —
     otherwise the guard above passes while every page still shows 5050."""
-    import importlib
-
     var = _port_env_var()
     monkeypatch.setenv(var, "5999")
-    reloaded = importlib.reload(app_module)
     try:
-        assert reloaded.BIND_PORT == 5999, (
+        assert importlib.reload(config).BIND_PORT == 5999, (
             f"BIND_PORT ignored {var}=5999 — it is a literal, not a derived value."
         )
     finally:
         monkeypatch.undo()
-        importlib.reload(app_module)
+        importlib.reload(config)

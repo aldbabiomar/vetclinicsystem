@@ -52,4 +52,4 @@ echo Leave this window open while you use the app.
 echo Close this window ^(or press Ctrl+C^) to stop it.
 echo.
 
-python app.py
+python run.py

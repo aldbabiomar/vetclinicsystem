@@ -37,7 +37,6 @@ def _phone():
     Phone format is one of the two apps' deliberate divergences, so the
     length is read from the app rather than hardcoded here — this helper
     works unchanged in both."""
-    import app as app_module
     # PHONE_LOCAL_LENGTH counts digits AFTER the leading trunk 0 is stripped,
     # so the string itself carries one more: "0" + LENGTH digits. Verified
     # against normalize_phone() rather than assumed.
@@ -105,8 +104,8 @@ def test_a_duplicate_phone_sends_staff_to_the_existing_owner(client, db, cleanup
     assert resp.headers["Location"].endswith(f"/owners/{first['id']}"), (
         "should redirect to the owner who already holds this number")
     # Stored normalized to E.164, not as typed — query the stored form.
-    import app as app_module
-    stored = app_module.normalize_phone(phone)
+    from vcs.web.core import normalize_phone
+    stored = normalize_phone(phone)
     assert db.execute("SELECT count(*) AS c FROM owners WHERE phone=?",
                       (stored,)).fetchone()["c"] == 1
 

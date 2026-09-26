@@ -260,7 +260,6 @@ def test_cleanup_write_off_reduces_the_stored_total(client, db, sellable):
 def test_cleanup_above_the_cap_is_refused(client, db, sellable):
     """CLEANUP_CAP is a flat global ceiling. Without this the write-off is an
     unbounded discount that bypasses the role discount cap entirely."""
-    import app as app_module
     before = db.execute("SELECT count(*) AS c FROM sales").fetchone()["c"]
     resp = _checkout(client, sellable["inv_id"], qty=1, payment_method="Card",
                      cleanup_amount=str(money.JO.cleanup_cap + D("1.000")))
@@ -794,7 +793,6 @@ def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):
 
 def test_visit_cleanup_above_the_cap_is_refused(client, db, visit):
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    import app as app_module
     resp = _pay_visit(client, visit["visit_id"], amount="10.000", method="Cash",
                       cleanup_amount=str(money.JO.cleanup_cap + D("1.000")))
     assert resp.status_code == 200

@@ -194,7 +194,8 @@ the launcher that `setup.py` writes into the data directory.
 `updater.py`: asks `GET /repos/{GITHUB_REPO}/releases/latest`; backs up the
 database (`backup.py`); downloads the tarball into a new release folder
 (extracted with `filter="data"`); validates it (`VERSION` matches the tag,
-`app.py` imports); builds that release's own venv; applies its schema
+`run.py` and the schema files are there); builds that release's own venv and
+builds its app (`create_app()`) there; applies its schema
 (migrations); flips `active_release.txt`; restarts; health-checks `/health`.
 If the health check fails it flips back and restarts the previous release —
 the pre-update backup means nothing is lost either way. Only the last two

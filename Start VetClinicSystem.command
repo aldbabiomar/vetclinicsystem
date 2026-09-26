@@ -50,4 +50,4 @@ echo "Leave this window open while you use the app."
 echo "Close this window (or press Control-C) to stop it."
 echo ""
 
-python3 app.py
+python3 run.py

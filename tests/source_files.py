@@ -13,17 +13,28 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "vcs"
+WEB = PKG / "web"
 
-APP = ROOT / "app.py"                                   # the app and its top-level routes
-ROUTES = sorted((ROOT / "routes").glob("*.py"))         # the blueprints
-TEMPLATES_DIR = ROOT / "templates"
-STATIC_DIR = ROOT / "static"
-TRANSLATIONS_DIR = ROOT / "translations"
+BLUEPRINTS = sorted(p for p in (WEB / "blueprints").glob("*.py") if p.name != "__init__.py")
+# The request layer beside the blueprints: what runs around every request,
+# the error handlers, and what every template can use.
+WEB_APP = [WEB / "hooks.py", WEB / "errors.py", WEB / "templating.py", WEB / "factory.py"]
+TEMPLATES_DIR = PKG / "templates"
+STATIC_DIR = PKG / "static"
+TRANSLATIONS_DIR = PKG / "translations"
 MIGRATIONS_DIR = PKG / "db" / "migrations"
 CATALOGUE = TRANSLATIONS_DIR / "ar" / "LC_MESSAGES" / "messages.po"
+RUN = ROOT / "run.py"
 
-# A module by its short name, wherever it lives in the package.
-_MODULES = {p.stem: p for p in PKG.rglob("*.py") if p.stem != "__init__"}
+# A module by its short name, wherever it lives in the package. The
+# blueprints are not in it -- `reports` is the domain module, and the
+# blueprint of the same name is in BLUEPRINTS.
+_MODULES = {}
+for _p in sorted(PKG.rglob("*.py")):
+    if _p.stem == "__init__" or _p.parent.name == "blueprints":
+        continue
+    assert _p.stem not in _MODULES, f"two modules named {_p.stem!r}: {_MODULES[_p.stem]} and {_p}"
+    _MODULES[_p.stem] = _p
 
 
 def module(name):
@@ -33,15 +44,25 @@ def module(name):
     return path
 
 
+def blueprint(name):
+    path = WEB / "blueprints" / f"{name}.py"
+    assert path.exists(), f"no blueprint module {name!r}"
+    return path
+
+
 def web_modules():
-    """The request layer: the app and every blueprint."""
-    return [APP, *ROUTES]
+    """The request layer: every blueprint, and the hooks, error handlers,
+    templating and factory that used to be app.py."""
+    for p in [*BLUEPRINTS, *WEB_APP]:
+        assert p.exists(), f"{p} is gone: tests/source_files.py needs updating"
+    assert len(BLUEPRINTS) >= 8, f"expected the eight blueprints, found {[p.name for p in BLUEPRINTS]}"
+    return [*BLUEPRINTS, *WEB_APP]
 
 
 def all_python():
-    """Every application Python file: the app, the blueprints and the
-    package (setup.py and the tests excluded)."""
-    return [APP, *ROUTES, *sorted(p for p in PKG.rglob("*.py"))]
+    """Every application Python file: the package and the launcher (setup.py
+    and the tests excluded)."""
+    return [RUN, *sorted(PKG.rglob("*.py"))]
 
 
 def templates():

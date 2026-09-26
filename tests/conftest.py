@@ -1,11 +1,11 @@
 """
 Shared test setup.
 
-app.py refuses to import without a real SECRET_KEY (a deliberate fail-fast
-so nobody boots the app with the placeholder from .env.example), and it
-lives at the repo root rather than on the default import path. Both are
-fixed here so individual test modules can just `import app` / `import
-logic` / `import money`.
+create_app() refuses to build without a real SECRET_KEY (a deliberate
+fail-fast so nobody boots the app with the placeholder from .env.example),
+and the package lives at the repo root rather than on the default import
+path. Both are fixed here so individual test modules can just
+`from vcs import money`.
 
 TWO KINDS OF TEST LIVE IN THIS DIRECTORY
 ----------------------------------------
@@ -41,7 +41,7 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-# Any non-placeholder value satisfies app.py's guard. Set before import.
+# Any non-placeholder value satisfies config.secret_key(). Set before import.
 os.environ.setdefault("SECRET_KEY", "test-only-key-not-used-for-real-sessions")
 
 TEST_DB_URL = os.environ.get("TEST_DATABASE_URL")
@@ -85,29 +85,46 @@ def new_id():
     return random.randint(1_000_000_000, 2_000_000_000)
 
 
+_APP = None
+
+
+def _application():
+    """The one application object of the session, built on first use."""
+    global _APP
+    if _APP is None:
+        from vcs import create_app
+        _APP = create_app()
+        _APP.config.update(
+            TESTING=True,
+            # TESTING=True turns PROPAGATE_EXCEPTIONS on, which bypasses every
+            # error handler the app registers — so a route that degrades
+            # gracefully in production (flash + redirect) would surface here as a
+            # raw 500. That is a configuration no clinic ever runs, and testing it
+            # produces findings that are artefacts of the harness. Turn it back off
+            # so these tests exercise the real error paths.
+            PROPAGATE_EXCEPTIONS=False,
+            # CSRF is verified separately by the app's own error handling; leaving
+            # it on here would mean every test parsing a token out of HTML, which
+            # tests Flask-WTF rather than the money logic.
+            WTF_CSRF_ENABLED=False,
+        )
+    return _APP
+
+
+@pytest.fixture(scope="session")
+def bare_app():
+    """The application object without a database, for a test of its
+    configuration or templating that never reaches a table."""
+    return _application()
+
+
 @pytest.fixture(scope="session")
 def flask_app():
     """The real application object, wired to the throwaway database."""
     if not TEST_DB_URL:
         pytest.skip(SKIP_REASON)
     os.environ["DATABASE_URL"] = TEST_DB_URL
-    import app as app_module
-
-    app_module.app.config.update(
-        TESTING=True,
-        # TESTING=True turns PROPAGATE_EXCEPTIONS on, which bypasses every
-        # @app.errorhandler the app registers — so a route that degrades
-        # gracefully in production (flash + redirect) would surface here as a
-        # raw 500. That is a configuration no clinic ever runs, and testing it
-        # produces findings that are artefacts of the harness. Turn it back off
-        # so these tests exercise the real error paths.
-        PROPAGATE_EXCEPTIONS=False,
-        # CSRF is verified separately by the app's own error handling; leaving
-        # it on here would mean every test parsing a token out of HTML, which
-        # tests Flask-WTF rather than the money logic.
-        WTF_CSRF_ENABLED=False,
-    )
-    return app_module.app
+    return _application()
 
 
 @pytest.fixture(scope="session")

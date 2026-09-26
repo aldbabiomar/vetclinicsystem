@@ -15,7 +15,7 @@ from decimal import Decimal as D
 from vcs import clock
 from vcs.domain import logic
 from conftest import ADMIN_ID, needs_db
-from routes import sales as sales_routes
+from vcs.web.blueprints import sales as sales_routes
 from test_money_routes import _checkout, sellable  # noqa: F401
 
 pytestmark = needs_db

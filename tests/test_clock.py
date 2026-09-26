@@ -139,19 +139,19 @@ def test_control_on_automatic_the_page_says_the_money_settings_today(client, db,
 
 
 @needs_db
-def test_the_database_session_is_put_in_the_chosen_zone(client, db, time_zone_left_as_found):
+def test_the_database_session_is_put_in_the_chosen_zone(flask_app, client, db, time_zone_left_as_found):
     """The pooled connection a request uses must carry the zone, or a
     `::date` in SQL names a different day from clock.today() in Python."""
-    import app as app_module
+    from vcs.web import core, hooks
     _save(client, time_zone="Asia/Tokyo")
-    with app_module.app.test_request_context("/"):
-        app_module._load_money_setting()
+    with flask_app.test_request_context("/"):
+        hooks._load_money_setting()
         try:
-            row = app_module.get_db().execute("SELECT current_setting('TimeZone') AS tz").fetchone()
+            row = core.get_db().execute("SELECT current_setting('TimeZone') AS tz").fetchone()
             assert row["tz"] == "Asia/Tokyo"
             assert clock.zone_name() == "Asia/Tokyo"
         finally:
-            app_module._unload_money_setting(None)
+            hooks._unload_money_setting(None)
 
 
 # ---------------------------------------------------------------------------

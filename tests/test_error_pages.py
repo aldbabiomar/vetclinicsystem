@@ -94,7 +94,7 @@ def test_the_error_page_after_a_database_error_is_the_clinics_own(client, flask_
     def fails_in_postgres():
         get_db().execute("SELECT 1/0")
 
-    monkeypatch.setitem(flask_app.view_functions, "dashboard", fails_in_postgres)
+    monkeypatch.setitem(flask_app.view_functions, "main.dashboard", fails_in_postgres)
     resp = client.get("/")
     assert resp.status_code == 500, "the view did not fail — the test would prove nothing"
     page = resp.get_data(as_text=True)

@@ -91,10 +91,10 @@ CREATE TABLE users (
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     -- Bumped every time this user's password_hash changes (self-service or
     -- admin reset). Stashed in the session at login and compared on every
-    -- request (see require_login() in app.py) — a session logged in before
-    -- the most recent change is invalidated, so a stolen cookie stops
-    -- working the moment the password it was issued under is replaced,
-    -- instead of staying valid for the rest of its normal lifetime.
+    -- request (see require_login() in vcs/web/hooks.py) — a session logged in
+    -- before the most recent change is invalidated, so a stolen cookie stops
+    -- working the moment the password it was issued under is replaced, instead
+    -- of staying valid for the rest of its normal lifetime.
     password_changed_at TIMESTAMPTZ,   -- NULL = never changed; a change signs out every other session
     created_at TIMESTAMPTZ NOT NULL
 );
@@ -155,7 +155,7 @@ CREATE TABLE owners (
 -- existing owner. A plain UNIQUE index on a nullable column allows any
 -- number of owners with no phone on file (each NULL is distinct in
 -- Postgres) while rejecting a second owner with the same phone outright —
--- app.py's owner_new()/visit_new_patient() catch the resulting
+-- the clinical blueprint's owner_new()/visit_new_patient() catch the resulting
 -- IntegrityError and redirect to the existing owner instead of erroring.
 CREATE UNIQUE INDEX idx_owners_phone_unique ON owners(phone) WHERE phone IS NOT NULL;
 -- One card number, one owner. Partial, so any number of owners may hold
@@ -180,7 +180,7 @@ CREATE INDEX idx_patients_owner ON patients(owner_id);
 -- A plain unique index would make the column effectively single-valued
 -- (every NULL distinct in Postgres, but every blank string equal), so it is
 -- partial: any number of patients may have no chip on file, while a second
--- patient carrying a chip already recorded is rejected outright. app.py
+-- patient carrying a chip already recorded is rejected outright. The app
 -- checks first and catches the IntegrityError for the concurrent case.
 CREATE UNIQUE INDEX idx_patients_microchip_unique ON patients(microchip)
     WHERE microchip IS NOT NULL;
@@ -253,18 +253,18 @@ CREATE TABLE inventory_list (
     -- 'Owned' (you bought this stock outright — the default) or
     -- 'Consignment' (a distributor's stock, sitting on your shelf; you
     -- owe them cost_price per unit only once it sells). Only meaningful
-    -- for category='Retail' — enforced in app.py, not here. For a
+    -- for category='Retail' — enforced by the app, not here. For a
     -- Consignment item, cost_price keeps its existing meaning (per-unit
     -- cost) but the *payee* changes: it's what's owed to distributor_id,
     -- not what the clinic itself paid — same column, same downstream
     -- COGS math, different real-world counterparty.
     ownership_type TEXT NOT NULL DEFAULT 'Owned' CHECK (ownership_type IN ('Owned','Consignment')),
-    -- Set the moment this item most recently flipped Owned -> Consignment
-    -- (app.py's consignment_items_bulk_edit). NULL if it's never been
-    -- Consignment. consignment_balance() floors its sales/refund scan at
-    -- this date per item, on top of the distributor-level period_start,
-    -- so a sale from before the item was actually Consignment (e.g. years
-    -- of prior Retail sales) never gets swept into what's owed.
+    -- Set the moment this item most recently flipped Owned -> Consignment (the
+    -- consignment blueprint's consignment_items_bulk_edit). NULL if it's never
+    -- been Consignment. consignment_balance() floors its sales/refund scan at
+    -- this date per item, on top of the distributor-level period_start, so a
+    -- sale from before the item was actually Consignment (e.g. years of prior
+    -- Retail sales) never gets swept into what's owed.
     consignment_since TIMESTAMPTZ,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     barcode TEXT UNIQUE,
@@ -272,7 +272,7 @@ CREATE TABLE inventory_list (
     -- up: a real code entered/scanned in from the manufacturer's own
     -- packaging, or one this app generated internally. NULL alongside a
     -- NULL barcode when neither has ever been set up. Never both at once —
-    -- enforced in app.py, not just here.
+    -- enforced by the app, not just here.
     barcode_source TEXT CHECK (barcode_source IN ('manual','generated')),
     notes TEXT,
     -- A Consignment item is by definition somebody's stock — the whole
@@ -973,12 +973,11 @@ CREATE TABLE refunds (
     refund_date DATE NOT NULL,
     amount NUMERIC(15,3) NOT NULL,
     restocked BOOLEAN NOT NULL DEFAULT FALSE,   -- retail only: were the returned items put back into inventory?
-    -- Retail only — which POS sale this refund is against. Required at
-    -- the app layer (refund_retail_save() in app.py) so a retail refund
-    -- can never be recorded against an item that was never actually
-    -- sold, or for more than was sold minus what's already been
-    -- refunded — see refund_items.sale_item_id for the per-line
-    -- quantity/price tie-back.
+    -- Retail only — which POS sale this refund is against. Required at the app
+    -- layer (refund_retail_save() in the sales blueprint) so a retail refund
+    -- can never be recorded against an item that was never actually sold, or
+    -- for more than was sold minus what's already been refunded — see
+    -- refund_items.sale_item_id for the per-line quantity/price tie-back.
     sale_id INTEGER,
     -- Service refunds anchor on exactly one of these three, mirroring
     -- payments.visit_id / inpatient_case_id / boarding_id. boarding_id was

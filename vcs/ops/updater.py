@@ -258,7 +258,7 @@ def _download_and_extract(tarball_url, dest_path):
     dest_path (a NEW folder — the currently running folder is never
     touched). GitHub's tarball wraps everything in one top-level
     "{owner}-{repo}-{sha}/" directory; this strips that so dest_path ends
-    up holding app.py etc. directly, matching how the rest of this module
+    up holding run.py etc. directly, matching how the rest of this module
     (and setup.py) expect a release folder to look."""
     resp = requests.get(tarball_url, headers=_api_headers(), timeout=60, stream=True)
     resp.raise_for_status()
@@ -293,7 +293,7 @@ def _validate_release(path, tag_name):
     version = open(version_path).read().strip()
     if f"v{version}" != tag_name:
         return False, Msg(N_("VERSION file says %(version)s, but the release tag is %(tag)s."), version=version, tag=tag_name)
-    for required in ("app.py", "requirements.txt", os.path.join("vcs", "db", "migrate.py"),
+    for required in ("run.py", "requirements.txt", os.path.join("vcs", "db", "migrate.py"),
                      os.path.join("vcs", "db", "migrations", "0001_baseline.sql")):
         if not os.path.isfile(os.path.join(path, required)):
             return False, Msg(N_("Downloaded release is missing %(file)s."), file=required)
@@ -319,12 +319,13 @@ def _create_venv_and_install(release_path):
 
 
 def _check_imports(release_path):
-    """python3 -c "import app" in the release's own venv — catches syntax
-    errors and import-time crashes before this release is ever promoted.
+    """Builds the release's app in its own venv (`from vcs import
+    create_app; create_app()`) — catches syntax errors, import-time crashes
+    and a factory that fails before this release is ever promoted.
     Raises subprocess.CalledProcessError (with stderr captured) on
     failure."""
     py = _venv_python(release_path)
-    subprocess.run([py, "-c", "import app"], check=True, capture_output=True, text=True, cwd=release_path)
+    subprocess.run([py, "-c", "from vcs import create_app; create_app()"], check=True, capture_output=True, text=True, cwd=release_path)
 
 
 def _run_schema_sync(release_path):
@@ -354,15 +355,15 @@ def _probe_health(release_path, timeout=20):
     port (never the real port — the currently running app keeps serving
     the whole time) and polls its /health endpoint. This is what actually
     proves the new release boots and can reach the database BEFORE the
-    live process is ever touched — not just that a bare `import app`
-    succeeded. Always terminates the probe process before returning,
+    live process is ever touched — not just that the app could be
+    built. Always terminates the probe process before returning,
     success or failure."""
     py = _venv_python(release_path)
     port = _free_port()
     env = dict(os.environ)
     env["VETCLINICSYSTEM_PORT"] = str(port)
     env["VETCLINICSYSTEM_HOST"] = "127.0.0.1"
-    proc = subprocess.Popen([py, "app.py"], cwd=release_path, env=env,
+    proc = subprocess.Popen([py, "run.py"], cwd=release_path, env=env,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         deadline = time.time() + timeout

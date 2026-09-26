@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Restart the throwaway apps so they pick up template/.mo changes.
 #
-# Kills by PORT, never by a command-line pattern: `exec env ... python3 app.py`
+# Kills by PORT, never by a command-line pattern: `exec env ... python3 run.py`
 # rewrites the command line to the resolved Python.app path, so `pkill -f
-# "vcs_test_venv_iq/bin/python3 app.py"` matches NOTHING and exits quietly.
+# "vcs_test_venv_iq/bin/python3 run.py"` matches NOTHING and exits quietly.
 # Hours of "verified clean" can come from an app that never restarted — the
 # same failure isolated_test_env.sh's PID guard was built for (CLAUDE.md §5).
 # Every restart here therefore ASSERTS the listening pid actually changed.
@@ -28,7 +28,7 @@ for a in "$@"; do
   ( exec nohup env \
       DATABASE_URL="postgresql://postgres:test@localhost:${db}/${dbn}" \
       "${pre}_DATA_DIR=$DD" "${pre}_HOST=127.0.0.1" "${pre}_PORT=$port" \
-      SECRET_KEY="$SK" "/tmp/vcs_test_venv_${a}/bin/python3" app.py \
+      SECRET_KEY="$SK" "/tmp/vcs_test_venv_${a}/bin/python3" run.py \
       > "$DD/app_stdout.log" 2>&1 ) &
   for _ in $(seq 1 40); do
     code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/login" || true)"

@@ -62,7 +62,7 @@ def _extracted_msgids():
 
     def keep_dir(path):
         rel = pathlib.Path(path).relative_to(ROOT)
-        return not (rel.parts and rel.parts[0] in _SKIP_DIRS)
+        return not any(part in _SKIP_DIRS for part in rel.parts)
 
     found = {}
     for filename, _lineno, message, _comments, _context in extract_from_dir(

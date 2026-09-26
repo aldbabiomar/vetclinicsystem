@@ -12,7 +12,6 @@ import os
 from vcs.paths import ROOT
 import re
 import uuid
-from datetime import datetime
 
 from vcs import auth
 from vcs import clock

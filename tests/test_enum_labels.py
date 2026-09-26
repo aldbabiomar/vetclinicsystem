@@ -20,7 +20,7 @@ import pytest
 from vcs import enum_labels
 from vcs.web import core
 from vcs.domain import logic
-from routes import clinical, inventory
+from vcs.web.blueprints import clinical, inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = source_files.TEMPLATES_DIR

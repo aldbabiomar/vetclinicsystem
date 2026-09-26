@@ -34,7 +34,7 @@ import setup  # noqa: E402
 def test_the_macos_launcher_checks_python_before_starting_the_app():
     t = setup._MACOS_LAUNCHER
     probe = t.index('"$RELEASE_DIR/venv/bin/python3" -c ""')
-    launch = t.index('"$RELEASE_DIR/venv/bin/python3" "$RELEASE_DIR/app.py"')
+    launch = t.index('"$RELEASE_DIR/venv/bin/python3" "$RELEASE_DIR/run.py"')
     assert probe < launch, (
         "the interpreter check runs after the app launch, so a broken venv "
         "still spins the restart loop"
@@ -49,7 +49,7 @@ def test_the_windows_launcher_checks_python_before_starting_the_app():
     # _WINDOWS_LAUNCHER is the evaluated string, so the doubled backslashes
     # in setup.py's source are single backslashes here.
     probe = t.index(r'\venv\Scripts\python.exe" -c ""')
-    launch = t.index(r'\venv\Scripts\python.exe" "%RELEASE_DIR%\app.py"')
+    launch = t.index(r'\venv\Scripts\python.exe" "%RELEASE_DIR%\run.py"')
     assert probe < launch, (
         "the interpreter check runs after the app launch on Windows"
     )

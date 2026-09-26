@@ -49,17 +49,18 @@ def test_raising_the_session_lifetime_raises_both(monkeypatch):
     """CONTROL. They are derived from one value, so they cannot be changed
     apart by an operator setting the documented environment variable."""
     import importlib
-    import os
+
+    from vcs import config, create_app
 
     monkeypatch.setenv("SESSION_LIFETIME_HOURS", "4")
-    import app as app_module
-    reloaded = importlib.reload(app_module)
+    importlib.reload(config)
     try:
-        assert reloaded.app.config["PERMANENT_SESSION_LIFETIME"].total_seconds() == 4 * 3600
-        assert reloaded.app.config["WTF_CSRF_TIME_LIMIT"] == 4 * 3600
+        app = create_app()
+        assert app.config["PERMANENT_SESSION_LIFETIME"].total_seconds() == 4 * 3600
+        assert app.config["WTF_CSRF_TIME_LIMIT"] == 4 * 3600
     finally:
         monkeypatch.delenv("SESSION_LIFETIME_HOURS", raising=False)
-        importlib.reload(app_module)
+        importlib.reload(config)
 
 
 # ---------------------------------------------------------------------------

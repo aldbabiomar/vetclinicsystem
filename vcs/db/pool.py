@@ -1,8 +1,9 @@
 """
 Postgres connection layer for VetClinicSystem.
 
-This module exists so the rest of the codebase (app.py, logic.py, auth.py,
-attachments.py, ...) can use a consistent, simple data-access style. It provides:
+This module exists so the rest of the codebase (the request layer, logic.py,
+auth.py, attachments.py, ...) can use a consistent, simple data-access style.
+It provides:
 
   - a psycopg (v3) connection whose .execute() accepts '?' as a placeholder
     (the style used throughout this codebase), translating it to Postgres's
@@ -22,14 +23,14 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, PoolTimeout
 
 IntegrityError = psycopg.IntegrityError
-# Re-exported so app.py can catch "the pool is exhausted" specifically
-# (dbmod.PoolTimeout) and show a friendly "server is busy" message instead
-# of a generic 500.
+# Re-exported so the error handlers can catch "the pool is exhausted"
+# specifically (dbmod.PoolTimeout) and show a friendly "server is busy" message
+# instead of a generic 500.
 PoolTimeout = PoolTimeout
-# Re-exported so app.py can catch "a numeric value didn't fit its column"
-# specifically — an absurdly large id/quantity/etc. (a crafted URL, a huge
-# ?page=, ...) raises this instead of a generic DB error; caught globally
-# for a clean message instead of a raw 500 (see app.py's errorhandler).
+# Re-exported so the error handlers can catch "a numeric value didn't fit its
+# column" specifically — an absurdly large id/quantity/etc. (a crafted URL, a
+# huge ?page=, ...) raises this instead of a generic DB error; caught globally
+# for a clean message instead of a raw 500 (see vcs/web/errors.py).
 NumericValueOutOfRange = psycopg.errors.NumericValueOutOfRange
 
 # Matches every bare '?' unconditionally — this is NOT quote-aware (a
@@ -87,8 +88,8 @@ def connect():
 
 
 # ---------------------------------------------------------------------------
-# Connection pool — used for ordinary web request traffic (app.py's
-# get_db()/close_db()). Previously every request opened a brand-new
+# Connection pool — used for ordinary web request traffic (core.get_db() and
+# hooks.close_db()). Previously every request opened a brand-new
 # PostgreSQL connection with no limit; under a burst of LAN traffic
 # (multiple clinic devices, each with Waitress's 8 worker threads) that
 # could pile up faster than Postgres's own max_connections, degrading into
@@ -146,7 +147,7 @@ def init_pool():
         # ConnectionPool.__del__ runs during finalisation and tries to join
         # its worker threads, which Python 3.14 refuses -- every test run
         # ended with a PythonFinalizationError traceback after the result
-        # line, and any script that opens a pool would print the same. app.py
+        # line, and any script that opens a pool would print the same. run.py
         # already calls close_pool() on its own shutdown paths; this covers
         # every other entry point (setup.py, the test runner)
         # without them each having to remember.
@@ -175,7 +176,7 @@ def putconn(conn):
     caller that forgot to commit/rollback can't leak state into the next
     request that borrows this connection — but every call site in this
     app should already have committed or rolled back explicitly before
-    reaching this (see app.py's close_db)."""
+    reaching this (see close_db() in vcs/web/hooks.py)."""
     get_pool().putconn(conn)
 
 

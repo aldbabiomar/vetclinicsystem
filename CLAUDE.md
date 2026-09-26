@@ -63,11 +63,9 @@ They asked for that explicitly.
 VetClinicSystem/                  ← repo root = this folder
 ├── CLAUDE.md                     ← this file
 ├── README.md, CHANGELOG.md, VERSION
-├── app.py, core.py, logic.py, … the application (flat layout for now; the
-├── routes/                         plan's §3.1 describes the target package)
-├── templates/, static/, translations/
-├── schema.py, migrations/       ← the schema: numbered SQL files, each applied once
-│                                   (schema.py has the rules; tests/schema_snapshot.json pins the result)
+├── run.py                        ← the launcher: `python3 run.py`
+├── setup.py                      ← the installer
+├── vcs/                          ← the application package (§2)
 ├── tests/                        ← one suite; run it under BOTH money settings (§5)
 ├── scripts/
 │   ├── isolated_test_env.sh      ← throwaway Postgres + venv + app, per money setting (§4)
@@ -86,38 +84,56 @@ VetClinicSystem/                  ← repo root = this folder
                                     Never edit them; removed when the merge is done.
 ```
 
-## 2. Where the code lives (current flat layout)
+## 2. Where the code lives
 
 ```
-app.py      the Flask app, config, security headers, network allowlist, auth
-            gate, error handlers, context processors, dashboard, reports and
-            insights, /health, and the launcher.
-core.py     the seam shared by app.py and the blueprints: get_db, VERSION,
-            form parsing/validation (parse_money, clean_date, normalize_phone,
-            the Bad* exceptions, MAX_* bounds), pagination.
-routes/     six blueprints: settings, admin, consignment, inventory, sales, clinical.
-logic.py    the queries and calculations.
+vcs/
+├── __init__.py      create_app() (built in web/factory.py); importing the package
+│                    loads .env first (config.py)
+├── config.py        .env, and the settings read from the environment (port, TLS
+│                    proxy, session lifetime, upload limit, listen_host)
+├── money.py, clock.py, messages.py, auth.py, jobs.py, errorlog.py, …
+├── db/              pool.py (connections), migrate.py + migrations/ (the schema:
+│                    numbered SQL files, each applied once; tests/schema_snapshot.json
+│                    pins the result)
+├── domain/          logic.py (the queries and calculations), reports.py, attachments.py
+├── web/             the request layer:
+│   ├── factory.py   create_app(): config, extensions, then registers the rest
+│   ├── hooks.py     around every request: allowlist, restore gate, money setting,
+│   │                sign-in gate, security headers, close_db
+│   ├── errors.py    error handlers (rollback first — audit B12)
+│   ├── templating.py  locale, filters, template globals, context processors
+│   ├── core.py      the blueprints' shared seam: get_db, form parsing/validation
+│   │                (parse_money, clean_date, normalize_phone, Bad*, MAX_*),
+│   │                pagination, flash
+│   ├── nav.py       the sidebar registry
+│   └── blueprints/  main (login, dashboard, /health), reports, settings, admin,
+│                    clinical, sales, inventory, consignment
+├── ops/             backup, updater, scheduler, selfcheck, heartbeat, autostart, …
+└── templates/, static/, translations/
 ```
 
-1. **A blueprint must never import from `app.py`** — `app.py` registers them,
-   so that is circular. Shared pieces go in `core.py`.
-2. **`core.py` must be imported after `load_dotenv()`** — it reads the
-   environment at import time.
-3. **Endpoint names carry the blueprint prefix**: `url_for("settings.settings_page")`.
-   A missed one raises `BuildError` at the first page load.
+1. **A blueprint must never import from the factory** that registers it —
+   circular. Shared pieces go in `vcs/web/core.py` (or the rest of `vcs`).
+2. **`from vcs import money` must stay light**: `vcs/__init__.py` imports
+   only `config`; `create_app()` imports Flask and the request layer lazily.
+3. **Endpoint names carry the blueprint prefix**: `url_for("settings.settings_page")`,
+   `url_for("main.dashboard")`, `url_for("reports.monthly")`. A missed one raises
+   `BuildError` at the first page load.
 
 Two conventions enforced by tests:
 
 1. **No inline `on*=` handlers.** `script-src` uses a per-request nonce, which
    does not authorise inline handlers — an `onclick=` is a button that silently
    does nothing. Use `data-vzh` + `VZ.bind()`, or `data-vz-act` + `VZ.action()`
-   (`static/behaviors.js`, `tests/test_no_inline_handlers.py`).
+   (`vcs/static/behaviors.js`, `tests/test_no_inline_handlers.py`).
 2. **Inline `style=` only for server-computed values, or for an element a script
    reveals with `el.style.display = ''`** — clearing an inline style cannot
    unhide an element a *class* hides. `tests/test_inline_styles.py` is a ratchet.
 
-**If you write a test that parses source text, read `routes/*.py` too**, and
-assert a floor on how much it inspected — a scan that finds nothing passes
+**If you write a test that parses source text, take its files from
+`tests/source_files.py`** (the one place tests locate source), and assert a
+floor on how much it inspected — a scan that finds nothing passes
 hardest when it scanned nothing.
 
 ## 3. The money setting — the one difference that matters
@@ -138,8 +154,8 @@ Rounding a payable total to the cash unit, never letting a real bill round
 down to free, giving change and refunds down to the cash unit, and warning
 about an amount that cannot be paid in cash are **one** set of functions
 parameterised by the cash unit. With JO's unit of 0.001 they change nothing,
-which is JO's behaviour. All of it lives in `money.py` (phase 1, done); the
-browser previews mirror it in `static/money.js`. Tests default to JO; mark a
+which is JO's behaviour. All of it lives in `vcs/money.py` (phase 1, done); the
+browser previews mirror it in `vcs/static/money.js`. Tests default to JO; mark a
 test `@pytest.mark.money("IQ")` to run it under IQ.
 
 Threshold constants are where money bugs hide: `balance <= 0.5` or
@@ -157,7 +173,7 @@ throwaway clinic — same code, different setting, and both can run at once.
 `down` refuses while the app's PID is alive or anything holds its port.
 
 - **Kill by PORT, never by command pattern.** The app is launched with `exec`,
-  so `pkill -f ".../python3 app.py"` matches nothing and leaves an old process
+  so `pkill -f ".../python3 run.py"` matches nothing and leaves an old process
   serving code that predates your change — indistinguishable from a real pass.
   `scripts/isolated_test_env.sh restart iq|jo` kills by port and asserts the
   pid changed — use it after any code or catalogue change.
@@ -249,8 +265,8 @@ template, an `<option>` or the catalogue, read `docs/archive/COMPARISON.md`
 - **Never accept `pybabel update` fuzzy matches** — they produced Arabic that
   looked reviewed and was nonsense. Flag uncertain translations to the owner;
   do not guess (`docs/archive/arabic/`).
-- After editing `translations/ar/LC_MESSAGES/messages.po`, run
-  `pybabel compile -d translations` — a test fails if the `.mo` is older.
+- After editing `vcs/translations/ar/LC_MESSAGES/messages.po`, run
+  `pybabel compile -d vcs/translations` — a test fails if the `.mo` is older.
 - **Rewording an English string changes its msgid**, so it silently renders
   English under Arabic. `tests/test_catalogue.py` extracts every msgid the code
   uses and fails until each has Arabic; it also refuses a translation that is

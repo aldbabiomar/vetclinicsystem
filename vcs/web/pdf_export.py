@@ -13,7 +13,6 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 )
 
-from decimal import Decimal
 from vcs.domain import logic
 from vcs.domain import attachments
 from vcs import money

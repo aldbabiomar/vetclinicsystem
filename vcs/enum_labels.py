@@ -1,11 +1,11 @@
 """Display labels for values that are STORED in the database in English.
 
 Wrapping a template literal does nothing for these: the text on the page came
-out of a row, not out of the markup. `app.py`'s `|tr` filter looks the stored
-value up in the translation catalogue, and this module is what makes the
-values *extractable* — `pybabel` can only see strings that appear in a `_()`
-call somewhere in the source, and a value that only ever exists as a database
-row appears nowhere.
+out of a row, not out of the markup. The `|tr` filter (vcs/web/templating.py)
+looks the stored value up in the translation catalogue, and this module is what
+makes the values *extractable* — `pybabel` can only see strings that appear in
+a `_()` call somewhere in the source, and a value that only ever exists as a
+database row appears nowhere.
 
 Nothing here is imported for its value; the calls exist so extraction finds
 them. `lazy_gettext` rather than `gettext` because this runs at import time,
@@ -16,7 +16,7 @@ that routes validate against and that CHECK constraints enforce — translating
 the *stored* value would break both. Only the display goes through `|tr`.
 
 **The literals here are duplicates, and that is the point.** The real
-constants live in `routes/`, `core.py`, `logic.py` and the templates;
+constants live in the blueprints, `core.py`, `logic.py` and the templates;
 `_(CASE_STATUSES)` on a variable extracts nothing, so extraction needs the
 strings spelled out. Duplication that nothing checks is how the first version
 of this file came to declare a grooming status of "In Progress" that no code
@@ -32,19 +32,19 @@ translating.
 from flask_babel import lazy_gettext as _
 
 # --- mirrors of Python constants (test_enum_labels checks each against its
-# --- module: routes.clinical, routes.inventory, core, logic)
+# --- module: blueprints.clinical, blueprints.inventory, core, logic)
 
-# routes.clinical.CASE_STATUSES — visits.case_status, a schema CHECK
+# blueprints.clinical.CASE_STATUSES — visits.case_status, a schema CHECK
 CASE_STATUSES = [
     _("Needs Filling"), _("Ongoing"), _("Admitted to Inpatient"),
     _("Deceased/Euthanized"), _("Lost to Follow Up"), _("Resolved"), _("Referred"),
 ]
-# routes.clinical.FOLLOWUP_REASONS — visits.followup_reason
+# blueprints.clinical.FOLLOWUP_REASONS — visits.followup_reason
 FOLLOWUP_REASONS = [
     _("Surgery Follow Up"), _("Medical Follow Up"), _("Vaccine"),
     _("Deworming"), _("Spot On"), _("Other"),
 ]
-# routes.clinical.WELLNESS_TYPES — visits.wellness_type
+# blueprints.clinical.WELLNESS_TYPES — visits.wellness_type
 WELLNESS_TYPES = [
     _("Annual Vaccine"), _("First Vaccine"), _("Rabies Vaccine"),
     _("Deworming"), _("Spot On/Pill"),
@@ -58,9 +58,9 @@ GROOMING_SERVICES = [
 # core.PAYMENT_METHODS — payments.method, sales.payment_method, refunds,
 # settlements and distributor bill payments all share this vocabulary
 PAYMENT_METHODS = [_("Cash"), _("Card"), _("Transfer")]
-# routes.inventory.PRICE_CATEGORIES — price_list.category, a schema CHECK
+# blueprints.inventory.PRICE_CATEGORIES — price_list.category, a schema CHECK
 PRICE_CATEGORIES = [_("Service"), _("Medicine"), _("Retail")]
-# routes.inventory.INVENTORY_CATEGORIES — inventory_list.category, a CHECK
+# blueprints.inventory.INVENTORY_CATEGORIES — inventory_list.category, a CHECK
 INVENTORY_CATEGORIES = [_("Medical"), _("Retail")]
 # logic.REVENUE_CATEGORIES — the insights/P&L breakdown
 REVENUE_CATEGORIES = [_("Service"), _("Medicine"), _("Retail"), _("Boarding")]

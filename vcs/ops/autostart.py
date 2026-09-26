@@ -43,7 +43,7 @@ def managed_data_dir():
     the supervisor launcher re-reads active_release.txt on every start.
 
     Checked two ways: the env var the supervisor launcher sets when it
-    starts app.py (fast path, no filesystem walk needed), or — since
+    starts run.py (fast path, no filesystem walk needed), or — since
     autostart can be toggled from a process that isn't running that way,
     e.g. the original checkout after enable_updates() has already been run
     elsewhere — the sibling folder structure on disk, mirroring setup.py's

@@ -38,7 +38,7 @@ def test_a_healthy_response_says_nothing_beyond_the_version(client):
 def test_a_failing_health_check_discloses_nothing_about_the_database(flask_app, monkeypatch):
     """GUARD. Reverting to `return {"status": "error", "detail": str(e)}` fails
     this: the exception raised here is the shape psycopg actually produces."""
-    import app as app_module
+    from vcs.web.blueprints import main
 
     boom = RuntimeError(
         'connection to server at "127.0.0.1", port 5432 failed: '
@@ -47,7 +47,7 @@ def test_a_failing_health_check_discloses_nothing_about_the_database(flask_app, 
     def explode():
         raise boom
 
-    monkeypatch.setattr(app_module, "get_db", explode)
+    monkeypatch.setattr(main, "get_db", explode)
     resp = flask_app.test_client().get("/health")
     assert resp.status_code == 503
     body = resp.get_json()
@@ -62,12 +62,12 @@ def test_a_failing_health_check_still_gives_something_to_go_on(flask_app, monkey
     """CONTROL. Redacting everything would satisfy the guard and leave an
     operator with a 503 and no thread to pull. The reference id ties the
     response to the full traceback in the access-controlled log."""
-    import app as app_module
+    from vcs.web.blueprints import main
 
     def explode():
         raise RuntimeError("nope")
 
-    monkeypatch.setattr(app_module, "get_db", explode)
+    monkeypatch.setattr(main, "get_db", explode)
     resp = flask_app.test_client().get("/health")
     detail = resp.get_json()["detail"]
     assert "Reference" in detail
@@ -78,11 +78,11 @@ def test_a_failing_health_check_still_gives_something_to_go_on(flask_app, monkey
 def test_the_failure_is_written_to_the_error_log(flask_app, monkeypatch):
     """CONTROL. The reference id is worthless if nothing was recorded under
     it — that would be a pointer to an empty room."""
-    import app as app_module
+    from vcs.web.blueprints import main
 
     written = []
-    monkeypatch.setattr(app_module.error_logger, "error", lambda m: written.append(m))
-    monkeypatch.setattr(app_module, "get_db", lambda: (_ for _ in ()).throw(RuntimeError("secret detail here")))
+    monkeypatch.setattr(main.error_logger, "error", lambda m: written.append(m))
+    monkeypatch.setattr(main, "get_db", lambda: (_ for _ in ()).throw(RuntimeError("secret detail here")))
     resp = flask_app.test_client().get("/health")
     ref = re.search(r"Reference ([0-9A-F]{8})", resp.get_json()["detail"]).group(1)
     assert written, "nothing was logged"

@@ -37,15 +37,24 @@ pytestmark = needs_db
 # Endpoints deliberately left out, each for a concrete reason.
 SKIP_ENDPOINTS = {
     # Ends the session the rest of the suite is sharing.
-    "logout",
+    "main.logout",
     # Makes a real network call to the GitHub releases API: slow, flaky
     # offline, and it would hit an external service on every test run.
-    "settings_updates_check",
+    "settings.settings_updates_check",
     # Serves a file from disk by name; there is nothing meaningful to
     # request without a real generated file, and the download path is
     # covered by its own tests.
     "static",
 }
+
+
+def test_every_skipped_endpoint_exists(flask_app):
+    """GUARD on the list above. An entry that names no endpoint skips
+    nothing: "settings_updates_check" lost its blueprint prefix when the
+    routes moved into blueprints, and every run since called the GitHub
+    releases API the entry was there to avoid."""
+    real = {r.endpoint for r in flask_app.url_map.iter_rules()}
+    assert SKIP_ENDPOINTS <= real, sorted(SKIP_ENDPOINTS - real)
 
 
 def _all_get_routes(flask_app):
@@ -225,7 +234,8 @@ def test_every_page_requires_a_login(flask_app):
     new page accidentally being added to that allowlist rather than each
     page forgetting its own guard."""
     anon = flask_app.test_client()
-    public = {"login", "health", "favicon_ico", "static"}
+    public = {"main.login", "main.health", "main.favicon_ico", "static"}
+    assert public <= {r.endpoint for r in flask_app.url_map.iter_rules()}, "a public endpoint was renamed"
     leaked = []
     for rule in _no_arg_routes(flask_app):
         if rule.endpoint in public:
