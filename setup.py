@@ -163,8 +163,8 @@ def apply_schema():
     here with a non-zero exit — which fails the update and rolls it back —
     rather than being recorded and started past."""
     step("Setting up the database schema")
-    import db as dbmod
-    import schema
+    from vcs.db import pool as dbmod
+    from vcs.db import migrate as schema
     con = dbmod.connect()
     try:
         applied = schema.apply(con)
@@ -189,8 +189,8 @@ def ensure_first_admin():
     never a locked-out clinic. Once anyone has signed in and changed it, this
     does nothing."""
     step("Checking the first administrator account")
-    import auth
-    import db as dbmod
+    from vcs import auth
+    from vcs.db import pool as dbmod
     con = dbmod.connect()
     try:
         users = con.execute("SELECT id, username, must_change_password FROM users ORDER BY id").fetchall()
@@ -297,7 +297,7 @@ def ensure_desktop_shortcut(data_dir=None):
     working install, so this only ever reports what happened."""
     step("Desktop shortcut")
     try:
-        import desktop_shortcut
+        from vcs.ops import desktop_shortcut
     except ImportError as e:
         print(f"  Skipped — could not load desktop_shortcut.py ({e}).")
         return

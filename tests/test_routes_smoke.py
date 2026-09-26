@@ -21,7 +21,7 @@ lives.
 Routes are discovered, never listed by hand — a new page is covered the
 moment it is registered, with no test to remember to write.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import datetime, date
 from decimal import Decimal
@@ -111,7 +111,7 @@ def test_pages_render_on_a_database_with_no_clinic_data(client, flask_app, db):
 def seeded_ids(flask_app):
     """One real row of each kind the id-taking routes need, so those pages
     render against actual data rather than a 404 path."""
-    import db as dbmod
+    from vcs.db import pool as dbmod
     con = dbmod.connect()
     tag = uuid.uuid4().hex[:8].upper()
     o_id, p_id, v_id = new_id(), new_id(), new_id()

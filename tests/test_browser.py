@@ -47,7 +47,7 @@ property worth keeping.
 Run with:
     APP_URL=http://127.0.0.1:5091 venv/bin/python -m pytest tests/test_browser.py -q
 """
-import clock
+from vcs import clock
 import os
 
 import pytest

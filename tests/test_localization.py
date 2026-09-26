@@ -16,6 +16,7 @@ three that matter most:
 The PDF test is the one that should never need to change: PDFs stay English
 permanently, by explicit instruction, not as a "later" (§0).
 """
+import source_files
 import re
 
 import pytest
@@ -39,7 +40,7 @@ def _set_language(value):
     palette. A direct write is right for arranging a test; the settings FORM
     is exercised by its own tests below, so both the mechanism and the way a
     user reaches it are covered."""
-    import db as dbmod
+    from vcs.db import pool as dbmod
     con = dbmod.connect()
     try:
         with con.cursor() as cur:
@@ -183,8 +184,8 @@ def test_the_form_refuses_an_unknown_language(client):
     token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
     client.post("/settings", data={"csrf_token": token, "language": "de"},
                 follow_redirects=True)
-    import logic
-    import db as dbmod
+    from vcs.domain import logic
+    from vcs.db import pool as dbmod
     con = dbmod.connect()
     try:
         with con.cursor() as cur:
@@ -221,7 +222,7 @@ def test_the_old_toggle_route_is_gone(client):
 # ---------------------------------------------------------------------------
 
 def test_the_digit_helper_is_display_only_and_pure():
-    from core import to_arabic_indic_digits
+    from vcs.web.core import to_arabic_indic_digits
     assert to_arabic_indic_digits("1,250") == "١,٢٥٠"
     assert to_arabic_indic_digits("2026-09-11") == "٢٠٢٦-٠٩-١١"
     assert to_arabic_indic_digits(None) is None
@@ -267,7 +268,7 @@ def test_pdf_export_is_not_locale_aware():
     helper. This test should never need to change as a consequence of anything
     else in the localization project — that is the point of it."""
     import pathlib
-    src = (pathlib.Path(__file__).parent.parent / "pdf_export.py").read_text(encoding="utf-8")
+    src = source_files.module("pdf_export").read_text(encoding="utf-8")
     for forbidden in ("flask_babel", "gettext", "get_locale", "to_arabic_indic_digits"):
         assert forbidden not in src, (
             f"pdf_export.py references {forbidden!r}. PDFs stay English with "
@@ -306,7 +307,7 @@ def test_the_compiled_catalogue_exists_and_is_current():
     """Editing a .po and forgetting `pybabel compile` is the classic mistake,
     and its symptom is 'I translated this and nothing changed', not an error."""
     import pathlib
-    base = pathlib.Path(__file__).parent.parent / "translations" / "ar" / "LC_MESSAGES"
+    base = source_files.TRANSLATIONS_DIR / "ar" / "LC_MESSAGES"
     po, mo = base / "messages.po", base / "messages.mo"
     assert po.exists(), "the Arabic catalogue is missing"
     assert mo.exists(), "messages.po has not been compiled — run `pybabel compile -d translations`"
@@ -319,8 +320,7 @@ def test_every_translated_string_is_actually_arabic():
     """A msgstr that is still Latin text is a half-finished entry, not a
     translation — it would render as English while claiming to be done."""
     import pathlib
-    po = (pathlib.Path(__file__).parent.parent / "translations" / "ar" /
-          "LC_MESSAGES" / "messages.po").read_text(encoding="utf-8")
+    po = source_files.CATALOGUE.read_text(encoding="utf-8")
     entries = re.findall(r'msgid "((?:[^"\\]|\\.)+)"\nmsgstr "((?:[^"\\]|\\.)*)"', po)
     assert entries, "no catalogue entries found — has the .po format changed?"
     translated = [(en, ar) for en, ar in entries if ar.strip()]
@@ -356,7 +356,7 @@ def test_numeric_columns_keep_a_fixed_right_alignment():
     the UI flips to Arabic, rather than following the reading direction.
     `end` is the alternative and English renders identically either way."""
     import pathlib
-    css = (pathlib.Path(__file__).parent.parent / "static" / "style.css").read_text(encoding="utf-8")
+    css = (source_files.STATIC_DIR / "style.css").read_text(encoding="utf-8")
     for rule in (".num-col", ".cell-input.num"):
         line = [l for l in css.splitlines() if l.strip().startswith(rule)]
         assert line, f"{rule} not found in style.css"
@@ -372,7 +372,7 @@ def test_numeric_columns_keep_a_fixed_right_alignment():
 def test_the_currency_label_is_the_arabic_abbreviation_in_arabic(client):
     """Confirmed choice: the Arabic abbreviation rather than the Latin ISO
     code, in the same position as before."""
-    import core
+    from vcs.web import core
     latin = "IQD" if "IQD" in (core.__doc__ or "") or True else "JOD"
     _as(client, "ar")
     ar = client.get("/boarding").data.decode("utf-8")
@@ -389,7 +389,7 @@ def test_pdf_export_still_uses_the_latin_currency_code():
     """§0 again, from the other direction: the currency decision must not have
     reached the PDFs. They stay English with the Latin code, permanently."""
     import pathlib
-    src = (pathlib.Path(__file__).parent.parent / "pdf_export.py").read_text(encoding="utf-8")
+    src = source_files.module("pdf_export").read_text(encoding="utf-8")
     assert LATIN_CURRENCY in src, "pdf_export.py no longer names the Latin currency code"
     assert ARABIC_CURRENCY not in src, (
         f"pdf_export.py contains {ARABIC_CURRENCY} — PDFs stay English (§0)")

@@ -27,19 +27,20 @@ WScript.Shell COM object Explorer itself uses, so no pywin32 dependency.
 Anything else: not supported, same as autostart.py.
 """
 import os
+
+from vcs.paths import ROOT
 import platform
 import plistlib
 import shutil
 import stat
 import subprocess
 
-import autostart
-
+from vcs.ops import autostart
 APP_NAME = "VetClinicSystem"
 BUNDLE_ID = "com.vetclinicsystem.desktop"
 LAUNCHER_BASENAME = "Start VetClinicSystem"
 DEFAULT_PORT = "5050"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = ROOT
 
 
 def is_supported():

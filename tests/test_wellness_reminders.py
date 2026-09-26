@@ -12,8 +12,8 @@ from datetime import timedelta
 
 import pytest
 
-import clock
-import logic
+from vcs import clock
+from vcs.domain import logic
 from conftest import needs_db
 from test_money_routes import _uid
 

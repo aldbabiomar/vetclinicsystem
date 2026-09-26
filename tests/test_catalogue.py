@@ -24,6 +24,7 @@ The one-line-regex check in test_localization.py only sees entries whose
 msgid and msgstr each fit on one line; these parse the file with Babel, so a
 wrapped entry is checked like any other.
 """
+import source_files
 import pathlib
 import re
 
@@ -34,7 +35,7 @@ from babel.messages.frontend import parse_mapping_cfg
 from babel.messages.pofile import read_po
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PO = ROOT / "translations" / "ar" / "LC_MESSAGES" / "messages.po"
+PO = source_files.CATALOGUE
 
 # Directories that babel.cfg's patterns can never match but a walk would
 # still descend into (the predecessor clones under webapps/ alone hold two

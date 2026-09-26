@@ -24,11 +24,11 @@ that got wiped and its IDs may have been reissued, so it's flagged for a
 human to check instead.
 
 Usage:
-    python3 reconcile_attachments.py                 # dry run — report only, changes nothing
-    python3 reconcile_attachments.py --apply         # actually insert the missing rows
-    python3 reconcile_attachments.py --check-missing # the OTHER direction: attachments
-                                                      # rows whose file is gone from disk
-                                                      # (report only — never deletes a row)
+    python3 -m vcs.ops.reconcile_attachments                 # dry run — report only, changes nothing
+    python3 -m vcs.ops.reconcile_attachments --apply         # actually insert the missing rows
+    python3 -m vcs.ops.reconcile_attachments --check-missing # the OTHER direction: attachments
+                                                              # rows whose file is gone from disk
+                                                              # (report only — never deletes a row)
 
 Safe to re-run: already-linked files are skipped every time, and a dry
 run never writes anything (to the database or to disk — this script never
@@ -42,7 +42,9 @@ import re
 import sys
 from datetime import datetime
 
-os.environ.setdefault("_RECONCILE_BASE_DIR", os.path.dirname(os.path.abspath(__file__)))
+from vcs.paths import ROOT
+
+os.environ.setdefault("_RECONCILE_BASE_DIR", ROOT)
 
 from dotenv import load_dotenv
 _data_dir = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
@@ -51,12 +53,10 @@ if _data_dir:
 else:
     load_dotenv()
 
-import db as dbmod
-import attachments as attach_mod
-import backup as backup_mod
-import clock
-
-# Matches attachments.py's _safe_name(): "<14-digit timestamp>_<6 hex>_<original name>".
+from vcs.db import pool as dbmod
+from vcs.domain import attachments as attach_mod
+from vcs.ops import backup as backup_mod
+from vcs import clock  # Matches attachments.py's _safe_name(): "<14-digit timestamp>_<6 hex>_<original name>".
 FILENAME_RE = re.compile(r"^(\d{14})_[0-9a-f]{6}_(.+)$")
 # Matches backup.py's FILENAME_PREFIX/FILENAME_SUFFIX naming exactly.
 BACKUP_FILENAME_RE = re.compile(r"^vetclinicsystem_backup_(\d{8}_\d{6})\.dump$")

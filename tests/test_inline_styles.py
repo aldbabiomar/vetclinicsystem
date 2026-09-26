@@ -21,12 +21,13 @@ anyway, and never in bulk. This file holds the line rather than the sweep — it
 fails if a file gets *worse*, and tells you to lower its own number when you
 make one better.
 """
+import source_files
 import pathlib
 import re
 
 import pytest
 
-TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 STYLE_ATTR = re.compile(r'(?<![-\w])style\s*=\s*"([^"]*)"')
 
 # Converted deliberately as M8's first pass. What is left in each is entirely
@@ -130,7 +131,7 @@ def _elements_revealed_by_clearing_display(text):
     return out
 
 
-STYLESHEET = TEMPLATES.parent / "static" / "style.css"
+STYLESHEET = source_files.STATIC_DIR / "style.css"
 
 
 def _classes_that_hide():

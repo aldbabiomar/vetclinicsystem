@@ -18,14 +18,15 @@ Making the translator quote-aware and the splitter a real parser is more risk
 than the problem warrants for the SQL this app actually writes. Pinning the
 assumptions is not.
 """
+import source_files
 import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).parent.parent
 # Every migration file (schema.py) — the schema has no other .sql source.
-SQL_FILES = sorted((ROOT / "migrations").glob("*.sql"))
+SQL_FILES = sorted(source_files.MIGRATIONS_DIR.glob("*.sql"))
 # routes/ too, since the blueprint split moved most SQL-bearing code there.
-PY_FILES = sorted(ROOT.glob("*.py")) + sorted((ROOT / "routes").glob("*.py"))
+PY_FILES = source_files.all_python()
 
 
 def _sql_string_literals(text):

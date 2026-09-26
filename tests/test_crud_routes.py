@@ -11,8 +11,8 @@ later.
 Like the money route tests, these need a throwaway Postgres and skip
 cleanly without one. See conftest.py.
 """
-import clock
-import money
+from vcs import clock
+from vcs import money
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -259,7 +259,7 @@ def test_a_duplicate_microchip_is_refused_and_leaves_nothing_behind(client, db, 
 
 
 def test_a_patient_is_found_by_microchip_however_it_is_typed(client, db, chip_patient):
-    import logic
+    from vcs.domain import logic
     chip = _chip("55")
     assert _edit(client, chip_patient, microchip=chip).status_code == 302
 

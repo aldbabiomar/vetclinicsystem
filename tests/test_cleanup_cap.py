@@ -13,12 +13,13 @@ money.CLEANUP_CAP and steps in multiples of 250, because a service amount
 there passes through round_to_denomination(). Same rules, each stated in its
 own app's money model; the two must not be merged (COMPARISON.md §1.1).
 """
+import source_files
 import pytest
 
 from decimal import Decimal
 
-import money
-from core import cleanup_amount_error
+from vcs import money
+from vcs.web.core import cleanup_amount_error
 
 # The JO money setting's cap — this module runs under JO (conftest's default).
 CAP = money.JO.cleanup_cap
@@ -93,7 +94,7 @@ def test_the_helper_is_used_by_every_payment_surface():
     import re
 
     root = pathlib.Path(__file__).parent.parent
-    sources = [root / "app.py", root / "core.py"] + sorted((root / "routes").glob("*.py"))
+    sources = [*source_files.web_modules(), source_files.module("core")]
     src = "\n".join(p.read_text(encoding="utf-8") for p in sources)
     assert src.count("cleanup_amount_error(") >= 5, (
         "expected the helper plus at least four call sites")

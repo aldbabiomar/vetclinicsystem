@@ -13,6 +13,8 @@ definitions, in a place both sides can reach.
 """
 import math
 import os
+
+from vcs.paths import ROOT
 import secrets
 import re
 import socket
@@ -22,13 +24,12 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from flask_babel import lazy_gettext as _l, gettext as _
 from flask import flash as _flask_flash, g, render_template, request, url_for
 
-import db as dbmod
-import jobs
-import logic
-import messages
-import money
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from vcs.db import pool as dbmod
+from vcs import jobs
+from vcs.domain import logic
+from vcs import messages
+from vcs import money
+BASE_DIR = ROOT
 
 # On the versioned-release layout (VETCLINICSYSTEM_DATA_DIR set by the
 # launcher script — see updater.py / setup.py --enable-updates), the .env, the

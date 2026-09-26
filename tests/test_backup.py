@@ -13,7 +13,8 @@ ever reads the app's own configured settings.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-import clock
+import source_files
+from vcs import clock
 import os
 import shutil
 import subprocess
@@ -52,7 +53,7 @@ def clean_backup_log(db):
 
 
 def _dumps(path):
-    import backup
+    from vcs.ops import backup
     return sorted(f for f in os.listdir(path)
                   if f.startswith(backup.FILENAME_PREFIX) and f.endswith(backup.FILENAME_SUFFIX))
 
@@ -66,7 +67,7 @@ def test_a_backup_writes_a_real_restorable_archive(db, backup_dir, clean_backup_
     """The whole point of a backup. Not just "a file appeared" — the file
     has to be something pg_restore can actually read, which is exactly the
     distinction a truncated or empty dump erases on disk."""
-    import backup
+    from vcs.ops import backup
     ok, msg = backup.run_backup(db, dest_dir=backup_dir, retention=5, triggered_by="test")
     assert ok, f"the backup failed: {msg}"
 
@@ -86,7 +87,7 @@ def test_a_backup_writes_a_real_restorable_archive(db, backup_dir, clean_backup_
 def test_a_backup_is_logged_with_its_size_and_path(db, backup_dir, clean_backup_log):
     """Settings lists backups from this table. A backup that ran but was not
     logged is invisible to the person who needs to find it."""
-    import backup
+    from vcs.ops import backup
     ok, _ = backup.run_backup(db, dest_dir=backup_dir, retention=5, triggered_by="test")
     assert ok
     row = db.execute("SELECT * FROM backup_log ORDER BY id DESC LIMIT 1").fetchone()
@@ -104,7 +105,7 @@ def test_the_password_never_appears_in_the_command_line(db, backup_dir, clean_ba
     is visible to every other user on the machine via `ps`. An earlier
     version of this code put it in `docker exec -e PGPASSWORD=<value>`.
     """
-    import backup
+    from vcs.ops import backup
     seen = []
     real_run = subprocess.run
 
@@ -148,7 +149,7 @@ def test_no_code_path_can_put_the_password_in_argv():
     """
     import pathlib
     import re
-    src = (pathlib.Path(__file__).parent.parent / "backup.py").read_text(encoding="utf-8")
+    src = source_files.module("backup").read_text(encoding="utf-8")
     offenders = [line.strip() for line in src.split("\n")
                  if re.search(r'PGPASSWORD\s*=\s*(?:\"\s*\+|\{|%s|f\")', line)
                  or re.search(r'"PGPASSWORD=', line)]
@@ -164,7 +165,7 @@ def test_pg_dump_is_never_left_able_to_prompt_for_a_password(db, backup_dir, cle
     missing password makes it sit waiting on a terminal nobody is watching —
     which is exactly how a scheduled backup hangs forever while appearing to
     still be running. This happened, and is why the flag is there."""
-    import backup
+    from vcs.ops import backup
     seen = []
     real_run = subprocess.run
     monkeypatch.setattr(backup.subprocess, "run",
@@ -189,7 +190,7 @@ def test_retention_keeps_the_newest_and_removes_the_rest(backup_dir):
     four backups inside one second all land on the same name and overwrite
     each other, leaving one file and a test that proves nothing.
     """
-    import backup
+    from vcs.ops import backup
     names = [f"{backup.FILENAME_PREFIX}2026010{i}_000000{backup.FILENAME_SUFFIX}" for i in range(4)]
     for n in names:
         with open(os.path.join(backup_dir, n), "w") as f:
@@ -205,7 +206,7 @@ def test_retention_of_zero_does_not_delete_every_backup(backup_dir):
     reachable on an install predating the Settings range check, or by editing
     the database — deletes every backup the clinic has, silently, on the next
     nightly run."""
-    import backup
+    from vcs.ops import backup
     for i in range(3):
         with open(os.path.join(backup_dir, f"{backup.FILENAME_PREFIX}2026010{i}_000000{backup.FILENAME_SUFFIX}"), "w") as f:
             f.write("x")
@@ -217,7 +218,7 @@ def test_retention_of_zero_does_not_delete_every_backup(backup_dir):
 def test_retention_only_ever_removes_this_app_s_own_dumps(backup_dir):
     """The backup folder is a directory the user chose. It may hold other
     things, and retention must not treat them as its own."""
-    import backup
+    from vcs.ops import backup
     stranger = os.path.join(backup_dir, "important-unrelated-file.txt")
     with open(stranger, "w") as f:
         f.write("not a backup")
@@ -244,8 +245,8 @@ def test_a_backup_with_no_folder_configured_at_all_is_refused(db, clean_backup_l
     path that does not exist yet is not an error. Having no folder configured
     at all is — and it must fail loudly, because failing quietly would leave
     Settings showing nothing wrong while no backup exists."""
-    import backup
-    import logic
+    from vcs.ops import backup
+    from vcs.domain import logic
     monkeypatch.setattr(logic, "get_setting",
                         lambda db, key, default=None: "" if key == "backup_dir" else default)
     before = db.execute("SELECT count(*) AS c FROM backup_log").fetchone()["c"]
@@ -261,7 +262,7 @@ def test_a_backup_with_no_folder_configured_at_all_is_refused(db, clean_backup_l
     after = db.execute("SELECT count(*) AS c FROM backup_log").fetchone()["c"]
     assert after == before, "an unattempted backup must not be logged as a failure"
 
-    import logic
+    from vcs.domain import logic
     alert = logic.backup_alert_message(None)
     # a finding-shaped dict since 2026-09-12; `message` is the rendered English
     assert alert and "backup" in alert["message"].lower(), (
@@ -273,7 +274,7 @@ def test_a_backup_with_no_folder_configured_at_all_is_refused(db, clean_backup_l
 def test_a_backup_creates_its_destination_folder_if_absent(db, clean_backup_log, tmp_path):
     """Deliberate: the configured folder may not exist yet on a fresh
     machine, and a backup that refused for that reason would be worse."""
-    import backup
+    from vcs.ops import backup
     fresh = str(tmp_path / "not" / "yet" / "there")
     ok, msg = backup.run_backup(db, dest_dir=fresh, retention=5, triggered_by="test")
     assert ok, f"a backup should create its folder: {msg}"
@@ -285,7 +286,7 @@ def test_a_second_backup_is_refused_while_one_is_running(db, backup_dir, clean_b
     """maintenance_lock stops a backup, restore and in-app update from
     overlapping. Two dumps writing at once, or a restore landing mid-backup,
     is how a corrupt archive gets written."""
-    import backup
+    from vcs.ops import backup
     acquired = backup.maintenance_lock.acquire(blocking=False)
     assert acquired, "the lock should be free at the start of this test"
     try:
@@ -305,7 +306,7 @@ def test_the_maintenance_lock_is_reentrant(db):
     RLock(); with a plain Lock, the update flow — which holds the lock and
     then calls a backup that tries to take it again — deadlocked into a
     false 'another operation is already running'."""
-    import backup
+    from vcs.ops import backup
     import threading
     assert isinstance(backup.maintenance_lock, type(threading.RLock())), (
         "maintenance_lock must be an RLock, not a Lock")
@@ -323,7 +324,7 @@ def test_the_maintenance_lock_is_reentrant(db):
 
 @pg_dump_available
 def test_the_most_recent_backup_is_findable(db, backup_dir, clean_backup_log):
-    import backup
+    from vcs.ops import backup
     ok, _ = backup.run_backup(db, dest_dir=backup_dir, retention=5, triggered_by="test")
     assert ok
     latest = backup.last_backup(db)
@@ -336,7 +337,7 @@ def test_a_stale_running_backup_is_reaped(db, backup_dir, clean_backup_log):
     """A killed process leaves a row stuck at 'running'. Left alone it makes
     the dashboard report a backup in progress forever, and hides the fact
     that none has actually completed."""
-    import backup
+    from vcs.ops import backup
     db.execute("INSERT INTO backup_log (started_at, status, filepath, filesize_bytes, error, triggered_by) "
                "VALUES (?,?,?,?,?,?)",
                ("2020-01-01T00:00:00", "running", None, None, None, "test"))
@@ -357,7 +358,7 @@ def test_a_stale_running_backup_is_reaped(db, backup_dir, clean_backup_log):
 def test_backup_refuses_to_recreate_a_destination_that_held_backups(db, tmp_path):
     """A backup written somewhere nobody expects is worse than one that failed
     loudly, because everything downstream then reports healthy."""
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     gone = tmp_path / "was_a_synced_folder"
     gone.mkdir()
     db.execute("DELETE FROM backup_log")
@@ -386,7 +387,7 @@ def test_backup_refuses_to_recreate_a_destination_that_held_backups(db, tmp_path
 def test_backup_still_creates_a_brand_new_folder(db, tmp_path):
     """The control. A first run must still create the folder it was given --
     otherwise the fix above just breaks setup."""
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     fresh = tmp_path / "never_used_before"
     db.execute("DELETE FROM backup_log")
     db.commit()

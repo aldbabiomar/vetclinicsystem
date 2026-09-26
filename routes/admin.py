@@ -11,17 +11,15 @@ Endpoint names carry the `admin.` prefix Flask gives every blueprint route:
 
 from datetime import date
 from datetime import datetime
-import auth
-import logic
-
+from vcs import auth
+from vcs.domain import logic
 from flask_babel import gettext as _
 from flask import (
     Blueprint, abort, redirect, render_template, request, session, url_for
 )
 
-from core import flash, date_filter_arg, display_number, get_db, parse_id
-import clock
-
+from vcs.web.core import flash, date_filter_arg, display_number, get_db, parse_id
+from vcs import clock
 bp = Blueprint("admin", __name__)
 
 

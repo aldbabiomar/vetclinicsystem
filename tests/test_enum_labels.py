@@ -10,19 +10,20 @@ while the real "Waiting" went untranslated and nothing failed.
 Two sources of truth are checked here: the Python constants, and the literal
 lists that exist only inside a template's `{% for x in [...] %}`.
 """
+import source_files
 import ast
 import re
 from pathlib import Path
 
 import pytest
 
-import enum_labels
-import core
-import logic
+from vcs import enum_labels
+from vcs.web import core
+from vcs.domain import logic
 from routes import clinical, inventory
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATES = ROOT / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 
 
 def labels(name):
@@ -119,7 +120,7 @@ def test_permission_labels_mirror_auth():
     """The roles matrix renders auth.PERMISSIONS through |tr, so every label
     has to be declared — a new permission added to auth.py without a line here
     shows as English on an otherwise Arabic page."""
-    import auth
+    from vcs import auth
     assert labels("PERMISSION_LABELS") == [lab for _, lab, _ in auth.PERMISSIONS]
     assert labels("PERMISSION_CATEGORIES") == list(auth.PERMISSION_CATEGORIES)
 
@@ -128,7 +129,7 @@ def test_cash_ledger_events_mirror_the_query():
     """These are built inside the SQL of logic.cash_register_ledger(), so the
     source of truth is the query text itself."""
     import re
-    src = (ROOT / "logic.py").read_text(encoding="utf-8")
+    src = source_files.module("logic").read_text(encoding="utf-8")
     start = src.index("def cash_register_ledger")
     segment = src[start:start + 8000]
     found = set(re.findall(r"'([A-Z][A-Za-z ]+)' AS event_type", segment))
@@ -143,7 +144,7 @@ def test_cash_ledger_events_mirror_the_query():
 
 
 def test_weekday_labels_mirror_logic():
-    import logic
+    from vcs.domain import logic
     assert labels("WEEKDAY_LABELS") == list(logic.WEEKDAY_LABELS)
 
 
@@ -151,7 +152,7 @@ def test_seeded_roles_mirror_auth():
     """auth.py seeds three roles with a name and a description; both render
     through |tr, so both have to be declared or they stay English."""
     import re
-    src = (ROOT / "auth.py").read_text(encoding="utf-8")
+    src = source_files.module("auth").read_text(encoding="utf-8")
     block = src[src.index("    defaults = ["):]
     block = block[:block.index("\n    ]")]
     pairs = re.findall(r'\(\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"', block, re.S)

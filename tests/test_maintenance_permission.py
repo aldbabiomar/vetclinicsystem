@@ -25,6 +25,7 @@ Folder-browser confinement (the same change) is covered at the bottom.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import source_files
 import os
 import pathlib
 import re
@@ -42,7 +43,7 @@ ROOT = pathlib.Path(__file__).parent.parent
 def _route_sources():
     """app.py plus every blueprint module. Reading app.py alone would silently
     stop finding these decorators the moment a route moved into routes/."""
-    return [ROOT / "app.py"] + sorted((ROOT / "routes").glob("*.py"))
+    return source_files.web_modules()
 
 # Everything the Settings page hides behind the maintenance gate. If a route
 # is added to that block, add it here too — the whole point is that the UI
@@ -93,8 +94,7 @@ def test_reseeding_restores_the_system_admins_maintenance_grant(db):
     unrelated reason instead of the one it names — the "refused for the wrong
     reason" trap in CLAUDE.md §7.3.
     """
-    import auth
-
+    from vcs import auth
     admin_role = db.execute("SELECT id FROM roles WHERE is_system = true").fetchone()
     assert admin_role, "no system Admin role in the test database"
 
@@ -134,8 +134,7 @@ def test_reseeding_restores_the_system_admins_maintenance_grant(db):
 def test_reseeding_does_not_hand_maintenance_to_ordinary_roles(db):
     """CONTROL for the test above. The backfill targets is_system roles only;
     a blanket 'grant everything to everyone' would also make the guard pass."""
-    import auth
-
+    from vcs import auth
     auth.seed_default_roles_and_permissions(db)
     leaked = db.execute(
         "SELECT r.name FROM roles r JOIN role_permissions rp ON rp.role_id = r.id "
@@ -148,8 +147,7 @@ def test_reseeding_does_not_hand_maintenance_to_ordinary_roles(db):
 
 def test_maintenance_is_admin_only_by_default(db):
     """A brand-new Vet or Reception must not seed with it."""
-    import auth
-
+    from vcs import auth
     assert "manage_maintenance" in auth.PERMISSION_KEY_SET
     assert "manage_maintenance" in auth.ADMIN_ONLY_TODAY
     assert "manage_maintenance" not in auth.VET_RECEPTION_DEFAULT_PERMISSIONS

@@ -28,12 +28,12 @@ pure given its two queries, and that keeps this in the pure tier. One
 database-tier test at the bottom exercises the real SQL, so a change to the
 queries cannot pass while the stub keeps agreeing with itself.
 """
-import clock
+from vcs import clock
 from datetime import datetime, timedelta
 
 import pytest
 
-import auth
+from vcs import auth
 from conftest import needs_db
 
 

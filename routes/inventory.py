@@ -11,11 +11,11 @@ Endpoint names carry the `inventory.` prefix Flask gives every blueprint route:
 
 from datetime import date
 from datetime import datetime
-import auth
-import barcode as barcode_mod
-import db as dbmod
+from vcs import auth
+from vcs.web import barcode as barcode_mod
+from vcs.db import pool as dbmod
 import json
-import logic
+from vcs.domain import logic
 import re
 
 from flask_babel import gettext as _
@@ -23,9 +23,8 @@ from flask import (
     Blueprint, jsonify, redirect, render_template, request, session, url_for
 )
 
-from core import flash, BadDate, BadNumber, PER_PAGE, display_quantity, list_join, strict_date, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
-import clock
-
+from vcs.web.core import flash, BadDate, BadNumber, PER_PAGE, display_quantity, list_join, strict_date, get_db, get_page, has_negative, page_count, page_offset, parse_money, parse_quantity, required_field, flash_price_rounding_notice, requires_money_setting, parse_id
+from vcs import clock
 def _picked_id(raw):
     """A record picked from a <select> (a linked item, a distributor):
     (given, id). Blank is (False, None). A value that is not an id at all

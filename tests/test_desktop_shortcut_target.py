@@ -18,8 +18,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import autostart  # noqa: E402
-import desktop_shortcut  # noqa: E402
+from vcs.ops import autostart  # noqa: E402
+from vcs.ops import desktop_shortcut  # noqa: E402
 
 LAUNCHER_NAME = "Start VetClinicSystem.command"
 

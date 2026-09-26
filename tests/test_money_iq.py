@@ -24,9 +24,8 @@ from decimal import Decimal as D
 import pytest
 
 import app
-import logic
-import money
-
+from vcs.domain import logic
+from vcs import money
 pytestmark = pytest.mark.money("IQ")
 
 NOTE = money.IQ.cash_unit
@@ -251,7 +250,7 @@ def test_cleanup_cap_is_one_thousand_dinars():
 
 
 def test_cleanup_error_uses_the_iq_cap():
-    from core import cleanup_amount_error
+    from vcs.web.core import cleanup_amount_error
     assert cleanup_amount_error(D(1000), D(0), D(50_000)) is None
     assert cleanup_amount_error(D(1001), D(0), D(50_000)) is not None
     assert cleanup_amount_error(D(250), D(900), D(50_000)) is not None

@@ -11,8 +11,8 @@ from decimal import Decimal as D
 
 import pytest
 
-import clock
-import logic
+from vcs import clock
+from vcs.domain import logic
 from conftest import ADMIN_ID, needs_db, new_id
 
 
@@ -121,8 +121,8 @@ def test_an_attachment_folder_name_round_trips():
     reconcile_attachments.resolve_record_key() reads it back to re-link an
     orphaned file. Visit ids became numbers (plan D-2), so both halves had to
     change together — "V42" and "IC7", no longer a visit's "V0042" as is."""
-    import attachments
-    import reconcile_attachments
+    from vcs.domain import attachments
+    from vcs.ops import reconcile_attachments
     for kind, rid in (("visit", 42), ("inpatient", 7)):
         key = attachments.record_key(kind, rid)
         assert reconcile_attachments.resolve_record_key(key) == (kind, rid)

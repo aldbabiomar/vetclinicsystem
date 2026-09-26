@@ -189,7 +189,7 @@
 </div>
 {% endif %}
 <p class="small muted u-mt-tight">
-  {{ _('Replaces %(all)s current data in VetClinicSystem with the contents of a backup file. This can\'t be undone — take a fresh backup first if you\'re not sure. Uploaded files (X-rays, lab results) aren\'t part of the backup itself and are unaffected by a restore, but any that were attached %(after)s the backup being restored was taken will need reconnecting — run %(command)s from the app folder afterward to find and relink them safely.', all=('<strong>%s</strong>'|safe) % _('all'), after=('<em>%s</em>'|safe) % _('after'), command='<code>python3 reconcile_attachments.py</code>'|safe) }}
+  {{ _('Replaces %(all)s current data in VetClinicSystem with the contents of a backup file. This can\'t be undone — take a fresh backup first if you\'re not sure. Uploaded files (X-rays, lab results) aren\'t part of the backup itself and are unaffected by a restore, but any that were attached %(after)s the backup being restored was taken will need reconnecting — run %(command)s from the app folder afterward to find and relink them safely.', all=('<strong>%s</strong>'|safe) % _('all'), after=('<em>%s</em>'|safe) % _('after'), command='<code>python3 -m vcs.ops.reconcile_attachments</code>'|safe) }}
 </p>
 <div class="form-grid">
   <div class="field full"><label for="restoreFileInput">{{ _('Backup File To Restore') }}</label>

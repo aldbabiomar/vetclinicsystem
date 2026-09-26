@@ -16,7 +16,7 @@ from decimal import Decimal as D
 
 import pytest
 
-import clock
+from vcs import clock
 from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
@@ -163,7 +163,7 @@ def test_the_seeded_moments_actually_reached_the_pages(client, timed_rows):
         f"/consignment/settlements/{timed_rows['dist']}").get_data(as_text=True)
     # The backup row's start, as a person reads it — the minute, clinic zone.
     # (Boarding incidents are only printed in the stay's PDF, rendered below.)
-    import logic
+    from vcs.domain import logic
     assert logic.fmt_datetime(timed_rows["now"]) in client.get("/settings").get_data(as_text=True)
 
 

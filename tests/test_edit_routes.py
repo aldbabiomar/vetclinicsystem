@@ -9,7 +9,7 @@ not, a case marked dismissed with its bill still open.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -17,7 +17,7 @@ import pytest
 
 from decimal import Decimal as D
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, needs_db
 
 

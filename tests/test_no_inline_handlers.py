@@ -28,12 +28,13 @@ The floors are counts, not "no matches". A scanner that has stopped finding
 its own subject reports zero either way — see COMPARISON.md §49, where a
 static guard went vacuous rather than red when the code it scanned moved.
 """
+import source_files
 import pathlib
 import re
 
 import pytest
 
-TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 
 # Attribute-boundary-safe: not preceded by '-' or a word character.
 HANDLER_ATTR = re.compile(r'(?<![-\w])(on[a-z]+)\s*=\s*"')
@@ -109,7 +110,7 @@ def test_behaviors_js_is_loaded_and_defines_both_mechanisms():
     """The templates now depend on VZ.bind and VZ.action existing. If
     behaviors.js stops being loaded, every converted handler dies at once and
     every page still renders."""
-    static = TEMPLATES.parent / "static" / "behaviors.js"
+    static = source_files.STATIC_DIR / "behaviors.js"
     assert static.exists(), "static/behaviors.js is missing"
     src = static.read_text(encoding="utf-8")
     assert "VZ.bind" in src and "VZ.action" in src, "behaviors.js exports neither hook"

@@ -9,7 +9,7 @@ fractional refund quantity truncated by |int). These pin the one formatter,
 the one wire format, the arithmetic that changes meaning on a Decimal, and
 the schema rule that no numeric column accepts NaN.
 """
-import clock
+from vcs import clock
 import json
 import pathlib
 import uuid
@@ -18,8 +18,8 @@ from decimal import Decimal as D
 
 import pytest
 
-import core
-import logic
+from vcs.web import core
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 SNAPSHOT = pathlib.Path(__file__).parent / "schema_snapshot.json"

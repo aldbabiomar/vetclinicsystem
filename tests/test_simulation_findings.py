@@ -25,15 +25,14 @@ Every guard is paired with a control asserting the valid case still works
 (CLAUDE.md §7.3); each was also verified by reverting the fix and watching
 the test fail — see scripts/simulation/prove_guards.py.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 
 import pytest
 
-import logic
-
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 
@@ -148,7 +147,7 @@ def test_the_jo_money_setting_rounds_nothing(amount):
     fils — the 250-note rounding and the anti-"looks free" floor only exist
     because IQ's cash unit is 250. If any of these moves an amount, JO has
     started rounding."""
-    import money
+    from vcs import money
     jo = money.JO
     x = D(amount)
     assert money.payable(x, 0, jo) == x

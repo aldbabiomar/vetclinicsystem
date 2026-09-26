@@ -9,8 +9,8 @@ the user form is what decides who can apply a discount.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-import clock
-import money
+from vcs import clock
+from vcs import money
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -230,7 +230,7 @@ def test_a_confirmed_audit_is_what_gives_an_item_a_stock_figure(client, db, cata
     """The rule POS depends on: current_stock is None until an item has been
     through a confirmed audit, and pos_checkout refuses to sell anything
     whose stock is unknown. This pins the mechanism behind that guard."""
-    import logic
+    from vcs.domain import logic
     name = f"Audit Item {uuid.uuid4().hex[:6]}"
     client.post("/inventory-catalog/new", data={
         "name": name, "category": "Retail", "unit": "unit", "cost_price": "2.000"},

@@ -13,15 +13,17 @@ To restore a backup later:
 """
 import json
 import os
+
+from vcs.paths import ROOT
 import shutil
 import subprocess
 from urllib.parse import unquote, urlsplit
 import threading
 from datetime import datetime
 
-import logic
-import clock
-from messages import Msg, N_
+from vcs.domain import logic
+from vcs import clock
+from vcs.messages import Msg, N_
 
 FILENAME_PREFIX = "vetclinicsystem_backup_"
 FILENAME_SUFFIX = ".dump"
@@ -32,11 +34,11 @@ FILENAME_SUFFIX = ".dump"
 # next to this file. See ORPHANED_RECORDS_AUDIT.md F-20.
 _data_dir = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
 _RESTORE_MARKER_PATH = os.path.join(_data_dir, "last_restore.json") if _data_dir \
-    else os.path.join(os.path.dirname(__file__), "last_restore.json")
+    else os.path.join(ROOT, "last_restore.json")
 
 
 def _write_restore_marker(status, dump_path=None, started=None):
-    """reconcile_attachments.py's entire safety argument rests on knowing
+    """vcs/ops/reconcile_attachments.py's entire safety argument rests on knowing
     *when* the most recently restored backup was taken — but pg_restore
     --clean drops and recreates every table, including restore_log itself,
     and the row recording a successful restore is written only after the
@@ -64,7 +66,7 @@ def _write_restore_marker(status, dump_path=None, started=None):
 def read_restore_marker():
     """Returns the marker dict written by _write_restore_marker()/
     ensure_no_restore_marker(), or None if it doesn't exist or is
-    unreadable. Public reader for reconcile_attachments.py — see F-20."""
+    unreadable. Public reader for vcs/ops/reconcile_attachments.py — see F-20."""
     try:
         with open(_RESTORE_MARKER_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -409,7 +411,7 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
     # The data itself is restored (and IDs rewound) at this point,
     # regardless of whether the schema-reconcile step below succeeds —
     # marked here, not at the very end, since this is the actual moment
-    # reconcile_attachments.py's safety concern applies from.
+    # vcs/ops/reconcile_attachments.py's safety concern applies from.
     _write_restore_marker("success", dump_path, started)
 
     step(2, "Reconciling schema")
@@ -422,8 +424,8 @@ def _run_restore_locked(get_fresh_db, dump_path, triggered_by=None, on_progress=
     # process on failure, which here would kill the restore job's thread
     # instead of reporting.
     try:
-        import db as dbmod
-        import schema
+        from vcs.db import pool as dbmod
+        from vcs.db import migrate as schema
         con = dbmod.connect()
         try:
             schema.apply(con, log=lambda *a: None)

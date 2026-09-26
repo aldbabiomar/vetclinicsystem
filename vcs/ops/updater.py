@@ -15,6 +15,8 @@ otherwise, and the Settings page shows an explanatory message instead of
 the update UI.
 """
 import os
+
+from vcs.paths import ROOT
 import io
 import re
 from datetime import datetime
@@ -32,14 +34,14 @@ import urllib.error
 
 import requests
 
-import clock
-from messages import Msg, N_
+from vcs import clock
+from vcs.messages import Msg, N_
 
 DATA_DIR = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
 RELEASES_DIR = os.environ.get("VETCLINICSYSTEM_RELEASES_DIR")
 GITHUB_REPO = os.environ.get("GITHUB_REPO")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = ROOT
 
 KEEP_RELEASES = 2  # the new one + the one it replaced
 
@@ -236,8 +238,8 @@ def _run_backup():
     rather than trusting the backup_dir setting, so this never silently
     no-ops just because an admin hasn't configured a backup folder on the
     Settings page. Returns the backup file path, or None on failure."""
-    import db as dbmod
-    import backup as backup_mod
+    from vcs.db import pool as dbmod
+    from vcs.ops import backup as backup_mod
     dest_dir = os.path.join(DATA_DIR, "backups", "pre_update")
     con = dbmod.connect()
     try:
@@ -291,8 +293,8 @@ def _validate_release(path, tag_name):
     version = open(version_path).read().strip()
     if f"v{version}" != tag_name:
         return False, Msg(N_("VERSION file says %(version)s, but the release tag is %(tag)s."), version=version, tag=tag_name)
-    for required in ("app.py", "requirements.txt", "schema.py",
-                     os.path.join("migrations", "0001_baseline.sql")):
+    for required in ("app.py", "requirements.txt", os.path.join("vcs", "db", "migrate.py"),
+                     os.path.join("vcs", "db", "migrations", "0001_baseline.sql")):
         if not os.path.isfile(os.path.join(path, required)):
             return False, Msg(N_("Downloaded release is missing %(file)s."), file=required)
     return True, None
@@ -442,7 +444,7 @@ def apply_update(tag_name, tarball_url, on_progress=None):
     process restart) any more than an update can start partway through
     one of those.
     """
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     if not backup_mod.maintenance_lock.acquire(blocking=False):
         return False, Msg(N_("A backup, restore, or another update is already running — try again once it finishes."))
     try:
@@ -528,7 +530,7 @@ def rollback_to_previous():
     — a restart mid-backup/restore would leave that job's subprocess
     orphaned against a process that's no longer there to record its
     result."""
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     if not backup_mod.maintenance_lock.acquire(blocking=False):
         return False, Msg(N_("Another backup, restore, or update is already running — try again once it finishes."))
     try:

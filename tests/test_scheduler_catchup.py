@@ -25,7 +25,7 @@ with the wrong misfire setting, or trusting a frozen timer, looks identical
 to a correct one until a machine sleeps — which is exactly the condition no
 test suite naturally reproduces.
 """
-import clock
+from vcs import clock
 from datetime import datetime, timedelta
 
 import pytest
@@ -44,7 +44,7 @@ def test_every_cron_job_is_allowed_to_run_late():
     time passed while the machine slept is DISCARDED. Every recurring job here
     must opt out of that, or it silently does not happen.
     """
-    import scheduler
+    from vcs.ops import scheduler
     assert scheduler.MISFIRE_GRACE_SECONDS is None, (
         "MISFIRE_GRACE_SECONDS must be None ('run however late'). Any finite "
         "value re-introduces a window in which a sleeping machine silently "
@@ -54,7 +54,7 @@ def test_every_cron_job_is_allowed_to_run_late():
 
 def test_the_scheduler_actually_applies_it_to_every_recurring_job(monkeypatch):
     """Asserting the constant alone would pass even if no job used it."""
-    import scheduler
+    from vcs.ops import scheduler
     captured = []
 
     class FakeSched:
@@ -95,7 +95,7 @@ def test_the_scheduler_actually_applies_it_to_every_recurring_job(monkeypatch):
 
 
 def test_the_startup_job_is_the_catchup(monkeypatch):
-    import scheduler
+    from vcs.ops import scheduler
     captured = []
 
     class FakeSched:
@@ -159,7 +159,7 @@ def blog(db):
 
 def test_catchup_is_due_when_todays_backup_was_missed(blog):
     """The machine was off over 02:00 and booted afterwards."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -170,7 +170,7 @@ def test_catchup_is_due_when_todays_backup_was_missed(blog):
 def test_catchup_is_not_due_when_todays_backup_already_ran(blog):
     """The control. Without it, 'due when missed' and 'always due' are the
     same result, and every boot would take a redundant backup."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -181,13 +181,13 @@ def test_catchup_is_not_due_when_todays_backup_already_ran(blog):
 def test_catchup_is_not_due_before_todays_scheduled_time(blog):
     """Booting at 08:00 with a 23:00 backup time must not trigger a catch-up:
     tonight's run has not been missed, it simply has not happened yet."""
-    import scheduler
+    from vcs.ops import scheduler
     _log_backup(blog, clock.now() - timedelta(days=1))
     assert scheduler._backup_catchup_due(blog, 23, 59) is False
 
 
 def test_catchup_is_due_when_no_backup_has_ever_run(blog):
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -207,7 +207,7 @@ def test_a_failed_backup_does_not_count_as_todays_run(blog):
     a failure is not mistaken for a success, is unchanged and is what it now
     checks. The throttle itself is covered by
     test_a_failed_backup_is_not_retried_on_the_very_next_tick."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -230,7 +230,7 @@ def test_a_tick_job_exists_and_runs_often(monkeypatch):
     """A long interval would reintroduce the bug: whatever the interval is, it
     is also the maximum time the machine can be awake with an overdue backup
     still not taken."""
-    import scheduler
+    from vcs.ops import scheduler
     assert scheduler.TICK_MINUTES <= 15, (
         "the tick must be frequent enough that waking from sleep recovers "
         "promptly; it is the only mechanism that does not trust a timer"
@@ -238,7 +238,7 @@ def test_a_tick_job_exists_and_runs_often(monkeypatch):
 
 
 def test_the_tick_is_registered_with_the_scheduler(monkeypatch):
-    import scheduler
+    from vcs.ops import scheduler
     captured = []
 
     class FakeSched:
@@ -275,7 +275,7 @@ def test_the_tick_is_registered_with_the_scheduler(monkeypatch):
 
 def test_self_check_due_uses_the_wall_clock(blog, db):
     """The tick's decision for the self-check half."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -294,7 +294,7 @@ def test_self_check_due_uses_the_wall_clock(blog, db):
 def test_self_check_not_due_before_its_time(blog, db):
     """Once an install has checked at least once, a later slot that has not
     come round yet is not overdue."""
-    import scheduler
+    from vcs.ops import scheduler
     db.execute("DELETE FROM self_check_log")
     db.execute(
         "INSERT INTO self_check_log (ran_at, status, findings) VALUES (?,?,?)",
@@ -310,7 +310,7 @@ def test_an_install_that_has_never_checked_is_due_whatever_the_hour(blog, db):
     first heartbeat: a fresh install started at 01:00 with a 23:59 slot would
     otherwise send nothing for 22 hours and look dead to the receiver, while
     showing the admin none of the problems it can already see."""
-    import scheduler
+    from vcs.ops import scheduler
     db.execute("DELETE FROM self_check_log")
     db.commit()
     assert scheduler._self_check_due(db, 23, 59) is True
@@ -319,7 +319,7 @@ def test_an_install_that_has_never_checked_is_due_whatever_the_hour(blog, db):
 def test_the_tick_takes_an_overdue_backup(blog, monkeypatch):
     """End to end: the machine woke, the backup never happened, the tick
     notices by wall clock and runs it."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -327,7 +327,7 @@ def test_the_tick_takes_an_overdue_backup(blog, monkeypatch):
     monkeypatch.setattr(scheduler, "_parse_hour_minute", lambda s: (0, 30))
 
     ran = []
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     monkeypatch.setattr(backup_mod, "run_backup",
                         lambda db, **kw: ran.append(kw.get("triggered_by")) or (True, "ok"))
     monkeypatch.setattr(scheduler, "_do_self_check", lambda *a, **k: None)
@@ -339,7 +339,7 @@ def test_the_tick_takes_an_overdue_backup(blog, monkeypatch):
 def test_the_tick_does_nothing_when_everything_is_current(blog, monkeypatch):
     """The control. A tick that always acted would take a backup every five
     minutes forever."""
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -352,7 +352,7 @@ def test_the_tick_does_nothing_when_everything_is_current(blog, monkeypatch):
     monkeypatch.setattr(scheduler, "_parse_hour_minute", lambda s: (0, 30))
 
     ran = []
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     monkeypatch.setattr(backup_mod, "run_backup",
                         lambda db, **kw: ran.append(1) or (True, "ok"))
     checked = []
@@ -366,8 +366,7 @@ def test_the_tick_does_nothing_when_everything_is_current(blog, monkeypatch):
 def test_the_tick_never_raises_on_a_broken_database():
     """It runs every few minutes forever. Raising would spam and could kill
     the job."""
-    import scheduler
-
+    from vcs.ops import scheduler
     class Broken:
         def execute(self, *a, **k):
             raise RuntimeError("no database")
@@ -380,8 +379,7 @@ def test_the_tick_never_raises_on_a_broken_database():
 
 def test_catchup_never_raises_on_a_broken_database():
     """It runs at boot. Raising here would take the app down on startup."""
-    import scheduler
-
+    from vcs.ops import scheduler
     class Broken:
         def execute(self, *a, **k):
             raise RuntimeError("no database")
@@ -403,7 +401,7 @@ def test_two_paths_firing_together_produce_exactly_one_backup(blog, monkeypatch)
     what a wake-up does, and requires exactly one backup to result.
     """
     import threading
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -411,8 +409,7 @@ def test_two_paths_firing_together_produce_exactly_one_backup(blog, monkeypatch)
     monkeypatch.setattr(scheduler, "_parse_hour_minute", lambda s: (0, 30))
 
     started = []
-    import backup as backup_mod
-
+    from vcs.ops import backup as backup_mod
     def fake_backup(db, **kw):
         started.append(kw.get("triggered_by"))
         # Long enough that a genuinely concurrent caller would overlap.
@@ -443,7 +440,7 @@ def test_two_paths_firing_together_produce_exactly_one_backup(blog, monkeypatch)
 def test_two_paths_firing_together_produce_exactly_one_self_check(blog, db, monkeypatch):
     """Same race, the self-check half — a duplicate here pings twice."""
     import threading
-    import scheduler
+    from vcs.ops import scheduler
     now = clock.now()
     if now.hour < 1:
         pytest.skip("run before 01:00; today's 00:30 slot has not passed yet")
@@ -488,7 +485,7 @@ def test_a_failed_backup_is_not_retried_on_the_very_next_tick(blog, db):
     """_backup_catchup_due asks whether a backup SUCCEEDED today, so a broken
     destination leaves it due forever and the 5-minute tick retried ~288 times
     a day. See COMPARISON.md §41."""
-    import scheduler
+    from vcs.ops import scheduler
     db.execute("DELETE FROM backup_log")
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, error) VALUES (?,?,?,?)",
@@ -506,7 +503,7 @@ def test_a_failed_backup_is_not_retried_on_the_very_next_tick(blog, db):
 def test_a_failure_older_than_the_bound_is_retried(blog, db):
     """Control. The bound must delay a retry, never cancel it — otherwise a
     destination that comes back stays un-backed-up until tomorrow."""
-    import scheduler
+    from vcs.ops import scheduler
     db.execute("DELETE FROM backup_log")
     stale = (clock.now() - timedelta(minutes=scheduler.BACKUP_RETRY_MIN_MINUTES + 5))
     db.execute(
@@ -524,7 +521,7 @@ def test_a_failure_older_than_the_bound_is_retried(blog, db):
 def test_the_bound_does_not_delay_the_first_attempt_of_the_day(blog, db):
     """Control. Yesterday's SUCCESS is recent in wall-clock terms on an
     early-morning schedule; it must not throttle today's first run."""
-    import scheduler
+    from vcs.ops import scheduler
     db.execute("DELETE FROM backup_log")
     yesterday = clock.now() - timedelta(days=1)
     db.execute(
@@ -544,7 +541,7 @@ def test_the_bound_does_not_delay_the_first_attempt_of_the_day(blog, db):
 def _registered_jobs(monkeypatch, zone_row="Asia/Tokyo"):
     """Start the scheduler against a fake database whose Time Zone setting is
     `zone_row`, and return what was registered and the scheduler's kwargs."""
-    import scheduler
+    from vcs.ops import scheduler
     captured, sched_kwargs = [], {}
 
     class FakeSched:
@@ -566,7 +563,7 @@ def _registered_jobs(monkeypatch, zone_row="Asia/Tokyo"):
         def close(self):
             pass
 
-    import clock
+    from vcs import clock
     monkeypatch.setattr(clock, "load", lambda db, money_setting: zone_row)
     monkeypatch.setattr(scheduler, "_scheduler", None)
     monkeypatch.setattr(scheduler, "BackgroundScheduler",
@@ -599,8 +596,8 @@ def test_the_cron_jobs_fire_in_the_clinic_zone_not_the_computers(monkeypatch):
 def test_a_job_sees_the_clinic_zone_while_it_runs(monkeypatch):
     """The wrapper, run: inside it clock and money are the clinic's; after
     it, whatever they were before."""
-    import clock
-    import scheduler
+    from vcs import clock
+    from vcs.ops import scheduler
     monkeypatch.setattr(clock, "load", lambda db, money_setting: "Asia/Tokyo")
     seen = []
     job = scheduler._clinic_job(lambda get_db, close_db: seen.append(clock.zone_name()))

@@ -9,15 +9,16 @@ goes wrong: a sentence left as a bare English literal, a T() whose text is
 not registered (so it has no translation and shows in English), and the
 page not carrying the translations at all.
 """
+import source_files
 import re
 from pathlib import Path
 
 import pytest
 
-import js_strings
+from vcs.web import js_strings
 from conftest import needs_db
 
-STATIC = Path(__file__).resolve().parents[1] / "static"
+STATIC = source_files.STATIC_DIR
 SCRIPTS = sorted(p for p in STATIC.glob("*.js"))
 
 # Literals that are prose-shaped but are not shown to anyone.

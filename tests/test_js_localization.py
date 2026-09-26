@@ -18,10 +18,11 @@ parses every inline script of every rendered page with node, in both
 languages. These two are the static half, because both failures render a
 perfectly valid page.
 """
+import source_files
 import re
 from pathlib import Path
 
-TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S)
 GETTEXT = re.compile(r"\{\{\s*_\(.*?\)\s*((?:\|\s*\w+\s*)*)\}\}", re.S)
 

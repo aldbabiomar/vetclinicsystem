@@ -19,10 +19,11 @@ translates at render. Two things have to hold for that to keep working:
      particular error string is ABSENT, which would go vacuous if the value
      moved into `args` and out of `message`.
 """
+import source_files
 import ast
 from pathlib import Path
 
-SELFCHECK = Path(__file__).resolve().parents[1] / "selfcheck.py"
+SELFCHECK = source_files.module("selfcheck")
 
 
 def _finding_calls():
@@ -72,7 +73,7 @@ def test_message_is_still_the_rendered_english():
     Several existing tests read it, and one asserts that a specific error
     string does NOT appear in it — that check only means something while the
     value is actually there to be absent."""
-    import selfcheck
+    from vcs.ops import selfcheck
     f = selfcheck._finding("x", "warn", "No successful backup for %(days)s days.",
                            {"days": 9})
     assert f["message"] == "No successful backup for 9 days.", f
@@ -87,7 +88,7 @@ def test_a_bad_argument_set_cannot_break_the_banner():
     """A finding reports a problem. If its own formatting raises, the banner
     that was trying to tell someone about a failing backup would be the thing
     that disappears."""
-    import selfcheck
+    from vcs.ops import selfcheck
     f = selfcheck._finding("z", "warn", "needs %(missing)s", {"other": 1})
     assert f["message"] == "needs %(missing)s", (
         "a mismatched args dict should fall back to the template, not raise")

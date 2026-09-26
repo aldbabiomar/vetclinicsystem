@@ -11,20 +11,18 @@ Endpoint names carry the `consignment.` prefix Flask gives every blueprint route
 
 from datetime import date
 from datetime import datetime
-import auth
-import db as dbmod
-import logic
-import money
-import pdf_export
-
+from vcs import auth
+from vcs.db import pool as dbmod
+from vcs.domain import logic
+from vcs import money
+from vcs.web import pdf_export
 from flask_babel import gettext as _
 from flask import (
     Blueprint, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, _render_with_progress, clean_payment_method, list_join, payment_method_message, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
-import clock
-
+from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, _render_with_progress, clean_payment_method, list_join, payment_method_message, currency_label, display_money, display_quantity, flash_cash_denomination_warning, parse_quantity, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, normalize_phone, page_count, page_offset, parse_int, parse_money, required_field, parse_id
+from vcs import clock
 bp = Blueprint("consignment", __name__)
 
 

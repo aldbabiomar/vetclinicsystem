@@ -72,7 +72,7 @@ def updates_configured(monkeypatch, tmp_path):
     releases_dir = tmp_path / "releases"
     data_dir.mkdir()
     releases_dir.mkdir()
-    import updater
+    from vcs.ops import updater
     monkeypatch.setattr(updater, "DATA_DIR", str(data_dir))
     monkeypatch.setattr(updater, "RELEASES_DIR", str(releases_dir))
     monkeypatch.setattr(updater, "GITHUB_REPO", "aldbabiomar/example")
@@ -119,7 +119,7 @@ def test_the_check_button_DOES_call_github(client, github_is_a_trap):
 def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(client, monkeypatch, updates_configured):
     """End to end through the route: the 403 GitHub actually sends when the
     hourly cap is spent must reach the admin as a rate limit."""
-    import updater
+    from vcs.ops import updater
     import requests
 
     class _Resp:
@@ -144,7 +144,7 @@ def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(client, mon
 def test_a_real_outage_is_still_reported_as_being_offline(client, monkeypatch, updates_configured):
     """The other control. Over-correcting would be its own bug — when the
     clinic genuinely has no internet, saying so is the useful answer."""
-    import updater
+    from vcs.ops import updater
     import requests
 
     def offline(*args, **kwargs):
@@ -279,7 +279,7 @@ def test_role_names_cannot_be_duplicated(client, db, role_cleanup):
 def test_only_real_permissions_are_stored(client, db, role_cleanup):
     """A crafted request naming a permission that does not exist must not
     create a phantom grant — the permission check looks these up by key."""
-    import auth
+    from vcs import auth
     name = f"Role {uuid.uuid4().hex[:6]}"
     real = sorted(auth.PERMISSION_KEY_SET)[0]
     client.post("/admin/roles/new", data={

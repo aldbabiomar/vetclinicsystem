@@ -12,6 +12,7 @@ What a migration run must guarantee, and what these check:
 
 The database tests need a throwaway Postgres and skip cleanly without one.
 """
+import source_files
 import json
 import os
 import pathlib
@@ -22,7 +23,7 @@ import uuid
 
 import pytest
 
-import schema
+from vcs.db import migrate as schema
 from conftest import needs_db, TEST_DB_URL
 
 REPO = pathlib.Path(__file__).parent.parent
@@ -45,7 +46,7 @@ def scratch_db():
 
 def _connect(url):
     from psycopg.rows import dict_row
-    import db as dbmod
+    from vcs.db import pool as dbmod
     return dbmod.Connection.connect(url, row_factory=dict_row, autocommit=False)
 
 
@@ -104,7 +105,7 @@ def test_running_again_applies_nothing_and_changes_nothing(scratch_db):
 def test_the_seed_gives_the_system_role_every_permission(scratch_db):
     """Seeding runs after the migrations on every apply, so a permission
     added in a later release reaches an existing install's Admin role."""
-    import auth
+    from vcs import auth
     assert _setup_apply_schema(scratch_db).returncode == 0
     con = _connect(scratch_db)
     try:
@@ -124,7 +125,7 @@ def test_the_seed_gives_the_system_role_every_permission(scratch_db):
 def fake_migrations(tmp_path, monkeypatch):
     """Point schema.py at a directory of test migrations; the seed step is
     stubbed because these databases have none of the app's tables."""
-    import auth
+    from vcs import auth
     monkeypatch.setattr(schema, "MIGRATIONS_DIR", str(tmp_path))
     monkeypatch.setattr(auth, "seed_default_roles_and_permissions", lambda con: None)
 
@@ -223,7 +224,7 @@ def test_every_migration_survives_run_scripts_splitting():
 def test_the_baseline_does_not_use_if_not_exists():
     """A migration runs once. IF NOT EXISTS would let the baseline 'succeed'
     against a database that already has a different table of the same name."""
-    text = (REPO / "migrations" / "0001_baseline.sql").read_text(encoding="utf-8")
+    text = (source_files.MIGRATIONS_DIR / "0001_baseline.sql").read_text(encoding="utf-8")
     code = "\n".join(l.split("--")[0] for l in text.splitlines())
     assert "IF NOT EXISTS" not in code.upper()
 
@@ -247,7 +248,7 @@ def _printed_password(out):
 def test_setup_creates_one_admin_with_a_printed_one_time_password(scratch_db):
     """GUARD. No well-known default password: the repository is public and
     the app listens on the clinic network."""
-    import auth
+    from vcs import auth
     assert _setup_apply_schema(scratch_db).returncode == 0
     run = _first_admin(scratch_db)
     assert run.returncode == 0, run.stderr[-600:]
@@ -265,7 +266,7 @@ def test_setup_creates_one_admin_with_a_printed_one_time_password(scratch_db):
 
 @needs_db
 def test_until_first_sign_in_setup_issues_a_new_password_then_never_again(scratch_db):
-    import auth
+    from vcs import auth
     assert _setup_apply_schema(scratch_db).returncode == 0
     first = _printed_password(_first_admin(scratch_db).stdout)
     second = _printed_password(_first_admin(scratch_db).stdout)

@@ -53,10 +53,9 @@ from urllib.parse import quote
 
 import psycopg
 
-import backup as backup_mod
-import logic
-import clock
-
+from vcs.ops import backup as backup_mod
+from vcs.domain import logic
+from vcs import clock
 RESTORE_TIMEOUT_SECONDS = 600
 SETTING_KEY = "last_verified_restore"
 

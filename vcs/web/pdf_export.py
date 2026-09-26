@@ -14,11 +14,9 @@ from reportlab.platypus import (
 )
 
 from decimal import Decimal
-import logic
-import attachments
-import money
-
-
+from vcs.domain import logic
+from vcs.domain import attachments
+from vcs import money
 def _m(amount):
     """An amount as printed on a PDF: the money setting's decimal places,
     Western digits (PDFs stay English — ARABIC_LOCALIZATION_PLAN.md §0)."""

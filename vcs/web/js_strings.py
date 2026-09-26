@@ -11,7 +11,7 @@ vzT() with EXACTLY this text: tests/test_js_strings.py fails on a vzT() msgid
 that is not listed here, and on English prose in a static script outside
 vzT().
 """
-from messages import N_
+from vcs.messages import N_
 
 JS_STRINGS = [
     # phone-validate.js

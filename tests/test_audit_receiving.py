@@ -13,7 +13,7 @@ from decimal import Decimal as D
 
 import pytest
 
-import clock
+from vcs import clock
 from conftest import ADMIN_ID, needs_db
 from test_money_routes import sellable  # noqa: F401  (an item with a confirmed audit)
 

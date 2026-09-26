@@ -21,8 +21,8 @@ are NUMERIC(12,3), and there is **no note rounding and no anti-"looks free"
 floor**. Where IQ's equivalent file asserts a total is a multiple of 250,
 this one asserts it is exact to the fils. Do not reconcile the two files.
 """
-import clock
-import money
+from vcs import clock
+from vcs import money
 import uuid
 from datetime import datetime, date
 
@@ -30,7 +30,7 @@ import pytest
 
 from decimal import Decimal
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 

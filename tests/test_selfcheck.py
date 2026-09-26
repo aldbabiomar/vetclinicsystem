@@ -16,7 +16,7 @@ contrast with test_money.py / test_money_routes.py, which assert
 deliberately OPPOSITE things in the two apps — nothing in the self-check
 touches money, so the reason those diverge does not apply here.
 """
-import clock
+from vcs import clock
 import json
 import os
 from datetime import datetime, timedelta
@@ -126,7 +126,7 @@ def severity_of(result, code):
 # --- the control ----------------------------------------------------------
 
 def test_healthy_install_reports_ok_with_no_findings(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     result = selfcheck.run_self_check(env["db"])
     assert result["status"] == "ok", (
         "a healthy install must report ok, otherwise every other test in this "
@@ -138,7 +138,7 @@ def test_healthy_install_reports_ok_with_no_findings(env):
 # --- one test per check ---------------------------------------------------
 
 def test_backup_never(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     env["db"].execute("DELETE FROM backup_log")
     env["db"].commit()
     result = selfcheck.run_self_check(env["db"])
@@ -150,7 +150,7 @@ def test_backup_never(env):
 
 
 def test_backup_stale(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     env["db"].execute("DELETE FROM backup_log")
     env["db"].commit()
     add_backup(env["db"], "success", hours_ago=24 * 6)
@@ -160,7 +160,7 @@ def test_backup_stale(env):
 
 
 def test_backup_stale_respects_the_configured_threshold(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     env["db"].execute("DELETE FROM backup_log")
     env["db"].commit()
     add_backup(env["db"], "success", hours_ago=24 * 5)
@@ -173,7 +173,7 @@ def test_backup_stale_respects_the_configured_threshold(env):
 
 
 def test_backup_failing_after_three_consecutive_failures(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     env["db"].execute("DELETE FROM backup_log")
     env["db"].commit()
     for i in range(3):
@@ -186,7 +186,7 @@ def test_backup_failing_after_three_consecutive_failures(env):
 def test_two_failures_are_not_yet_a_pattern(env):
     """The control for the test above: 'refused for the right reason' and
     'refused for any reason' are otherwise indistinguishable."""
-    import selfcheck
+    from vcs.ops import selfcheck
     env["db"].execute("DELETE FROM backup_log")
     env["db"].commit()
     add_backup(env["db"], "success", hours_ago=3)
@@ -197,7 +197,7 @@ def test_two_failures_are_not_yet_a_pattern(env):
 
 
 def test_backup_stranded(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     add_backup(env["db"], "running", hours_ago=9)
     result = selfcheck.run_self_check(env["db"])
     assert "backup_stranded" in codes(result)
@@ -205,14 +205,14 @@ def test_backup_stranded(env):
 
 
 def test_a_recently_started_backup_is_not_stranded(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     add_backup(env["db"], "running", hours_ago=1)
     result = selfcheck.run_self_check(env["db"])
     assert "backup_stranded" not in codes(result)
 
 
 def test_backup_dir_missing_when_unset(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     _set(env["db"], "backup_dir", None)
     result = selfcheck.run_self_check(env["db"])
     assert "backup_dir_missing" in codes(result)
@@ -220,7 +220,7 @@ def test_backup_dir_missing_when_unset(env):
 
 
 def test_backup_dir_unwritable(env, tmp_path):
-    import selfcheck
+    from vcs.ops import selfcheck
     locked = tmp_path / "locked"
     locked.mkdir()
     os.chmod(locked, 0o500)  # r-x: exists, but nothing can be written into it
@@ -236,8 +236,8 @@ def test_backup_dir_unwritable(env, tmp_path):
 def test_schema_behind(env, monkeypatch):
     """A migration file the database has not applied — the code is newer
     than the schema. Simulated by the code shipping one more file."""
-    import schema
-    import selfcheck
+    from vcs.db import migrate as schema
+    from vcs.ops import selfcheck
     real = schema.migration_files()
     monkeypatch.setattr(schema, "migration_files",
                         lambda: real + [("9999", "9999_from_the_future.sql", "/nonexistent")])
@@ -248,12 +248,12 @@ def test_schema_behind(env, monkeypatch):
 
 
 def test_control_an_up_to_date_schema_is_not_reported(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     assert "schema_behind" not in codes(selfcheck.run_self_check(env["db"]))
 
 
 def test_restore_unverified_when_never_verified(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     _set(env["db"], "last_verified_restore", None)
     result = selfcheck.run_self_check(env["db"])
     assert "restore_unverified" in codes(result)
@@ -261,7 +261,7 @@ def test_restore_unverified_when_never_verified(env):
 
 
 def test_restore_unverified_when_stale(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     _set(env["db"], "last_verified_restore", json.dumps({
         "at": (clock.now() - timedelta(days=90)).isoformat(timespec="seconds"),
         "result": "pass",
@@ -271,8 +271,8 @@ def test_restore_unverified_when_stale(env):
 
 
 def test_update_rolled_back_reads_the_updater_log(env, tmp_path, monkeypatch):
-    import selfcheck
-    import updater
+    from vcs.ops import selfcheck
+    from vcs.ops import updater
     data_dir = tmp_path / "upd"
     (data_dir / "logs").mkdir(parents=True)
     monkeypatch.setattr(updater, "DATA_DIR", str(data_dir), raising=False)
@@ -299,15 +299,14 @@ def test_update_check_is_silent_when_updates_are_not_configured(env, monkeypatch
     """Deliberate: an install that does not use the versioned-release layout
     has no update log, permanently and by design. Warning about that daily
     would be the cry-wolf noise the plan's §6.0 warns against."""
-    import selfcheck
-    import updater
+    from vcs.ops import selfcheck
+    from vcs.ops import updater
     monkeypatch.setattr(updater, "DATA_DIR", None, raising=False)
     assert "update_rolled_back" not in codes(selfcheck.run_self_check(env["db"]))
 
 
 def test_db_unreachable_is_reported_and_does_not_raise(env):
-    import selfcheck
-
+    from vcs.ops import selfcheck
     class Broken:
         def execute(self, *a, **k):
             raise RuntimeError("connection closed")
@@ -318,8 +317,7 @@ def test_db_unreachable_is_reported_and_does_not_raise(env):
 
 
 def test_run_self_check_never_raises_on_a_hostile_database(env):
-    import selfcheck
-
+    from vcs.ops import selfcheck
     class Weird:
         def execute(self, *a, **k):
             return self
@@ -337,7 +335,7 @@ def test_run_self_check_never_raises_on_a_hostile_database(env):
 # --- storage and escalation ----------------------------------------------
 
 def test_record_writes_and_prunes(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     result = selfcheck.run_self_check(db)
     assert selfcheck.record(db, result) is True
@@ -373,7 +371,7 @@ def test_record_prunes_to_the_retention_limit(env, monkeypatch):
     """A retention bug is not hypothetical in this codebase: backup_retention
     of 0 meant files[0:], i.e. delete every backup (shipped, IQ v1.10.7). This
     table grows one row per run forever without the prune."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -395,7 +393,7 @@ def test_record_prunes_to_the_retention_limit(env, monkeypatch):
 
 
 def test_modal_escalates_only_on_the_third_consecutive_failing_day(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -415,7 +413,7 @@ def test_modal_escalates_only_on_the_third_consecutive_failing_day(env):
 def test_several_failures_in_one_day_count_as_one_day(env):
     """A machine restarted six times in a morning must not escalate to a
     modal by lunchtime — the escalation is in days, not runs."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -425,7 +423,7 @@ def test_several_failures_in_one_day_count_as_one_day(env):
 
 
 def test_a_passing_day_breaks_the_streak(env):
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -437,7 +435,7 @@ def test_a_passing_day_breaks_the_streak(env):
 
 def test_the_streak_is_broken_by_the_latest_result_of_that_day(env):
     """Two runs on the same day, the later one passing: that day passed."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -463,7 +461,7 @@ def test_a_days_verdict_follows_the_timestamp_not_the_insert_order(env):
     one below are the only ones in either suite that can tell them apart
     (CLAUDE.md §7.3).
     """
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -488,7 +486,7 @@ def test_an_out_of_order_row_cannot_hide_a_real_failing_streak(env):
     verdict, drops the streak to 0, and the Dashboard modal that should fire
     stays silent — the failure mode this whole feature exists to prevent.
     """
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM self_check_log")
     db.commit()
@@ -513,7 +511,7 @@ def test_an_out_of_order_row_cannot_hide_a_real_failing_streak(env):
 # directory while the off-site copy silently stops.
 
 def test_a_folder_that_held_backups_is_not_silently_recreated(env, tmp_path):
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     gone = tmp_path / "was_on_a_synced_drive"
     gone.mkdir()
@@ -541,7 +539,7 @@ def test_a_folder_that_held_backups_is_not_silently_recreated(env, tmp_path):
 def test_a_brand_new_folder_is_still_created(env, tmp_path):
     """The control. Creating the folder on a first run is the helpful
     behaviour and must survive the fix above."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     fresh = tmp_path / "not_made_yet"
     _set(db, "backup_dir", str(fresh))
@@ -556,7 +554,7 @@ def test_the_newest_backup_file_must_still_exist(env, tmp_path):
     """Everything else trusts backup_log, which is in the database -- so every
     .dump could be deleted and this feature would report ok until the monthly
     verification noticed."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute(
         "INSERT INTO backup_log (started_at, finished_at, status, filepath) VALUES (?,?,?,?)",
@@ -572,7 +570,7 @@ def test_the_newest_backup_file_must_still_exist(env, tmp_path):
 
 def test_a_backup_file_that_is_there_is_not_reported(env, tmp_path):
     """The control -- otherwise 'file missing' and 'always fires' look the same."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     real = tmp_path / "really_there.dump"
     real.write_text("x")
@@ -690,7 +688,7 @@ def _message_of(result, code):
 
 
 def test_backup_failing_drops_its_quote_when_the_folder_finding_explains_it(env, tmp_path):
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     gone = tmp_path / "was_on_a_synced_drive"
     gone.mkdir()
@@ -736,7 +734,7 @@ def test_backup_failing_keeps_its_quote_when_it_stands_alone(env):
     """Control. With no folder finding to explain it, the quoted error is the
     only reason the admin gets — dropping it would trade a repetition for a
     mystery."""
-    import selfcheck
+    from vcs.ops import selfcheck
     db = env["db"]
     db.execute("DELETE FROM backup_log")
     db.commit()
@@ -770,7 +768,7 @@ def test_backup_failing_keeps_its_quote_when_it_stands_alone(env):
 
 
 def test_a_flood_of_failures_does_not_bury_an_established_destination(env, db, tmp_path):
-    import selfcheck
+    from vcs.ops import selfcheck
     gone = tmp_path / "was_on_a_synced_drive"
     gone.mkdir()
     _set(db, "backup_dir", str(gone))
@@ -804,7 +802,7 @@ def test_a_folder_never_backed_up_to_is_still_created(env, db, tmp_path):
     """Control. The recreate branch is correct on a FIRST run -- an admin set
     a path and nothing has been written there yet. Without this, the test
     above passes against a check that simply never creates anything."""
-    import selfcheck
+    from vcs.ops import selfcheck
     fresh = tmp_path / "brand_new_folder"
     _set(db, "backup_dir", str(fresh))
     db.execute("DELETE FROM backup_log")

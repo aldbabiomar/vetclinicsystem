@@ -70,8 +70,7 @@ def test_auth_does_not_read_the_forwarded_header_anywhere(flask_app):
     """GUARD on the pattern, not just this call site — ProxyFix is the only
     thing that should ever consult that header."""
     import inspect
-    import auth
-
+    from vcs import auth
     src = inspect.getsource(auth)
     # Strip comments: the explanation of why we do not read it mentions it.
     code = "\n".join(line.split("#")[0] for line in src.splitlines())

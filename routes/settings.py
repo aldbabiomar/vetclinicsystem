@@ -24,13 +24,13 @@ from flask import (
     Blueprint, g, jsonify, redirect, render_template, request, session, url_for
 )
 
-import auth
-import db as dbmod
-import jobs
-import logic
-import clock
-import money
-from core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
+from vcs import auth
+from vcs.db import pool as dbmod
+from vcs import jobs
+from vcs.domain import logic
+from vcs import clock
+from vcs import money
+from vcs.web.core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
 
@@ -407,7 +407,7 @@ def settings_page():
         if request.form.get("backup_time") or tz_change or money_change:
             # A new zone (chosen, or arriving with a money setting while on
             # automatic) moves the nightly jobs to the clinic's 02:00.
-            import scheduler
+            from vcs.ops import scheduler
             scheduler.reschedule(logic.get_setting(db, "backup_time", "02:00") or "02:00",
                                  zone=clock.load(db, money.load(db)))
         flash(_("Settings saved."), "success")
@@ -420,9 +420,8 @@ def settings_page():
         return redirect(url_for("settings.settings_page"))
     rows = db.execute("SELECT * FROM settings").fetchall()
     settings = {r["key"]: r["value"] for r in rows}
-    import backup as backup_mod
-    import autostart
-    # An 'in_progress' marker that was never updated to 'success'/'failed'
+    from vcs.ops import backup as backup_mod
+    from vcs.ops import autostart  # An 'in_progress' marker that was never updated to 'success'/'failed'
     # means the process died mid-restore — the database may be in a
     # partially restored state. See ORPHANED_RECORDS_AUDIT.md F-20.
     restore_marker = backup_mod.read_restore_marker()
@@ -445,9 +444,7 @@ def settings_page():
 @bp.route("/settings/backup-now", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_backup_now():
-    import backup as backup_mod
-
-    # Checked here, before a job is started, rather than only inside
+    from vcs.ops import backup as backup_mod  # Checked here, before a job is started, rather than only inside
     # run_backup(): otherwise clicking Back Up Now with no folder set spins up
     # a progress panel that runs through its steps and then reports failure,
     # which reads as "the backup broke" rather than "you haven't set this up
@@ -483,9 +480,7 @@ def settings_backup_now():
 @auth.permission_required("manage_maintenance")
 def settings_restore_now():
     source_file = (request.form.get("source_file") or "").strip()
-    import backup as backup_mod
-
-    # Path confinement + provenance check — only a .dump file inside the
+    from vcs.ops import backup as backup_mod  # Path confinement + provenance check — only a .dump file inside the
     # configured backup folder AND recorded in this app's own backup_log
     # as a successful backup can be restored. Runs on the request's own
     # (still-open) connection, before that connection is released and
@@ -565,7 +560,7 @@ def settings_job_status():
 @bp.route("/settings/autostart", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_autostart():
-    import autostart
+    from vcs.ops import autostart
     enable = request.form.get("autostart_enabled") == "on"
     ok, message = autostart.enable() if enable else autostart.disable()
     flash(shown(message), "success" if ok else "error")
@@ -591,7 +586,7 @@ def settings_updates_status():
     something only GitHub can answer, that is a sign the answer belongs
     behind the button instead.
     """
-    import updater
+    from vcs.ops import updater
     configured = updater.is_configured()
     return jsonify({
         "configured": configured,
@@ -602,7 +597,7 @@ def settings_updates_status():
 @bp.route("/settings/updates/check")
 @auth.permission_required("manage_maintenance")
 def settings_updates_check():
-    import updater
+    from vcs.ops import updater
     if not updater.is_configured():
         return jsonify({"configured": False, "current_version": VERSION})
     try:
@@ -622,7 +617,7 @@ def settings_updates_check():
 @bp.route("/settings/updates/apply", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_updates_apply():
-    import updater
+    from vcs.ops import updater
     if not updater.is_configured():
         return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
     try:
@@ -649,7 +644,7 @@ def settings_updates_apply():
 @bp.route("/settings/updates/rollback", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_updates_rollback():
-    import updater
+    from vcs.ops import updater
     if not updater.is_configured():
         return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
     candidates = [n for n in updater.list_releases() if n != updater.active_release_name()]

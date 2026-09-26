@@ -8,12 +8,13 @@ two installs on this machine collide on the default ports and JO had to be
 moved to 5051 (COMPARISON.md §54). A wrong address is worse than no address,
 because staff will try it and conclude the app is down.
 """
+import source_files
 import re
 from pathlib import Path
 
 import app as app_module
 
-TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 
 
 def _port_env_var():

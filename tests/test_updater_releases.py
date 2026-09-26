@@ -26,9 +26,7 @@ import os
 
 import pytest
 
-import updater
-
-
+from vcs.ops import updater
 @pytest.fixture
 def releases(tmp_path, monkeypatch):
     """A fake releases directory. Returns a helper that creates the given

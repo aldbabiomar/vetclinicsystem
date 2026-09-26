@@ -25,13 +25,11 @@ codebase is porting a money fix across without re-deriving it.
 """
 from decimal import Decimal
 
-import money
+from vcs import money
 import pytest
 
 import app
-import logic
-
-
+from vcs.domain import logic
 D = Decimal
 
 

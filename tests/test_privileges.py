@@ -17,7 +17,7 @@ import uuid
 
 import pytest
 
-import auth
+from vcs import auth
 from conftest import ADMIN_ID, needs_db
 
 pytestmark = needs_db

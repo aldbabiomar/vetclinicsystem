@@ -71,7 +71,7 @@ def connect():
 
     Used only by code that doesn't run inside a normal web request and
     therefore has no g.db lifecycle to piggyback on: one-off maintenance
-    scripts (setup.py, reconcile_attachments.py) and the
+    scripts (setup.py, vcs/ops/reconcile_attachments.py) and the
     app's background scheduler (nightly backup). Those are low-frequency,
     long-or-uncertain-duration operations that don't belong sharing a
     small pool with request traffic, so they keep opening their own
@@ -80,7 +80,7 @@ def connect():
     conn = Connection.connect(database_url(), row_factory=dict_row, autocommit=False)
     # In the clinic's time zone, and committed at once, so a later rollback
     # by the caller cannot undo it (clock.apply_to).
-    import clock
+    from vcs import clock
     clock.apply_to(conn)
     conn.commit()
     return conn

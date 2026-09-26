@@ -16,7 +16,7 @@ import uuid
 
 import pytest
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, needs_db
 
 pytestmark = needs_db

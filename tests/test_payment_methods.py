@@ -13,7 +13,7 @@ from decimal import Decimal as D
 
 import pytest
 
-import core
+from vcs.web import core
 from conftest import needs_db
 from test_money_routes import (_bill, _checkout, _pay, _pay_visit, boarding, distributor_bill,  # noqa: F401
                                inpatient_case, priced_service, sellable, visit)

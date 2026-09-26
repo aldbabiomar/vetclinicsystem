@@ -19,6 +19,7 @@ what makes covering all 140 routes cheap rather than a fixture nightmare.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
+import source_files
 import re
 import io
 import pathlib
@@ -45,7 +46,7 @@ def route_source_files():
     test_route_discovery_matches_the_live_url_map() is what makes that
     impossible rather than merely unlikely.
     """
-    return [APP_PY] + sorted((ROOT / "routes").glob("*.py"))
+    return source_files.web_modules()
 
 # Routes that intentionally sit outside the permission model, or that would
 # damage the shared test session if probed.
@@ -101,8 +102,8 @@ def restricted(flask_app):
     Built directly rather than through the admin UI so the test does not
     depend on the very screens it is about to prove are gated.
     """
-    import db as dbmod
-    import auth
+    from vcs.db import pool as dbmod
+    from vcs import auth
     con = dbmod.connect()
     tag = uuid.uuid4().hex[:8]
     username, password = f"limited{tag}", "LimitedPass12345!"
@@ -183,7 +184,7 @@ def test_route_discovery_matches_the_live_url_map(flask_app):
 def test_every_discovered_permission_is_a_real_permission_key():
     """A typo'd key in a decorator gates a route behind a permission no role
     can ever hold — locking everyone out of it, silently and permanently."""
-    import auth
+    from vcs import auth
     unknown = [k for k in ALL_PERMISSIONS if k not in auth.PERMISSION_KEY_SET]
     assert not unknown, f"routes gated behind non-existent permission(s): {unknown}"
 
@@ -272,7 +273,7 @@ def test_a_logged_out_visitor_is_never_given_a_403_instead_of_a_login(flask_app)
 def test_deactivating_an_account_stops_it_working_immediately(restricted):
     """A dismissed member of staff must lose access on their next click, not
     whenever their session happens to expire."""
-    import db as dbmod
+    from vcs.db import pool as dbmod
     client = restricted["client"]
     open_route = next((_concrete(r) for r, m, k in ROUTE_PERMISSIONS
                        if restricted["held"] in k and "GET" in m), None)

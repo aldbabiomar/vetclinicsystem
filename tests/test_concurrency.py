@@ -20,7 +20,7 @@ and thread B failed" would not be.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-import clock
+from vcs import clock
 import threading
 import uuid
 from decimal import Decimal as D
@@ -215,8 +215,7 @@ def test_a_backup_and_an_update_cannot_run_at_the_same_time(flask_app):
     again — so this checks the property that actually matters: a *second
     thread* is refused while the first holds it.
     """
-    import backup
-
+    from vcs.ops import backup
     acquired_by_second = []
     holder_ready = threading.Event()
     release_now = threading.Event()

@@ -16,11 +16,12 @@ Also pinned here: the job step labels are display text. They are sent to the
 browser as JSON and drawn in the panel, so they go through `_()` like any
 other string a person reads.
 """
+import source_files
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SETTINGS_HTML = ROOT / "templates" / "settings.html"
+SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
 
 
 def _job_status_pollers():
@@ -70,10 +71,7 @@ def test_job_step_labels_are_translated():
     display text. An untranslated list leaves the progress bar in English on
     an otherwise Arabic screen."""
     offenders = []
-    for rel in ("routes/settings.py", "app.py", "routes/consignment.py"):
-        f = ROOT / rel
-        if not f.exists():
-            continue
+    for f in source_files.web_modules():
         src = f.read_text(encoding="utf-8")
         for m in re.finditer(r"jobs\.start\(\s*(\[[^\]]*\])", src, re.S):
             steps = m.group(1)
@@ -94,8 +92,6 @@ def test_control_the_scanners_read_real_code():
         "fewer VZProgress users than this page has jobs — the scanner is "
         "probably looking at the wrong file")
     starts = 0
-    for rel in ("routes/settings.py", "app.py", "routes/consignment.py"):
-        f = ROOT / rel
-        if f.exists():
-            starts += len(re.findall(r"jobs\.start\(", f.read_text(encoding="utf-8")))
+    for f in source_files.web_modules():
+        starts += len(re.findall(r"jobs\.start\(", f.read_text(encoding="utf-8")))
     assert starts >= 4, f"only {starts} jobs.start() calls found"

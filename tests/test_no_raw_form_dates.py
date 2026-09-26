@@ -25,6 +25,7 @@ neither repo. See the two control tests below: this file's own detector is
 tested, because a guard that silently stops matching anything passes
 forever without checking a thing (CLAUDE.md section 7.3).
 """
+import source_files
 import re
 import pathlib
 
@@ -86,7 +87,7 @@ def _modules():
     zero date reads and would have passed while checking nothing — which is
     exactly what the floor below is for, and it is what caught the omission.
     """
-    return sorted(APP_ROOT.glob("*.py")) + sorted((APP_ROOT / "routes").glob("*.py"))
+    return source_files.all_python()
 
 
 def test_no_unvalidated_write_side_date_fields():

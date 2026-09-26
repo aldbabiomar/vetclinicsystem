@@ -20,13 +20,13 @@ succeeds. Without one, "refused for the right reason" and "refused for any
 reason at all" are indistinguishable, and this codebase has shipped several
 of the latter (CLAUDE.md §7.3).
 """
-import clock
+from vcs import clock
 from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
@@ -544,7 +544,7 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
         db.commit()
 
         summary = logic.inpatient_billing_summary(db, case_id)
-        import reports
+        from vcs.domain import reports
         revenue = {m: rev for m, (rev, _cogs) in reports.by_month(db).items()}
 
         # This case is the only thing these two fixtures put in either month,

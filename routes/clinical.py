@@ -12,12 +12,12 @@ Endpoint names carry the `clinical.` prefix Flask gives every blueprint route:
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
-import attachments as attach_mod
-import auth
-import db as dbmod
-import logic
+from vcs.domain import attachments as attach_mod
+from vcs import auth
+from vcs.db import pool as dbmod
+from vcs.domain import logic
 import os
-import pdf_export
+from vcs.web import pdf_export
 import re
 
 from flask_babel import gettext as _, lazy_gettext as _l
@@ -25,9 +25,8 @@ from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
-import clock
-
+from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from vcs import clock
 bp = Blueprint("clinical", __name__)
 
 

@@ -13,6 +13,7 @@ first (audit B4, and the holes found fixing it).
 The same behaviour holds on all three edit forms — visit, boarding stay,
 inpatient case — so each test runs on all three.
 """
+import source_files
 import ast
 import html as htmllib
 import pathlib
@@ -20,7 +21,7 @@ import re
 
 import pytest
 
-import clock
+from vcs import clock
 from conftest import needs_db
 from test_edit_routes import _edit_case, _edit_stay, _stamp, case, patient, stay  # noqa: F401
 from test_workflow_routes import _edit_visit, a_visit  # noqa: F401
@@ -208,7 +209,7 @@ def _updates():
     in the application's Python — string constants from the AST, so implicit
     concatenation across lines is already joined."""
     out = []
-    for path in [ROOT / "app.py", ROOT / "logic.py"] + sorted((ROOT / "routes").glob("*.py")):
+    for path in [*source_files.web_modules(), source_files.module("logic")]:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 for m in UPDATE_SQL.finditer(node.value):

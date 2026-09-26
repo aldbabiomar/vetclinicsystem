@@ -14,7 +14,7 @@ import uuid
 
 import pytest
 
-import auth
+from vcs import auth
 from conftest import needs_db
 
 
@@ -86,8 +86,7 @@ def throwaway_user(flask_app, db):
     clean run reported unrelated errors. CLAUDE.md 7.3 calls this refusing
     for the wrong reason; this is the arrangement half of the same problem.
     """
-    import auth as auth_mod
-
+    from vcs import auth as auth_mod
     tag = uuid.uuid4().hex[:6]
     username, password = f"pwuser{tag}", "StartingPass99"
     role = db.execute("SELECT id FROM roles WHERE is_system = true").fetchone()

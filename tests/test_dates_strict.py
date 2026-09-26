@@ -16,8 +16,8 @@ from datetime import date
 
 import pytest
 
-import core
-import logic
+from vcs.web import core
+from vcs.domain import logic
 from conftest import ADMIN_ID, needs_db
 
 # Every shape fromisoformat() accepts that is not the date's own spelling,

@@ -18,10 +18,11 @@ Static rather than a browser check because reproducing it needs the right
 language AND the right column width at the same time, while the rule itself
 is simple and checkable everywhere at once.
 """
+import source_files
 import re
 from pathlib import Path
 
-TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 
 # Inline-level elements only — see the module docstring for why <td> is out.
 INLINE = r"span|a|button|em|strong|small|code|label|b|i"

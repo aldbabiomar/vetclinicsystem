@@ -44,9 +44,8 @@ from datetime import datetime
 
 import requests
 
-import logic
-import clock
-
+from vcs.domain import logic
+from vcs import clock
 APP = "jo"
 
 TIMEOUT_SECONDS = 10

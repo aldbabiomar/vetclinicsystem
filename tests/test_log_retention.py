@@ -14,14 +14,14 @@ currently locked out, so a retention window shorter than its lookback would
 silently disarm the lockout. That relationship is asserted here rather than
 left to a comment.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import datetime, timedelta
 
 import pytest
 
-import auth
-import logic
+from vcs import auth
+from vcs.domain import logic
 from conftest import needs_db
 
 pytestmark = needs_db

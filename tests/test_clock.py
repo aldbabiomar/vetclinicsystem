@@ -6,13 +6,14 @@ setting, the money setting's zone, the computer's zone. These pin the order,
 the setting's validation, and — the part that would go wrong silently — that
 a page actually uses it rather than the computer's clock.
 """
+import source_files
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
 
-import clock
-import money
+from vcs import clock
+from vcs import money
 from conftest import needs_db
 
 
@@ -177,8 +178,7 @@ def test_control_the_scan_finds_a_direct_read():
 def test_no_application_code_reads_the_computers_clock():
     """GUARD. datetime.now() / date.today() read the computer's zone; the
     Time Zone setting only reaches code that asks clock.py."""
-    files = [p for p in sorted(_ROOT.glob("*.py")) + sorted((_ROOT / "routes").glob("*.py"))
-             if p.name != "clock.py"]
+    files = [p for p in source_files.all_python() if p.name != "clock.py"]
     assert len(files) > 20, "the scan is not looking at the application"
     offenders = [f"{p.relative_to(_ROOT)}: {hit}" for p in files
                  for hit in _direct_clock_reads(p.read_text(encoding="utf-8"))]

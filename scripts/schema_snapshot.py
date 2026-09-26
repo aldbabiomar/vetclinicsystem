@@ -29,9 +29,8 @@ SNAPSHOT = os.path.join(ROOT, "tests", "schema_snapshot.json")
 def build_snapshot(server_url):
     import psycopg
     from psycopg.rows import dict_row
-    import db as dbmod
-    import schema
-
+    from vcs.db import pool as dbmod
+    from vcs.db import migrate as schema
     admin_url = re.sub(r"/[^/]+$", "/postgres", server_url)
     name = f"snapshot_{uuid.uuid4().hex[:10]}"
     with psycopg.connect(admin_url, autocommit=True) as con:
@@ -53,7 +52,7 @@ def main():
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
         sys.exit("TEST_DATABASE_URL is not set — point it at a throwaway test server.")
-    import schema
+    from vcs.db import migrate as schema
     built = build_snapshot(url)
     current = json.load(open(SNAPSHOT)) if os.path.exists(SNAPSHOT) else {}
     diff = schema.snapshot_diff(current, built)

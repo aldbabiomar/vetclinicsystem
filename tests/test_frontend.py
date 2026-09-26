@@ -24,6 +24,7 @@ because IQ has four palette/theme combinations to keep in step and JO has
 two (light and dark). Several of the guards below exist *because* the bug
 happened in JO first.
 """
+import source_files
 import re
 import pathlib
 
@@ -31,8 +32,8 @@ import pytest
 
 
 ROOT = pathlib.Path(__file__).parent.parent
-CSS_PATH = ROOT / "static" / "style.css"
-TEMPLATES = sorted((ROOT / "templates").glob("*.html"))
+CSS_PATH = source_files.STATIC_DIR / "style.css"
+TEMPLATES = source_files.templates()
 
 # Pure white and pure black are structural, not palette choices — white
 # label text on a coloured button stays white in every theme. Anything
@@ -232,7 +233,7 @@ def test_every_static_reference_points_at_a_real_file():
         for ref in re.findall(r"url_for\('static',\s*filename='([^']+)'", template.read_text()):
             if "{{" in ref or "~" in ref:
                 continue  # dynamically built (palette-branched); checked at runtime
-            if not (ROOT / "static" / ref).exists():
+            if not (source_files.STATIC_DIR / ref).exists():
                 missing.append(f"{template.name} -> static/{ref}")
     assert not missing, "template(s) reference missing static files:\n  " + "\n  ".join(missing)
 
@@ -283,7 +284,7 @@ def test_the_health_banner_is_not_a_flash():
     banner when the install happens to be unhealthy, so on a healthy test
     install it passes while checking nothing.
     """
-    html = (ROOT / "templates" / "dashboard.html").read_text()
+    html = (source_files.TEMPLATES_DIR / "dashboard.html").read_text()
     start = html.index("{% if self_check %}")
     end = html.index("{% endif %}", start)
     block = html[start:end]
@@ -303,7 +304,7 @@ def test_toast_js_still_only_sweeps_flash_elements():
     health banner silently becomes a toast again and the guard above stops
     meaning anything.
     """
-    js = (ROOT / "static" / "toast.js").read_text()
+    js = (source_files.STATIC_DIR / "toast.js").read_text()
     assert 'querySelectorAll("main .flash, .auth-flash-wrap .flash")' in js, (
         "toast.js's sweep selector changed — recheck that .selfcheck-banner "
         "is still outside it"
@@ -334,7 +335,7 @@ def test_no_saved_page_has_been_committed_into_static():
     attempts produced 117 then 142 of them. COMPARISON.md §47.
     """
     offenders = []
-    for path in sorted((ROOT / "static").rglob("*.html")):
+    for path in sorted(source_files.STATIC_DIR.rglob("*.html")):
         if not path.is_file():
             continue
         try:
@@ -546,8 +547,7 @@ def test_every_cited_document_can_be_found():
     # migrations/ since phase 2: the schema's comments cite the audits too,
     # and the old root-level *.sql glob went silently empty when the schema
     # moved there.
-    sources = (list(root.glob("*.py")) + sorted((root / "migrations").glob("*.sql"))
-               + sorted((root / "routes").glob("*.py")))
+    sources = source_files.all_python() + sorted(source_files.MIGRATIONS_DIR.glob("*.sql"))
     assert any(p.suffix == ".sql" for p in sources), "the schema files are not being read"
     for path in sources:
         for name in re.findall(r"\b([A-Za-z0-9_][A-Za-z0-9_.-]*\.md)\b",

@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-import nav
+from vcs.web import nav
 from conftest import needs_db
 from test_privileges import admin_restored, as_role  # noqa: F401
 

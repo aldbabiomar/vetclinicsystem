@@ -11,11 +11,10 @@ from decimal import Decimal
 from flask_babel import gettext
 from collections import defaultdict
 
-import auth as authmod
-import money
-import reports
-import clock
-
+from vcs import auth as authmod
+from vcs import money
+from vcs.domain import reports
+from vcs import clock
 MISSED_WINDOW_DAYS = 14   # 2 weeks — used for follow-ups, wellness, and Lost to Follow Up
 WELLNESS_LEAD_DAYS = 5    # remind 5 days before the next-dose date
 

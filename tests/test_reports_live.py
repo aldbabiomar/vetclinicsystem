@@ -17,9 +17,9 @@ from decimal import Decimal as D
 
 import pytest
 
-import clock
-import logic
-import reports
+from vcs import clock
+from vcs.domain import logic
+from vcs.domain import reports
 from conftest import ADMIN_ID, needs_db
 # Fixtures and helpers from the money route tests, reused rather than copied.
 from test_money_routes import (_bill, _checkout, _latest_sale, _pay, _pay_visit, _refund_retail,  # noqa: F401

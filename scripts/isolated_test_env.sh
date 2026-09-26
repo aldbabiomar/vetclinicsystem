@@ -232,7 +232,8 @@ import sys, os
 sys.path.insert(0, sys.argv[1])
 os.chdir(sys.argv[1])
 money_setting = sys.argv[2].upper()
-import db as dbmod, auth, schema
+from vcs.db import pool as dbmod, migrate as schema
+from vcs import auth
 from datetime import datetime
 
 con = dbmod.connect()

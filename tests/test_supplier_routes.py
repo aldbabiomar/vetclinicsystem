@@ -8,7 +8,7 @@ complains, because the person out of pocket is the clinic.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import date, datetime
 
@@ -16,7 +16,7 @@ import pytest
 
 from decimal import Decimal as D
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 
@@ -535,7 +535,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
     """An open count is a draft — it must not affect stock until confirmed.
     That is the whole basis of the "never-audited items cannot be sold"
     rule, so it is worth pinning rather than assuming."""
-    import logic
+    from vcs.domain import logic
     inv_id = _uid("INV")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",

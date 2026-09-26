@@ -8,7 +8,7 @@ grid with the booking modal open over it.
 import re
 from datetime import timedelta
 
-import clock
+from vcs import clock
 from conftest import needs_db
 
 pytestmark = needs_db

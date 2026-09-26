@@ -130,7 +130,7 @@ def db(flask_app):
     rows — deliberately separate from the request-scoped pool the app uses,
     so a test reads what was actually committed rather than what a shared
     transaction is holding."""
-    import db as dbmod
+    from vcs.db import pool as dbmod
     con = dbmod.connect()
     try:
         yield con
@@ -160,8 +160,7 @@ def db(flask_app):
 # runs under JO; IQ's rules (250-note rounding, the anti-"looks free" floor,
 # change and refunds rounded down) have their own tests marked IQ, and the
 # money specification in test_money.py covers both side by side.
-import money as _money
-
+from vcs import money as _money
 _stored_money_code = None
 
 
@@ -202,7 +201,7 @@ def money_setting(request):
     # The clinic's clock follows the money setting's zone here (no test sets
     # the Time Zone setting unless it says so), exactly as a request would
     # resolve it. The `db` fixture connects after this, in the same zone.
-    import clock as _clock
+    from vcs import clock as _clock
     clock_token = _clock.set_current(setting.timezone)
     try:
         yield setting

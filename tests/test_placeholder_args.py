@@ -16,10 +16,11 @@ Static rather than a page-render test because a render test only covers the
 pages it happens to visit, in the states it happens to reach — this reads
 every call in every template.
 """
+import source_files
 import re
 from pathlib import Path
 
-TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+TEMPLATES = source_files.TEMPLATES_DIR
 LITERAL = re.compile(r"\s*(?:'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\")", re.S)
 
 

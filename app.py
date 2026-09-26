@@ -36,23 +36,21 @@ from flask_wtf import CSRFProtect
 from flask_wtf.csrf import CSRFError
 from werkzeug.exceptions import HTTPException
 
-import logic
-import auth
-import db as dbmod
-import barcode as barcode_mod
-import attachments as attach_mod
-import jobs
-import pdf_export
-import clock
-import money
-import backup
-import js_strings
-import nav
-
-# BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
+from vcs.domain import logic
+from vcs import auth
+from vcs.db import pool as dbmod
+from vcs.web import barcode as barcode_mod
+from vcs.domain import attachments as attach_mod
+from vcs import jobs
+from vcs.web import pdf_export
+from vcs import clock
+from vcs import money
+from vcs.ops import backup
+from vcs.web import js_strings
+from vcs.web import nav  # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
 # live in core.py so the route blueprints under routes/ can reach them
 # without importing this module, which registers them (see core.py).
-from core import (
+from vcs.web.core import (
     flash,
     BASE_DIR,
     DB_REQUEST_TIMEOUT_SECONDS,
@@ -62,8 +60,8 @@ from core import (
     to_arabic_indic_digits,
     display_number,
 )
-from core import csp_nonce
-from core import (
+from vcs.web.core import csp_nonce
+from vcs.web.core import (
     BadDate,
     BadNumber,
     BadPhone,
@@ -1270,12 +1268,12 @@ def dashboard():
     self_check = None
     self_check_modal = False
     if auth.has_permission("manage_settings"):
-        import backup as backup_mod
+        from vcs.ops import backup as backup_mod
         backup_alert = logic.backup_alert_message(backup_mod.last_backup(db))
         # Migration files this code ships that the database has not applied
         # (schema.py) — only possible if a release was started without its
         # schema step. Worth an admin's attention before anything breaks.
-        import schema as schema_mod
+        from vcs.db import migrate as schema_mod
         schema_pending = [name for _, name in schema_mod.pending(db)] or None
         # Layer 1 of operational monitoring. Reads the last *recorded* result
         # rather than running a fresh check: run_self_check() probes the disk
@@ -1283,7 +1281,7 @@ def dashboard():
         # happening on every dashboard load. scheduler.py runs it daily (20
         # minutes after the backup) and once at startup.
         if logic.get_setting(db, "selfcheck_enabled", "1") != "0":
-            import selfcheck
+            from vcs.ops import selfcheck
             row = selfcheck.latest(db)
             if row and row["status"] != "ok":
                 try:
@@ -1587,7 +1585,7 @@ if __name__ == "__main__":
         )
 
     try:
-        import scheduler
+        from vcs.ops import scheduler
         scheduler.start(get_db=dbmod.connect, close_db=lambda c: c.close())
     except Exception:
         # A scheduler failure should never take the whole app down — the
@@ -1596,7 +1594,7 @@ if __name__ == "__main__":
         print("  !! Nightly backups are NOT scheduled — see logs/errors.log. The app will still run.")
 
     try:
-        import backup as boot_backup_mod
+        from vcs.ops import backup as boot_backup_mod
         boot_conn = dbmod.connect()
         try:
             reaped = boot_backup_mod.reap_stale_running(boot_conn)
@@ -1627,7 +1625,7 @@ if __name__ == "__main__":
         try:
             db = dbmod.connect()
             try:
-                import backup as backup_mod
+                from vcs.ops import backup as backup_mod
                 ok, message = backup_mod.run_backup(db, triggered_by="shutdown")
                 print(message if ok else f"Final backup failed: {message}")
             finally:

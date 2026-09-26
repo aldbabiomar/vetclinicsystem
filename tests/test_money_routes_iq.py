@@ -14,10 +14,9 @@ from datetime import datetime, date
 
 import pytest
 
-import clock
-import logic
-import money
-
+from vcs import clock
+from vcs.domain import logic
+from vcs import money
 from decimal import Decimal
 
 from conftest import new_id, ADMIN_ID, needs_db

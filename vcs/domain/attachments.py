@@ -8,13 +8,15 @@ Folder layout on disk:  uploads/<patient_id>/<record_key>/<filename>
   database; the files themselves live on disk so the database stays small.
 """
 import os
+
+from vcs.paths import ROOT
 import re
 import uuid
 from datetime import datetime
 
-import auth
-import clock
-from messages import Msg, N_
+from vcs import auth
+from vcs import clock
+from vcs.messages import Msg, N_
 
 # On the versioned-release layout (VETCLINICSYSTEM_DATA_DIR set by the
 # launcher script — see updater.py / setup.py --enable-updates), uploads
@@ -24,7 +26,7 @@ from messages import Msg, N_
 # get pruned) the moment that happens.
 _data_dir = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
 UPLOAD_ROOT = (os.path.join(_data_dir, "attachments", "uploads") if _data_dir
-               else os.path.join(os.path.dirname(__file__), "uploads"))
+               else os.path.join(ROOT, "uploads"))
 ALLOWED_EXTENSIONS = {"pdf", "jpg", "jpeg"}
 
 # Magic-byte signatures so a renamed file can't slip past the extension check.

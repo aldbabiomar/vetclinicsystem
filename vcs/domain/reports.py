@@ -34,8 +34,7 @@ the clinic zone, so `to_char` below names the clinic's month.
 from collections import defaultdict
 from decimal import Decimal
 
-import money
-
+from vcs import money
 def _lines_sql(where):
     """Every revenue/cost line, with its month and category. Apportioning
     uses a window over the WHOLE bill before `where` filters by month, so a

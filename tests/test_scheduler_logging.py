@@ -24,9 +24,7 @@ import logging
 
 import pytest
 
-import scheduler
-
-
+from vcs.ops import scheduler
 @pytest.fixture
 def captured(monkeypatch):
     """Capture what _log_failure would write, without touching errors.log.

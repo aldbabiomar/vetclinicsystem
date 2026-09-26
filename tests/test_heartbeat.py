@@ -18,7 +18,7 @@ passing assertion means something:
 Nothing here talks to a real receiver. The live ping against a real
 healthchecks.io check is a separate, manual verification step (plan §6.1).
 """
-import clock
+from vcs import clock
 import json
 import logging
 from datetime import datetime, timedelta
@@ -69,7 +69,7 @@ class FakeResponse:
 # --- 1. disabled is the default ------------------------------------------
 
 def test_no_url_sends_nothing_and_is_not_an_error(hb, monkeypatch):
-    import heartbeat
+    from vcs.ops import heartbeat
     calls = []
     monkeypatch.setattr(requests, "post", lambda *a, **k: calls.append(a) or FakeResponse(200))
 
@@ -82,7 +82,7 @@ def test_no_url_sends_nothing_and_is_not_an_error(hb, monkeypatch):
 def test_a_configured_url_actually_sends(hb, monkeypatch):
     """The control for the test above — without it, 'sends nothing when
     disabled' and 'never sends anything at all' are the same result."""
-    import heartbeat
+    from vcs.ops import heartbeat
     calls = []
 
     def fake_post(url, **kwargs):
@@ -99,7 +99,7 @@ def test_a_configured_url_actually_sends(hb, monkeypatch):
 
 
 def test_a_non_https_url_is_refused(hb, monkeypatch):
-    import heartbeat
+    from vcs.ops import heartbeat
     calls = []
     monkeypatch.setattr(requests, "post", lambda *a, **k: calls.append(a) or FakeResponse(200))
     _set(hb, "heartbeat_url", "http://hc-ping.example/abc")
@@ -112,7 +112,7 @@ def test_a_non_https_url_is_refused(hb, monkeypatch):
 # --- 2. the payload carries no personal data -----------------------------
 
 def test_payload_contains_no_names_phones_or_money(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     marker_name = "ZZTESTOWNERNAME"
     marker_phone = "0791234567"
     owner_id = new_id()
@@ -141,7 +141,7 @@ def test_payload_contains_no_names_phones_or_money(hb, db):
 
 
 def test_payload_carries_no_money_figures_and_no_file_paths(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     payload = heartbeat.build_payload(db, OK_RESULT)
     blob = json.dumps(payload)
 
@@ -154,7 +154,7 @@ def test_payload_carries_no_money_figures_and_no_file_paths(hb, db):
 
 
 def test_payload_has_the_documented_shape(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     payload = heartbeat.build_payload(db, OK_RESULT)
     for key in ("install_id", "app", "version", "sent_at", "status", "findings",
                 "backup", "db", "disk_free_bytes", "uptime_hours"):
@@ -166,7 +166,7 @@ def test_payload_has_the_documented_shape(hb, db):
 
 
 def test_payload_stays_under_4kb_with_200_findings(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     noisy = {
         "status": "fail",
         "ran_at": clock.now().isoformat(timespec="seconds"),
@@ -183,7 +183,7 @@ def test_payload_stays_under_4kb_with_200_findings(hb, db):
 
 
 def test_the_worst_findings_are_the_ones_kept(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     mixed = {
         "status": "fail",
         "ran_at": clock.now().isoformat(timespec="seconds"),
@@ -197,7 +197,7 @@ def test_the_worst_findings_are_the_ones_kept(hb, db):
 
 
 def test_install_id_is_generated_once_and_then_stable(hb, db):
-    import heartbeat
+    from vcs.ops import heartbeat
     _set(db, "heartbeat_install_id", None)
     first = heartbeat.install_id(db)
     assert first
@@ -210,7 +210,7 @@ def test_install_id_is_generated_once_and_then_stable(hb, db):
 # --- 3. the URL is a credential ------------------------------------------
 
 def test_a_failing_receiver_does_not_raise_and_never_leaks_the_url(hb, monkeypatch):
-    import heartbeat
+    from vcs.ops import heartbeat
     monkeypatch.setattr(heartbeat, "RETRY_DELAY_SECONDS", 0)
     monkeypatch.setattr(requests, "post", lambda *a, **k: FakeResponse(500))
     _set(hb, "heartbeat_url", SECRET_URL)
@@ -223,7 +223,7 @@ def test_a_failing_receiver_does_not_raise_and_never_leaks_the_url(hb, monkeypat
 
 
 def test_a_connection_error_does_not_raise_and_never_leaks_the_url(hb, monkeypatch):
-    import heartbeat
+    from vcs.ops import heartbeat
     monkeypatch.setattr(heartbeat, "RETRY_DELAY_SECONDS", 0)
 
     def boom(*a, **k):
@@ -277,7 +277,7 @@ def test_saving_the_url_does_not_write_it_to_the_audit_log(hb, db, client):
 
 
 def test_the_url_is_never_written_to_a_log(hb, monkeypatch, caplog):
-    import heartbeat
+    from vcs.ops import heartbeat
     monkeypatch.setattr(heartbeat, "RETRY_DELAY_SECONDS", 0)
     monkeypatch.setattr(requests, "post", lambda *a, **k: FakeResponse(500))
     _set(hb, "heartbeat_url", SECRET_URL)
@@ -289,7 +289,7 @@ def test_the_url_is_never_written_to_a_log(hb, monkeypatch, caplog):
 
 
 def test_it_retries_once_and_only_once(hb, monkeypatch):
-    import heartbeat
+    from vcs.ops import heartbeat
     monkeypatch.setattr(heartbeat, "RETRY_DELAY_SECONDS", 0)
     attempts = []
     monkeypatch.setattr(requests, "post",
@@ -303,8 +303,8 @@ def test_it_retries_once_and_only_once(hb, monkeypatch):
 # --- reporting back ------------------------------------------------------
 
 def test_a_successful_send_marks_the_self_check_reported(hb, db, monkeypatch):
-    import heartbeat
-    import selfcheck
+    from vcs.ops import heartbeat
+    from vcs.ops import selfcheck
     monkeypatch.setattr(requests, "post", lambda *a, **k: FakeResponse(200))
     _set(hb, "heartbeat_url", SECRET_URL)
 
@@ -318,8 +318,8 @@ def test_a_successful_send_marks_the_self_check_reported(hb, db, monkeypatch):
 
 
 def test_a_failed_send_leaves_it_unreported(hb, db, monkeypatch):
-    import heartbeat
-    import selfcheck
+    from vcs.ops import heartbeat
+    from vcs.ops import selfcheck
     monkeypatch.setattr(heartbeat, "RETRY_DELAY_SECONDS", 0)
     monkeypatch.setattr(requests, "post", lambda *a, **k: FakeResponse(503))
     _set(hb, "heartbeat_url", SECRET_URL)

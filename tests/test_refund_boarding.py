@@ -16,14 +16,14 @@ uses whole-IQD multiples of 250 because a service refund there is passed
 through money.round_to_denomination() — the two files assert the same
 behaviours against each app's own money model and must not be merged.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import date
 from decimal import Decimal
 
 import pytest
 
-import logic
+from vcs.domain import logic
 from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db

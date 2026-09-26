@@ -47,11 +47,9 @@ import os
 import shutil
 from datetime import datetime, timedelta
 
-import logic
-import schema
-import clock
-
-# Severity ordering, worst last — used to compute the overall status.
+from vcs.domain import logic
+from vcs.db import migrate as schema
+from vcs import clock  # Severity ordering, worst last — used to compute the overall status.
 _RANK = {"ok": 0, "warn": 1, "fail": 2}
 
 BACKUP_MAX_AGE_DEFAULT = 2      # days; overridable via selfcheck_backup_max_age_days
@@ -277,7 +275,7 @@ def _check_update_rolled_back(ctx):
     is unset there, permanently and by design, so warning about it daily
     would be noise rather than signal (§6.0)."""
     try:
-        import updater
+        from vcs.ops import updater
     except Exception:
         return None
     if not getattr(updater, "DATA_DIR", None):
@@ -386,8 +384,7 @@ _CHECKS = (
 
 def _gather(db):
     """One pass over everything the checks read."""
-    import backup as backup_mod
-
+    from vcs.ops import backup as backup_mod
     recent = list(backup_mod.recent_backups(db, limit=20))
     last_success = db.execute(
         "SELECT * FROM backup_log WHERE status='success' ORDER BY id DESC LIMIT 1"

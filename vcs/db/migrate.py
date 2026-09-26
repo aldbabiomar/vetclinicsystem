@@ -30,8 +30,7 @@ Rules for a migration file, enforced by tests/test_migrations.py:
 import os
 import re
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MIGRATIONS_DIR = os.path.join(BASE_DIR, "migrations")
+MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
 _FILE_RE = re.compile(r"^(\d{4})_[a-z0-9_]+\.sql$")
 
 # pg_advisory_xact_lock key: two processes applying the schema at once (an
@@ -92,9 +91,8 @@ def apply(con, log=print):
     """Bring the database up to date, then seed. Returns the filenames
     applied. Raises MigrationFailed on the first failing file; the files
     before it stay applied (each committed on its own)."""
-    import db as dbmod
-    import auth
-
+    from vcs.db import pool as dbmod
+    from vcs import auth
     with con.transaction():
         con.execute("SELECT pg_advisory_xact_lock(?)", (_LOCK_KEY,))
         _ensure_table(con)

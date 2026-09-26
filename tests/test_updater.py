@@ -14,15 +14,14 @@ someone to look in the wrong place. COMPARISON.md §46.
 Pure: no database, no network, no app import. Every case below builds the
 exception itself.
 """
-import clock
+import source_files
+from vcs import clock
 import pathlib
 from datetime import datetime, timedelta
 
 import pytest
 
-import updater
-
-
+from vcs.ops import updater
 class _Resp:
     """The parts of a requests.Response that describe_check_failure() reads."""
 
@@ -144,7 +143,7 @@ def test_every_cause_produces_a_DIFFERENT_sentence():
 # loadUpdatesStatus() back at /check — which IS the bug. Static, because the
 # alternative is a browser.
 
-SETTINGS_HTML = pathlib.Path(__file__).parent.parent / "templates" / "settings.html"
+SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
 
 
 def _js_function_body(name):
@@ -194,8 +193,8 @@ def test_the_check_button_still_asks_the_route_that_calls_github():
 # ---------------------------------------------------------------------------
 
 def _fake_release(tmp_path, version="1.0.1", skip=()):
-    files = {"VERSION": version, "app.py": "", "requirements.txt": "", "schema.py": "",
-             "migrations/0001_baseline.sql": ""}
+    files = {"VERSION": version, "app.py": "", "requirements.txt": "", "vcs/db/migrate.py": "",
+             "vcs/db/migrations/0001_baseline.sql": ""}
     for rel, text in files.items():
         if rel in skip:
             continue
@@ -217,7 +216,7 @@ def test_the_repository_itself_would_pass_validation():
     assert updater._validate_release(str(root), f"v{version}") == (True, None)
 
 
-@pytest.mark.parametrize("missing", ["app.py", "schema.py", "migrations/0001_baseline.sql"])
+@pytest.mark.parametrize("missing", ["app.py", "vcs/db/migrate.py", "vcs/db/migrations/0001_baseline.sql"])
 def test_a_release_missing_a_file_it_needs_is_refused(tmp_path, missing):
     ok, reason = updater._validate_release(_fake_release(tmp_path, skip=(missing,)), "v1.0.1")
     assert not ok and pathlib.Path(missing).name in reason

@@ -15,12 +15,13 @@ modals open with a raw display assignment perfectly correctly. Pinning the
 rule to the stylesheet means neither app carries a check that is wrong for it,
 and JO starts enforcing it automatically if it ever adopts the same CSS.
 """
+import source_files
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CSS = ROOT / "static" / "style.css"
-TEMPLATES = ROOT / "templates"
+CSS = source_files.STATIC_DIR / "style.css"
+TEMPLATES = source_files.TEMPLATES_DIR
 
 RAW_SHOW = re.compile(r"""(\w[\w.()'"\[\]#-]*)\s*\.style\.display\s*=\s*['"]flex['"]""")
 # `var el = document.getElementById('selfCheckModal')` — without resolving
@@ -82,7 +83,7 @@ def test_the_health_warning_modal_requires_a_button():
 
 def test_the_backdrop_handler_honours_the_opt_out():
     """The attribute means nothing unless ui.js checks it."""
-    ui = (ROOT / "static" / "ui.js").read_text(encoding="utf-8")
+    ui = (source_files.STATIC_DIR / "ui.js").read_text(encoding="utf-8")
     assert "data-no-backdrop-close" in ui, (
         "ui.js does not check data-no-backdrop-close, so the attribute on the "
         "modal is decoration")

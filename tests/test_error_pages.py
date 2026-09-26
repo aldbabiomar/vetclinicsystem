@@ -11,7 +11,7 @@ When something goes wrong, the clinic still gets a proper page.
 """
 import pytest
 
-import clock
+from vcs import clock
 from conftest import needs_db
 from test_money_routes import inpatient_case, visit  # noqa: F401
 
@@ -89,7 +89,7 @@ def arabic_clinic(db):
 def test_the_error_page_after_a_database_error_is_the_clinics_own(client, flask_app, arabic_clinic, monkeypatch):
     """GUARD (B12). A view that fails inside Postgres: the 500 page must still
     be in the clinic's language, under the clinic's name."""
-    from core import get_db
+    from vcs.web.core import get_db
 
     def fails_in_postgres():
         get_db().execute("SELECT 1/0")

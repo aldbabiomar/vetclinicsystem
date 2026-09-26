@@ -19,7 +19,7 @@ that would lose the entire clinic.
 Equally important, and easy to get wrong: a verification that could not RUN
 (no backup yet, no pg_restore) must report "warn" and never "pass".
 """
-import clock
+from vcs import clock
 import json
 import os
 import shutil
@@ -78,7 +78,7 @@ def clean_backup_log(db):
 def _real_dump(tmp_path, name="good.dump"):
     """A real backup of the live test database, taken the way the app takes
     one — not a hand-built file."""
-    import backup as backup_mod
+    from vcs.ops import backup as backup_mod
     out = str(tmp_path / name)
     backup_mod._run_pg_dump(out)
     return out
@@ -88,8 +88,8 @@ def _throwaway_databases():
     """Every selfverify_* database currently on the server. Used to prove the
     throwaway is always dropped."""
     import psycopg
-    import selfverify
-    import backup as backup_mod
+    from vcs.ops import selfverify
+    from vcs.ops import backup as backup_mod
     dsn = selfverify._dsn_for(backup_mod._pg_conn_parts()[2])
     with psycopg.connect(dsn, autocommit=True) as con, con.cursor() as cur:
         cur.execute("SELECT datname FROM pg_database WHERE datname LIKE 'selfverify_%%'")
@@ -99,14 +99,14 @@ def _throwaway_databases():
 # --- cannot-run cases: must warn, must never pass ------------------------
 
 def test_no_backup_yet_warns_and_does_not_pass(clean_backup_log):
-    import selfverify
+    from vcs.ops import selfverify
     result = selfverify.verify_latest_backup(clean_backup_log)
     assert result["result"] == "warn"
     assert result["result"] != "pass"
 
 
 def test_backup_file_gone_from_disk_warns(clean_backup_log, tmp_path):
-    import selfverify
+    from vcs.ops import selfverify
     _log_backup(clean_backup_log, str(tmp_path / "vanished.dump"))
     result = selfverify.verify_latest_backup(clean_backup_log)
     assert result["result"] == "warn"
@@ -116,7 +116,7 @@ def test_backup_file_gone_from_disk_warns(clean_backup_log, tmp_path):
 def test_a_failed_backup_row_is_not_verified(clean_backup_log, tmp_path):
     """Only a SUCCESSFUL backup is a candidate. Verifying a failed one would
     report a real failure for a file that was never claimed to be good."""
-    import selfverify
+    from vcs.ops import selfverify
     _log_backup(clean_backup_log, str(tmp_path / "nope.dump"), status="failed")
     result = selfverify.verify_latest_backup(clean_backup_log)
     assert result["result"] == "warn"
@@ -127,7 +127,7 @@ def test_a_failed_backup_row_is_not_verified(clean_backup_log, tmp_path):
 
 @pg_tools
 def test_a_real_backup_verifies_and_passes(clean_backup_log, tmp_path):
-    import selfverify
+    from vcs.ops import selfverify
     before = _throwaway_databases()
     _log_backup(clean_backup_log, _real_dump(tmp_path))
 
@@ -151,7 +151,7 @@ def test_the_money_check_asserts_this_app_s_own_model(clean_backup_log, tmp_path
     250-IQD note rule. If these two files are ever reconciled into one, this
     fails in whichever app is wrong — the same guard test_money.py already
     carries."""
-    import selfverify
+    from vcs.ops import selfverify
     assert selfverify.MONEY_EXPECTED_TYPE == "numeric"
     assert selfverify.MAX_DECIMAL_PLACES == 3
     assert not hasattr(selfverify, "DENOMINATION"), (
@@ -173,9 +173,8 @@ def _dump_of_scratch_db(tmp_path, money_type, name="wrongmoney.dump"):
     """
     import psycopg
     import secrets
-    import backup as backup_mod
-    import selfverify
-
+    from vcs.ops import backup as backup_mod
+    from vcs.ops import selfverify
     user, password, appdb, host, port = backup_mod._pg_conn_parts()
     scratch = "wrongmoney_" + secrets.token_hex(4)
     admin = psycopg.connect(selfverify._dsn_for(appdb), autocommit=True)
@@ -215,7 +214,7 @@ def test_a_backup_whose_money_column_is_the_wrong_type_fails(clean_backup_log, t
     it is wrong, and it is the kind of wrong that looks fine today and loses
     fils on the next write. Nothing else in this layer would notice.
     """
-    import selfverify
+    from vcs.ops import selfverify
     path = _dump_of_scratch_db(tmp_path, "DOUBLE PRECISION")
     _log_backup(clean_backup_log, path)
 
@@ -238,7 +237,7 @@ def test_the_control_the_same_backup_with_the_right_money_type_passes(
     """Without this, 'failed for the wrong money type' and 'failed for any
     reason at all' are indistinguishable — the two are separated only by
     changing the one thing under test."""
-    import selfverify
+    from vcs.ops import selfverify
     path = _dump_of_scratch_db(tmp_path, "NUMERIC(12,3)", name="rightmoney.dump")
     _log_backup(clean_backup_log, path)
 
@@ -253,7 +252,7 @@ def test_the_control_the_same_backup_with_the_right_money_type_passes(
 
 @pg_tools
 def test_a_truncated_backup_fails(clean_backup_log, tmp_path):
-    import selfverify
+    from vcs.ops import selfverify
     path = _real_dump(tmp_path, "truncated.dump")
     size = os.path.getsize(path)
     with open(path, "r+b") as fh:
@@ -270,7 +269,7 @@ def test_a_truncated_backup_fails(clean_backup_log, tmp_path):
 
 @pg_tools
 def test_a_file_of_random_bytes_fails(clean_backup_log, tmp_path):
-    import selfverify
+    from vcs.ops import selfverify
     good = _real_dump(tmp_path, "sized.dump")
     size = os.path.getsize(good)
     path = str(tmp_path / "random.dump")
@@ -291,8 +290,8 @@ def test_a_structurally_perfect_but_empty_backup_fails(clean_backup_log, tmp_pat
     indistinguishable from a good backup: same name, plausible size, and it
     would be listed happily in Settings.
     """
-    import backup as backup_mod
-    import selfverify
+    from vcs.ops import backup as backup_mod
+    from vcs.ops import selfverify
     user, password, dbname, host, port = backup_mod._pg_conn_parts()
     env = backup_mod._pg_env(password)
     path = str(tmp_path / "schema_only.dump")
@@ -317,8 +316,8 @@ def test_a_structurally_perfect_but_empty_backup_fails(clean_backup_log, tmp_pat
 # --- recording -----------------------------------------------------------
 
 def test_record_writes_where_selfcheck_reads_it(clean_backup_log):
-    import selfverify
-    import selfcheck
+    from vcs.ops import selfverify
+    from vcs.ops import selfcheck
     db = clean_backup_log
     result = {"at": clock.now().isoformat(timespec="seconds"),
               "result": "pass", "detail": "test", "checks": []}
@@ -354,20 +353,20 @@ def _record_verification(db, days_ago, result="pass"):
 
 
 def test_never_verified_is_due(clean_backup_log):
-    import selfverify
+    from vcs.ops import selfverify
     clean_backup_log.execute("DELETE FROM settings WHERE key='last_verified_restore'")
     clean_backup_log.commit()
     assert selfverify.is_due(clean_backup_log) is True
 
 
 def test_a_recent_pass_is_not_due(clean_backup_log):
-    import selfverify
+    from vcs.ops import selfverify
     _record_verification(clean_backup_log, days_ago=0)
     assert selfverify.is_due(clean_backup_log) is False
 
 
 def test_an_old_pass_is_due_again(clean_backup_log):
-    import selfverify
+    from vcs.ops import selfverify
     _record_verification(clean_backup_log, days_ago=selfverify.VERIFY_INTERVAL_DAYS + 1)
     assert selfverify.is_due(clean_backup_log) is True
 
@@ -375,13 +374,13 @@ def test_an_old_pass_is_due_again(clean_backup_log):
 def test_the_reverify_interval_leaves_slack_before_the_warning(clean_backup_log):
     """The gap between these two numbers IS the tolerance for missed runs. If
     they ever meet, a single skipped night starts warning the clinic."""
-    import selfverify
-    import selfcheck
+    from vcs.ops import selfverify
+    from vcs.ops import selfcheck
     assert selfverify.VERIFY_INTERVAL_DAYS < selfcheck.RESTORE_VERIFY_MAX_AGE_DAYS
 
 
 def test_an_unreadable_record_is_due(clean_backup_log):
-    import selfverify
+    from vcs.ops import selfverify
     clean_backup_log.execute(
         "INSERT INTO settings (key,value) VALUES (?,?) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -395,7 +394,7 @@ def test_a_failure_is_retried_tomorrow_not_today(clean_backup_log):
     """Re-restoring a known-broken backup every day is noise — the daily
     self-check keeps reporting it meanwhile — but it should be retried, since
     the likely fix is simply the next night's backup."""
-    import selfverify
+    from vcs.ops import selfverify
     _record_verification(clean_backup_log, days_ago=0, result="fail")
     assert selfverify.is_due(clean_backup_log) is False
     _record_verification(clean_backup_log, days_ago=2, result="fail")
@@ -403,7 +402,7 @@ def test_a_failure_is_retried_tomorrow_not_today(clean_backup_log):
 
 
 def test_run_if_due_does_nothing_when_not_due(clean_backup_log, monkeypatch):
-    import selfverify
+    from vcs.ops import selfverify
     _record_verification(clean_backup_log, days_ago=0)
     called = []
     monkeypatch.setattr(selfverify, "verify_latest_backup",
@@ -422,8 +421,8 @@ def test_a_fresh_install_verifies_on_the_first_daily_run(clean_backup_log, tmp_p
     is exactly how a monitoring feature gets switched off and never switched
     back on. It must clear on the first daily run after a backup exists.
     """
-    import selfverify
-    import selfcheck
+    from vcs.ops import selfverify
+    from vcs.ops import selfcheck
     db = clean_backup_log
     db.execute("DELETE FROM settings WHERE key='last_verified_restore'")
     db.commit()
@@ -444,8 +443,8 @@ def test_a_fresh_install_verifies_on_the_first_daily_run(clean_backup_log, tmp_p
 
 
 def test_a_failed_verification_is_recorded_and_reported_by_selfcheck(clean_backup_log):
-    import selfverify
-    import selfcheck
+    from vcs.ops import selfverify
+    from vcs.ops import selfcheck
     db = clean_backup_log
     selfverify.record(db, {"at": clock.now().isoformat(timespec="seconds"),
                            "result": "fail", "detail": "core tables populated: 0 rows",

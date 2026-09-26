@@ -980,3 +980,23 @@ result under each money setting.
   - **Tests.** Each port has guard tests with controls; the browser ones
     ran against the live app, and each was mutation-checked.
   **Suite:** IQ **1435 passed, 4 skipped**; JO **1435 passed, 4 skipped**.
+- **2026-09-26 — Restructure R1 (D-15): the modules move into `vcs/`.**
+  - **Layout.** `vcs/` holds `money`, `clock`, `messages`, `jobs`, `auth`,
+    `paths`; `vcs/db/` holds `pool` (was `db`), `migrate` (was `schema`)
+    and `migrations/`; `vcs/domain/` holds `logic`, `reports`,
+    `attachments`; `vcs/web/` holds `core`, `nav`, `js_strings`,
+    `pdf_export`, `barcode`; `vcs/ops/` holds `backup`, `updater`,
+    `scheduler`, `selfcheck`, `selfverify`, `heartbeat`, `autostart`,
+    `desktop_shortcut`, `reconcile_attachments`.
+  - **Paths.** Every import was rewritten, and every path that was relative
+    to a module's own file now comes from `vcs/paths.py` (the install
+    folder).
+  - **Tests.** Tests read source through one helper, `tests/source_files.py`.
+    It asserts each module exists, where two scans used to skip a missing
+    file silently.
+  - **Also updated.** The updater's list of release files, `babel.cfg` and
+    the test environment's seeding. `app.py` and `routes/` stay put until
+    R2.
+
+  **Suite:** IQ **1435 passed, 4 skipped**; JO **1435 passed, 4 skipped**;
+  no database 577 passed.

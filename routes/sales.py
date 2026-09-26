@@ -12,11 +12,11 @@ Endpoint names carry the `sales.` prefix Flask gives every blueprint route:
 from datetime import date
 from datetime import datetime
 from decimal import Decimal
-import auth
-import db as dbmod
-import logic
-import money
-import pdf_export
+from vcs import auth
+from vcs.db import pool as dbmod
+from vcs.domain import logic
+from vcs import money
+from vcs.web import pdf_export
 import uuid
 
 from flask_babel import gettext as _
@@ -24,10 +24,9 @@ from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 )
 
-from core import flash, display_number, display_quantity
-from core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
-import clock
-
+from vcs.web.core import flash, display_number, display_quantity
+from vcs.web.core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
+from vcs import clock
 bp = Blueprint("sales", __name__)
 
 # pg_advisory_xact_lock(namespace, day) for one day's cash drawer. The

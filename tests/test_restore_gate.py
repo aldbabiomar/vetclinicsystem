@@ -11,8 +11,8 @@ pg_restore runs as one transaction.
 """
 import pytest
 
-import backup
-import db as dbmod
+from vcs.ops import backup
+from vcs.db import pool as dbmod
 from conftest import needs_db
 
 

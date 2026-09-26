@@ -10,8 +10,8 @@ Audit B20's smaller items: two races with nothing to stop them.
 import threading
 import time
 
-import clock
-import logic
+from vcs import clock
+from vcs.domain import logic
 from conftest import ADMIN_ID, needs_db
 
 

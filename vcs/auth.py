@@ -9,9 +9,7 @@ from functools import wraps
 from flask import session, redirect, url_for, request, abort
 from flask_babel import gettext as _
 from werkzeug.security import generate_password_hash, check_password_hash
-import clock
-
-# ---------------------------------------------------------------------------
+from vcs import clock  # ---------------------------------------------------------------------------
 # Permissions — the app's fixed vocabulary of what *can* be gated. This list
 # itself is not admin-editable; which roles have which of these is what's
 # editable, via the `role_permissions` table.

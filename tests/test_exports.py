@@ -12,7 +12,7 @@ first, so the export is exercised against real content on every run rather
 than by luck — and they check the response is actually a PDF, not an error
 page served with a 200.
 """
-import clock
+from vcs import clock
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -193,7 +193,7 @@ def test_an_itemised_line_prints_its_quantity_and_line_total(client, db, monkeyp
     the documents handed to clients. The merged code prints the line total
     with "× quantity"; this pins it by capturing the tables the PDF is built
     from (no PDF text extraction needed)."""
-    import pdf_export
+    from vcs.web import pdf_export
     from decimal import Decimal as D
     from test_money_routes import _bill, _uid
 

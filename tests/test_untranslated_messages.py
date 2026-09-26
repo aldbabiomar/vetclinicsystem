@@ -14,6 +14,7 @@ and flashed later. These scans hold the three shapes that happened:
      cannot translate — returning a message that is not a messages.Msg (the
      page translates a Msg when it shows it: core.shown()).
 """
+import source_files
 import ast
 
 import pytest
@@ -22,8 +23,8 @@ from conftest import needs_db
 import pathlib
 
 ROOT = pathlib.Path(__file__).parent.parent
-REQUEST_LAYER = [ROOT / "app.py", ROOT / "core.py"] + sorted((ROOT / "routes").glob("*.py"))
-BACKGROUND = [ROOT / "backup.py", ROOT / "updater.py", ROOT / "autostart.py"]
+REQUEST_LAYER = [*source_files.web_modules(), source_files.module("core")]
+BACKGROUND = [source_files.module(m) for m in ("backup", "updater", "autostart")]
 
 
 def _untranslated(node):
@@ -103,8 +104,8 @@ def test_a_msg_reads_as_english_and_translates_when_shown(flask_app):
     clinic's language."""
     from flask_babel import force_locale
 
-    import core
-    from messages import Msg, N_
+    from vcs.web import core
+    from vcs.messages import Msg, N_
 
     m = Msg(N_("Backup saved to %(path)s"), path="/x.dump")
     assert m == "Backup saved to /x.dump" and isinstance(m, str)
@@ -118,7 +119,7 @@ def test_every_flash_goes_through_core_flash():
     which the literal scans above cannot see. core.flash() translates one on
     the way in, so the request layer must use it and never flask.flash."""
     offenders, modules = [], 0
-    for path in [ROOT / "app.py"] + sorted((ROOT / "routes").glob("*.py")):
+    for path in source_files.web_modules():
         tree = ast.parse(path.read_text(encoding="utf-8"))
         modules += 1
         for node in ast.walk(tree):
@@ -137,8 +138,8 @@ def test_core_flash_puts_a_msg_into_the_clinics_language(flask_app):
     from flask import get_flashed_messages
     from flask_babel import force_locale
 
-    import core
-    from messages import Msg, N_
+    from vcs.web import core
+    from vcs.messages import Msg, N_
 
     with flask_app.test_request_context(), force_locale("ar"):
         core.flash(Msg(N_("Backup saved to %(path)s"), path="/x.dump"), "success")
@@ -153,8 +154,8 @@ def test_a_background_jobs_message_reaches_the_page_translated(client, db):
     the result and the live step labels for the clinic's language."""
     import time
 
-    import jobs
-    from messages import Msg, N_
+    from vcs import jobs
+    from vcs.messages import Msg, N_
 
     saved = (db.execute("SELECT value FROM settings WHERE key='language'").fetchone() or {}).get("value")
     db.execute("INSERT INTO settings (key, value) VALUES ('language','ar') "

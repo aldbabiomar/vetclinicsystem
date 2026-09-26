@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from flask import current_app
 
-from messages import N_
+from vcs.messages import N_
 
 
 @dataclass(frozen=True)

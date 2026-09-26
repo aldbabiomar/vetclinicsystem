@@ -23,9 +23,7 @@ import platform
 
 import pytest
 
-import autostart
-
-
+from vcs.ops import autostart
 @pytest.fixture
 def on_windows(monkeypatch, tmp_path):
     """Pretend to be Windows, with a launcher that exists and a writable

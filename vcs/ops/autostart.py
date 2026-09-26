@@ -17,13 +17,15 @@ and the toggle should always reflect the real, current state of the
 computer it's running on.
 """
 import os
+
+from vcs.paths import ROOT
 import platform
 
-from messages import Msg, N_
+from vcs.messages import Msg, N_
 import subprocess
 
 AGENT_LABEL = "com.vetclinicsystem.autostart"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = ROOT
 
 
 def is_supported():

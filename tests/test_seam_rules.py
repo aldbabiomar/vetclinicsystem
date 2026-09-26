@@ -22,6 +22,7 @@ a hardcoded list, and every test asserts a FLOOR on how much it inspected —
 goes vacuous rather than red, which is how four guards in this codebase came
 to pass while checking nothing.
 """
+import source_files
 import ast
 import pathlib
 import re
@@ -37,9 +38,7 @@ def _route_modules():
     After the blueprint split (COMPARISON.md §49) a scan that reads only
     app.py inspects a fraction of the surface while still passing.
     """
-    mods = [ROOT / "app.py"]
-    mods += sorted((ROOT / "routes").glob("*.py"))
-    return [p for p in mods if p.exists() and p.name != "__init__.py"]
+    return [p for p in source_files.web_modules() if p.name != "__init__.py"]
 
 
 def _functions():
@@ -325,10 +324,10 @@ def test_date_arguments_use_or_rather_than_a_get_default():
 def _money_modules():
     """Every module that can do bill arithmetic — a live walk, not a list."""
     mods = _route_modules()
-    for extra in ("logic.py", "pdf_export.py", "core.py", "money.py", "reports.py"):
-        p = ROOT / extra
-        if p.exists():
-            mods.append(p)
+    # source_files.module() asserts each exists: this used to skip a missing
+    # file silently, which after a move would have scanned less and passed.
+    for extra in ("logic", "pdf_export", "core", "money", "reports"):
+        mods.append(source_files.module(extra))
     return mods
 
 
@@ -509,9 +508,9 @@ def test_rule8_discount_arithmetic_only_happens_where_it_is_allowed():
 def test_the_vet_query_exists_once():
     pattern = re.compile(r"FROM users WHERE role_id IN \(SELECT id FROM roles WHERE is_vet_role")
     found = []
-    for path in _route_modules() + [ROOT / "logic.py", ROOT / "pdf_export.py"]:
+    for path in _route_modules() + [source_files.module("logic"), source_files.module("pdf_export")]:
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if pattern.search(line):
                 found.append(f"{path.name}:{n}")
-    assert len(found) == 1 and found[0].startswith("logic.py"), (
+    assert len(found) == 1 and found[0].startswith("logic.py:"), (
         "the vet query must live only in logic.vet_users():\n  " + "\n  ".join(found))

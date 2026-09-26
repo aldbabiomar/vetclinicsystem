@@ -46,10 +46,9 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-import logic
-import money
-import clock
-
+from vcs.domain import logic
+from vcs import money
+from vcs import clock
 _scheduler = None
 
 # Serialises every scheduled job that writes. The cron triggers and the tick
@@ -200,7 +199,7 @@ def _run_backup_if_due(get_db, close_db):
             hour, minute = _parse_hour_minute(time_str)
             if not _backup_catchup_due(db, hour, minute):
                 return False
-            import backup
+            from vcs.ops import backup
             backup.run_backup(db, triggered_by="nightly")
             return True
         except Exception:
@@ -257,7 +256,7 @@ def _do_self_check(get_db, close_db, send_heartbeat=True):
     db = None
     try:
         db = get_db()
-        import selfcheck
+        from vcs.ops import selfcheck
         result = selfcheck.run_self_check(db)
         selfcheck.record(db, result)
         # Retention runs here rather than on its own schedule: this job already
@@ -271,7 +270,7 @@ def _do_self_check(get_db, close_db, send_heartbeat=True):
             _log_failure("the daily log prune")
         if send_heartbeat:
             try:
-                import heartbeat
+                from vcs.ops import heartbeat
                 heartbeat.send_for(db, result)
             except Exception:
                 _log_failure("sending the heartbeat")
@@ -304,10 +303,10 @@ def _do_verify_restore(get_db, close_db):
     db = None
     try:
         db = get_db()
-        import selfverify
+        from vcs.ops import selfverify
         if selfverify.run_if_due(db) is None:
             return  # not due; the daily self-check has already run
-        import selfcheck
+        from vcs.ops import selfcheck
         selfcheck.record(db, selfcheck.run_self_check(db))
     except Exception:
         _log_failure("the monthly restore verification")
@@ -425,7 +424,7 @@ def _do_tick(get_db, close_db):
     try:
         db = get_db()
         try:
-            import selfverify
+            from vcs.ops import selfverify
             if selfverify.is_due(db):
                 _do_verify_restore_on(db)
         finally:
@@ -437,10 +436,10 @@ def _do_tick(get_db, close_db):
 def _do_verify_restore_on(db):
     """The verification body, given an open connection."""
     try:
-        import selfverify
+        from vcs.ops import selfverify
         if selfverify.run_if_due(db) is None:
             return
-        import selfcheck
+        from vcs.ops import selfcheck
         selfcheck.record(db, selfcheck.run_self_check(db))
     except Exception:
         _log_failure("the restore verification")
