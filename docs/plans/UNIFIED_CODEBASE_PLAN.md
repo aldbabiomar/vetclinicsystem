@@ -595,6 +595,8 @@ where most bugs in the audit live.
 | D-14 | Execution order | Start from **JO's tree** (already exact-decimal throughout), port IQ's features and money rules into it, and transform it step by step with the suite green at every commit — rather than writing a fresh skeleton. Same end state as §3, less risk |
 | D-15 | Code layout | **Full restructure** into the `vcs/` package of §3.1 (owner, 2026-09-25, asked with the option of keeping the flat layout). The country profile of §3.2 is realised as the money setting (D-9), so `vcs/country/` becomes the money setting's home and there is no `setup.py --country`: §12 items 3 and 5 are read that way |
 | D-16 | Wellness reminders | Most urgent first on the Dashboard and the Wellness page (owner, 2026-09-25). "Due" ends when "missed" begins; a newer wellness entry for the same pet and type replaces the old one (audit B19, P15) |
+| D-17 | Default palette | **Slate** — a new calm blue-gray with a dark sidebar, belonging to neither predecessor app (owner, 2026-09-26, chosen from a rendered gallery of all 15 against Crimson, Vetzone and Sage) |
+| D-18 | Logo mark | **Shield + paw**, drawn in `currentColor` so the palette tints it; the same mark in the sidebar, on the login page and as the favicon (owner, 2026-09-26, chosen over a paw in a ring) |
 
 > **Superseded in part, after the merge** — `DEVELOPER_AND_LICENSING_PLAN.md` (owner decisions, 2026-09-25) makes the repository **private** with a GitHub token per clinic (L-1, over D-1), and moves the choice of **palette** (L-2, over D-12's placement) and of the **money setting** (L-3, over D-9's placement; the lock rule is unchanged) to a vendor-only Developer area. It runs **after** this merge and reuses the storage keys this merge creates, so build D-9 and D-12 in Settings as written here.
 
@@ -1121,3 +1123,40 @@ result under each money setting.
 
   **Suite:** IQ **1457 passed, 4 skipped**; JO **1457 passed, 4 skipped**;
   no database 589 passed (both test databases reset onto the new baseline).
+- **2026-09-26 — Palettes and the logo (D-11, D-12; owner decisions D-17,
+  D-18).**
+  - **Fifteen palettes, each light and dark, from one registry.**
+    - The registry is `vcs/web/palettes.py`. `vcs/static/palettes.css` is
+      generated from it by `scripts/build_palettes.py`, and `style.css`
+      holds no colour.
+    - The palettes are IQ's Vetzone and ChamPet, JO's Crimson, and twelve
+      new ones: Sage, Mint, Harbor, Ocean, Slate, Indigo, Lavender, Orchid,
+      Terracotta, Sand, Olive and Graphite. The new ones were derived in
+      OKLCH by `scripts/palette_design.py`, and no two are closer than 0.09
+      in OKLab.
+  - **AA.** Every text pair the stylesheet draws is AA in both themes.
+    - The predecessor palettes did not pass: their secondary and muted
+      text measured 2.2–4.2:1, and Vetzone's white sidebar text on light
+      blue 2.1:1.
+    - Only those colours moved, in lightness. Vetzone keeps its light
+      sidebar, with dark text.
+  - **The owner's choices.** The owner chose from a rendered gallery:
+    Slate as the default (D-17), and the shield + paw mark (D-18).
+    - The mark is one drawing in `currentColor` (`vcs/web/brand.py`), used
+      in the sidebar, on the login page and as the favicon.
+    - The favicon is served at `/favicon.svg` in the palette's accent, and
+      needs no table during a restore.
+  - **Settings.** Settings offers the palettes (`theme_palette`, the key IQ
+    used), and refuses anything not in the registry.
+  - **Charts.** The Insights charts read the palette, and redraw when the
+    theme is toggled. The Retention heatmap tints with the accent, capped
+    so its text stays AA.
+  - **Two leftovers of JO's.** The default clinic location "Amman, Jordan"
+    and an Insights note naming Amman's work week became neutral (Arabic in
+    `ARABIC_REVIEW.md` §19–§20).
+  - **Tests.** `test_palettes.py` has 103 cases. A browser test paints all
+    15 palettes in both themes and checks the computed colours. Nine
+    mutations were caught. Decision record 0010.
+
+  **Suite:** IQ **1561 passed, 4 skipped**; JO **1561 passed, 4 skipped**;
+  no database 687 passed.

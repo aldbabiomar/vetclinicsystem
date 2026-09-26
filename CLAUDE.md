@@ -39,8 +39,8 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Before it is chosen | Money screens stay locked until an admin chooses; phone fields accept only full international numbers |
 | Record IDs | Numeric database IDs; staff see generated codes like `V-00123` |
 | P&L | Computed live from stored bill totals; no summary table, no Rebuild button |
-| Logo | A new neutral SVG mark, tinted by the palette; the dog illustrations stay on error pages |
-| Palettes | 15: IQ's Vetzone and ChamPet, JO's crimson/navy, plus 12 new calm palettes, each light + dark, WCAG AA checked |
+| Logo | A new neutral SVG mark — shield + paw (D-18) — tinted by the palette; the dog illustrations stay on error pages |
+| Palettes | 15: IQ's Vetzone and ChamPet, JO's crimson/navy, plus 12 new calm palettes, each light + dark, WCAG AA checked; the default is **Slate** (D-17) |
 | Docs | Everything lives in this repo; the IQ/JO-era documents are in `docs/archive/` |
 | Repo | Public (the in-app updater downloads releases without credentials) |
 | First release | `1.0.0` |
@@ -143,6 +143,10 @@ Conventions enforced by tests (the why is in `docs/decisions/`):
    total is what every report reads (seam rule 12, decision 0005).
 5. **Helpers do not commit**; the request does, once (`tests/test_no_hidden_commits.py`,
    decision 0003).
+6. **Colours come from the palettes.** `vcs/web/palettes.py` defines all 15; change one
+   there and run `scripts/build_palettes.py` — `vcs/static/palettes.css` is generated,
+   and `style.css` holds no colour. A new text-on-background use is a new row in
+   `TEXT_PAIRS`, which `tests/test_palettes.py` holds to WCAG AA (decision 0010).
 
 **If you write a test that parses source text, take its files from
 `tests/source_files.py`** (the one place tests locate source), and assert a

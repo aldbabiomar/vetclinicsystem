@@ -76,7 +76,7 @@ msgstr ""
 msgid "That number is too large to be a valid value here."
 msgstr "هذا الرقم كبير جدًا ليكون قيمة صالحة هنا."
 
-#: vcs/web/blueprints/main.py:113
+#: vcs/web/blueprints/main.py:129
 msgid ""
 "Too many login attempts from this network. Please wait a few minutes and "
 "try again."
@@ -84,7 +84,7 @@ msgstr ""
 "محاولات تسجيل دخول كثيرة من هذه الشبكة. يرجى الانتظار بضع دقائق دون "
 "محاولة، ثم إعادة المحاولة."
 
-#: vcs/web/blueprints/main.py:120
+#: vcs/web/blueprints/main.py:136
 #, python-format
 msgid ""
 "Too many failed attempts for that account. Try again in about "
@@ -93,19 +93,19 @@ msgstr ""
 "محاولات فاشلة كثيرة على هذا الحساب. حاول مرة أخرى بعد نحو "
 "%(minutes_left)s دقيقة (حوالي %(strftime)s)."
 
-#: vcs/web/blueprints/main.py:132
+#: vcs/web/blueprints/main.py:148
 msgid "Incorrect username or password, or account is disabled."
 msgstr "اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب معطّل."
 
-#: vcs/web/blueprints/main.py:170
+#: vcs/web/blueprints/main.py:186
 msgid "Current password is incorrect."
 msgstr "كلمة المرور الحالية غير صحيحة."
 
-#: vcs/web/blueprints/main.py:174
+#: vcs/web/blueprints/main.py:190
 msgid "New password and confirmation don't match."
 msgstr "كلمة المرور الجديدة والتأكيد غير متطابقين."
 
-#: vcs/web/blueprints/main.py:185
+#: vcs/web/blueprints/main.py:201
 msgid "Password updated."
 msgstr "تم تحديث كلمة المرور."
 
@@ -2240,39 +2240,39 @@ msgstr ""
 msgid "Service refund of %(amount)s %(currency)s recorded."
 msgstr "تم تسجيل استرداد خدمة بقيمة %(amount)s %(currency)s."
 
-#: vcs/web/blueprints/settings.py:229
+#: vcs/web/blueprints/settings.py:230
 #, python-format
 msgid "%(title)s must be a whole number."
 msgstr "يجب أن يكون %(title)s رقمًا صحيحًا."
 
-#: vcs/web/blueprints/settings.py:232
+#: vcs/web/blueprints/settings.py:233
 #, python-format
 msgid "%(title)s must be between %(lo)s and %(hi)s."
 msgstr "يجب أن يكون %(title)s بين %(lo)s و%(hi)s."
 
-#: vcs/web/blueprints/settings.py:255
+#: vcs/web/blueprints/settings.py:256
 msgid "Not a valid language."
 msgstr "ليست لغة صالحة."
 
-#: vcs/web/blueprints/settings.py:266
+#: vcs/web/blueprints/settings.py:273
 #, python-format
 msgid "%(title)s must be a valid time (HH:MM)."
 msgstr "يجب أن يكون %(title)s وقتًا صالحًا (ساعة:دقيقة)."
 
-#: vcs/web/blueprints/settings.py:279
+#: vcs/web/blueprints/settings.py:286
 msgid "Member discount must be a valid number."
 msgstr "يجب أن يكون خصم العضو رقماً صالحاً."
 
-#: vcs/web/blueprints/settings.py:282
+#: vcs/web/blueprints/settings.py:289
 #, python-format
 msgid "Member discount must be between 0%% and %(max)s%%."
 msgstr "يجب أن يكون خصم العضو بين 0%% و %(max)s%%."
 
-#: vcs/web/blueprints/settings.py:295
+#: vcs/web/blueprints/settings.py:302
 msgid "Not a valid money setting."
 msgstr "إعداد العملة غير صالح."
 
-#: vcs/web/blueprints/settings.py:300
+#: vcs/web/blueprints/settings.py:307
 #, python-format
 msgid ""
 "The money setting can't be changed once money has been recorded — every "
@@ -2281,19 +2281,19 @@ msgstr ""
 "لا يمكن تغيير إعداد العملة بعد تسجيل أي مبلغ — كل المبالغ المحفوظة بـ "
 "%(currency)s."
 
-#: vcs/web/blueprints/settings.py:314
+#: vcs/web/blueprints/settings.py:321
 msgid "Not a valid time zone."
 msgstr "المنطقة الزمنية غير صالحة."
 
-#: vcs/web/blueprints/settings.py:323
+#: vcs/web/blueprints/settings.py:330
 msgid "Day Ends At must be after Day Starts At."
 msgstr "يجب أن يكون وقت نهاية اليوم بعد وقت بدايته."
 
-#: vcs/web/blueprints/settings.py:333
+#: vcs/web/blueprints/settings.py:340
 msgid "The monitoring ping URL must start with https://"
 msgstr "يجب أن يبدأ رابط المراقبة بـ https://"
 
-#: vcs/web/blueprints/settings.py:404
+#: vcs/web/blueprints/settings.py:411
 #, python-format
 msgid ""
 "Money setting saved: %(name)s. It locks itself once the first price or "
@@ -2302,68 +2302,68 @@ msgstr ""
 "تم حفظ إعداد العملة: %(name)s. سيُقفل تلقائيًا بمجرد تسجيل أول سعر أو "
 "مبلغ."
 
-#: vcs/web/blueprints/settings.py:412
+#: vcs/web/blueprints/settings.py:419
 msgid "Settings saved."
 msgstr "تم حفظ الإعدادات."
 
-#: vcs/web/blueprints/settings.py:471
+#: vcs/web/blueprints/settings.py:478
 msgid "Checking backup folder"
 msgstr "جارٍ فحص مجلد النسخ الاحتياطي"
 
-#: vcs/web/blueprints/settings.py:471
+#: vcs/web/blueprints/settings.py:478
 msgid "Dumping database"
 msgstr "جارٍ تفريغ قاعدة البيانات"
 
-#: vcs/web/blueprints/settings.py:472
+#: vcs/web/blueprints/settings.py:479
 msgid "Applying retention policy"
 msgstr "جارٍ تطبيق سياسة الاحتفاظ"
 
-#: vcs/web/blueprints/settings.py:472 vcs/web/blueprints/settings.py:518
+#: vcs/web/blueprints/settings.py:479 vcs/web/blueprints/settings.py:525
 #: vcs/web/js_strings.py:22
 msgid "Done"
 msgstr "تم"
 
-#: vcs/web/blueprints/settings.py:517
+#: vcs/web/blueprints/settings.py:524
 msgid "Checking backup file"
 msgstr "جارٍ فحص ملف النسخة الاحتياطية"
 
-#: vcs/web/blueprints/settings.py:517
+#: vcs/web/blueprints/settings.py:524
 msgid "Restoring database"
 msgstr "جارٍ استعادة قاعدة البيانات"
 
-#: vcs/web/blueprints/settings.py:517
+#: vcs/web/blueprints/settings.py:524
 msgid "Reconciling schema"
 msgstr "جارٍ مطابقة بنية قاعدة البيانات"
 
-#: vcs/web/blueprints/settings.py:518
+#: vcs/web/blueprints/settings.py:525
 msgid "Recording result"
 msgstr "جارٍ تسجيل النتيجة"
 
-#: vcs/ops/updater.py:470 vcs/web/blueprints/settings.py:635
+#: vcs/ops/updater.py:470 vcs/web/blueprints/settings.py:642
 msgid "Backing up database"
 msgstr "جارٍ أخذ نسخة احتياطية لقاعدة البيانات"
 
-#: vcs/ops/updater.py:475 vcs/web/blueprints/settings.py:635
+#: vcs/ops/updater.py:475 vcs/web/blueprints/settings.py:642
 msgid "Downloading release"
 msgstr "جارٍ تنزيل الإصدار"
 
-#: vcs/ops/updater.py:483 vcs/web/blueprints/settings.py:635
+#: vcs/ops/updater.py:483 vcs/web/blueprints/settings.py:642
 msgid "Validating release"
 msgstr "جارٍ التحقق من الإصدار"
 
-#: vcs/ops/updater.py:498 vcs/web/blueprints/settings.py:636
+#: vcs/ops/updater.py:498 vcs/web/blueprints/settings.py:643
 msgid "Applying database changes"
 msgstr "جارٍ تطبيق تغييرات قاعدة البيانات"
 
-#: vcs/ops/updater.py:506 vcs/web/blueprints/settings.py:636
+#: vcs/ops/updater.py:506 vcs/web/blueprints/settings.py:643
 msgid "Verifying the new version"
 msgstr "جارٍ التحقق من الإصدار الجديد"
 
-#: vcs/ops/updater.py:513 vcs/web/blueprints/settings.py:637
+#: vcs/ops/updater.py:513 vcs/web/blueprints/settings.py:644
 msgid "Switching to the new version"
 msgstr "جارٍ التحويل إلى الإصدار الجديد"
 
-#: vcs/web/blueprints/settings.py:658
+#: vcs/web/blueprints/settings.py:665
 msgid "Rolling back"
 msgstr "جارٍ التراجع"
 
@@ -2561,7 +2561,7 @@ msgid "Logins On %(day)s"
 msgstr "عمليات الدخول في %(day)s"
 
 #: vcs/templates/admin_logs.html:37 vcs/templates/admin_users.html:23
-#: vcs/templates/admin_users.html:146 vcs/templates/login.html:20
+#: vcs/templates/admin_users.html:146 vcs/templates/login.html:14
 msgid "Username"
 msgstr "اسم المستخدم"
 
@@ -2577,8 +2577,8 @@ msgstr "عنوان الشبكة"
 msgid "Device"
 msgstr "الجهاز"
 
-#: vcs/templates/admin_logs.html:43 vcs/templates/settings.html:174
-#: vcs/templates/settings.html:220
+#: vcs/templates/admin_logs.html:43 vcs/templates/settings.html:182
+#: vcs/templates/settings.html:228
 msgid "Success"
 msgstr "نجح"
 
@@ -2635,7 +2635,7 @@ msgstr "حد الخصم"
 #: vcs/templates/inpatient_list.html:15 vcs/templates/insights.html:158
 #: vcs/templates/owner_detail.html:20 vcs/templates/patient_detail.html:33
 #: vcs/templates/patient_detail.html:69 vcs/templates/patient_detail.html:86
-#: vcs/templates/settings.html:168 vcs/templates/settings.html:214
+#: vcs/templates/settings.html:176 vcs/templates/settings.html:222
 #: vcs/templates/visit_detail.html:66 vcs/templates/visit_detail.html:87
 #: vcs/templates/visit_form_edit.html:54 vcs/templates/visits_list.html:12
 #: vcs/templates/visits_list.html:26
@@ -2765,7 +2765,7 @@ msgstr "تغييرات غير محفوظة"
 #: vcs/templates/inpatient_new.html:36 vcs/templates/inventory_catalog.html:50
 #: vcs/templates/inventory_catalog.html:116 vcs/templates/owner_form.html:17
 #: vcs/templates/patient_form_edit.html:29 vcs/templates/price_list.html:51
-#: vcs/templates/settings.html:525 vcs/templates/visit_form_edit.html:65
+#: vcs/templates/settings.html:533 vcs/templates/visit_form_edit.html:65
 #: vcs/templates/visit_new_existing.html:24
 #: vcs/templates/visit_new_patient.html:36 vcs/web/js_strings.py:29
 msgid "Cancel"
@@ -2892,7 +2892,7 @@ msgid "Moving & deleting…"
 msgstr "جارٍ النقل والحذف…"
 
 #: vcs/templates/appointments.html:2 vcs/templates/appointments.html:5
-#: vcs/templates/settings.html:71 vcs/web/nav.py:58
+#: vcs/templates/settings.html:79 vcs/web/nav.py:58
 msgid "Appointments"
 msgstr "المواعيد"
 
@@ -3271,19 +3271,19 @@ msgstr "ملصق الباركود"
 msgid "Could not render the barcode. Try refreshing the page."
 msgstr "تعذّر عرض الباركود. حاول تحديث الصفحة."
 
-#: vcs/templates/base.html:56
+#: vcs/templates/base.html:57
 msgid "Open menu"
 msgstr "فتح القائمة"
 
-#: vcs/templates/base.html:64
+#: vcs/templates/base.html:65
 msgid "Close menu"
 msgstr "إغلاق القائمة"
 
-#: vcs/templates/base.html:74
+#: vcs/templates/base.html:69
 msgid "Toggle dark mode"
 msgstr "تبديل الوضع الداكن"
 
-#: vcs/templates/base.html:88 vcs/templates/dashboard.html:2
+#: vcs/templates/base.html:83 vcs/templates/dashboard.html:2
 #: vcs/templates/dashboard.html:6
 msgid "Dashboard"
 msgstr "لوحة التحكم"
@@ -3412,7 +3412,7 @@ msgstr "ولاء العملاء"
 msgid "Settings"
 msgstr "الإعدادات"
 
-#: vcs/templates/base.html:115
+#: vcs/templates/base.html:110
 msgid "Log Out"
 msgstr "تسجيل الخروج"
 
@@ -5119,19 +5119,6 @@ msgstr "لا توجد دفعات مسجلة بعد."
 msgid "Appointment Demand by Day of Week"
 msgstr "الطلب على المواعيد حسب يوم الأسبوع"
 
-#: vcs/templates/insights.html:113
-msgid ""
-"Amman work week (Sunday–Thursday) shown first; Friday/Saturday is the "
-"weekend. \"Fulfillment\" compares appointments booked that weekday "
-"against visits logged on the same weekday system-wide — an approximation,"
-" since appointments aren't linked to a specific visit record in this "
-"system."
-msgstr ""
-"يُعرض أسبوع العمل في عمّان (الأحد–الخميس) أولًا؛ والجمعة والسبت عطلة "
-"نهاية الأسبوع. تقارن \"نسبة الإنجاز\" المواعيد المحجوزة في ذلك اليوم "
-"بالزيارات المسجلة في اليوم نفسه على مستوى النظام — وهي تقديرية، لأن "
-"المواعيد غير مرتبطة بسجل زيارة محدد في هذا النظام."
-
 #: vcs/templates/insights.html:117
 msgid "Day"
 msgstr "اليوم"
@@ -5192,7 +5179,7 @@ msgstr ""
 msgid "Difference (%(currency_label)s)"
 msgstr "الفرق (%(currency_label)s)"
 
-#: vcs/templates/insights.html:189
+#: vcs/templates/insights.html:198
 msgid "Unspecified"
 msgstr "غير محدد"
 
@@ -5317,7 +5304,7 @@ msgstr ""
 "كل صنف له باركود. حدد عدد الملصقات التي يحتاجها كل صنف، وأزل ما لا تريده "
 "في هذه الطباعة، ثم اطبعها جميعًا معًا."
 
-#: vcs/templates/inventory_catalog.html:112 vcs/templates/settings.html:570
+#: vcs/templates/inventory_catalog.html:112 vcs/templates/settings.html:578
 msgid "Loading…"
 msgstr "جارٍ التحميل…"
 
@@ -5388,8 +5375,8 @@ msgstr "تعذّر تحميل الباركودات."
 #: vcs/templates/inventory_catalog.html:283
 #: vcs/templates/inventory_catalog.html:350
 #: vcs/templates/inventory_catalog.html:366
-#: vcs/templates/inventory_catalog.html:384 vcs/templates/settings.html:632
-#: vcs/templates/settings.html:661 vcs/web/js_strings.py:25
+#: vcs/templates/inventory_catalog.html:384 vcs/templates/settings.html:640
+#: vcs/templates/settings.html:669 vcs/web/js_strings.py:25
 msgid "Could not reach the server."
 msgstr "تعذّر الوصول إلى الخادم."
 
@@ -5487,19 +5474,19 @@ msgstr "حرج"
 msgid "No items match this filter."
 msgstr "لا توجد أصناف تطابق هذا المرشّح."
 
-#: vcs/templates/login.html:2 vcs/templates/login.html:27
+#: vcs/templates/login.html:2 vcs/templates/login.html:21
 msgid "Log In"
 msgstr "تسجيل الدخول"
 
-#: vcs/templates/login.html:24
+#: vcs/templates/login.html:18
 msgid "Password"
 msgstr "كلمة المرور"
 
-#: vcs/templates/login.html:37
+#: vcs/templates/login.html:31
 msgid "You can try logging in again now."
 msgstr "يمكنك محاولة تسجيل الدخول مرة أخرى الآن."
 
-#: vcs/templates/login.html:41
+#: vcs/templates/login.html:35
 #, python-brace-format
 msgid "Account locked — try again in {m}m {s}s."
 msgstr "الحساب مقفل — حاول مرة أخرى بعد {m} د {s} ث."
@@ -5537,7 +5524,7 @@ msgstr "تعديل المالك"
 msgid "Address"
 msgstr "العنوان"
 
-#: vcs/templates/owner_detail.html:17 vcs/templates/settings.html:62
+#: vcs/templates/owner_detail.html:17 vcs/templates/settings.html:70
 msgid "Rewards Card"
 msgstr "بطاقة المكافآت"
 
@@ -6324,11 +6311,11 @@ msgstr ""
 msgid "Cohort (First Visit)"
 msgstr "المجموعة (الزيارة الأولى)"
 
-#: vcs/templates/retention.html:24 vcs/templates/settings.html:168
+#: vcs/templates/retention.html:24 vcs/templates/settings.html:176
 msgid "Size"
 msgstr "الحجم"
 
-#: vcs/templates/retention.html:46
+#: vcs/templates/retention.html:49
 msgid ""
 "Reading down a column shows whether retention at that stage is improving "
 "over time. Reading across a row shows how fast that group drops off. "
@@ -6366,11 +6353,11 @@ msgstr "تاريخ افتتاح العيادة"
 msgid "Language"
 msgstr "اللغة"
 
-#: vcs/templates/settings.html:25 vcs/templates/settings.html:30
+#: vcs/templates/settings.html:33 vcs/templates/settings.html:38
 msgid "Money Setting"
 msgstr "إعداد العملة"
 
-#: vcs/templates/settings.html:27
+#: vcs/templates/settings.html:35
 msgid ""
 "Choose the money setting before recording any price or amount. Billing, "
 "payments, the point of sale and the price list stay locked until it is "
@@ -6379,22 +6366,22 @@ msgstr ""
 "اختر إعداد العملة قبل تسجيل أي سعر أو مبلغ. تبقى الفوترة والدفعات ونقطة "
 "البيع وقائمة الأسعار مقفلة حتى يتم تحديده."
 
-#: vcs/templates/settings.html:32
+#: vcs/templates/settings.html:40
 msgid "— Choose IQ or JO —"
 msgstr "— اختر IQ أو JO —"
 
-#: vcs/templates/settings.html:36
+#: vcs/templates/settings.html:44
 #, python-format
 msgid ""
 "Locked: money has been recorded in %(currency)s, so the setting can no "
 "longer change."
 msgstr "مقفل: سُجّلت مبالغ بـ %(currency)s، لذا لم يعد بالإمكان تغيير هذا الإعداد."
 
-#: vcs/templates/settings.html:38
+#: vcs/templates/settings.html:46
 msgid "Can be changed until the first price or amount is recorded; then it locks."
 msgstr "يمكن تغييره إلى أن يُسجَّل أول سعر أو مبلغ، ثم يُقفل."
 
-#: vcs/templates/settings.html:40
+#: vcs/templates/settings.html:48
 msgid ""
 "IQ: whole dinars, cash rounded to the 250-dinar note, +964 phone numbers."
 " JO: three decimals, exact to the fils, +962 phone numbers."
@@ -6402,16 +6389,16 @@ msgstr ""
 "IQ: دنانير صحيحة، ويُقرَّب النقد إلى فئة ٢٥٠ دينارًا، وأرقام هواتف ‎+964."
 " JO: ثلاث خانات عشرية، دقيقة حتى الفلس، وأرقام هواتف ‎+962."
 
-#: vcs/templates/settings.html:45 vcs/templates/settings.html:47
+#: vcs/templates/settings.html:53 vcs/templates/settings.html:55
 msgid "Time Zone"
 msgstr "المنطقة الزمنية"
 
-#: vcs/templates/settings.html:49
+#: vcs/templates/settings.html:57
 #, python-format
 msgid "Automatic — %(zone)s"
 msgstr "تلقائي — %(zone)s"
 
-#: vcs/templates/settings.html:52
+#: vcs/templates/settings.html:60
 msgid ""
 "What \"today\" and every time in the app mean. Automatic follows the "
 "money setting (IQ: Asia/Baghdad, JO: Asia/Amman), or this computer until "
@@ -6420,34 +6407,34 @@ msgstr ""
 "ما يعنيه \"اليوم\" وكل وقت في التطبيق. الخيار التلقائي يتبع إعداد العملة "
 "(IQ: Asia/Baghdad، JO: Asia/Amman)، أو هذا الحاسوب إلى أن يُختار."
 
-#: vcs/templates/settings.html:56
+#: vcs/templates/settings.html:64
 msgid "Inventory Alerts"
 msgstr "تنبيهات المخزون"
 
-#: vcs/templates/settings.html:58
+#: vcs/templates/settings.html:66
 msgid "Audit Overdue After (Days)"
 msgstr "يُعد الجرد متأخرًا بعد (أيام)"
 
-#: vcs/templates/settings.html:59
+#: vcs/templates/settings.html:67
 msgid "Expiry Warning Window (Days)"
 msgstr "مدة التنبيه قبل الانتهاء (أيام)"
 
-#: vcs/templates/settings.html:67
+#: vcs/templates/settings.html:75
 #, python-format
 msgid "Member Discount (%%)"
 msgstr "خصم العضو (%%)"
 
-#: vcs/templates/settings.html:67
+#: vcs/templates/settings.html:75
 msgid ""
 "0 switches the rewards programme off. Applies to eligible Price List "
 "items only."
 msgstr "0 يوقف تشغيل برنامج المكافآت. ينطبق على عناصر قائمة الأسعار المؤهلة فقط."
 
-#: vcs/templates/settings.html:68
+#: vcs/templates/settings.html:76
 msgid "Card Valid For (Months)"
 msgstr "البطاقة صالحة لمدة (بالأشهر)"
 
-#: vcs/templates/settings.html:68
+#: vcs/templates/settings.html:76
 msgid ""
 "Pre-fills the expiry date when a card is issued. Existing cards keep the "
 "date they were given."
@@ -6455,51 +6442,51 @@ msgstr ""
 "يعبئ تاريخ الانتهاء مسبقاً عند إصدار البطاقة. البطاقات الحالية تحتفظ "
 "بالتاريخ الذي أُعطيت فيه."
 
-#: vcs/templates/settings.html:73
+#: vcs/templates/settings.html:81
 msgid "Day Starts At"
 msgstr "يبدأ اليوم عند"
 
-#: vcs/templates/settings.html:74
+#: vcs/templates/settings.html:82
 msgid "Day Ends At"
 msgstr "ينتهي اليوم عند"
 
-#: vcs/templates/settings.html:75
+#: vcs/templates/settings.html:83
 msgid "Slot Length (Minutes)"
 msgstr "مدة الموعد (بالدقائق)"
 
-#: vcs/templates/settings.html:79
+#: vcs/templates/settings.html:87
 msgid "Backups"
 msgstr "النسخ الاحتياطي"
 
-#: vcs/templates/settings.html:81
+#: vcs/templates/settings.html:89
 msgid "Backup Folder (on this computer)"
 msgstr "مجلد النسخ الاحتياطي (على هذا الجهاز)"
 
-#: vcs/templates/settings.html:83
+#: vcs/templates/settings.html:91
 msgid "e.g. /Users/you/VetClinicSystemBackups or D:\\VetClinicSystemBackups"
 msgstr "مثال: /Users/you/VetClinicSystemBackups أو D:\\VetClinicSystemBackups"
 
-#: vcs/templates/settings.html:84 vcs/templates/settings.html:198
+#: vcs/templates/settings.html:92 vcs/templates/settings.html:206
 msgid "Browse…"
 msgstr "تصفح…"
 
-#: vcs/templates/settings.html:87
+#: vcs/templates/settings.html:95
 msgid "Nightly Backup Time"
 msgstr "وقت النسخ الاحتياطي الليلي"
 
-#: vcs/templates/settings.html:88
+#: vcs/templates/settings.html:96
 msgid "Keep Last N Backups"
 msgstr "الاحتفاظ بآخر عدد من النسخ"
 
-#: vcs/templates/settings.html:89
+#: vcs/templates/settings.html:97
 msgid "Keep Logs For (Days)"
 msgstr "الاحتفاظ بالسجلات لمدة (أيام)"
 
-#: vcs/templates/settings.html:94
+#: vcs/templates/settings.html:102
 msgid "Health Check"
 msgstr "فحص السلامة"
 
-#: vcs/templates/settings.html:96
+#: vcs/templates/settings.html:104
 msgid ""
 "Once a day, shortly after the nightly backup, this app checks itself — "
 "that backups are running and restorable, that the backup folder is "
@@ -6511,23 +6498,23 @@ msgstr ""
 "القرص ليس ممتلئًا — ويعرض تحذيرًا على لوحة التحكم إذا احتاج شيء إلى "
 "انتباه."
 
-#: vcs/templates/settings.html:100
+#: vcs/templates/settings.html:108
 msgid "Warn If No Backup For (Days)"
 msgstr "التنبيه إذا لم توجد نسخة خلال (أيام)"
 
-#: vcs/templates/settings.html:105
+#: vcs/templates/settings.html:113
 msgid "Daily Health Check"
 msgstr "فحص السلامة اليومي"
 
-#: vcs/templates/settings.html:113
+#: vcs/templates/settings.html:121
 msgid "Run the daily health check and show its warnings"
 msgstr "تشغيل فحص السلامة اليومي وإظهار تحذيراته"
 
-#: vcs/templates/settings.html:118
+#: vcs/templates/settings.html:126
 msgid "Remote Monitoring (optional)"
 msgstr "المراقبة عن بُعد (اختياري)"
 
-#: vcs/templates/settings.html:120
+#: vcs/templates/settings.html:128
 #, python-format
 msgid ""
 "Off unless you fill this in. When set, this clinic sends a short daily "
@@ -6542,19 +6529,19 @@ msgstr ""
 "الجهاز عن الإرسال، يُبلَّغ المسؤول عن صيانة النظام — وهو الشيء الوحيد "
 "الذي لا يستطيع التطبيق الإبلاغ عنه وهو مطفأ."
 
-#: vcs/templates/settings.html:120
+#: vcs/templates/settings.html:128
 msgid "missing"
 msgstr "الغائبة"
 
-#: vcs/templates/settings.html:124
+#: vcs/templates/settings.html:132
 msgid "Monitoring Ping URL"
 msgstr "رابط المراقبة"
 
-#: vcs/templates/settings.html:125
+#: vcs/templates/settings.html:133
 msgid "https://… (leave blank to disable)"
 msgstr "https://… (اتركه فارغًا للتعطيل)"
 
-#: vcs/templates/settings.html:128
+#: vcs/templates/settings.html:136
 #, python-format
 msgid ""
 "Must start with %(scheme)s. Use a different URL for each clinic, so an "
@@ -6565,37 +6552,37 @@ msgstr ""
 "التنبيه من تحديد أيها توقف. %(warning)s — فمن يحصل عليه يستطيع إرسال نبضة"
 " مزيفة ومنع تنبيه حقيقي من الوصول إليك."
 
-#: vcs/templates/settings.html:128
+#: vcs/templates/settings.html:136
 msgid "Treat it like a password"
 msgstr "تعامل معه كأنه كلمة مرور"
 
-#: vcs/templates/settings.html:133
+#: vcs/templates/settings.html:141
 msgid "This Install's ID"
 msgstr "معرّف هذا التثبيت"
 
-#: vcs/templates/settings.html:135
+#: vcs/templates/settings.html:143
 msgid ""
 "Included in every ping so one monitoring account can watch several "
 "clinics."
 msgstr "مضمّن في كل إشارة ليتمكن حساب مراقبة واحد من متابعة عدة عيادات."
 
-#: vcs/templates/settings.html:141
+#: vcs/templates/settings.html:149
 msgid "Saves the sections above."
 msgstr "يحفظ الأقسام أعلاه."
 
-#: vcs/templates/settings.html:142
+#: vcs/templates/settings.html:150
 msgid "Save Settings"
 msgstr "حفظ الإعدادات"
 
-#: vcs/templates/settings.html:151
+#: vcs/templates/settings.html:159
 msgid "Backups & Restore"
 msgstr "النسخ الاحتياطي والاستعادة"
 
-#: vcs/templates/settings.html:151 vcs/templates/settings.html:231
+#: vcs/templates/settings.html:159 vcs/templates/settings.html:239
 msgid "Runs when you click"
 msgstr "يعمل عند الضغط على"
 
-#: vcs/templates/settings.html:152
+#: vcs/templates/settings.html:160
 msgid ""
 "The backup history and the restore that reads it, beside the folder they "
 "use."
@@ -6603,44 +6590,44 @@ msgstr ""
 "سجل النسخ الاحتياطي والاستعادة التي تقرأ منه، إلى جانب المجلد الذي "
 "يستخدمانه."
 
-#: vcs/templates/settings.html:156
+#: vcs/templates/settings.html:164
 msgid "Back Up Now"
 msgstr "نسخ احتياطي الآن"
 
-#: vcs/templates/settings.html:158
+#: vcs/templates/settings.html:166
 msgid "Set a backup folder above and save, then you can back up."
 msgstr "حدد مجلد النسخ الاحتياطي أعلاه واحفظ، ثم يمكنك أخذ نسخة."
 
-#: vcs/templates/settings.html:165
+#: vcs/templates/settings.html:173
 msgid "Recent Backups"
 msgstr "النسخ الاحتياطية الأخيرة"
 
-#: vcs/templates/settings.html:168 vcs/templates/settings.html:214
+#: vcs/templates/settings.html:176 vcs/templates/settings.html:222
 msgid "Started"
 msgstr "بدأ"
 
-#: vcs/templates/settings.html:168 vcs/templates/settings.html:214
+#: vcs/templates/settings.html:176 vcs/templates/settings.html:222
 msgid "Triggered By"
 msgstr "بدأه"
 
-#: vcs/templates/settings.html:168
+#: vcs/templates/settings.html:176
 msgid "File"
 msgstr "الملف"
 
-#: vcs/templates/settings.html:174 vcs/templates/settings.html:220
+#: vcs/templates/settings.html:182 vcs/templates/settings.html:228
 #, python-format
 msgid "Failed — %(error)s"
 msgstr "فشل — %(error)s"
 
-#: vcs/templates/settings.html:174
+#: vcs/templates/settings.html:182
 msgid "Running"
 msgstr "قيد التشغيل"
 
-#: vcs/templates/settings.html:185
+#: vcs/templates/settings.html:193
 msgid "Restore From Backup"
 msgstr "الاستعادة من نسخة احتياطية"
 
-#: vcs/templates/settings.html:188
+#: vcs/templates/settings.html:196
 msgid ""
 "A restore may not have completed — the app was stopped or crashed partway"
 " through the last one. Check the database carefully before continuing to "
@@ -6649,7 +6636,7 @@ msgstr ""
 "قد تكون عملية استعادة لم تكتمل — توقف التطبيق أو انهار في منتصف آخر "
 "عملية. افحص قاعدة البيانات بعناية قبل متابعة استخدام التطبيق."
 
-#: vcs/templates/settings.html:192
+#: vcs/templates/settings.html:200
 #, python-format
 msgid ""
 "Replaces %(all)s current data in VetClinicSystem with the contents of a "
@@ -6667,72 +6654,72 @@ msgstr ""
 "النسخة التي تُستعاد سيحتاج إلى إعادة ربط — شغّل %(command)s من مجلد "
 "التطبيق بعد ذلك للعثور عليها وإعادة ربطها بأمان."
 
-#: vcs/templates/settings.html:192
+#: vcs/templates/settings.html:200
 msgid "all"
 msgstr "كل"
 
-#: vcs/templates/settings.html:192
+#: vcs/templates/settings.html:200
 msgid "after"
 msgstr "بعد"
 
-#: vcs/templates/settings.html:195
+#: vcs/templates/settings.html:203
 msgid "Backup File To Restore"
 msgstr "ملف النسخة المراد استعادتها"
 
-#: vcs/templates/settings.html:197
+#: vcs/templates/settings.html:205
 msgid "Browse to a .dump backup file"
 msgstr "تصفح للوصول إلى ملف نسخة .dump"
 
-#: vcs/templates/settings.html:205
+#: vcs/templates/settings.html:213
 msgid "Restore Now"
 msgstr "استعادة الآن"
 
-#: vcs/templates/settings.html:211
+#: vcs/templates/settings.html:219
 msgid "Recent Restores"
 msgstr "عمليات الاستعادة الأخيرة"
 
-#: vcs/templates/settings.html:214
+#: vcs/templates/settings.html:222
 msgid "Source File"
 msgstr "الملف المصدر"
 
-#: vcs/templates/settings.html:231 vcs/templates/settings.html:232
+#: vcs/templates/settings.html:239 vcs/templates/settings.html:240
 msgid "Updates"
 msgstr "التحديثات"
 
-#: vcs/templates/settings.html:234
+#: vcs/templates/settings.html:242
 msgid "Current Version"
 msgstr "الإصدار الحالي"
 
-#: vcs/templates/settings.html:234
+#: vcs/templates/settings.html:242
 #, python-format
 msgid "VetClinicSystem v%(app_version)s"
 msgstr "VetClinicSystem الإصدار %(app_version)s"
 
-#: vcs/templates/settings.html:236
+#: vcs/templates/settings.html:244
 msgid "Check for Updates"
 msgstr "التحقق من التحديثات"
 
-#: vcs/templates/settings.html:240
+#: vcs/templates/settings.html:248
 msgid "Version"
 msgstr "الإصدار"
 
-#: vcs/templates/settings.html:240
+#: vcs/templates/settings.html:248
 msgid "is available"
 msgstr "متاح"
 
-#: vcs/templates/settings.html:243
+#: vcs/templates/settings.html:251
 msgid "Update Now"
 msgstr "تحديث الآن"
 
-#: vcs/templates/settings.html:244
+#: vcs/templates/settings.html:252
 msgid "Not Now"
 msgstr "ليس الآن"
 
-#: vcs/templates/settings.html:249
+#: vcs/templates/settings.html:257
 msgid "Rollback to Previous Version"
 msgstr "الرجوع إلى الإصدار السابق"
 
-#: vcs/templates/settings.html:253
+#: vcs/templates/settings.html:261
 msgid ""
 "Automatic updates aren't set up on this install yet. An administrator can"
 " enable them by running"
@@ -6740,27 +6727,27 @@ msgstr ""
 "التحديثات التلقائية غير مُفعّلة على هذا التثبيت بعد. يمكن للمدير تفعيلها "
 "بتشغيل"
 
-#: vcs/templates/settings.html:254
+#: vcs/templates/settings.html:262
 msgid "python3 setup.py --enable-updates"
 msgstr "python3 setup.py --enable-updates"
 
-#: vcs/templates/settings.html:254
+#: vcs/templates/settings.html:262
 msgid "on the computer running VetClinicSystem."
 msgstr "على الجهاز الذي يشغّل VetClinicSystem."
 
-#: vcs/templates/settings.html:260 vcs/templates/settings.html:269
+#: vcs/templates/settings.html:268 vcs/templates/settings.html:277
 msgid "Startup & Shutdown"
 msgstr "التشغيل والإيقاف"
 
-#: vcs/templates/settings.html:260
+#: vcs/templates/settings.html:268
 msgid "Applies immediately"
 msgstr "يسري فورًا"
 
-#: vcs/templates/settings.html:279
+#: vcs/templates/settings.html:287
 msgid "Start VetClinicSystem automatically when this computer starts"
 msgstr "تشغيل VetClinicSystem تلقائيًا عند بدء تشغيل هذا الجهاز"
 
-#: vcs/templates/settings.html:283
+#: vcs/templates/settings.html:291
 msgid ""
 "On shutdown or restart, the app closes its database connections cleanly "
 "before the computer powers off, so nothing is left mid-write."
@@ -6768,7 +6755,7 @@ msgstr ""
 "عند الإيقاف أو إعادة التشغيل، يغلق التطبيق اتصالات قاعدة البيانات بشكل "
 "سليم قبل إطفاء الجهاز، فلا يبقى شيء في منتصف الكتابة."
 
-#: vcs/templates/settings.html:287
+#: vcs/templates/settings.html:295
 msgid ""
 "Not available on this operating system — start VetClinicSystem manually "
 "using the launcher."
@@ -6776,38 +6763,38 @@ msgstr ""
 "غير متاح على نظام التشغيل هذا — شغّل VetClinicSystem يدويًا باستخدام "
 "المشغّل."
 
-#: vcs/templates/settings.html:327
+#: vcs/templates/settings.html:335
 msgid "You're on the latest version."
 msgstr "أنت على أحدث إصدار."
 
-#: vcs/templates/settings.html:331
+#: vcs/templates/settings.html:339
 msgid "Couldn't check for updates."
 msgstr "تعذّر التحقق من التحديثات."
 
-#: vcs/templates/settings.html:341 vcs/templates/settings.html:357
+#: vcs/templates/settings.html:349 vcs/templates/settings.html:365
 msgid "Restarting VetClinicSystem"
 msgstr "جارٍ إعادة تشغيل VetClinicSystem"
 
-#: vcs/templates/settings.html:342
+#: vcs/templates/settings.html:350
 msgid "The app is restarting — this page will reconnect automatically."
 msgstr "التطبيق قيد إعادة التشغيل — ستُعاد هذه الصفحة تلقائيًا."
 
-#: vcs/templates/settings.html:350
+#: vcs/templates/settings.html:358
 msgid "Done — reloading."
 msgstr "تم — جارٍ إعادة التحميل."
 
-#: vcs/templates/settings.html:358
+#: vcs/templates/settings.html:366
 msgid ""
 "Taking longer than expected to come back — check with whoever manages "
 "this computer."
 msgstr "العودة تستغرق وقتًا أطول من المتوقع — راجع المسؤول عن هذا الجهاز."
 
-#: vcs/templates/settings.html:377 vcs/templates/settings.html:398
+#: vcs/templates/settings.html:385 vcs/templates/settings.html:406
 #, python-brace-format
 msgid "{job} failed to start."
 msgstr "تعذّر بدء {job}."
 
-#: vcs/templates/settings.html:402
+#: vcs/templates/settings.html:410
 msgid ""
 "This will restart VetClinicSystem for everyone for about 30 seconds. A "
 "backup will be taken first. Continue?"
@@ -6815,15 +6802,15 @@ msgstr ""
 "سيؤدي هذا إلى إعادة تشغيل VetClinicSystem للجميع لنحو ٣٠ ثانية. ستُؤخذ "
 "نسخة احتياطية أولًا. هل تريد المتابعة؟"
 
-#: vcs/templates/settings.html:405
+#: vcs/templates/settings.html:413
 msgid "Update"
 msgstr "تحديث"
 
-#: vcs/templates/settings.html:405
+#: vcs/templates/settings.html:413
 msgid "Update failed."
 msgstr "فشل التحديث."
 
-#: vcs/templates/settings.html:409
+#: vcs/templates/settings.html:417
 msgid ""
 "This will roll back to the previous version and restart VetClinicSystem "
 "for everyone for about 30 seconds. Continue?"
@@ -6831,44 +6818,44 @@ msgstr ""
 "سيؤدي هذا إلى التراجع إلى الإصدار السابق وإعادة تشغيل VetClinicSystem "
 "للجميع لنحو ٣٠ ثانية. هل تريد المتابعة؟"
 
-#: vcs/templates/settings.html:412
+#: vcs/templates/settings.html:420
 msgid "Rollback"
 msgstr "تراجع"
 
-#: vcs/templates/settings.html:412
+#: vcs/templates/settings.html:420
 msgid "Rollback failed."
 msgstr "فشل التراجع."
 
-#: vcs/templates/settings.html:441 vcs/templates/settings.html:458
+#: vcs/templates/settings.html:449 vcs/templates/settings.html:466
 msgid "Could not start the backup."
 msgstr "تعذّر بدء النسخ الاحتياطي."
 
-#: vcs/templates/settings.html:446
+#: vcs/templates/settings.html:454
 msgid "Backup complete."
 msgstr "اكتمل النسخ الاحتياطي."
 
-#: vcs/templates/settings.html:446 vcs/templates/settings.html:452
+#: vcs/templates/settings.html:454 vcs/templates/settings.html:460
 msgid "Backup failed."
 msgstr "فشل النسخ الاحتياطي."
 
-#: vcs/templates/settings.html:481 vcs/templates/settings.html:502
+#: vcs/templates/settings.html:489 vcs/templates/settings.html:510
 msgid "Could not start the restore."
 msgstr "تعذّر بدء الاستعادة."
 
-#: vcs/templates/settings.html:486
+#: vcs/templates/settings.html:494
 #, python-brace-format
 msgid "{message}. Please log in again."
 msgstr "{message}. يرجى تسجيل الدخول مرة أخرى."
 
-#: vcs/templates/settings.html:490 vcs/templates/settings.html:496
+#: vcs/templates/settings.html:498 vcs/templates/settings.html:504
 msgid "Restore failed."
 msgstr "فشلت الاستعادة."
 
-#: vcs/templates/settings.html:514 vcs/templates/settings.html:558
+#: vcs/templates/settings.html:522 vcs/templates/settings.html:566
 msgid "Choose Backup Folder"
 msgstr "اختيار مجلد النسخ الاحتياطي"
 
-#: vcs/templates/settings.html:515
+#: vcs/templates/settings.html:523
 msgid ""
 "Browsing this computer's folders — the one running VetClinicSystem, since"
 " that's where backups are actually read and written."
@@ -6876,34 +6863,34 @@ msgstr ""
 "تصفح مجلدات هذا الجهاز — الجهاز الذي يشغّل VetClinicSystem، لأنه المكان "
 "الذي تُقرأ منه النسخ الاحتياطية وتُكتب إليه فعليًا."
 
-#: vcs/templates/settings.html:521
+#: vcs/templates/settings.html:529
 msgid "New folder name"
 msgstr "اسم المجلد الجديد"
 
-#: vcs/templates/settings.html:522
+#: vcs/templates/settings.html:530
 msgid "+ New Folder"
 msgstr "+ مجلد جديد"
 
-#: vcs/templates/settings.html:526 vcs/templates/settings.html:550
+#: vcs/templates/settings.html:534 vcs/templates/settings.html:558
 msgid "Select This Folder"
 msgstr "اختيار هذا المجلد"
 
-#: vcs/templates/settings.html:558
+#: vcs/templates/settings.html:566
 msgid "Choose Backup File"
 msgstr "اختيار ملف النسخة الاحتياطية"
 
-#: vcs/templates/settings.html:580
+#: vcs/templates/settings.html:588
 msgid "Could not open that folder."
 msgstr "تعذّر فتح هذا المجلد."
 
-#: vcs/templates/settings.html:597
+#: vcs/templates/settings.html:605
 msgid "↑ .. (up one level)"
 msgstr "↑ .. (مستوى للأعلى)"
 
 msgid "backup files"
 msgstr "ملفات النسخ الاحتياطي"
 
-#: vcs/templates/settings.html:654
+#: vcs/templates/settings.html:662
 msgid "Could not create that folder."
 msgstr "تعذّر إنشاء هذا المجلد."
 
@@ -7146,7 +7133,7 @@ msgstr "لا توجد تذكيرات رعاية وقائية مسجلة."
 msgid "You can't give or reach access you don't hold yourself — ask an Admin."
 msgstr "لا يمكنك منح صلاحيات لا تملكها بنفسك أو الوصول إليها — اطلب ذلك من المدير."
 
-#: vcs/web/blueprints/settings.py:192
+#: vcs/web/blueprints/settings.py:193
 msgid ""
 "Nothing was saved: your role can't change the backup and log-retention "
 "settings."
@@ -7297,7 +7284,7 @@ msgstr "يوجد باركود لهذا الصنف بالفعل."
 msgid "A role named \"%(name)s\" already exists."
 msgstr "يوجد دور باسم \"%(name)s\" بالفعل."
 
-#: vcs/web/blueprints/settings.py:627
+#: vcs/web/blueprints/settings.py:634
 msgid "Already on the latest version."
 msgstr "أنت على أحدث إصدار بالفعل."
 
@@ -7359,7 +7346,7 @@ msgstr ""
 "لا يمكن حذف هذا المورد — ما زالت مرتبطة به %(linked)s. أزِلها أو انقلها "
 "أولًا."
 
-#: vcs/web/blueprints/settings.py:113
+#: vcs/web/blueprints/settings.py:114
 #, python-format
 msgid "Can’t open that folder: %(error)s"
 msgstr "تعذّر فتح هذا المجلد: %(error)s"
@@ -7461,7 +7448,7 @@ msgstr "تعذّر حذف الملف من القرص (%(error)s) — لم يُح
 msgid "Couldn't save the file to disk: %(error)s"
 msgstr "تعذّر حفظ الملف على القرص: %(error)s"
 
-#: vcs/web/blueprints/settings.py:155
+#: vcs/web/blueprints/settings.py:156
 #, python-format
 msgid "Couldn’t create that folder: %(error)s"
 msgstr "تعذّر إنشاء هذا المجلد: %(error)s"
@@ -7484,7 +7471,7 @@ msgstr "الإصدار الذي تم تنزيله ينقصه %(file)s."
 msgid "Enter a barcode."
 msgstr "أدخل باركودًا."
 
-#: vcs/web/blueprints/settings.py:145
+#: vcs/web/blueprints/settings.py:146
 msgid "Enter a plain folder name (no slashes)."
 msgstr "أدخل اسم مجلد بسيطًا (دون شرطات مائلة)."
 
@@ -7564,7 +7551,7 @@ msgstr ""
 "جدول المواعيد بعد الآن. راجع قائمة \"بحاجة إلى انتباه\" في المواعيد "
 "لإعادة جدولتها."
 
-#: vcs/web/blueprints/settings.py:415
+#: vcs/web/blueprints/settings.py:422
 #, python-format
 msgid ""
 "Heads up: changing the scheduling hours/slot length just made %(n)s "
@@ -7588,7 +7575,7 @@ msgstr "تمت إعادة تفعيل الصنف."
 msgid "Name is required."
 msgstr "الاسم مطلوب."
 
-#: vcs/web/blueprints/settings.py:452
+#: vcs/web/blueprints/settings.py:459
 msgid ""
 "No backup folder configured yet — set one above, then Save Settings, "
 "before backing up."
@@ -7604,7 +7591,7 @@ msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي بعد — ع
 msgid "No backup folder is configured yet — set one on the Settings page."
 msgstr "لم يُحدَّد مجلد للنسخ الاحتياطي بعد — عيّن واحدًا من صفحة الإعدادات."
 
-#: vcs/ops/updater.py:549 vcs/web/blueprints/settings.py:651
+#: vcs/ops/updater.py:549 vcs/web/blueprints/settings.py:658
 msgid "No previous release available to roll back to."
 msgstr "لا يوجد إصدار سابق متاح للرجوع إليه."
 
@@ -7712,7 +7699,7 @@ msgstr ""
 msgid "That file isn't inside the configured backup folder."
 msgstr "هذا الملف ليس داخل مجلد النسخ الاحتياطي المُعَدّ."
 
-#: vcs/web/blueprints/settings.py:78
+#: vcs/web/blueprints/settings.py:79
 #, python-format
 msgid "That folder is outside the areas this app can browse (%(where)s)."
 msgstr "هذا المجلد خارج المواقع التي يمكن لهذا التطبيق تصفحها (%(where)s)."
@@ -7726,7 +7713,7 @@ msgstr ""
 "هذا الصنف مرتبط بالفعل بـ %(row)s — يمكن ربط الصنف من صف نشط واحد فقط في "
 "كل مرة."
 
-#: vcs/web/blueprints/settings.py:147
+#: vcs/web/blueprints/settings.py:148
 msgid "That parent folder no longer exists."
 msgstr "المجلد الأصلي لم يعد موجودًا."
 
@@ -7785,8 +7772,8 @@ msgstr ""
 "التحديثات غير مُعَدّة على هذا التثبيت بعد — راجع setup.py --enable-"
 "updates."
 
-#: vcs/ops/updater.py:545 vcs/web/blueprints/settings.py:621
-#: vcs/web/blueprints/settings.py:648
+#: vcs/ops/updater.py:545 vcs/web/blueprints/settings.py:628
+#: vcs/web/blueprints/settings.py:655
 msgid "Updates aren't set up on this install yet."
 msgstr "التحديثات غير مُعَدّة على هذا التثبيت بعد."
 
@@ -7849,11 +7836,11 @@ msgstr "أصناف مخزون"
 msgid "launcher not found"
 msgstr "لم يُعثر على ملف التشغيل"
 
-#: vcs/web/blueprints/settings.py:77
+#: vcs/web/blueprints/settings.py:78
 msgid "the backup folder"
 msgstr "مجلد النسخ الاحتياطي"
 
-#: vcs/web/blueprints/settings.py:104
+#: vcs/web/blueprints/settings.py:105
 #, python-format
 msgid "“%(path)s” isn’t a folder VetClinicSystem can see on this computer."
 msgstr "“%(path)s” ليس مجلدًا يمكن لـ VetClinicSystem رؤيته على هذا الجهاز."
@@ -7872,7 +7859,7 @@ msgstr ""
 msgid "%(names)s, and %(n)s more"
 msgstr "%(names)s، و%(n)s غيرها"
 
-#: vcs/templates/settings.html:451
+#: vcs/templates/settings.html:459
 msgid "Backup"
 msgstr "النسخ الاحتياطي"
 
@@ -7924,11 +7911,11 @@ msgstr "الحد الأقصى لحجم الملف: %(max)s ميجابايت."
 msgid "Microchip:"
 msgstr "الشريحة:"
 
-#: vcs/templates/settings.html:607
+#: vcs/templates/settings.html:615
 msgid "No backup files here."
 msgstr "لا توجد ملفات نسخ احتياطي هنا."
 
-#: vcs/templates/settings.html:607
+#: vcs/templates/settings.html:615
 msgid "No subfolders here."
 msgstr "لا توجد مجلدات فرعية هنا."
 
@@ -7937,7 +7924,7 @@ msgstr "لا توجد مجلدات فرعية هنا."
 msgid "Owner:"
 msgstr "المالك:"
 
-#: vcs/templates/settings.html:495
+#: vcs/templates/settings.html:503
 msgid "Restore"
 msgstr "الاستعادة"
 
@@ -8067,4 +8054,87 @@ msgstr ""
 #: vcs/web/blueprints/clinical.py:2316
 msgid "Some selected items have no sale price in the Price List and were skipped."
 msgstr "بعض الأصناف المختارة ليس لها سعر بيع محدد في قائمة الأسعار وتم تجاهلها."
+
+#: vcs/templates/insights.html:113
+msgid ""
+"Weekend days are marked. \"Fulfillment\" compares appointments booked "
+"that weekday against visits logged on the same weekday system-wide — an "
+"approximation, since appointments aren't linked to a specific visit "
+"record in this system."
+msgstr ""
+"أيام عطلة نهاية الأسبوع مُعلَّمة. تقارن \"نسبة الإنجاز\" المواعيد "
+"المحجوزة في ذلك اليوم بالزيارات المسجلة في اليوم نفسه على مستوى النظام — "
+"وهي تقديرية، لأن المواعيد غير مرتبطة بسجل زيارة محدد في هذا النظام."
+
+#: vcs/templates/settings.html:23
+msgid "Color Palette"
+msgstr "لوحة الألوان"
+
+#: vcs/web/blueprints/settings.py:262
+msgid "Not a valid color palette."
+msgstr "لوحة ألوان غير صالحة."
+
+#: vcs/templates/settings.html:29
+msgid "Light or dark is each person's own choice: the moon button in the sidebar."
+msgstr "الوضع الفاتح أو الداكن يختاره كل شخص لنفسه: بزر القمر في الشريط الجانبي."
+
+#: vcs/web/palettes.py:179
+msgid "Vetzone"
+msgstr "Vetzone"
+
+#: vcs/web/palettes.py:201
+msgid "ChamPet"
+msgstr "ChamPet"
+
+#: vcs/web/palettes.py:223
+msgid "Crimson"
+msgstr "قرمزي"
+
+#: vcs/web/palettes.py:245
+msgid "Sage"
+msgstr "مريمية"
+
+#: vcs/web/palettes.py:266
+msgid "Mint"
+msgstr "نعناعي"
+
+#: vcs/web/palettes.py:287
+msgid "Harbor"
+msgstr "ميناء"
+
+#: vcs/web/palettes.py:308
+msgid "Ocean"
+msgstr "محيط"
+
+#: vcs/web/palettes.py:329
+msgid "Slate"
+msgstr "أردوازي"
+
+#: vcs/web/palettes.py:350
+msgid "Indigo"
+msgstr "نيلي"
+
+#: vcs/web/palettes.py:371
+msgid "Lavender"
+msgstr "خزامى"
+
+#: vcs/web/palettes.py:392
+msgid "Orchid"
+msgstr "سحلبي"
+
+#: vcs/web/palettes.py:413
+msgid "Terracotta"
+msgstr "تيراكوتا"
+
+#: vcs/web/palettes.py:434
+msgid "Sand"
+msgstr "رملي"
+
+#: vcs/web/palettes.py:455
+msgid "Olive"
+msgstr "زيتوني"
+
+#: vcs/web/palettes.py:476
+msgid "Graphite"
+msgstr "غرافيت"
 

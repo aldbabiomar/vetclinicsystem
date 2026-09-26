@@ -110,7 +110,7 @@
 
 <div class="section-title">{{ _('Appointment Demand by Day of Week') }}</div>
 <p class="small muted" style="margin-top:-10px; margin-bottom:10px;">
-  {{ _('Amman work week (Sunday–Thursday) shown first; Friday/Saturday is the weekend. "Fulfillment" compares appointments booked that weekday against visits logged on the same weekday system-wide — an approximation, since appointments aren\'t linked to a specific visit record in this system.') }}
+  {{ _('Weekend days are marked. "Fulfillment" compares appointments booked that weekday against visits logged on the same weekday system-wide — an approximation, since appointments aren\'t linked to a specific visit record in this system.') }}
 </p>
 <div class="table-wrap" style="margin-bottom:24px;">
 <table>
@@ -178,9 +178,18 @@
 <script nonce="{{ csp_nonce }}">
 const REVENUE = {{ revenue|tojson }};
 const PAYMENT_MIX = {{ payment_mix|tojson }};
-const COLORS = {
-  Service: '#B21C43', Medicine: '#051335', Retail: '#B5791F', Boarding: '#4B8F6B',
-};
+// The series colours come from the palette (vcs/web/palettes.py), read live
+// from the CSS so the charts follow the clinic's palette and each person's
+// light/dark choice -- and are redrawn when that choice changes. Each is held
+// to 3:1 against a card by tests/test_palettes.py.
+const _cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const SERIES = ['--primary', '--chart-2', '--warn-ink', '--ok', '--muted'];
+const CATEGORY_SERIES = { Service: 0, Medicine: 1, Retail: 2, Boarding: 3 };
+const _charts = [];
+function _applyChartTheme() {
+  Chart.defaults.color = _cssVar('--ink-soft');
+  Chart.defaults.borderColor = _cssVar('--line');
+}
 
 // Display labels for the legend. The KEYS stay the stored English values
 // (they index REVENUE.grid and the colour map); only what a person reads is
@@ -195,37 +204,51 @@ const METHOD_LABELS = { {% for r in payment_mix %}{{ (r.method or 'Unspecified')
 const CHART_BASE = { responsive: true, maintainAspectRatio: false,
                      plugins: { legend: { position: 'bottom' } } };
 
+_applyChartTheme();
 const revenueCanvas = document.getElementById('revenueChart');
 if (revenueCanvas) {
-  new Chart(revenueCanvas, {
+  _charts.push(new Chart(revenueCanvas, {
     type: 'bar',
     data: {
       labels: REVENUE.months,
       datasets: REVENUE.categories.map(cat => ({
         label: CATEGORY_LABELS[cat] || cat,
         data: REVENUE.months.map(m => REVENUE.grid[m][cat]),
-        backgroundColor: COLORS[cat] || '#A79AA0',
+        backgroundColor: _cssVar(SERIES[CATEGORY_SERIES[cat] ?? 4]),
+        _series: CATEGORY_SERIES[cat] ?? 4,
       })),
     },
     options: Object.assign({}, CHART_BASE, {
       scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: v => v.toLocaleString() } } },
     }),
-  });
+  }));
 }
 
 const paymentCanvas = document.getElementById('paymentChart');
 if (paymentCanvas) {
-  new Chart(paymentCanvas, {
+  _charts.push(new Chart(paymentCanvas, {
     type: 'doughnut',
     data: {
       labels: PAYMENT_MIX.map(r => METHOD_LABELS[r.method || 'Unspecified'] || r.method),
       datasets: [{
         data: PAYMENT_MIX.map(r => r.total),
-        backgroundColor: ['#B21C43', '#051335', '#B5791F', '#B8452E', '#A79AA0'],
+        backgroundColor: SERIES.map(_cssVar),
+        _palette: true,
       }],
     },
     options: CHART_BASE,
-  });
+  }));
 }
+
+document.addEventListener('vz:themechange', function () {
+  _applyChartTheme();
+  _charts.forEach(function (chart) {
+    chart.data.datasets.forEach(function (ds) {
+      ds.backgroundColor = ds._palette ? SERIES.map(_cssVar) : _cssVar(SERIES[ds._series]);
+    });
+    chart.options.color = Chart.defaults.color;
+    chart.update();
+  });
+});
 </script>
 {% endblock %}

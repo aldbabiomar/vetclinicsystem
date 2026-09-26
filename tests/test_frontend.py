@@ -33,6 +33,8 @@ import pytest
 
 ROOT = pathlib.Path(__file__).parent.parent
 CSS_PATH = source_files.STATIC_DIR / "style.css"
+# The palettes' tokens, generated from vcs/web/palettes.py (tests/test_palettes.py).
+PALETTES_CSS_PATH = source_files.STATIC_DIR / "palettes.css"
 TEMPLATES = source_files.templates()
 
 # Pure white and pure black are structural, not palette choices — white
@@ -53,7 +55,8 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
 
 @pytest.fixture(scope="module")
 def css():
-    return CSS_PATH.read_text(encoding="utf-8")
+    """The two stylesheets base.html loads: the palettes' tokens, then the rules."""
+    return PALETTES_CSS_PATH.read_text(encoding="utf-8") + "\n" + CSS_PATH.read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -128,12 +131,14 @@ def test_no_token_is_defined_only_inside_a_theme_block(css):
     assert not theme_only, f"tokens with no base :root value: {sorted(theme_only)}"
 
 
-def test_dark_theme_covers_the_palette_it_overrides():
-    """JO has one override block (dark). Every token it sets must exist in
+def test_dark_theme_covers_the_palette_it_overrides(css):
+    """The default palette's dark block. Every token it sets must exist in
     the base palette, and it must cover enough of it to be a real theme
     rather than a partial one that leaves light-mode colours showing through
-    on a dark background — the contrast bug in COMPARISON.md §12."""
-    css_text = CSS_PATH.read_text(encoding="utf-8")
+    on a dark background — the contrast bug in COMPARISON.md §12. (Every
+    other palette's themes are held to the full token list by
+    tests/test_palettes.py.)"""
+    css_text = css
     bare = _bare_root_tokens(css_text)
     overrides = _block_bodies(css_text, r'(?m)^html\[data-theme[^{]*\{')
     dark = max(overrides.values(), key=len) if overrides else set()

@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="{{ get_locale() }}" dir="{{ 'rtl' if get_locale()|string == 'ar' else 'ltr' }}">
+<html lang="{{ get_locale() }}" dir="{{ 'rtl' if get_locale()|string == 'ar' else 'ltr' }}" data-palette="{{ theme_palette }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}{{ clinic_name }}{% endblock %}</title>
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+<link rel="icon" type="image/svg+xml" href="{{ url_for('main.favicon_svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='palettes.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script nonce="{{ csp_nonce }}">window.VZ_MONEY = {{ money_js|tojson }};</script>
 <script nonce="{{ csp_nonce }}">
@@ -63,13 +64,7 @@ function escapeHtml(value) {
   <nav class="sidebar">
     <button class="sidebar-close-btn" data-vzh="base-2" aria-label="{{ _('Close menu') }}">&times;</button>
     <div class="brand">
-      <span class="mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 11.5L12 4l9 7.5"/>
-          <path d="M4.5 10.5V21h15V10.5"/>
-          <path d="M12 6.5v3M10.5 8h3"/>
-        </svg>
-      </span>
+      <span class="mark">{{ logo_mark() }}</span>
       <span class="brand-name">{{ clinic_name }}</span>
       <button type="button" class="theme-toggle-btn" data-vzh="base-3" aria-label="{{ _('Toggle dark mode') }}">
         <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -150,6 +145,9 @@ function toggleTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
   try { localStorage.setItem('vetclinicsystem-theme', isDark ? 'light' : 'dark'); } catch (e) {}
+  // Anything drawn from the palette's colours in script (the Insights
+  // charts) redraws on this; CSS follows the attribute by itself.
+  document.dispatchEvent(new CustomEvent('vz:themechange'));
 }
 document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
   link.addEventListener('click', closeSidebar);

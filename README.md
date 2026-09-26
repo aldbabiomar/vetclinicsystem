@@ -325,7 +325,10 @@ rather than producing a broken link.
 
 ### Styling conventions
 
-Styles live in `vcs/static/style.css`, not in `style=` attributes. The foot of that
+Colours live in the palettes: `vcs/web/palettes.py` defines the 15 (each light
+and dark, every text pair WCAG AA), and `scripts/build_palettes.py` generates
+`vcs/static/palettes.css` from it — never edit that file by hand. Styles live
+in `vcs/static/style.css`, not in `style=` attributes. The foot of that
 file holds a small set of utilities (spacing, flex rows, a few component
 classes) built on the palette variables — use those rather than typing a pixel
 value into a template.

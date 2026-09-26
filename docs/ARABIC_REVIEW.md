@@ -400,3 +400,42 @@ shipped "بعض الأصناف المختارة … وتم تجاهلها" and "
 | # | English | Arabic (as shipped) |
 |---|---|---|
 | 1 | Some selected items have no sale price in the Price List and were skipped. | بعض الأصناف المختارة ليس لها سعر بيع محدد في قائمة الأسعار وتم تجاهلها. |
+
+## 19. The Insights weekday note (1)
+
+The note under "Appointment Demand by Day of Week" named Amman's work week, a
+leftover from the JO app; the weekend comes from a setting, so it now only
+says the weekend days are marked. The second sentence is the shipped Arabic,
+unchanged.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Weekend days are marked. "Fulfillment" compares appointments booked that weekday against visits logged on the same weekday system-wide — an approximation, since appointments aren't linked to a specific visit record in this system. | أيام عطلة نهاية الأسبوع مُعلَّمة. تقارن "نسبة الإنجاز" المواعيد المحجوزة في ذلك اليوم بالزيارات المسجلة في اليوم نفسه على مستوى النظام — وهي تقديرية، لأن المواعيد غير مرتبطة بسجل زيارة محدد في هذا النظام. |
+
+## 20. The colour palettes (18)
+
+The palette field in Settings (owner decision D-12). "لوحة الألوان" is the
+predecessor IQ app's reviewed label. The palette names are colour words;
+Vetzone and ChamPet are names and stay in Latin script, as IQ shipped them.
+Please check the colour words read naturally as the names of colour schemes.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Color Palette | لوحة الألوان |
+| 2 | Not a valid color palette. | لوحة ألوان غير صالحة. |
+| 3 | Light or dark is each person's own choice: the moon button in the sidebar. | الوضع الفاتح أو الداكن يختاره كل شخص لنفسه: بزر القمر في الشريط الجانبي. |
+| 4 | Vetzone | Vetzone |
+| 5 | ChamPet | ChamPet |
+| 6 | Crimson | قرمزي |
+| 7 | Sage | مريمية |
+| 8 | Mint | نعناعي |
+| 9 | Harbor | ميناء |
+| 10 | Ocean | محيط |
+| 11 | Slate | أردوازي |
+| 12 | Indigo | نيلي |
+| 13 | Lavender | خزامى |
+| 14 | Orchid | سحلبي |
+| 15 | Terracotta | تيراكوتا |
+| 16 | Sand | رملي |
+| 17 | Olive | زيتوني |
+| 18 | Graphite | غرافيت |

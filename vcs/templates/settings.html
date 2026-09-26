@@ -20,6 +20,14 @@
         <option value="ar" {{ 'selected' if settings.language == 'ar' }}>العربية</option>
       </select>
     </div>
+    <div class="field"><label for="settings-3c-theme_palette">{{ _('Color Palette') }}</label>
+      <select id="settings-3c-theme_palette" name="theme_palette">
+        {% for key, label in palette_choices() %}
+        <option value="{{ key }}" {{ 'selected' if current_palette(settings.theme_palette) == key }}>{{ _(label) }}</option>
+        {% endfor %}
+      </select>
+      <div class="small muted">{{ _('Light or dark is each person\'s own choice: the moon button in the sidebar.') }}</div>
+    </div>
   </div>
 
   <div class="section-title" id="money-setting">{{ _('Money Setting') }}</div>

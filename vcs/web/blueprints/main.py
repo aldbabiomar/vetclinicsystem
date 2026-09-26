@@ -9,12 +9,13 @@ import time
 import traceback
 import uuid
 
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Blueprint, current_app, g, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import gettext as _
 
 from vcs import auth, clock, jobs
 from vcs.domain import alerts, settings
 from vcs.errorlog import error_logger
+from vcs.web import brand, palettes
 from vcs.web.core import (PER_PAGE, VERSION, cached_dashboard_snapshot, flash, get_db, get_page, is_safe_local_path,
                           lan_address, page_count, page_offset, shown)
 
@@ -85,20 +86,35 @@ def jobs_status():
     return jsonify(payload)
 
 
+def _favicon():
+    """The logo mark in the clinic palette's accent. Answers during a restore
+    too (hooks.RESTORE_PASSTHROUGH), so it reads no table then."""
+    key = palettes.DEFAULT
+    if not g.get("restore_passthrough"):
+        try:
+            key = palettes.current(settings.get_setting(get_db(), "theme_palette", palettes.DEFAULT))
+        except Exception:
+            pass
+    resp = current_app.response_class(brand.favicon_svg(palettes.PALETTES[key].light["primary"]),
+                                      mimetype="image/svg+xml")
+    # A palette change shows on the next page, not after a browser cache expiry.
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@bp.route("/favicon.svg")
+def favicon_svg():
+    return _favicon()
+
+
 @bp.route("/favicon.ico")
 def favicon_ico():
     # Safari (and some other browsers) probe this exact root-level path
-    # directly, independent of the <link rel="icon"> tag in base.html --
-    # without this route there is nothing at /favicon.ico at all (only at
-    # /static/favicon.svg), so the probe 404s and Safari can fall back to
-    # whatever it last had cached for this origin.
-    #
-    # Unlike IQ, this app ships a single SVG icon and no .ico, and has no
-    # palette to choose between -- so this serves that SVG with its real
-    # mimetype rather than pretending to be an ICO. Every browser that
-    # probes this path also understands SVG icons, and an SVG served
-    # honestly beats a 404.
-    return send_from_directory(current_app.static_folder, "favicon.svg", mimetype="image/svg+xml")
+    # directly, independent of the <link rel="icon"> tag in base.html; without
+    # it the probe 404s and Safari falls back to whatever it cached. It gets
+    # the same SVG with its real mimetype -- every browser that probes this
+    # path understands SVG icons.
+    return _favicon()
 
 
 # ---------------------------------------------------------------------------

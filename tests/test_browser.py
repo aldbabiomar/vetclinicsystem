@@ -1123,3 +1123,59 @@ def test_a_drag_that_starts_on_a_row_does_not_open_it(browser, billable_visit):
         assert page.url.endswith(f"/visits/{billable_visit['visit']}")
     finally:
         ctx.close()
+
+
+# ---------------------------------------------------------------------------
+# The palettes (D-12): the generated CSS really reaches the page, for every
+# palette in both themes -- the unit tests prove the file, this the wiring.
+# ---------------------------------------------------------------------------
+
+def _hex(rgb_css):
+    nums = [int(float(n)) for n in rgb_css[rgb_css.index("(") + 1:rgb_css.index(")")].split(",")[:3]]
+    return "#" + "".join(f"{n:02X}" for n in nums)
+
+
+@pytest.fixture
+def palette_restored(db):
+    row = db.execute("SELECT value FROM settings WHERE key='theme_palette'").fetchone()
+    yield
+    if row is None:
+        db.execute("DELETE FROM settings WHERE key='theme_palette'")
+    else:
+        db.execute("UPDATE settings SET value=%s WHERE key='theme_palette'", (row["value"],))
+    db.commit()
+
+
+def test_every_palette_paints_the_page_in_both_themes(browser, db, palette_restored):
+    """GUARD. The sidebar and a filled button carry the registry's colours:
+    the attribute, the generated selectors and the token names all agree."""
+    from vcs.web import palettes as P
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    try:
+        _login(page)
+        wrong = []
+        for key, pal in P.PALETTES.items():
+            db.execute("INSERT INTO settings (key, value) VALUES ('theme_palette', %s) "
+                       "ON CONFLICT (key) DO UPDATE SET value=excluded.value", (key,))
+            db.commit()
+            page.goto(f"{APP_URL}/settings", wait_until="domcontentloaded")
+            # .btn animates its background; read the end state, not a frame of the fade
+            page.add_style_tag(content="*, *::before, *::after { transition: none !important; }")
+            for theme, tokens in (("light", pal.light), ("dark", pal.dark)):
+                page.evaluate("t => t === 'dark' ? document.documentElement.setAttribute('data-theme', 'dark')"
+                              " : document.documentElement.removeAttribute('data-theme')", theme)
+                got = page.evaluate("""() => ({
+                    palette: document.documentElement.getAttribute('data-palette'),
+                    sidebar: getComputedStyle(document.querySelector('.sidebar')).backgroundColor,
+                    button: getComputedStyle(document.querySelector('.btn:not(.secondary)')).backgroundColor,
+                    label: getComputedStyle(document.querySelector('.btn:not(.secondary)')).color,
+                })""")
+                if got["palette"] != key:
+                    wrong.append(f"{key}: data-palette={got['palette']}")
+                for what, token in (("sidebar", "sidebar-bg"), ("button", "primary"), ("label", "on-primary")):
+                    if _hex(got[what]) != tokens[token].upper():
+                        wrong.append(f"{key} {theme} {what}: {_hex(got[what])} != {tokens[token]}")
+        assert not wrong, "\n".join(wrong)
+    finally:
+        ctx.close()

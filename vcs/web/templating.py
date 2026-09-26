@@ -13,7 +13,7 @@ from vcs import auth, clock, money
 from vcs.config import BIND_PORT
 from vcs.domain import codes, dates, display, settings
 from vcs.errorlog import error_logger
-from vcs.web import js_strings, nav
+from vcs.web import brand, js_strings, nav, palettes
 from vcs.web.core import (cached_dashboard_snapshot, csp_nonce, currency_label, display_date, display_number,
                           get_db, money_setting_label, to_arabic_indic_digits)
 
@@ -250,8 +250,10 @@ def inject_globals():
     try:
         db = get_db()
         clinic_name = settings.get_setting(db, "clinic_name", "VetClinicSystem")
-        clinic_location = settings.get_setting(db, "clinic_location", "Amman, Jordan")
-        ctx = dict(clinic_name=clinic_name, clinic_location=clinic_location, today=clock.today().isoformat(),
+        clinic_location = settings.get_setting(db, "clinic_location", "")
+        theme_palette = palettes.current(settings.get_setting(db, "theme_palette", palettes.DEFAULT))
+        ctx = dict(clinic_name=clinic_name, clinic_location=clinic_location, theme_palette=theme_palette,
+                   today=clock.today().isoformat(),
                    current_role=session.get("role"), current_username=session.get("username"),
                    session_user_id=session.get("user_id"))
         if session.get("user_id"):
@@ -271,7 +273,7 @@ def inject_globals():
             request.method, request.path, traceback.format_exc()
         )
         return dict(
-            clinic_name="VetClinicSystem", clinic_location="",
+            clinic_name="VetClinicSystem", clinic_location="", theme_palette=palettes.DEFAULT,
             today=clock.today().isoformat(),
             current_role=session.get("role"), current_username=session.get("username"),
             alert_count=0, session_user_id=session.get("user_id"),
@@ -325,3 +327,6 @@ def register(app):
     app.jinja_env.globals["format_percent"] = lambda v: display_number(display.format_percent(v))
     app.jinja_env.globals["money_step"] = money.input_step
     app.jinja_env.globals["money_setting_label"] = money_setting_label
+    app.jinja_env.globals["logo_mark"] = brand.logo_mark
+    app.jinja_env.globals["palette_choices"] = palettes.choices
+    app.jinja_env.globals["current_palette"] = palettes.current

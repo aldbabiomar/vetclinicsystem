@@ -34,7 +34,10 @@
         {% if cell is none %}
           <td class="num-col cohort-cell">—</td>
         {% else %}
-          <td class="num-col cohort-cell" style="background: rgba(75,143,107,{{ (cell/100)|round(2) }}); color: {{ 'white' if cell >= 55 else 'var(--ink)' }};">{{ cell }}%</td>
+          {# The palette's accent, at most 40% over the card, under the page's own
+             text: tests/test_palettes.py holds that text to AA on the darkest cell
+             of every palette. #}
+          <td class="num-col cohort-cell" style="background: color-mix(in srgb, var(--primary) {{ (cell * 0.4)|round|int }}%, var(--paper));">{{ cell }}%</td>
         {% endif %}
       {% endfor %}
     </tr>

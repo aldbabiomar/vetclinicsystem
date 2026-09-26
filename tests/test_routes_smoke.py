@@ -234,7 +234,7 @@ def test_every_page_requires_a_login(flask_app):
     new page accidentally being added to that allowlist rather than each
     page forgetting its own guard."""
     anon = flask_app.test_client()
-    public = {"main.login", "main.health", "main.favicon_ico", "static"}
+    public = {"main.login", "main.health", "main.favicon_ico", "main.favicon_svg", "static"}
     assert public <= {r.endpoint for r in flask_app.url_map.iter_rules()}, "a public endpoint was renamed"
     leaked = []
     for rule in _no_arg_routes(flask_app):

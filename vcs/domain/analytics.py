@@ -25,10 +25,9 @@ REVENUE_CATEGORIES = ["Service", "Medicine", "Retail", "Boarding"]
 WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 
-# Default matches Jordan's work week (Sunday-Thursday, so Friday/Saturday is
-# the weekend) — overridable per-deployment via the settings.weekend_days row
-# (comma-separated 0-6 indices, same numbering as EXTRACT(DOW) above) for a
-# clinic running this app outside Jordan. See weekday_is_weekend().
+# Friday and Saturday, the weekend in Iraq and in Jordan — overridable via the
+# settings.weekend_days row (comma-separated 0-6 indices, same numbering as
+# EXTRACT(DOW) above). See weekday_is_weekend().
 DEFAULT_WEEKEND_DAYS = {5, 6}
 
 

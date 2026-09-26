@@ -29,6 +29,7 @@ from vcs import jobs
 from vcs.domain import appointments, logs, members, settings
 from vcs import clock
 from vcs import money
+from vcs.web import palettes
 from vcs.web.core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
@@ -254,6 +255,12 @@ def settings_page():
         if lang_val is not None and lang_val not in SUPPORTED_LANGUAGES:
             flash(_("Not a valid language."), "error")
             return redirect(url_for("settings.settings_page"))
+        # The palette key lands in <html data-palette>; only the registry's
+        # keys have CSS behind them (vcs/web/palettes.py).
+        palette_val = request.form.get("theme_palette")
+        if palette_val is not None and not palettes.is_palette(palette_val):
+            flash(_("Not a valid color palette."), "error")
+            return redirect(url_for("settings.settings_page"))
 
         TIME_FIELDS = ["appt_start_time", "appt_end_time", "backup_time"]
         for key in TIME_FIELDS:
@@ -342,7 +349,7 @@ def settings_page():
         orphaned_before = len(appointments.orphaned_appointments(db))
         for key in ["clinic_name", "clinic_location", "audit_overdue_days", "expiry_soon_days", "opening_date",
                     "appt_start_time", "appt_end_time", "appt_slot_minutes",
-                    "backup_dir", "backup_time", "backup_retention", "language",
+                    "backup_dir", "backup_time", "backup_retention", "language", "theme_palette",
                     "selfcheck_backup_max_age_days", "heartbeat_url", "log_retention_days",
                     # The rewards-card rate and term. Validated above since the
                     # rewards card shipped, but missing from this list in the

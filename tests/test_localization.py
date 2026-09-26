@@ -338,7 +338,10 @@ def test_every_translated_string_is_actually_arabic():
            and en.strip() not in LATIN_BY_NECESSITY]
     assert not bad, f"these msgstr values contain no Arabic characters: {bad[:5]}"
 
-    deliberate = [en for en, ar in translated if ar.strip() == en.strip()]
+    # The two palettes from the predecessor IQ app are names, kept in Latin
+    # script as IQ shipped them (docs/ARABIC_REVIEW.md §20).
+    NAMES = {"Vetzone", "ChamPet"}
+    deliberate = [en for en, ar in translated if ar.strip() == en.strip() and en not in NAMES]
     assert all(("python3" in d or "setup.py" in d or "PDF" in d) for d in deliberate), (
         "a msgstr identical to its msgid should only be a command or a product "
         f"name; found: {[d for d in deliberate if 'python3' not in d][:5]}")

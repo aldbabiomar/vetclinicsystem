@@ -70,7 +70,7 @@ def _reject_null_bytes():
 # What a restore lets through (audit S3): static files, and the progress poll
 # of the admin who started it -- answered from the session and the in-memory
 # job, never from a table.
-RESTORE_PASSTHROUGH = {"static", "main.favicon_ico", "settings.settings_job_status"}
+RESTORE_PASSTHROUGH = {"static", "main.favicon_ico", "main.favicon_svg", "settings.settings_job_status"}
 
 
 def _hold_requests_during_restore():
@@ -207,7 +207,7 @@ def close_db(exc):
 # ---------------------------------------------------------------------------
 # Auth gate
 # ---------------------------------------------------------------------------
-OPEN_ENDPOINTS = {"main.login", "static", "main.health", "main.logout", "main.favicon_ico"}
+OPEN_ENDPOINTS = {"main.login", "static", "main.health", "main.logout", "main.favicon_ico", "main.favicon_svg"}
 
 
 def _warn_if_submission_will_be_lost():

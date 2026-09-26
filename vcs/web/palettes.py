@@ -1,0 +1,498 @@
+"""
+The colour palettes (owner decision D-12): fifteen, each with a light and a
+dark theme. The clinic picks one in Settings (`theme_palette`); the light or
+dark theme is each person's toggle in the sidebar.
+
+This module is the one definition. vcs/static/palettes.css is generated from
+it (scripts/build_palettes.py -- a test fails if the two differ), Settings
+offers and validates against it, and tests/test_palettes.py holds every
+palette to WCAG AA using TEXT_PAIRS below: the text/background pairs the
+stylesheet actually draws.
+
+Every theme defines every token in TOKENS, so no palette can leave one to
+whatever another palette set.
+"""
+import re
+
+from vcs.messages import N_
+
+# The colour tokens every theme defines. The stylesheet may use no other
+# colour token.
+TOKENS = (
+    "bg", "paper", "ink", "ink-soft", "line", "line-soft", "muted", "muted-tint",
+    "primary", "primary-dark", "primary-tint", "on-primary",
+    "ok", "ok-tint", "warn", "warn-ink", "warn-tint", "danger", "danger-dark", "danger-tint",
+    "sidebar-bg", "sidebar-ink", "sidebar-muted", "sidebar-active", "sidebar-active-ink",
+    "sidebar-line", "sidebar-hover", "sidebar-control", "sidebar-control-hover", "sidebar-control-border",
+    "chart-2",
+)
+
+AA_TEXT = 4.5         # WCAG 2.1 AA, normal text
+AA_GRAPHIC = 3.0      # WCAG 2.1 AA, non-text (1.4.11): an icon's glyph
+
+# (foreground, background, minimum): what style.css draws on what.
+TEXT_PAIRS = (
+    # body text and the secondary text beside it
+    ("ink", "bg", AA_TEXT), ("ink", "paper", AA_TEXT), ("ink", "muted-tint", AA_TEXT),
+    ("ink", "line-soft", AA_TEXT), ("ink", "primary-tint", AA_TEXT),
+    ("ink-soft", "bg", AA_TEXT), ("ink-soft", "paper", AA_TEXT), ("ink-soft", "muted-tint", AA_TEXT),
+    ("muted", "bg", AA_TEXT), ("muted", "paper", AA_TEXT), ("muted", "muted-tint", AA_TEXT),
+    # links, badges and chips in the accent
+    ("primary", "bg", AA_TEXT), ("primary", "paper", AA_TEXT), ("primary", "primary-tint", AA_TEXT),
+    ("primary-dark", "paper", AA_TEXT), ("primary-dark", "primary-tint", AA_TEXT),
+    # labels on filled buttons, the nav badge and the active chip
+    ("on-primary", "primary", AA_TEXT), ("on-primary", "primary-dark", AA_TEXT),
+    ("on-primary", "danger", AA_TEXT), ("on-primary", "danger-dark", AA_TEXT), ("on-primary", "ok", AA_TEXT),
+    # status text: on its tint (badges, flashes) and on a card
+    ("ok", "paper", AA_TEXT), ("ok", "ok-tint", AA_TEXT),
+    ("warn-ink", "paper", AA_TEXT), ("warn-ink", "warn-tint", AA_TEXT),
+    ("danger", "paper", AA_TEXT), ("danger", "danger-tint", AA_TEXT),
+    # the sidebar (its translucent tokens are laid over --sidebar-bg)
+    ("sidebar-ink", "sidebar-bg", AA_TEXT), ("sidebar-ink", "sidebar-hover", AA_TEXT),
+    ("sidebar-muted", "sidebar-bg", AA_TEXT), ("sidebar-active-ink", "sidebar-active", AA_TEXT),
+    ("sidebar-ink", "sidebar-control", AA_GRAPHIC),
+    # the toast icons' glyphs
+    ("paper", "ok", AA_GRAPHIC), ("paper", "danger", AA_GRAPHIC), ("paper", "muted", AA_GRAPHIC),
+    # the Insights chart series on their card: primary, chart-2, warn-ink, ok, muted
+    ("chart-2", "paper", AA_GRAPHIC),
+)
+
+
+# The Retention heatmap tints a cell with the accent, up to this share over
+# the card, and keeps the page's text colour on it (retention.html).
+HEATMAP_MAX_MIX = 0.40
+
+
+class Palette:
+    def __init__(self, label, light, dark):
+        self.label, self.light, self.dark = label, light, dark
+
+
+# ---------------------------------------------------------------------------
+# Contrast (WCAG 2.1)
+# ---------------------------------------------------------------------------
+_RGBA = re.compile(r"rgba\((\d+),(\d+),(\d+),([\d.]+)\)")
+
+
+def rgba(colour):
+    """(r, g, b, a) from "#RRGGBB" or "rgba(r,g,b,a)"."""
+    colour = colour.replace(" ", "")
+    m = _RGBA.fullmatch(colour)
+    if m:
+        return int(m[1]), int(m[2]), int(m[3]), float(m[4])
+    if re.fullmatch(r"#[0-9A-Fa-f]{6}", colour):
+        return int(colour[1:3], 16), int(colour[3:5], 16), int(colour[5:7], 16), 1.0
+    raise ValueError(f"not a colour: {colour!r}")
+
+
+def _over(top, base):
+    """`top` laid over the opaque `base`."""
+    r, g, b, a = rgba(top)
+    br, bg_, bb, _ = rgba(base)
+    return (r * a + br * (1 - a), g * a + bg_ * (1 - a), b * a + bb * (1 - a))
+
+
+def _luminance(rgb):
+    def ch(c):
+        c = c / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = rgb
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+
+
+def contrast(fg, bg, base=None):
+    """The contrast ratio of `fg` on `bg`. A translucent `bg` is laid over
+    `base` first (the sidebar's hover and control fills are), and a
+    translucent `fg` over the result."""
+    if rgba(bg)[3] < 1:
+        if base is None:
+            raise ValueError(f"{bg} is translucent: say what it is laid over")
+        bg_rgb = _over(bg, base)
+    else:
+        bg_rgb = rgba(bg)[:3]
+    bg_hex = "#" + "".join(f"{round(c):02X}" for c in bg_rgb)
+    fg_rgb = _over(fg, bg_hex) if rgba(fg)[3] < 1 else rgba(fg)[:3]
+    hi, lo = sorted((_luminance(fg_rgb), _luminance(bg_rgb)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+# ---------------------------------------------------------------------------
+# The CSS
+# ---------------------------------------------------------------------------
+def _shadows(theme, ink):
+    if theme == "dark":
+        return {"shadow-sm": "0 1px 2px rgba(0,0,0,0.35)",
+                "shadow": "0 2px 10px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)",
+                "shadow-lg": "0 16px 48px rgba(0,0,0,0.55)"}
+    r, g, b, _ = rgba(ink)
+    c = f"{r},{g},{b}"
+    return {"shadow-sm": f"0 1px 2px rgba({c},0.05)",
+            "shadow": f"0 2px 10px rgba({c},0.06), 0 1px 2px rgba({c},0.04)",
+            "shadow-lg": f"0 16px 48px rgba({c},0.16)"}
+
+
+def _block(selector, tokens, theme):
+    lines = [f"{selector} {{", f"  color-scheme: {theme};"]
+    lines += [f"  --{name}: {tokens[name]};" for name in TOKENS]
+    lines += [f"  --{name}: {value};" for name, value in _shadows(theme, tokens["ink"]).items()]
+    return "\n".join(lines + ["}"])
+
+
+def css():
+    """vcs/static/palettes.css. The default palette is the bare :root (and
+    the plain dark theme), so a page without data-palette still has every
+    token; each other palette overrides it by attribute."""
+    out = ["/* Generated from vcs/web/palettes.py by scripts/build_palettes.py.",
+           "   Do not edit: change the palette there and regenerate. */", ""]
+    default = PALETTES[DEFAULT]
+    out += [_block(":root", default.light, "light"), "",
+            _block('html[data-theme="dark"]', default.dark, "dark"), ""]
+    for key, p in PALETTES.items():
+        if key == DEFAULT:
+            continue
+        out += [f"/* {p.label} */", _block(f'html[data-palette="{key}"]', p.light, "light"), "",
+                _block(f'html[data-palette="{key}"][data-theme="dark"]', p.dark, "dark"), ""]
+    return "\n".join(out)
+
+
+def choices():
+    """(key, label) in the order Settings lists them. The label is an
+    English msgid; the template translates it."""
+    return [(key, p.label) for key, p in PALETTES.items()]
+
+
+def is_palette(key):
+    return key in PALETTES
+
+
+def current(key):
+    """The palette to show for a stored setting: the default for anything
+    unknown or unset."""
+    return key if key in PALETTES else DEFAULT
+
+
+# ---------------------------------------------------------------------------
+# The palettes
+# ---------------------------------------------------------------------------
+PALETTES = {
+    # From the predecessor IQ app. Secondary and muted text darkened, and the sidebar's text made dark on its light blue, to reach AA.
+    "vetzone": Palette(N_("Vetzone"), light={
+        "bg": "#FAF6F3", "paper": "#FFFFFF", "ink": "#362C2C", "ink-soft": "#776766", "line": "#EAD9D1",
+        "line-soft": "#F4EAE4", "muted": "#756865", "muted-tint": "#F3EDE9", "primary": "#895A5D",
+        "primary-dark": "#704A4C", "primary-tint": "#F3E2E0", "on-primary": "#FFFFFF", "ok": "#5A725F",
+        "ok-tint": "#EBF2EA", "warn": "#C99A5C", "warn-ink": "#8C6B40", "warn-tint": "#FCF7EC", "danger": "#935B51",
+        "danger-dark": "#794B42", "danger-tint": "#F7E8E2", "sidebar-bg": "#99B9C9", "sidebar-ink": "#002E40",
+        "sidebar-muted": "#254959", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#955F62",
+        "sidebar-line": "rgba(0,46,64,0.10)", "sidebar-hover": "rgba(0,46,64,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(0,46,64,0.18)", "chart-2": "#2B5F76",
+    }, dark={
+        "bg": "#171313", "paper": "#211C1C", "ink": "#F3E9E6", "ink-soft": "#B4A19E", "line": "#3A2F2E",
+        "line-soft": "#2A2322", "muted": "#9C8C89", "muted-tint": "#292221", "primary": "#D79EA1",
+        "primary-dark": "#E3B3B5", "primary-tint": "#3A2528", "on-primary": "#171313", "ok": "#93C299",
+        "ok-tint": "#1E2B20", "warn": "#DDB077", "warn-ink": "#DDB077", "warn-tint": "#332812", "danger": "#D98E80",
+        "danger-dark": "#EF9C8D", "danger-tint": "#3A211D", "sidebar-bg": "#223642", "sidebar-ink": "#F3E9E6",
+        "sidebar-muted": "#93A1A9", "sidebar-active": "#2E4756", "sidebar-active-ink": "#F3E9E6",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#80ABC5",
+    }),
+    # From the predecessor IQ app. Secondary and muted text darkened (and the dark sidebar's labels lightened) to reach AA.
+    "champet": Palette(N_("ChamPet"), light={
+        "bg": "#F5F8FA", "paper": "#FFFFFF", "ink": "#212B3D", "ink-soft": "#626D7F", "line": "#E2E8EF",
+        "line-soft": "#EEF2F6", "muted": "#636C7D", "muted-tint": "#EEF1F5", "primary": "#157792",
+        "primary-dark": "#116278", "primary-tint": "#E3F5FA", "on-primary": "#FFFFFF", "ok": "#3C795F",
+        "ok-tint": "#E9F4EE", "warn": "#C08A3C", "warn-ink": "#936A2E", "warn-tint": "#FDF8ED", "danger": "#AA5045",
+        "danger-dark": "#8B4239", "danger-tint": "#FAEAE7", "sidebar-bg": "#293659", "sidebar-ink": "#E7ECF5",
+        "sidebar-muted": "#92A0BE", "sidebar-active": "#37477A", "sidebar-active-ink": "#E7ECF5",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#3F5491",
+    }, dark={
+        "bg": "#10141C", "paper": "#1A2130", "ink": "#E7ECF5", "ink-soft": "#8C97B0", "line": "#2C3547",
+        "line-soft": "#212838", "muted": "#8791A8", "muted-tint": "#232838", "primary": "#3FB8D6",
+        "primary-dark": "#63C9E2", "primary-tint": "#16303A", "on-primary": "#10141C", "ok": "#6FBE9B",
+        "ok-tint": "#1B2E24", "warn": "#DDA85E", "warn-ink": "#DDA85E", "warn-tint": "#33270F", "danger": "#DD8172",
+        "danger-dark": "#F38E7D", "danger-tint": "#33201B", "sidebar-bg": "#1E2740", "sidebar-ink": "#E7ECF5",
+        "sidebar-muted": "#8391B0", "sidebar-active": "#2F3D63", "sidebar-active-ink": "#E7ECF5",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#90A3D6",
+    }),
+    # From the predecessor JO app. Secondary and muted text darkened to reach AA.
+    "crimson": Palette(N_("Crimson"), light={
+        "bg": "#FAF5F1", "paper": "#FFFFFF", "ink": "#2B1620", "ink-soft": "#7A656E", "line": "#EDE1E5",
+        "line-soft": "#F5EEF0", "muted": "#74686D", "muted-tint": "#F3EDEF", "primary": "#B21C43",
+        "primary-dark": "#8A1534", "primary-tint": "#F8E5EA", "on-primary": "#FFFFFF", "ok": "#3F7759",
+        "ok-tint": "#E7F2EC", "warn": "#B5791F", "warn-ink": "#9B671B", "warn-tint": "#FDF8EC", "danger": "#B5442D",
+        "danger-dark": "#943825", "danger-tint": "#F8E7E2", "sidebar-bg": "#051335", "sidebar-ink": "#E8EAF2",
+        "sidebar-muted": "#8892B0", "sidebar-active": "#122253", "sidebar-active-ink": "#FFFFFF",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#365596",
+    }, dark={
+        "bg": "#150E12", "paper": "#1F161B", "ink": "#F5E9EE", "ink-soft": "#B3A0A8", "line": "#3A2C33",
+        "line-soft": "#291F25", "muted": "#9C8E95", "muted-tint": "#272025", "primary": "#E76A8C",
+        "primary-dark": "#F07EA0", "primary-tint": "#3A1522", "on-primary": "#150E12", "ok": "#7FBF9B",
+        "ok-tint": "#16281E", "warn": "#D9A85C", "warn-ink": "#D9A85C", "warn-tint": "#2E2312", "danger": "#E08A72",
+        "danger-dark": "#EC9A82", "danger-tint": "#33201B", "sidebar-bg": "#030B21", "sidebar-ink": "#E8EAF2",
+        "sidebar-muted": "#98A2C0", "sidebar-active": "#16265C", "sidebar-active-ink": "#FFFFFF",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#8BA5D6",
+    }),
+    # The twelve new ones (scripts/palette_design.py).
+    "sage": Palette(N_("Sage"), light={
+        "bg": "#F5F8F4", "paper": "#FFFFFF", "ink": "#1C2119", "ink-soft": "#676C64", "line": "#DDE1DB",
+        "line-soft": "#ECF0EA", "muted": "#696D67", "muted-tint": "#EEF1EC", "primary": "#4A7550",
+        "primary-dark": "#446F4B", "primary-tint": "#E7F2E8", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#132C20", "sidebar-ink": "#E0F0E7",
+        "sidebar-muted": "#82998B", "sidebar-active": "#284435", "sidebar-active-ink": "#E0F0E7",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#36634D",
+    }, dark={
+        "bg": "#0D0F0B", "paper": "#151814", "ink": "#EBEEEA", "ink-soft": "#9BA099", "line": "#2E312C",
+        "line-soft": "#21241F", "muted": "#8F948D", "muted-tint": "#1E221D", "primary": "#769E7B",
+        "primary-dark": "#98BC9C", "primary-tint": "#212E23", "on-primary": "#0D0F0B", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#001006", "sidebar-ink": "#E0F0E7",
+        "sidebar-muted": "#82998B", "sidebar-active": "#0B281A", "sidebar-active-ink": "#E0F0E7",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#85B096",
+    }),
+    "mint": Palette(N_("Mint"), light={
+        "bg": "#F3F8F6", "paper": "#FFFFFF", "ink": "#17221F", "ink-soft": "#626D6A", "line": "#D9E2DF",
+        "line-soft": "#E9F0EE", "muted": "#656E6B", "muted-tint": "#EBF2F0", "primary": "#34766A",
+        "primary-dark": "#2E7065", "primary-tint": "#E4F2EF", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#D4EFE8", "sidebar-ink": "#072B24",
+        "sidebar-muted": "#4D6A63", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#2E7065",
+        "sidebar-line": "rgba(7,43,36,0.10)", "sidebar-hover": "rgba(7,43,36,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(7,43,36,0.18)", "chart-2": "#2E6358",
+    }, dark={
+        "bg": "#0A100E", "paper": "#131917", "ink": "#E9EEEC", "ink-soft": "#97A19E", "line": "#2B3230",
+        "line-soft": "#1E2422", "muted": "#8B9592", "muted-tint": "#1C2220", "primary": "#669F94",
+        "primary-dark": "#8ABDB2", "primary-tint": "#1C2E2A", "on-primary": "#0A100E", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#000F0B", "sidebar-ink": "#DEF0EB",
+        "sidebar-muted": "#839792", "sidebar-active": "#0E2722", "sidebar-active-ink": "#DEF0EB",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#7CB1A4",
+    }),
+    "harbor": Palette(N_("Harbor"), light={
+        "bg": "#F2F8F9", "paper": "#FFFFFF", "ink": "#172124", "ink-soft": "#636E71", "line": "#D9E1E4",
+        "line-soft": "#E9F0F2", "muted": "#646E70", "muted-tint": "#EAF2F3", "primary": "#1E767F",
+        "primary-dark": "#157079", "primary-tint": "#E2F2F4", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#032C34", "sidebar-ink": "#DDEFF4",
+        "sidebar-muted": "#7A98A0", "sidebar-active": "#19444D", "sidebar-active-ink": "#DDEFF4",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#196271",
+    }, dark={
+        "bg": "#0A0F11", "paper": "#13181A", "ink": "#E9EEEF", "ink-soft": "#96A0A3", "line": "#2B3233",
+        "line-soft": "#1E2426", "muted": "#8A9497", "muted-tint": "#1B2223", "primary": "#599FA7",
+        "primary-dark": "#80BDC4", "primary-tint": "#182E31", "on-primary": "#0A0F11", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#000F17", "sidebar-ink": "#DDEFF4",
+        "sidebar-muted": "#7A98A0", "sidebar-active": "#002730", "sidebar-active-ink": "#DDEFF4",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#7DADC3",
+    }),
+    "ocean": Palette(N_("Ocean"), light={
+        "bg": "#F3F7FA", "paper": "#FFFFFF", "ink": "#182026", "ink-soft": "#656D73", "line": "#DAE1E6",
+        "line-soft": "#EAEFF3", "muted": "#666D72", "muted-tint": "#ECF1F5", "primary": "#1B71A3",
+        "primary-dark": "#0E6A9B", "primary-tint": "#E1F1FD", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#D3ECFD", "sidebar-ink": "#082739",
+        "sidebar-muted": "#4D6779", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#0E6A9B",
+        "sidebar-line": "rgba(8,39,57,0.10)", "sidebar-hover": "rgba(8,39,57,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(8,39,57,0.18)", "chart-2": "#365D76",
+    }, dark={
+        "bg": "#0B0F12", "paper": "#14181B", "ink": "#E9EDF0", "ink-soft": "#98A0A5", "line": "#2C3135",
+        "line-soft": "#1F2427", "muted": "#8C9399", "muted-tint": "#1C2125", "primary": "#559AC9",
+        "primary-dark": "#7CB9E4", "primary-tint": "#172D3B", "on-primary": "#0B0F12", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#000D18", "sidebar-ink": "#DFEDF7",
+        "sidebar-muted": "#8395A2", "sidebar-active": "#0E2432", "sidebar-active-ink": "#DFEDF7",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#82AAC6",
+    }),
+    "slate": Palette(N_("Slate"), light={
+        "bg": "#F5F7FA", "paper": "#FFFFFF", "ink": "#1B2025", "ink-soft": "#686C72", "line": "#DCE0E5",
+        "line-soft": "#ECEFF3", "muted": "#686C71", "muted-tint": "#EDF0F4", "primary": "#516B93",
+        "primary-dark": "#4A648B", "primary-tint": "#E8EFF9", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#1E2733", "sidebar-ink": "#E2ECF9",
+        "sidebar-muted": "#8A939F", "sidebar-active": "#333E4C", "sidebar-active-ink": "#E2ECF9",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#415979",
+    }, dark={
+        "bg": "#0C0F11", "paper": "#15171A", "ink": "#EBEDF0", "ink-soft": "#9A9FA4", "line": "#2E3134",
+        "line-soft": "#202327", "muted": "#8E9398", "muted-tint": "#1E2124", "primary": "#7A94B9",
+        "primary-dark": "#9BB3D5", "primary-tint": "#232B36", "on-primary": "#0C0F11", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#050B16", "sidebar-ink": "#E2ECF9",
+        "sidebar-muted": "#8A939F", "sidebar-active": "#19222F", "sidebar-active-ink": "#E2ECF9",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#8EA6CB",
+    }),
+    "indigo": Palette(N_("Indigo"), light={
+        "bg": "#F5F6FB", "paper": "#FFFFFF", "ink": "#1D1F27", "ink-soft": "#696B74", "line": "#DDDFE6",
+        "line-soft": "#EDEEF4", "muted": "#6A6B73", "muted-tint": "#EEF0F6", "primary": "#5D63AD",
+        "primary-dark": "#555BA3", "primary-tint": "#EAEDFF", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#202245", "sidebar-ink": "#E8EAF9",
+        "sidebar-muted": "#8A90B2", "sidebar-active": "#353962", "sidebar-active-ink": "#E8EAF9",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#4C5090",
+    }, dark={
+        "bg": "#0D0E12", "paper": "#16171B", "ink": "#EBECF1", "ink-soft": "#9C9EA6", "line": "#2F3035",
+        "line-soft": "#212328", "muted": "#90929A", "muted-tint": "#1F2025", "primary": "#858DD3",
+        "primary-dark": "#A3ACEB", "primary-tint": "#25283E", "on-primary": "#0D0E12", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#070525", "sidebar-ink": "#E8EAF9",
+        "sidebar-muted": "#8A90B2", "sidebar-active": "#1B1C43", "sidebar-active-ink": "#E8EAF9",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#969EE5",
+    }),
+    "lavender": Palette(N_("Lavender"), light={
+        "bg": "#F7F6FA", "paper": "#FFFFFF", "ink": "#201E26", "ink-soft": "#6D6A73", "line": "#E0DEE5",
+        "line-soft": "#EFEDF3", "muted": "#6D6A72", "muted-tint": "#F1EFF5", "primary": "#776099",
+        "primary-dark": "#6D568E", "primary-tint": "#F1ECFA", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#ECE3FC", "sidebar-ink": "#281E38",
+        "sidebar-muted": "#675E78", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#6D568E",
+        "sidebar-line": "rgba(40,30,56,0.10)", "sidebar-hover": "rgba(40,30,56,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(40,30,56,0.18)", "chart-2": "#5E5074",
+    }, dark={
+        "bg": "#0F0D12", "paper": "#18161B", "ink": "#EDECF0", "ink-soft": "#9F9DA5", "line": "#312F35",
+        "line-soft": "#232227", "muted": "#939199", "muted-tint": "#211F25", "primary": "#9D88BE",
+        "primary-dark": "#B9A7D8", "primary-tint": "#2D2637", "on-primary": "#0F0D12", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#0E0717", "sidebar-ink": "#EDE8F7",
+        "sidebar-muted": "#958EA1", "sidebar-active": "#251D31", "sidebar-active-ink": "#EDE8F7",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#AC9CC4",
+    }),
+    "orchid": Palette(N_("Orchid"), light={
+        "bg": "#FAF5F8", "paper": "#FFFFFF", "ink": "#251C21", "ink-soft": "#72696E", "line": "#E5DDE1",
+        "line-soft": "#F3ECF0", "muted": "#71696D", "muted-tint": "#F4EEF1", "primary": "#94557D",
+        "primary-dark": "#894B73", "primary-tint": "#FAE9F3", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#371D2A", "sidebar-ink": "#F6E6ED",
+        "sidebar-muted": "#A48A96", "sidebar-active": "#513242", "sidebar-active-ink": "#F6E6ED",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#76475E",
+    }, dark={
+        "bg": "#110D0F", "paper": "#1A1618", "ink": "#F0EBEE", "ink-soft": "#A49CA0", "line": "#342E31",
+        "line-soft": "#272124", "muted": "#988F94", "muted-tint": "#241F21", "primary": "#BC7FA5",
+        "primary-dark": "#D59DBF", "primary-tint": "#36232F", "on-primary": "#110D0F", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#18030E", "sidebar-ink": "#F6E6ED",
+        "sidebar-muted": "#A48A96", "sidebar-active": "#331726", "sidebar-active-ink": "#F6E6ED",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#C892AC",
+    }),
+    "terracotta": Palette(N_("Terracotta"), light={
+        "bg": "#FBF5F2", "paper": "#FFFFFF", "ink": "#271D17", "ink-soft": "#746963", "line": "#E7DED9",
+        "line-soft": "#F4EDE9", "muted": "#736A64", "muted-tint": "#F6EEEA", "primary": "#A25539",
+        "primary-dark": "#964A2F", "primary-tint": "#FEEAE3", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#F9E3D8", "sidebar-ink": "#341E13",
+        "sidebar-muted": "#745E53", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#964A2F",
+        "sidebar-line": "rgba(52,30,19,0.10)", "sidebar-hover": "rgba(52,30,19,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(52,30,19,0.18)", "chart-2": "#744E3A",
+    }, dark={
+        "bg": "#120D0A", "paper": "#1B1613", "ink": "#F1EBE9", "ink-soft": "#A69C97", "line": "#362F2B",
+        "line-soft": "#28211E", "muted": "#9A908A", "muted-tint": "#251F1B", "primary": "#C98066",
+        "primary-dark": "#E29E87", "primary-tint": "#3B231B", "on-primary": "#120D0A", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#150703", "sidebar-ink": "#F7E8E0",
+        "sidebar-muted": "#9E8E87", "sidebar-active": "#2E1D14", "sidebar-active-ink": "#F7E8E0",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#C69987",
+    }),
+    "sand": Palette(N_("Sand"), light={
+        "bg": "#F9F6F1", "paper": "#FFFFFF", "ink": "#241E15", "ink-soft": "#716B61", "line": "#E4DFD7",
+        "line-soft": "#F2EEE7", "muted": "#706B63", "muted-tint": "#F4EFE9", "primary": "#8D6224",
+        "primary-dark": "#84591A", "primary-tint": "#F8EDE0", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#312317", "sidebar-ink": "#F5E9DE",
+        "sidebar-muted": "#9D8F84", "sidebar-active": "#4A392B", "sidebar-active-ink": "#F5E9DE",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#705034",
+    }, dark={
+        "bg": "#110E09", "paper": "#1A1712", "ink": "#EFECE8", "ink-soft": "#A39D95", "line": "#34302A",
+        "line-soft": "#26221C", "muted": "#979189", "muted-tint": "#24201A", "primary": "#B38A55",
+        "primary-dark": "#D0AA7B", "primary-tint": "#342717", "on-primary": "#110E09", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#140801", "sidebar-ink": "#F5E9DE",
+        "sidebar-muted": "#9D8F84", "sidebar-active": "#2D1E11", "sidebar-active-ink": "#F5E9DE",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#C09D7E",
+    }),
+    "olive": Palette(N_("Olive"), light={
+        "bg": "#F7F7F2", "paper": "#FFFFFF", "ink": "#202015", "ink-soft": "#6D6C61", "line": "#E0E0D7",
+        "line-soft": "#EFEFE8", "muted": "#6D6C63", "muted-tint": "#F1F1E9", "primary": "#6C6F31",
+        "primary-dark": "#646829", "primary-tint": "#EEF0E2", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#EAEAD0", "sidebar-ink": "#262605",
+        "sidebar-muted": "#656549", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#646829",
+        "sidebar-line": "rgba(38,38,5,0.10)", "sidebar-hover": "rgba(38,38,5,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(38,38,5,0.18)", "chart-2": "#5C5A31",
+    }, dark={
+        "bg": "#0F0F09", "paper": "#181712", "ink": "#EDEDE8", "ink-soft": "#9F9F95", "line": "#31312A",
+        "line-soft": "#24231D", "muted": "#939389", "muted-tint": "#21211A", "primary": "#939760",
+        "primary-dark": "#B2B684", "primary-tint": "#2A2C1A", "on-primary": "#0F0F09", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#0D0C00", "sidebar-ink": "#ECECDD",
+        "sidebar-muted": "#939480", "sidebar-active": "#23230C", "sidebar-active-ink": "#ECECDD",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#A9A87C",
+    }),
+    "graphite": Palette(N_("Graphite"), light={
+        "bg": "#F5F7F8", "paper": "#FFFFFF", "ink": "#1D2022", "ink-soft": "#696C6F", "line": "#DEE0E2",
+        "line-soft": "#EDEFF0", "muted": "#6A6C6E", "muted-tint": "#EEF0F2", "primary": "#626C76",
+        "primary-dark": "#5B646F", "primary-tint": "#ECEFF1", "on-primary": "#FFFFFF", "ok": "#3F774D",
+        "ok-tint": "#E3F6E6", "warn": "#D09945", "warn-ink": "#976213", "warn-tint": "#FDF2DD", "danger": "#A74F3F",
+        "danger-dark": "#923C2D", "danger-tint": "#FFE9E4", "sidebar-bg": "#E5E8EC", "sidebar-ink": "#212428",
+        "sidebar-muted": "#606467", "sidebar-active": "#FFFFFF", "sidebar-active-ink": "#5B646F",
+        "sidebar-line": "rgba(33,36,40,0.10)", "sidebar-hover": "rgba(33,36,40,0.06)",
+        "sidebar-control": "rgba(255,255,255,0.55)", "sidebar-control-hover": "rgba(255,255,255,0.85)",
+        "sidebar-control-border": "rgba(33,36,40,0.18)", "chart-2": "#415A79",
+    }, dark={
+        "bg": "#0D0E10", "paper": "#161719", "ink": "#ECEDEE", "ink-soft": "#9C9FA1", "line": "#2F3032",
+        "line-soft": "#212325", "muted": "#909295", "muted-tint": "#1F2122", "primary": "#8A939D",
+        "primary-dark": "#AAB2BB", "primary-tint": "#282A2D", "on-primary": "#0D0E10", "ok": "#6FB07D",
+        "ok-tint": "#16281A", "warn": "#DAA75D", "warn-ink": "#DAA75D", "warn-tint": "#2E2311", "danger": "#DA8473",
+        "danger-dark": "#F0A08F", "danger-tint": "#321C18", "sidebar-bg": "#090B0E", "sidebar-ink": "#E8EBEF",
+        "sidebar-muted": "#909295", "sidebar-active": "#1F2225", "sidebar-active-ink": "#E8EBEF",
+        "sidebar-line": "rgba(255,255,255,0.08)", "sidebar-hover": "rgba(255,255,255,0.05)",
+        "sidebar-control": "rgba(255,255,255,0.12)", "sidebar-control-hover": "rgba(255,255,255,0.22)",
+        "sidebar-control-border": "rgba(255,255,255,0.28)", "chart-2": "#8EA6CB",
+    }),
+}
+DEFAULT = "slate"
