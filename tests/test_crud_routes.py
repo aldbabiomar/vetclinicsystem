@@ -258,12 +258,12 @@ def test_a_duplicate_microchip_is_refused_and_leaves_nothing_behind(client, db, 
 
 
 def test_a_patient_is_found_by_microchip_however_it_is_typed(client, db, chip_patient):
-    from vcs.domain import logic
+    from vcs.domain import search
     chip = _chip("55")
     assert _edit(client, chip_patient, microchip=chip).status_code == 302
 
     def ids(term):
-        return {r["id"] for r in logic.search_patients(db, term)}
+        return {r["id"] for r in search.search_patients(db, term)}
 
     assert chip_patient in ids(chip), "searching the stored chip must find the patient"
     spaced = f"{chip[:3]} {chip[3:9]}-{chip[9:]}"

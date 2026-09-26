@@ -38,7 +38,7 @@ for _p in sorted(PKG.rglob("*.py")):
 
 
 def module(name):
-    """The source file of a module: module("logic"), module("pool")."""
+    """The source file of a module: module("billing"), module("pool")."""
     path = _MODULES.get(name)
     assert path is not None, f"no module named {name!r} under vcs/"
     return path
@@ -48,6 +48,13 @@ def blueprint(name):
     path = WEB / "blueprints" / f"{name}.py"
     assert path.exists(), f"no blueprint module {name!r}"
     return path
+
+
+def domain_modules():
+    """The queries and calculations: every module under vcs/domain/."""
+    mods = sorted(p for p in (PKG / "domain").glob("*.py") if p.name != "__init__.py")
+    assert len(mods) >= 18, f"expected the domain modules, found {[p.name for p in mods]}"
+    return mods
 
 
 def web_modules():

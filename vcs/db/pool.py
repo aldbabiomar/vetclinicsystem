@@ -1,7 +1,7 @@
 """
 Postgres connection layer for VetClinicSystem.
 
-This module exists so the rest of the codebase (the request layer, logic.py,
+This module exists so the rest of the codebase (the request layer, the domain modules,
 auth.py, attachments.py, ...) can use a consistent, simple data-access style.
 It provides:
 
@@ -198,7 +198,7 @@ def next_row_id(db, table):
     needs the id before its INSERT (a flash message, log_change(), an
     attachment folder). Atomic like any nextval(); a rolled-back insert
     leaves a gap, which is harmless — ids are for joining, and staff see
-    them as codes (logic.code), not as a count."""
+    them as codes (codes.code), not as a count."""
     if table not in _ID_TABLES:
         raise ValueError(f"no generated id for {table!r}")
     return db.execute(f"SELECT nextval(pg_get_serial_sequence('{table}', 'id')) AS n").fetchone()["n"]

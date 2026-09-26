@@ -32,7 +32,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from vcs.domain import logic
+from vcs.domain import cash_register
 from conftest import new_id, ADMIN_ID, needs_db
 
 
@@ -379,7 +379,7 @@ def test_a_cash_discrepancy_is_flashed_as_a_warning_not_an_error(client, db):
 def test_a_perfect_cash_count_is_still_a_success(client, db):
     """CONTROL — the success path must not have been turned into a warning."""
     day = clock.today().isoformat()
-    totals = logic.cash_register_totals(db, day)
+    totals = cash_register.cash_register_totals(db, day)
     resp = client.post("/cash-register/audit",
                        data={"day": day, "counted_cash": str(totals["Cash"]), "notes": "control"},
                        follow_redirects=True)

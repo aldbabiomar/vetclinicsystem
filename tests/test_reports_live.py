@@ -18,7 +18,6 @@ from decimal import Decimal as D
 import pytest
 
 from vcs import clock
-from vcs.domain import logic
 from vcs.domain import reports
 from conftest import ADMIN_ID, needs_db
 # Fixtures and helpers from the money route tests, reused rather than copied.

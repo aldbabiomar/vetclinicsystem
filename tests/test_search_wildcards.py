@@ -16,7 +16,7 @@ import uuid
 
 import pytest
 
-from vcs.domain import logic
+from vcs.domain import search
 from conftest import new_id, needs_db
 
 pytestmark = needs_db
@@ -36,15 +36,15 @@ pytestmark = needs_db
     (None,         "%%"),
 ])
 def test_like_pattern_escapes_wildcards(raw, expected):
-    assert logic.like_pattern(raw) == expected
+    assert search.like_pattern(raw) == expected
 
 
 def test_backslash_is_escaped_before_the_others():
     r"""GUARD on ordering. Escaping % or _ first turns the backslash this
     inserts into an escape for the next replacement, and '\%' becomes '\\%' —
     a literal backslash followed by a live wildcard."""
-    assert logic.like_pattern("100%") == r"%100\%%"
-    assert logic.like_pattern("\\") == r"%\\%"
+    assert search.like_pattern("100%") == r"%100\%%"
+    assert search.like_pattern("\\") == r"%\\%"
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ def owners(db):
 def _search(db, term):
     return [r["name"] for r in db.execute(
         "SELECT name FROM owners WHERE name ILIKE ? ORDER BY name",
-        (logic.like_pattern(term),)).fetchall()]
+        (search.like_pattern(term),)).fetchall()]
 
 
 def test_underscore_matches_only_a_literal_underscore(db, owners):

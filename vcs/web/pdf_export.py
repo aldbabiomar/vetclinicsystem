@@ -13,7 +13,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 )
 
-from vcs.domain import logic
+from vcs.domain import billing, clinical, codes, dates, display, distributors
 from vcs.domain import attachments
 from vcs import money
 def _m(amount):
@@ -27,7 +27,7 @@ def _minute(ts):
     it: '2026-09-25 09:29'. Settlement bounds are stored to the microsecond so
     that a sale in the same second as a settlement falls on exactly one side
     of it; the statement does not need to show that."""
-    return logic.fmt_datetime(ts) if ts else ts
+    return dates.fmt_datetime(ts) if ts else ts
 
 
 def _cur():
@@ -60,7 +60,7 @@ def _discount_row(subtotal, discount_percent, discount_source, pre_cleanup_total
         return None
     label = "Member discount" if discount_source == "member" else "Discount"
     # format_percent, not :.0f — a 12.5% rate printed as "12%".
-    return [f"{label} ({logic.format_percent(discount_percent)}%)",
+    return [f"{label} ({display.format_percent(discount_percent)}%)",
             f"-{_m(subtotal - pre_cleanup_total)}{suffix}"]
 
 
@@ -106,7 +106,7 @@ def _attachments_note(ss, files):
         return []
     flow = [Paragraph("Attachments on file (not included in this PDF)", ss["H2"])]
     for f in files:
-        flow.append(Paragraph(f"\u2022 {X(f['original_name'])} — uploaded {X(logic.fmt_date(f['uploaded_at']))}", ss["Body"]))
+        flow.append(Paragraph(f"\u2022 {X(f['original_name'])} — uploaded {X(dates.fmt_date(f['uploaded_at']))}", ss["Body"]))
     flow.append(Paragraph(
         "These files are stored in the system but are not embedded in this export. "
         "Open the record on-screen to view them, and print them separately if needed.",
@@ -139,14 +139,14 @@ def export_patient_file(db, patient_id):
     cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date", (patient_id,)).fetchall()
     # Without the admitting visit of each stay, which the stay's own section
     # already covers (audit P4).
-    visits = logic.patient_outpatient_visits(db, patient_id, cases, order="ASC")
+    visits = clinical.patient_outpatient_visits(db, patient_id, cases, order="ASC")
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Patient file — {X(patient['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(logic.code('PT', patient_id))} \u00b7 {X(patient['species'] or '')}"
+        Paragraph(f"{X(codes.code('PT', patient_id))} \u00b7 {X(patient['species'] or '')}"
                   f"{' \u00b7 Chip: ' + X(patient['microchip']) if patient['microchip'] else ''}"
                   f" \u00b7 Owner: {X(patient['owner_name'])}"
                   f"{' (' + X(patient['owner_phone']) + ')' if patient['owner_phone'] else ''}", ss["Small"]),
@@ -156,7 +156,7 @@ def export_patient_file(db, patient_id):
     story.append(Paragraph("Outpatient / visit history", ss["H2"]))
     if visits:
         for v in visits:
-            summary = logic.visit_billing_summary(db, v["id"])
+            summary = billing.visit_billing_summary(db, v["id"])
             proc_names = ", ".join(l["name"] for l in summary["lines"]) or "\u2014"
             story.append(Paragraph(f"<b>{X(v['date'] or '')}</b> — {X(v['visit_type'] or '')} \u00b7 Dr. {X(v['doctor'] or '\u2014')} \u00b7 Status: {X(v['case_status'] or '\u2014')}", ss["Body"]))
             story.append(Paragraph(f"Complaint: {X(v['complaint'] or '\u2014')}", ss["Body"]))
@@ -172,7 +172,7 @@ def export_patient_file(db, patient_id):
     story.append(Paragraph("Inpatient stays", ss["H2"]))
     if cases:
         for c in cases:
-            bsum = logic.inpatient_billing_summary(db, c["id"])
+            bsum = billing.inpatient_billing_summary(db, c["id"])
             proc_names = ", ".join(l["name"] for l in bsum["lines"]) or "\u2014"
             story.append(Paragraph(
                 f"<b>Admitted {X(c['admission_date'])}</b>"
@@ -212,20 +212,20 @@ def export_patient_billing(db, patient_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Billing history — {X(patient['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(logic.code('PT', patient_id))} \u00b7 Owner: {X(patient['owner_name'])}", ss["Small"]),
+        Paragraph(f"{X(codes.code('PT', patient_id))} \u00b7 Owner: {X(patient['owner_name'])}", ss["Small"]),
         Spacer(1, 10),
     ]
 
     grand_total = 0
     for v in visits:
-        summary = logic.visit_billing_summary(db, v["id"])
+        summary = billing.visit_billing_summary(db, v["id"])
         if not summary["lines"]:
             continue
-        story.append(Paragraph(f"<b>{X(v['date'] or '')}</b> \u2014 {X(logic.code('V', v['id']))}", ss["H2"]))
+        story.append(Paragraph(f"<b>{X(v['date'] or '')}</b> \u2014 {X(codes.code('V', v['id']))}", ss["H2"]))
         data = [["Service", f"Price ({_cur()})"]]
         for l in summary["lines"]:
             amount = l.get("line_total", l["price"])
-            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {logic.format_quantity(l['quantity'])}"
+            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {display.format_quantity(l['quantity'])}"
             data.append([label, f"{_m(amount)}"])
         data.append(["Subtotal", f"{_m(summary['subtotal'])}"])
         _drow = _discount_row(summary["subtotal"], summary["discount_percent"],
@@ -274,13 +274,13 @@ def export_sale_receipt(db, sale_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph("Sale receipt", ss["H1"]),
-        Paragraph(f"Sale #{X(sale_id)} \u00b7 {X(logic.fmt_datetime(sale['sold_at']))} \u00b7 Sold by {X(sale['cashier_name'] or '\u2014')}", ss["Small"]),
+        Paragraph(f"Sale #{X(sale_id)} \u00b7 {X(dates.fmt_datetime(sale['sold_at']))} \u00b7 Sold by {X(sale['cashier_name'] or '\u2014')}", ss["Small"]),
         Spacer(1, 12),
     ]
 
     data = [["Item", f"Unit Price ({_cur()})", "Qty", f"Line Total ({_cur()})"]]
     for l in lines:
-        data.append([l["name"], f"{_m(l['unit_price'])}", logic.format_quantity(l['quantity']), f"{_m(l['line_total'])}"])
+        data.append([l["name"], f"{_m(l['unit_price'])}", display.format_quantity(l['quantity']), f"{_m(l['line_total'])}"])
     t = _section_table(data, [70 * mm, 35 * mm, 20 * mm, 40 * mm])
     story.append(t)
     story.append(Spacer(1, 14))
@@ -327,7 +327,7 @@ def export_visit_pdf(db, visit_id):
         "JOIN owners o ON o.id=p.owner_id WHERE vi.id=?",
         (visit_id,),
     ).fetchone()
-    summary = logic.visit_billing_summary(db, visit_id)
+    summary = billing.visit_billing_summary(db, visit_id)
     files = attachments.list_attachments(db, "visit", visit_id)
 
     buf = io.BytesIO()
@@ -335,7 +335,7 @@ def export_visit_pdf(db, visit_id):
                              leftMargin=18 * mm, rightMargin=18 * mm)
     story = [
         Paragraph(f"Visit record \u2014 {X(v['animal_name'])}", ss["H1"]),
-        Paragraph(f"{X(logic.code('V', visit_id))} \u00b7 {X(v['species'] or '')}"
+        Paragraph(f"{X(codes.code('V', visit_id))} \u00b7 {X(v['species'] or '')}"
                   f"{' \u00b7 Chip: ' + X(v['microchip']) if v['microchip'] else ''}"
                   f" \u00b7 Owner: {X(v['owner_name'])}"
                   f"{' (' + X(v['owner_phone']) + ')' if v['owner_phone'] else ''}"
@@ -350,7 +350,7 @@ def export_visit_pdf(db, visit_id):
     if v["weight_kg"] is not None or v["bcs"] is not None:
         bits = []
         if v["weight_kg"] is not None:
-            bits.append(f"Weight: {logic.format_quantity(v['weight_kg'])} kg")
+            bits.append(f"Weight: {display.format_quantity(v['weight_kg'])} kg")
         if v["bcs"] is not None:
             bits.append(f"BCS: {v['bcs']}/9")
         story.append(Paragraph(" \u00b7 ".join(bits), ss["Body"]))
@@ -383,7 +383,7 @@ def export_visit_pdf(db, visit_id):
         data = [["Item", f"Price ({_cur()})"]]
         for l in summary["lines"]:
             amount = l.get("line_total", l["price"])
-            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {logic.format_quantity(l['quantity'])}"
+            label = l["name"] if not l.get("quantity") or l["quantity"] == 1 else f"{l['name']} × {display.format_quantity(l['quantity'])}"
             data.append([label, f"{_m(amount)}"])
         story.append(_section_table(data, [120 * mm, 45 * mm]))
         story.append(Spacer(1, 6))
@@ -425,7 +425,7 @@ def export_inpatient_pdf(db, case_id):
     ).fetchone()
     updates = db.execute("SELECT iu.*, u.full_name FROM inpatient_updates iu LEFT JOIN users u ON u.id=iu.user_id "
                           "WHERE iu.case_id=? ORDER BY iu.timestamp", (case_id,)).fetchall()
-    summary = logic.inpatient_billing_summary(db, case_id)
+    summary = billing.inpatient_billing_summary(db, case_id)
     files = attachments.list_attachments(db, "inpatient", case_id)
 
     buf = io.BytesIO()
@@ -450,7 +450,7 @@ def export_inpatient_pdf(db, case_id):
     if c["weight_kg"] is not None or c["bcs"] is not None:
         bits = []
         if c["weight_kg"] is not None:
-            bits.append(f"Weight: {logic.format_quantity(c['weight_kg'])} kg")
+            bits.append(f"Weight: {display.format_quantity(c['weight_kg'])} kg")
         if c["bcs"] is not None:
             bits.append(f"BCS: {c['bcs']}/9")
         story.append(Paragraph(" \u00b7 ".join(bits), ss["Body"]))
@@ -464,7 +464,7 @@ def export_inpatient_pdf(db, case_id):
     story.append(Paragraph("Daily Updates", ss["H2"]))
     if updates:
         for u in updates:
-            story.append(Paragraph(f"<b>{X(logic.fmt_datetime(u['timestamp']))}</b> ({X(u['full_name'] or '\u2014')}): {X(u['note'])}", ss["Body"]))
+            story.append(Paragraph(f"<b>{X(dates.fmt_datetime(u['timestamp']))}</b> ({X(u['full_name'] or '\u2014')}): {X(u['note'])}", ss["Body"]))
     else:
         story.append(Paragraph("No daily updates logged.", ss["Small"]))
 
@@ -472,7 +472,7 @@ def export_inpatient_pdf(db, case_id):
     if summary["lines"]:
         data = [["Procedure", "Qty", f"Unit Price ({_cur()})", f"Line Total ({_cur()})"]]
         for l in summary["lines"]:
-            data.append([l["name"], logic.format_quantity(l['quantity']), f"{_m(l['unit_price'])}", f"{_m(l['line_total'])}"])
+            data.append([l["name"], display.format_quantity(l['quantity']), f"{_m(l['unit_price'])}", f"{_m(l['line_total'])}"])
         story.append(_section_table(data, [70 * mm, 20 * mm, 35 * mm, 40 * mm]))
         story.append(Spacer(1, 6))
     bill_rows = [["Subtotal", f"{_m(summary['subtotal'])} {_cur()}"]]
@@ -514,7 +514,7 @@ def export_boarding_pdf(db, boarding_id):
         "WHERE bi.boarding_id=? ORDER BY bi.timestamp",
         (boarding_id,),
     ).fetchall()
-    summary = logic.boarding_billing_summary(db, boarding_id)
+    summary = billing.boarding_billing_summary(db, boarding_id)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,
@@ -544,7 +544,7 @@ def export_boarding_pdf(db, boarding_id):
     if incidents:
         for i in incidents:
             contact_bit = f" \u2014 Contacted owner via {X(i['contact_method'])}" if i["contacted"] == "Y" else " \u2014 Owner not contacted"
-            story.append(Paragraph(f"<b>{X(logic.fmt_datetime(i['timestamp']))}</b> ({X(i['full_name'] or '\u2014')}): {X(i['issue'])}{contact_bit}", ss["Body"]))
+            story.append(Paragraph(f"<b>{X(dates.fmt_datetime(i['timestamp']))}</b> ({X(i['full_name'] or '\u2014')}): {X(i['issue'])}{contact_bit}", ss["Body"]))
             if i["response"]:
                 story.append(Paragraph(f"Response: {X(i['response'])}", ss["Body"]))
     else:
@@ -600,7 +600,7 @@ def export_consignment_settlement_pdf(db, settlement_id):
         Paragraph(f"Settlement #{X(settlement_id)} · {X(s['distributor_name'])}"
                   f"{' · ' + X(contact_bits) if contact_bits else ''}", ss["Small"]),
         Paragraph(f"Period: {X(_minute(s['period_start']) or 'start')} — {X(_minute(s['period_end']))}", ss["Small"]),
-        Paragraph(f"Recorded by {X(s['settled_by_name'] or '—')} on {X(logic.fmt_datetime(s['created_at']))}", ss["Small"]),
+        Paragraph(f"Recorded by {X(s['settled_by_name'] or '—')} on {X(dates.fmt_datetime(s['created_at']))}", ss["Small"]),
         Spacer(1, 14),
     ]
 
@@ -635,7 +635,7 @@ def export_distributor_ledger(db, distributor_id):
     """One distributor — every bill, its payments, and running totals."""
     ss = _styles()
     dist = db.execute("SELECT * FROM distributors WHERE id=?", (distributor_id,)).fetchone()
-    ledger = logic.distributor_ledger(db, distributor_id)
+    ledger = distributors.distributor_ledger(db, distributor_id)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,
@@ -654,7 +654,7 @@ def export_distributor_ledger(db, distributor_id):
     ]
 
     for bill in ledger["bills"]:
-        header = f"<b>{X(logic.code('DB', bill['id']))}</b>"
+        header = f"<b>{X(codes.code('DB', bill['id']))}</b>"
         if bill["bill_reference"]:
             header += f" · {X(bill['bill_reference'])}"
         header += f" · {X(bill['bill_date'])} · {X(bill['status'])}"

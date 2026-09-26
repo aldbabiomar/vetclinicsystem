@@ -33,7 +33,7 @@ closed on 2026-09-09 by porting IQ's version here: each day's verdict is now
 keyed by the ran_at timestamp rather than by insert order (COMPARISON.md
 §43). **`diff` the two files rather than trusting this sentence.** Every API
 it touches was
-checked against JO's own code on 2026-08-26: logic.get_setting/int_setting,
+checked against JO's own code on 2026-08-26: settings.get_setting/int_setting,
 backup.last_backup/recent_backups, the backup_log columns, and
 updater.DATA_DIR all match IQ's exactly — DATA_DIR reads
 VETCLINICSYSTEM_DATA_DIR rather than the IQ variable, but the attribute
@@ -47,13 +47,13 @@ import os
 import shutil
 from datetime import timedelta
 
-from vcs.domain import logic
+from vcs.domain import settings
 from vcs.db import migrate as schema
 from vcs import clock  # Severity ordering, worst last — used to compute the overall status.
 _RANK = {"ok": 0, "warn": 1, "fail": 2}
 
 BACKUP_MAX_AGE_DEFAULT = 2      # days; overridable via selfcheck_backup_max_age_days
-STRANDED_RUNNING_HOURS = 6      # matches logic.backup_alert_message()'s own threshold
+STRANDED_RUNNING_HOURS = 6      # matches alerts.backup_alert_message()'s own threshold
 RESTORE_VERIFY_MAX_AGE_DAYS = 45
 DISK_WARN_BYTES = 2 * 1024 * 1024 * 1024   # 2 GB
 DISK_FAIL_BYTES = 500 * 1024 * 1024        # 500 MB
@@ -393,7 +393,7 @@ def _gather(db):
         "last_backup": backup_mod.last_backup(db),
         "last_success": last_success,
         "recent_backups": recent,
-        "backup_dir": logic.get_setting(db, "backup_dir"),
+        "backup_dir": settings.get_setting(db, "backup_dir"),
         # Deliberately backup.py's implementation, not a local one. This
         # module used to carry its own copy that scanned recent_backups(20) --
         # the last 20 rows of ANY status. A failing destination retries, so a
@@ -406,12 +406,12 @@ def _gather(db):
         # filters to successes first, so failures cannot bury the evidence.
         # One implementation, on purpose -- see COMPARISON.md §41.
         "backups_written_here": backup_mod.backups_written_here(
-            db, logic.get_setting(db, "backup_dir")),
-        "backup_max_age_days": logic.int_setting(
+            db, settings.get_setting(db, "backup_dir")),
+        "backup_max_age_days": settings.int_setting(
             db, "selfcheck_backup_max_age_days", BACKUP_MAX_AGE_DEFAULT
         ),
         "schema_pending": [name for _, name in schema.pending(db)],
-        "last_verified_restore": logic.get_setting(db, "last_verified_restore"),
+        "last_verified_restore": settings.get_setting(db, "last_verified_restore"),
         "disk_free_bytes": None,
     }
 

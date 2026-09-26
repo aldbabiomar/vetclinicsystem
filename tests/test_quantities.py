@@ -19,7 +19,7 @@ from decimal import Decimal as D
 import pytest
 
 from vcs.web import core
-from vcs.domain import logic
+from vcs.domain import display, inventory
 from conftest import new_id, ADMIN_ID, needs_db
 
 SNAPSHOT = pathlib.Path(__file__).parent / "schema_snapshot.json"
@@ -34,7 +34,7 @@ SNAPSHOT = pathlib.Path(__file__).parent / "schema_snapshot.json"
     (D("0.000"), "0"), (D("-0"), "0"), (10, "10"), (12.5, "12.5"), (None, ""),
 ])
 def test_a_quantity_is_shown_without_its_column_tail(value, shown):
-    assert logic.format_quantity(value) == shown
+    assert display.format_quantity(value) == shown
 
 
 def test_control_the_g_format_is_why_the_formatter_exists():
@@ -163,7 +163,7 @@ def test_the_suggested_order_rounds_a_shortfall_up(db, audited_three_times):
     """GUARD. 8.7 short means order 9. The old idiom, -(-x // 1), is a
     ceiling on a float and a FLOOR on a positive Decimal (`//` truncates
     toward zero there) — it would have suggested 8, one short every time."""
-    row = next(r for r in logic.ordering_sheet(db) if r["item_id"] == audited_three_times)
+    row = next(r for r in inventory.ordering_sheet(db) if r["item_id"] == audited_three_times)
     assert row["daily_usage_rate"] == D("0.7")
     assert row["suggested_order_qty"] == 9
 
@@ -173,7 +173,7 @@ def test_the_usage_trend_compares_decimals(db, audited_three_times, client):
     """GUARD. 0.7/day against 1.0/day is below the 0.85 band: Decreasing.
     `prior_rate * 0.85` with a Decimal rate raises TypeError — the whole
     Ordering Sheet page would 500 for any item with three audits."""
-    row = next(r for r in logic.ordering_sheet(db) if r["item_id"] == audited_three_times)
+    row = next(r for r in inventory.ordering_sheet(db) if r["item_id"] == audited_three_times)
     assert row["usage_trend"] == "Decreasing"
     assert client.get("/ordering-sheet").status_code == 200
 

@@ -2,7 +2,7 @@
 Record codes (plan D-2): numeric ids in the database, codes on the screen.
 
 Staff read "V-00123" and type it back — into the refunds form, into a
-search box. These pin the two directions (logic.code and parse_id), and that
+search box. These pin the two directions (codes.code and parse_id), and that
 the places staff actually meet a record show the code rather than a bare
 number or an old-style id.
 """
@@ -12,7 +12,7 @@ from decimal import Decimal as D
 import pytest
 
 from vcs import clock
-from vcs.domain import logic
+from vcs.domain import codes
 from conftest import ADMIN_ID, needs_db, new_id
 
 
@@ -24,14 +24,14 @@ from conftest import ADMIN_ID, needs_db, new_id
     ("V", 123, "V-00123"), ("PT", 7, "PT-00007"), ("OW", 123456, "OW-123456"), ("V", None, ""),
 ])
 def test_a_record_is_shown_as_its_code(prefix, record_id, shown):
-    assert logic.code(prefix, record_id) == shown
+    assert codes.code(prefix, record_id) == shown
 
 
 @pytest.mark.parametrize("typed,prefix,read", [
     ("V-00123", "V", 123), ("v123", "V", 123), ("V 00123", "V", 123), ("123", "V", 123), ("00123", None, 123),
 ])
 def test_a_typed_code_or_number_is_read_back(typed, prefix, read):
-    assert logic.parse_id(typed, prefix) == read
+    assert codes.parse_id(typed, prefix) == read
 
 
 @pytest.mark.parametrize("typed,prefix", [
@@ -40,12 +40,12 @@ def test_a_typed_code_or_number_is_read_back(typed, prefix, read):
     ("V-0", "V"), ("abc", "V"), ("12a", "V"), ("", "V"), (None, "V"), ("99999999999", "V"), ("-5", None),
 ])
 def test_anything_else_is_not_an_id(typed, prefix):
-    assert logic.parse_id(typed, prefix) is None
+    assert codes.parse_id(typed, prefix) is None
 
 
 def test_a_code_round_trips():
     for n in (1, 42, 99999, 100000, 2_000_000_000):
-        assert logic.parse_id(logic.code("V", n), "V") == n
+        assert codes.parse_id(codes.code("V", n), "V") == n
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +75,9 @@ def chain(db):
 @needs_db
 def test_pages_show_the_code_not_the_bare_number(client, chain):
     pages = {
-        f"/visits/{chain['visit']}": logic.code("V", chain["visit"]),
-        f"/patients/{chain['patient']}": logic.code("PT", chain["patient"]),
-        f"/owners/{chain['owner']}": logic.code("OW", chain["owner"]),
+        f"/visits/{chain['visit']}": codes.code("V", chain["visit"]),
+        f"/patients/{chain['patient']}": codes.code("PT", chain["patient"]),
+        f"/owners/{chain['owner']}": codes.code("OW", chain["owner"]),
     }
     for url, code in pages.items():
         html = client.get(url).get_data(as_text=True)
@@ -88,16 +88,16 @@ def test_pages_show_the_code_not_the_bare_number(client, chain):
 def test_a_patient_is_found_by_its_code(client, chain):
     """GUARD. The search used to match `id ILIKE term`; the id is a number
     now, and staff search with the code they read on the screen."""
-    found = client.get(f"/api/patients/search?q={logic.code('PT', chain['patient'])}").get_json()
+    found = client.get(f"/api/patients/search?q={codes.code('PT', chain['patient'])}").get_json()
     assert [r["id"] for r in found] == [chain["patient"]]
-    assert found[0]["code"] == logic.code("PT", chain["patient"])
+    assert found[0]["code"] == codes.code("PT", chain["patient"])
 
 
 @needs_db
 def test_a_service_refund_accepts_the_visit_code_staff_read(client, db, chain):
     """GUARD. The refunds form asks for the visit; staff type the code."""
     resp = client.post("/refunds/service", data={
-        "visit_id": logic.code("V", chain["visit"]), "amount": "1", "refund_method": "Cash",
+        "visit_id": codes.code("V", chain["visit"]), "amount": "1", "refund_method": "Cash",
         "reason": "code typed"}, follow_redirects=False)
     assert resp.status_code == 302
     assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=?", (chain["visit"],)).fetchone()["n"] == 1
@@ -106,7 +106,7 @@ def test_a_service_refund_accepts_the_visit_code_staff_read(client, db, chain):
 @needs_db
 def test_control_a_code_for_another_kind_of_record_is_not_found(client, db, chain):
     resp = client.post("/refunds/service", data={
-        "visit_id": logic.code("PT", chain["visit"]), "amount": "1", "refund_method": "Cash",
+        "visit_id": codes.code("PT", chain["visit"]), "amount": "1", "refund_method": "Cash",
         "reason": "wrong kind"}, follow_redirects=True)
     assert "not found" in resp.get_data(as_text=True)
     assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=?", (chain["visit"],)).fetchone()["n"] == 0

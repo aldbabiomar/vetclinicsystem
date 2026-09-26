@@ -246,8 +246,8 @@ def test_a_backup_with_no_folder_configured_at_all_is_refused(db, clean_backup_l
     at all is — and it must fail loudly, because failing quietly would leave
     Settings showing nothing wrong while no backup exists."""
     from vcs.ops import backup
-    from vcs.domain import logic
-    monkeypatch.setattr(logic, "get_setting",
+    from vcs.domain import settings
+    monkeypatch.setattr(settings, "get_setting",
                         lambda db, key, default=None: "" if key == "backup_dir" else default)
     before = db.execute("SELECT count(*) AS c FROM backup_log").fetchone()["c"]
     ok, msg = backup.run_backup(db, dest_dir=None, retention=5, triggered_by="test")
@@ -262,8 +262,8 @@ def test_a_backup_with_no_folder_configured_at_all_is_refused(db, clean_backup_l
     after = db.execute("SELECT count(*) AS c FROM backup_log").fetchone()["c"]
     assert after == before, "an unattempted backup must not be logged as a failure"
 
-    from vcs.domain import logic
-    alert = logic.backup_alert_message(None)
+    from vcs.domain import alerts
+    alert = alerts.backup_alert_message(None)
     # a finding-shaped dict since 2026-09-12; `message` is the rendered English
     assert alert and "backup" in alert["message"].lower(), (
         "with no backup ever taken the Dashboard must say so — otherwise nothing "

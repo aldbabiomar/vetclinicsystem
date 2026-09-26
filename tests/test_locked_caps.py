@@ -13,7 +13,7 @@ import time
 from decimal import Decimal as D
 
 from vcs import clock
-from vcs.domain import logic
+from vcs.domain import cash_register
 from conftest import ADMIN_ID, needs_db
 from vcs.web.blueprints import sales as sales_routes
 from test_money_routes import _checkout, sellable  # noqa: F401
@@ -35,7 +35,7 @@ def test_two_payouts_cannot_together_take_more_than_the_drawer(client, db, sella
     asks for 2.000."""
     today = clock.today()
     assert _checkout(client, sellable["inv_id"], qty=1, payment_method="Cash").status_code == 302
-    drawer = logic.cash_register_totals(db, today.isoformat())["Cash"]
+    drawer = cash_register.cash_register_totals(db, today.isoformat())["Cash"]
     assert drawer >= D("2.000"), "no cash in the drawer — the test would prove nothing"
     try:
         db.execute("SELECT pg_advisory_xact_lock(?, ?)", (sales_routes.DRAWER_LOCK_NAMESPACE, today.toordinal()))

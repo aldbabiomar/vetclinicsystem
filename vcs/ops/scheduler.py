@@ -47,7 +47,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from vcs.domain import logic
+from vcs.domain import logs, settings
 from vcs import money
 from vcs import clock
 from vcs import errorlog
@@ -62,7 +62,7 @@ _scheduler = None
 #
 # Holding this lock across check-and-run makes the second arrival see the
 # first's committed row and do nothing. It matters beyond tidiness:
-# logic.backup_alert_message() reads the NEWEST backup_log row, so had the
+# alerts.backup_alert_message() reads the NEWEST backup_log row, so had the
 # failed row landed with the higher id, the Dashboard would have announced
 # "the last database backup failed" in the same second one succeeded.
 _JOB_LOCK = threading.Lock()
@@ -194,7 +194,7 @@ def _run_backup_if_due(get_db, close_db):
         db = None
         try:
             db = get_db()
-            time_str = logic.get_setting(db, "backup_time", "02:00") or "02:00"
+            time_str = settings.get_setting(db, "backup_time", "02:00") or "02:00"
             hour, minute = _parse_hour_minute(time_str)
             if not _backup_catchup_due(db, hour, minute):
                 return False
@@ -221,7 +221,7 @@ def _run_self_check_if_due(get_db, close_db):
         due = False
         try:
             db = get_db()
-            time_str = logic.get_setting(db, "backup_time", "02:00") or "02:00"
+            time_str = settings.get_setting(db, "backup_time", "02:00") or "02:00"
             hour, minute = _parse_hour_minute(time_str)
             sc_hour, sc_minute = _self_check_time(hour, minute)
             due = _self_check_due(db, sc_hour, sc_minute)
@@ -264,7 +264,7 @@ def _do_self_check(get_db, close_db, send_heartbeat=True):
         # try/except so a prune failure cannot cost the clinic its daily
         # self-check verdict -- the far more important of the two.
         try:
-            logic.prune_old_logs(db)
+            logs.prune_old_logs(db)
         except Exception:
             _log_failure("the daily log prune")
         if send_heartbeat:
@@ -500,7 +500,7 @@ def start(get_db, close_db):
 
     global _zone
     db = get_db()
-    time_str = logic.get_setting(db, "backup_time", "02:00") or "02:00"
+    time_str = settings.get_setting(db, "backup_time", "02:00") or "02:00"
     _zone = clock.load(db, money.load(db))
     close_db(db)
     hour, minute = _parse_hour_minute(time_str)

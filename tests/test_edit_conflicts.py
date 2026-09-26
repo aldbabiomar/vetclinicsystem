@@ -209,7 +209,7 @@ def _updates():
     in the application's Python — string constants from the AST, so implicit
     concatenation across lines is already joined."""
     out = []
-    for path in [*source_files.web_modules(), source_files.module("logic")]:
+    for path in [*source_files.web_modules(), *source_files.domain_modules()]:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 for m in UPDATE_SQL.finditer(node.value):

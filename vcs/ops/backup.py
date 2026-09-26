@@ -20,7 +20,7 @@ import subprocess
 from urllib.parse import unquote, urlsplit
 import threading
 
-from vcs.domain import logic
+from vcs.domain import settings
 from vcs import clock
 from vcs.messages import Msg, N_
 
@@ -206,7 +206,7 @@ def resolve_restorable_backup(db, source_file):
         return False, None, Msg(N_("That doesn't look like a VetClinicSystem backup file (expected a %(suffix)s file)."),
                                 suffix=FILENAME_SUFFIX)
 
-    backup_dir = logic.get_setting(db, "backup_dir")
+    backup_dir = settings.get_setting(db, "backup_dir")
     if not backup_dir:
         return False, None, Msg(N_("No backup folder is configured yet — set one on the Settings page."))
 
@@ -519,16 +519,16 @@ def _run_backup_locked(db, dest_dir=None, retention=None, triggered_by=None, on_
         if on_progress:
             on_progress(i, label)
 
-    dest_dir = dest_dir or logic.get_setting(db, "backup_dir")
+    dest_dir = dest_dir or settings.get_setting(db, "backup_dir")
     if not dest_dir:
         # Deliberately not written to backup_log: nothing was attempted, and a
         # nightly job with no folder set would otherwise fill Recent Backups
         # with failures and bury real ones. The Dashboard already reports this
-        # state on its own via logic.backup_alert_message().
+        # state on its own via alerts.backup_alert_message().
         msg = Msg(N_("No backup folder configured yet — set one on the Settings page."))
         return False, msg
 
-    retention = retention or int(logic.get_setting(db, "backup_retention", "30") or 30)
+    retention = retention or int(settings.get_setting(db, "backup_retention", "30") or 30)
 
     # A destination that has held backups and is now missing means the drive
     # or synced folder went away -- NOT that it needs creating. Recreating it

@@ -120,7 +120,7 @@ def test_every_bill_mutation_takes_the_parent_row_lock():
 # ---------------------------------------------------------------------------
 
 READS_DATE_ARG = re.compile(r"request\.args\.get\(\s*[\"'](date|day|week|date_from|date_to)[\"']")
-# Not logic.as_date(): it reads stored values and is lenient on purpose; it
+# Not dates.as_date(): it reads stored values and is lenient on purpose; it
 # accepted "2026-W39-4" and passed it to Postgres (audit B1). Counting it as
 # validation here is how that hole stayed green.
 VALIDATES_DATE = re.compile(
@@ -149,7 +149,7 @@ STRICT_DATE = re.compile(r"\b(strict_date|strict_month|clean_date|clean_date_fil
 
 def test_the_request_layer_never_parses_a_date_leniently():
     """Audit B1. The request layer (app.py, routes/) reads dates only through
-    core's strict parsers. logic.as_date() and fromisoformat() accept
+    core's strict parsers. dates.as_date() and fromisoformat() accept
     2026-W39-4 and 20260925, and every time one of them validated request
     input, the raw text went on to Postgres."""
     offenders, strict_uses, modules = [], 0, 0
@@ -318,15 +318,16 @@ def test_date_arguments_use_or_rather_than_a_get_default():
 # entry in SEAM_RULES.md §2 came out of. These four rules are the parts that
 # must not drift apart.
 #
-# They scan logic.py and pdf_export.py as well as the route modules, because
-# after the blueprint split most of the money code is not in a route at all.
+# They scan the domain modules and pdf_export.py as well as the route modules,
+# because most of the money code is not in a route at all.
 # ---------------------------------------------------------------------------
 def _money_modules():
     """Every module that can do bill arithmetic — a live walk, not a list."""
     mods = _route_modules()
     # source_files.module() asserts each exists: this used to skip a missing
     # file silently, which after a move would have scanned less and passed.
-    for extra in ("logic", "pdf_export", "core", "money", "reports"):
+    mods += source_files.domain_modules()
+    for extra in ("pdf_export", "core", "money"):
         mods.append(source_files.module(extra))
     return mods
 
@@ -435,11 +436,11 @@ def test_rule7_a_route_writing_a_discount_from_a_request_checks_its_source():
 
 
 # The only places a discount percentage may be turned into money. Everything
-# else must go through logic.discounted_raw_total() or read a STORED total.
+# else must go through billing.discounted_raw_total() or read a STORED total.
 # A new report that re-derives `lines x (1 - d)` is exactly how JO's P&L gap
 # would come back (features/REWARDS_CARD_PLAN.md §2.1).
 DISCOUNT_ARITHMETIC_ALLOWED = {
-    "discounted_raw_total",       # the one shared formula (logic), which calls…
+    "discounted_raw_total",       # the one shared formula (billing), which calls…
     "discounted",                 # …money.discounted(), where it actually lives
     "compute_bill_totals",        # calls it
     "refundable_sale_items",      # per line, against the line's own snapshot
@@ -493,7 +494,7 @@ def test_rule8_discount_arithmetic_only_happens_where_it_is_allowed():
         f"{seen} — the scan has lost its subject and would pass against anything")
     assert not offenders, (
         "discount arithmetic outside the allow-list — use "
-        "logic.discounted_raw_total() or read the stored total:\n  "
+        "billing.discounted_raw_total() or read the stored total:\n  "
         + "\n  ".join(offenders))
 
 
@@ -508,9 +509,9 @@ def test_rule8_discount_arithmetic_only_happens_where_it_is_allowed():
 def test_the_vet_query_exists_once():
     pattern = re.compile(r"FROM users WHERE role_id IN \(SELECT id FROM roles WHERE is_vet_role")
     found = []
-    for path in _route_modules() + [source_files.module("logic"), source_files.module("pdf_export")]:
+    for path in _route_modules() + source_files.domain_modules() + [source_files.module("pdf_export")]:
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if pattern.search(line):
                 found.append(f"{path.name}:{n}")
-    assert len(found) == 1 and found[0].startswith("logic.py:"), (
-        "the vet query must live only in logic.vet_users():\n  " + "\n  ".join(found))
+    assert len(found) == 1 and found[0].startswith("appointments.py:"), (
+        "the vet query must live only in appointments.vet_users():\n  " + "\n  ".join(found))

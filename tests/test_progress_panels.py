@@ -78,7 +78,7 @@ def test_job_step_labels_are_translated():
             for lit in re.findall(r'"([^"]{3,})"', steps):
                 if f'_("{lit}")' not in steps:
                     line = src[:m.start()].count("\n") + 1
-                    offenders.append(f"{rel}:{line}: {lit!r}")
+                    offenders.append(f"{f.relative_to(source_files.ROOT)}:{line}: {lit!r}")
     assert not offenders, (
         "These job step labels are not translated, so the progress bar shows "
         "English on an Arabic page:\n  " + "\n  ".join(offenders))

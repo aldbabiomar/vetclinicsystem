@@ -19,8 +19,8 @@ import pytest
 
 from vcs import enum_labels
 from vcs.web import core
-from vcs.domain import logic
-from vcs.web.blueprints import clinical, inventory
+from vcs.domain import analytics, clinical
+from vcs.web.blueprints import clinical as clinical_bp, inventory as inventory_bp
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = source_files.TEMPLATES_DIR
@@ -32,14 +32,14 @@ def labels(name):
 
 
 @pytest.mark.parametrize("label_name,source", [
-    ("CASE_STATUSES", clinical.CASE_STATUSES),
-    ("FOLLOWUP_REASONS", clinical.FOLLOWUP_REASONS),
-    ("WELLNESS_TYPES", clinical.WELLNESS_TYPES),
-    ("GROOMING_SERVICES", logic.GROOMING_SERVICES),
+    ("CASE_STATUSES", clinical_bp.CASE_STATUSES),
+    ("FOLLOWUP_REASONS", clinical_bp.FOLLOWUP_REASONS),
+    ("WELLNESS_TYPES", clinical_bp.WELLNESS_TYPES),
+    ("GROOMING_SERVICES", clinical.GROOMING_SERVICES),
     ("PAYMENT_METHODS", core.PAYMENT_METHODS),
-    ("PRICE_CATEGORIES", inventory.PRICE_CATEGORIES),
-    ("INVENTORY_CATEGORIES", inventory.INVENTORY_CATEGORIES),
-    ("REVENUE_CATEGORIES", logic.REVENUE_CATEGORIES),
+    ("PRICE_CATEGORIES", inventory_bp.PRICE_CATEGORIES),
+    ("INVENTORY_CATEGORIES", inventory_bp.INVENTORY_CATEGORIES),
+    ("REVENUE_CATEGORIES", analytics.REVENUE_CATEGORIES),
 ])
 def test_mirrors_the_python_constant(label_name, source):
     assert labels(label_name) == list(source), (
@@ -126,10 +126,10 @@ def test_permission_labels_mirror_auth():
 
 
 def test_cash_ledger_events_mirror_the_query():
-    """These are built inside the SQL of logic.cash_register_ledger(), so the
+    """These are built inside the SQL of cash_register.cash_register_ledger(), so the
     source of truth is the query text itself."""
     import re
-    src = source_files.module("logic").read_text(encoding="utf-8")
+    src = source_files.module("cash_register").read_text(encoding="utf-8")
     start = src.index("def cash_register_ledger")
     segment = src[start:start + 8000]
     found = set(re.findall(r"'([A-Z][A-Za-z ]+)' AS event_type", segment))
@@ -144,8 +144,8 @@ def test_cash_ledger_events_mirror_the_query():
 
 
 def test_weekday_labels_mirror_logic():
-    from vcs.domain import logic
-    assert labels("WEEKDAY_LABELS") == list(logic.WEEKDAY_LABELS)
+    from vcs.domain import analytics
+    assert labels("WEEKDAY_LABELS") == list(analytics.WEEKDAY_LABELS)
 
 
 def test_seeded_roles_mirror_auth():

@@ -13,7 +13,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from flask_babel import gettext as _
 
 from vcs import auth, clock, jobs
-from vcs.domain import logic
+from vcs.domain import alerts, settings
 from vcs.errorlog import error_logger
 from vcs.web.core import (PER_PAGE, VERSION, cached_dashboard_snapshot, flash, get_db, get_page, is_safe_local_path,
                           lan_address, page_count, page_offset, shown)
@@ -201,12 +201,12 @@ def dashboard():
     # granular so a custom role with equivalent permissions still sees it).
     is_overseer = (auth.has_permission("manage_users_roles") or auth.has_permission("manage_settings")
                    or auth.has_permission("view_logins_changes"))
-    all_missed = logic.missed_items(db) if is_overseer else []
+    all_missed = alerts.missed_items(db) if is_overseer else []
     missed_page = get_page()
     missed_total = len(all_missed)
     missed_offset = page_offset(missed_page)
     missed = all_missed[missed_offset:missed_offset + PER_PAGE]
-    opex_due = logic.opex_reminder_due(db) if auth.has_permission("view_financial_reports") else False
+    opex_due = alerts.opex_reminder_due(db) if auth.has_permission("view_financial_reports") else False
     # A blank Date Billed silently drops that bill from every P&L figure
     # forever (reports.py counts a bill in the month of its date_billed) — this
     # is the visible half of the fix in visit_billing_save(), which now
@@ -224,7 +224,7 @@ def dashboard():
     self_check_modal = False
     if auth.has_permission("manage_settings"):
         from vcs.ops import backup as backup_mod
-        backup_alert = logic.backup_alert_message(backup_mod.last_backup(db))
+        backup_alert = alerts.backup_alert_message(backup_mod.last_backup(db))
         # Migration files this code ships that the database has not applied
         # (schema.py) — only possible if a release was started without its
         # schema step. Worth an admin's attention before anything breaks.
@@ -235,7 +235,7 @@ def dashboard():
         # and write-tests the backup folder, neither of which has any business
         # happening on every dashboard load. scheduler.py runs it daily (20
         # minutes after the backup) and once at startup.
-        if logic.get_setting(db, "selfcheck_enabled", "1") != "0":
+        if settings.get_setting(db, "selfcheck_enabled", "1") != "0":
             from vcs.ops import selfcheck
             row = selfcheck.latest(db)
             if row and row["status"] != "ok":

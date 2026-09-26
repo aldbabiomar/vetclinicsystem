@@ -229,7 +229,7 @@ def test_a_confirmed_audit_is_what_gives_an_item_a_stock_figure(client, db, cata
     """The rule POS depends on: current_stock is None until an item has been
     through a confirmed audit, and pos_checkout refuses to sell anything
     whose stock is unknown. This pins the mechanism behind that guard."""
-    from vcs.domain import logic
+    from vcs.domain import inventory
     name = f"Audit Item {uuid.uuid4().hex[:6]}"
     client.post("/inventory-catalog/new", data={
         "name": name, "category": "Retail", "unit": "unit", "cost_price": "2.000"},
@@ -238,7 +238,7 @@ def test_a_confirmed_audit_is_what_gives_an_item_a_stock_figure(client, db, cata
     assert row is not None
     catalog_cleanup.append(row["id"])
 
-    before = logic.inventory_status_by_id(db, row["id"])
+    before = inventory.inventory_status_by_id(db, row["id"])
     assert before is None or before["current_stock"] is None, (
         "a never-audited item must not have a stock figure")
 
@@ -252,7 +252,7 @@ def test_a_confirmed_audit_is_what_gives_an_item_a_stock_figure(client, db, cata
                "VALUES (?,?,?,?)", (sid, row["id"], Decimal("25.000"), Decimal(0)))
     db.commit()
     try:
-        after = logic.inventory_status_by_id(db, row["id"])
+        after = inventory.inventory_status_by_id(db, row["id"])
         assert after is not None and after["current_stock"] == Decimal("25.000"), (
             "a confirmed audit must establish the stock figure")
     finally:

@@ -645,7 +645,7 @@ def test_an_empty_chart_explains_itself(signed_in):
 # Everything else is asserted in test_rewards.py, which is faster and needs no
 # browser. What cannot be checked there is whether the POS page's own
 # JavaScript arrives at the SAME total the server does: the preview is a
-# second implementation of logic.discounted_raw_total(), and on a member's
+# second implementation of billing.discounted_raw_total(), and on a member's
 # mixed cart the two could disagree while both look plausible. A customer sees
 # the preview and is charged the server's figure.
 #

@@ -9,7 +9,7 @@ from flask_babel import gettext as _
 
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import logic
+from vcs.domain import analytics, cash_register, dates, reports
 from vcs.web.core import (PER_PAGE, BadNumber, _render_with_progress, flash, get_db, get_page, has_negative,
                           page_count, page_offset, parse_money, requires_money_setting, strict_month)
 
@@ -20,7 +20,7 @@ bp = Blueprint("reports", __name__)
 # Reports: Monthly & Yearly P&L (Admin only)
 # ---------------------------------------------------------------------------
 def _reports_context(db):
-    pl = logic.monthly_pl(db)
+    pl = reports.monthly_pl(db)
     opex_rows = db.execute("SELECT month, rent, salaries, utilities, marketing, other FROM monthly_opex").fetchall()
     opex_by_month = {r["month"]: dict(r) for r in opex_rows}
     return dict(pl=pl, opex_by_month=opex_by_month)
@@ -39,7 +39,7 @@ def monthly():
 @requires_money_setting
 def yearly():
     db = get_db()
-    all_pl = logic.yearly_pl(db)
+    all_pl = reports.yearly_pl(db)
     page = get_page()
     total = len(all_pl)
     offset = page_offset(page)
@@ -56,7 +56,7 @@ def yearly():
 @requires_money_setting
 def insights():
     months_back = 12
-    cutoff = logic.month_list(months_back)[0] + "-01"
+    cutoff = dates.month_list(months_back)[0] + "-01"
 
     def compute(update):
         # Runs in a background thread — no Flask request/g context exists
@@ -72,19 +72,19 @@ def insights():
                 dbmod.putconn(con)
 
         job_defs = [
-            ("revenue", lambda c: logic.revenue_by_category(c, months_back=months_back)),
-            ("vets", lambda c: logic.vet_performance(c, months_back=months_back)),
+            ("revenue", lambda c: analytics.revenue_by_category(c, months_back=months_back)),
+            ("vets", lambda c: analytics.vet_performance(c, months_back=months_back)),
             # Same window as every other panel on this page — the client
             # list used to be lifetime while the tiles beside it were not.
-            ("clients", lambda c: logic.client_value(c, limit=20, months_back=months_back)),
-            ("weekday_load", lambda c: logic.appointment_weekday_load(c, months_back=months_back)),
-            ("occupancy", lambda c: logic.inpatient_boarding_occupancy(c, months_back=months_back)),
+            ("clients", lambda c: analytics.client_value(c, limit=20, months_back=months_back)),
+            ("weekday_load", lambda c: analytics.appointment_weekday_load(c, months_back=months_back)),
+            ("occupancy", lambda c: analytics.inpatient_boarding_occupancy(c, months_back=months_back)),
             ("payment_mix", lambda c: [dict(r) for r in c.execute(
                 "SELECT method, COUNT(*) c, COALESCE(SUM(amount),0) total FROM payments "
                 "WHERE date >= ? GROUP BY method ORDER BY total DESC",
                 (cutoff,),
             ).fetchall()]),
-            ("cash_register_health", lambda c: logic.cash_register_last_30_days(c)),
+            ("cash_register_health", lambda c: cash_register.cash_register_last_30_days(c)),
         ]
         results = {}
         # Capped rather than len(job_defs) — this report alone shouldn't be
@@ -132,7 +132,7 @@ def retention():
         # Runs in a background thread, so its own connection (not g.db).
         con = dbmod.connect()
         try:
-            full = logic.cohort_retention_grid(con, max_offset=11)
+            full = analytics.cohort_retention_grid(con, max_offset=11)
         finally:
             con.close()
         total = len(full["grid"])

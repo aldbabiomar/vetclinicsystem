@@ -578,7 +578,7 @@ unless staff type it twice, the item's daily usage comes out understated or
 negative and the Ordering Sheet's suggestion is wrong. Pre-fill the column
 from `consignment_receipt` transactions since the prior audit.
 
-**Fixed (merge).** `logic.consignment_received_since_audit()` sums each
+**Fixed (merge).** `consignment_received_since_audit()` (now `vcs/domain/inventory.py`) sums each
 item's consignment receipts after its latest confirmed audit (the cutoff
 `inventory_status()` uses). The sheet pre-fills "received since prior" with
 that sum, with a hint ("Includes 6 from Consignment Receiving"), until a line
@@ -882,7 +882,7 @@ country phone constants, IQ-only `test_arabic_wrapping.py` (`COMPARISON.md`
 | P1 | **Sidebar gating** | every link wrapped in `has_permission` | every clinical/inventory/POS link shown to everyone — a `manage_settings`-only user saw **20** links vs IQ's 4, all but 4 leading to 403 (**verified**) | port IQ | **Done** — `nav.py`: a link is drawn when its page's own `permission_required` lets you in; `test_nav_registry.py` |
 | P2 | **Inpatient billing** | search API, Service **and Medicine** | server-rendered checkbox list of `category='Service'` only — **Medicine cannot be billed to an inpatient case from the UI**; the whole service catalogue is rendered into every case page (`_inpatient_detail_context`) | port IQ | **Done** — search-and-cart over Service and Medicine; the catalogue no longer rendered into the page; `test_inpatient_billing_ui.py`, browser test |
 | P3 | Inpatient tabs | tab kept in the URL hash across submits; ARIA tab roles | every submit lands back on "Info"; no ARIA | port IQ | **Done** — tabs kept across submits via the form action's fragment; ARIA roles; browser test |
-| P4 | Patient history | `patient_outpatient_visits()` drops the "Inpatient" admitting visit already represented by the case | shows the same encounter twice | port IQ | **Done** — `logic.patient_outpatient_visits()` (by `inpatient_cases.visit_id`, else IQ's same-day rule), history page and patient-file PDF; `test_patient_history.py` |
+| P4 | Patient history | `patient_outpatient_visits()` drops the "Inpatient" admitting visit already represented by the case | shows the same encounter twice | port IQ | **Done** — `clinical.patient_outpatient_visits()` (by `inpatient_cases.visit_id`, else IQ's same-day rule), history page and patient-file PDF; `test_patient_history.py` |
 | P5 | Back link | `_back_link.html` on 16 detail pages | none (the `ui.js` code that drives it is dead in JO) | port IQ | **Done** — `_back_link.html` on the 15 detail pages; browser test |
 | P6 | Row navigation | `data-row-href` (ui.js): 10px drag threshold, press feedback, aria-label | `data-vz-href` (behaviors.js): plain click — a touch scroll that starts on a row opens it; inline `cursor` style | pick one mechanism for both (D8) | **Done** — one mechanism (`data-vz-href`), IQ's 10px drag threshold, CSS cursor and press feedback; `initRowNav` removed; browser test |
 | P7 | Audit confirm | warns when a consignment item is counted below expected and suggests logging shrinkage | no warning | port IQ | **Done** — shortfall warning at confirm, translated; `test_audit_shortfall.py` |
@@ -897,7 +897,7 @@ country phone constants, IQ-only `test_arabic_wrapping.py` (`COMPARISON.md`
 | P16 | Appointment booking error (B17) | keeps the booked day | jumps to today | port IQ | **Done** — B17 |
 | P17 | Distributor bill/payment redisplay for a deleted distributor | 404 | 500 (B11) | port IQ | **Done** — B11 |
 | P18 | Migrations (`INCREMENTAL_SCHEMA_STATEMENTS`) | bumps `permissions_version` on **every launch**; lacks `backup_log.triggered_by` and `barcode_source` ALTERs | lacks the `manage_cash_register` retro-grant and the `consignment_since`/`refund_method` ALTERs and "Bank Transfer" normalisation | legacy-upgrade paths only; converge the list | **Moot** — one numbered migration history replaced both apps' upgrade lists (phase 2) |
-| P19 | Vet lookup | one `logic.vet_users()` | the same query inlined 3× (`day_grid`, `orphaned_appointments`, routes) | port IQ | **Done** — `logic.vet_users()`; seam rule 11 |
+| P19 | Vet lookup | one `logic.vet_users()` | the same query inlined 3× (`day_grid`, `orphaned_appointments`, routes) | port IQ | **Done** — `appointments.vet_users()`; seam rule 11 |
 | P20 | Small UI | attachment delete "×" with aria-label and a fuller confirm; `aria-expanded` on toggles | plain "Delete"; per-item "print" barcode link in the catalogue that IQ lacks | converge | **Done** — translated × with aria-label and a full confirm; `aria-expanded` on the toggles |
 
 Also: seven indexes have different names in the two schemas

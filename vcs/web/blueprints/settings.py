@@ -26,7 +26,7 @@ from flask import (
 from vcs import auth
 from vcs.db import pool as dbmod
 from vcs import jobs
-from vcs.domain import logic
+from vcs.domain import appointments, logs, members, settings
 from vcs import clock
 from vcs import money
 from vcs.web.core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
@@ -46,7 +46,7 @@ def _browse_roots(db):
     """
     roots = []
     for candidate in (os.path.expanduser("~"),
-                      logic.get_setting(db, "backup_dir"),
+                      settings.get_setting(db, "backup_dir"),
                       _data_dir):
         if candidate and os.path.isdir(candidate):
             real = os.path.realpath(candidate)
@@ -97,7 +97,7 @@ def api_browse_folder():
     if requested:
         path = os.path.abspath(requested)
     else:
-        configured = logic.get_setting(db, "backup_dir")
+        configured = settings.get_setting(db, "backup_dir")
         path = os.path.abspath(configured) if configured and os.path.isdir(configured) else os.path.expanduser("~")
 
     if not os.path.isdir(path):
@@ -213,11 +213,11 @@ def settings_page():
             # .login_lock_status() reads login_log to decide whether an
             # account is locked out, so pruning inside that window would
             # silently disarm the lockout.
-            "log_retention_days": (logic.LOG_RETENTION_MIN_DAYS, logic.LOG_RETENTION_MAX_DAYS),
+            "log_retention_days": (logs.LOG_RETENTION_MIN_DAYS, logs.LOG_RETENTION_MAX_DAYS),
             # How long a newly issued rewards card lasts. Whole months, so
             # this belongs here (int) -- unlike the RATE below, which is a
             # percentage and is parsed like every other percentage in the app.
-            "member_term_months": (1, logic.MEMBER_TERM_MONTHS_MAX),
+            "member_term_months": (1, members.MEMBER_TERM_MONTHS_MAX),
         }
         for key, (lo, hi) in NUMERIC_RANGES.items():
             val = request.form.get(key)
@@ -234,7 +234,7 @@ def settings_page():
 
         # Time-of-day fields — validated as real HH:MM before anything else
         # touches them. appt_start_time/appt_end_time feed straight into
-        # logic.generate_slots()'s datetime.strptime(..., "%H:%M") (used by
+        # appointments.generate_slots()'s datetime.strptime(..., "%H:%M") (used by
         # Appointments, New Visit, Grooming, and Inpatient's vet pickers),
         # and backup_time feeds scheduler.reschedule()'s CronTrigger — an
         # unvalidated value there doesn't just break one page, it can raise
@@ -278,8 +278,8 @@ def settings_page():
             except BadNumber:
                 flash(_("Member discount must be a valid number."), "error")
                 return redirect(url_for("settings.settings_page"))
-            if rate is None or not 0 <= rate <= logic.MEMBER_RATE_MAX:
-                flash(_("Member discount must be between 0%% and %(max)s%%.", max=logic.MEMBER_RATE_MAX), "error")
+            if rate is None or not 0 <= rate <= members.MEMBER_RATE_MAX:
+                flash(_("Member discount must be between 0%% and %(max)s%%.", max=members.MEMBER_RATE_MAX), "error")
                 return redirect(url_for("settings.settings_page"))
 
         # The money setting (IQ / JO). Changeable only while no money has been
@@ -313,7 +313,7 @@ def settings_page():
             if tz_val and not clock.is_valid(tz_val):
                 flash(_("Not a valid time zone."), "error")
                 return redirect(url_for("settings.settings_page"))
-            old_tz = logic.get_setting(db, clock.SETTING_KEY) or ""
+            old_tz = settings.get_setting(db, clock.SETTING_KEY) or ""
             if tz_val != old_tz:
                 tz_change = (old_tz, tz_val)
 
@@ -334,12 +334,12 @@ def settings_page():
             return redirect(url_for("settings.settings_page"))
         # Snapshot before the change — appt_start_time/appt_end_time/
         # appt_slot_minutes feed generate_slots(), which day_grid() (and
-        # logic.orphaned_appointments()) key every appointment's slot_label
+        # appointments.orphaned_appointments()) key every appointment's slot_label
         # against. Comparing the orphaned count before/after this save is
         # how we know whether *this specific change* just stranded any
         # existing bookings, without hand-duplicating the slot-generation
         # logic here to simulate it separately.
-        orphaned_before = len(logic.orphaned_appointments(db))
+        orphaned_before = len(appointments.orphaned_appointments(db))
         for key in ["clinic_name", "clinic_location", "audit_overdue_days", "expiry_soon_days", "opening_date",
                     "appt_start_time", "appt_end_time", "appt_slot_minutes",
                     "backup_dir", "backup_time", "backup_retention", "language",
@@ -351,7 +351,7 @@ def settings_page():
                     "member_discount_percent", "member_term_months"]:
             val = request.form.get(key)
             if val is not None:
-                old = logic.get_setting(db, key)
+                old = settings.get_setting(db, key)
                 db.execute(
                     "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                     (key, val),
@@ -376,7 +376,7 @@ def settings_page():
         # field", e.g. a POST from an older cached page.
         if request.form.get("selfcheck_present"):
             val = "1" if request.form.get("selfcheck_enabled") else "0"
-            old = logic.get_setting(db, "selfcheck_enabled")
+            old = settings.get_setting(db, "selfcheck_enabled")
             db.execute(
                 "INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 ("selfcheck_enabled", val),
@@ -407,10 +407,10 @@ def settings_page():
             # A new zone (chosen, or arriving with a money setting while on
             # automatic) moves the nightly jobs to the clinic's 02:00.
             from vcs.ops import scheduler
-            scheduler.reschedule(logic.get_setting(db, "backup_time", "02:00") or "02:00",
+            scheduler.reschedule(settings.get_setting(db, "backup_time", "02:00") or "02:00",
                                  zone=clock.load(db, money.load(db)))
         flash(_("Settings saved."), "success")
-        newly_orphaned = len(logic.orphaned_appointments(db)) - orphaned_before
+        newly_orphaned = len(appointments.orphaned_appointments(db)) - orphaned_before
         if newly_orphaned > 0:
             flash(_("Heads up: changing the scheduling hours/slot length just made %(n)s upcoming "
                     "appointment(s) stop matching a slot on the grid. They're still booked — check "
@@ -418,7 +418,7 @@ def settings_page():
                     n=display_number(newly_orphaned)), "error")
         return redirect(url_for("settings.settings_page"))
     rows = db.execute("SELECT * FROM settings").fetchall()
-    settings = {r["key"]: r["value"] for r in rows}
+    stored = {r["key"]: r["value"] for r in rows}
     from vcs.ops import backup as backup_mod
     from vcs.ops import autostart  # An 'in_progress' marker that was never updated to 'success'/'failed'
     # means the process died mid-restore — the database may be in a
@@ -426,7 +426,7 @@ def settings_page():
     restore_marker = backup_mod.read_restore_marker()
     incomplete_restore = bool(restore_marker and restore_marker.get("status") == "in_progress")
     return render_template(
-        "settings.html", settings=settings, lan_address=lan_address(),
+        "settings.html", settings=stored, lan_address=lan_address(),
         recent_backups=backup_mod.recent_backups(db),
         recent_restores=backup_mod.recent_restores(db),
         autostart_supported=autostart.is_supported(),
@@ -448,7 +448,7 @@ def settings_backup_now():
     # a progress panel that runs through its steps and then reports failure,
     # which reads as "the backup broke" rather than "you haven't set this up
     # yet". Nothing to do here is not an error worth a job.
-    if not logic.get_setting(get_db(), "backup_dir"):
+    if not settings.get_setting(get_db(), "backup_dir"):
         return jsonify({"error": _("No backup folder configured yet — set one above, "
                                  "then Save Settings, before backing up.")}), 400
 

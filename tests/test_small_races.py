@@ -11,7 +11,7 @@ import threading
 import time
 
 from vcs import clock
-from vcs.domain import logic
+from vcs.domain import inventory
 from conftest import ADMIN_ID, needs_db
 
 
@@ -29,7 +29,7 @@ def test_two_people_starting_an_audit_at_once_get_one_draft(client, db, flask_ap
     out = {}
     try:
         with flask_app.test_request_context():   # it writes the audit log, which reads the session
-            first = logic.get_or_create_draft_session(db, clock.today(), ADMIN_ID)
+            first = inventory.get_or_create_draft_session(db, clock.today(), ADMIN_ID)
         t = threading.Thread(target=lambda: out.setdefault("resp", client.post("/audit-history/start")), daemon=True)
         t.start()
         time.sleep(0.8)

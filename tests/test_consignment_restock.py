@@ -13,7 +13,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from vcs.domain import logic
+from vcs.domain import consignment
 from conftest import needs_db
 from test_money_routes import _latest_sale, _refund_retail
 from test_supplier_routes import _settle, consignment_item, distributor, sell_consigned  # noqa: F401
@@ -22,7 +22,7 @@ pytestmark = needs_db
 
 
 def _owed(db, dist):
-    return logic.consignment_balance(db, dist)["amount_owed"]
+    return consignment.consignment_balance(db, dist)["amount_owed"]
 
 
 @pytest.fixture

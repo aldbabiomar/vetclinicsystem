@@ -34,7 +34,7 @@ the clinic zone, so `to_char` below names the clinic's month.
 from collections import defaultdict
 from decimal import Decimal
 
-from vcs import money
+from vcs import clock, money
 def _lines_sql(where):
     """Every revenue/cost line, with its month and category. Apportioning
     uses a window over the WHOLE bill before `where` filters by month, so a
@@ -160,4 +160,79 @@ def by_month(db, since_month=None, only_month=None):
         rev, cogs = money.to_store(r["revenue"] or 0), money.to_store(r["cogs"] or 0)
         m_rev, m_cogs = out.get(r["month"], (Decimal(0), Decimal(0)))
         out[r["month"]] = (m_rev + rev, m_cogs + cogs)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Monthly / Yearly P&L (admin-only; enforced at the route level)
+# ---------------------------------------------------------------------------
+def monthly_pl(db, months_back=12):
+    today = clock.today()
+    months = []
+    y, m = today.year, today.month
+    for i in range(months_back - 1, -1, -1):
+        mm = m - i
+        yy = y
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+        months.append(f"{yy:04d}-{mm:02d}")
+
+    # Computed on read from the stored bill totals (reports.py); there is no
+    # summary table to go stale (plan D-3, audit B2/B14).
+    summary_rows = by_month(db, since_month=months[0])
+    opex_rows = {r["month"]: dict(r) for r in db.execute("SELECT * FROM monthly_opex").fetchall()}
+
+    out = []
+    prior_net = None
+    for month in months:
+        revenue, cogs = summary_rows.get(month, (0, 0))
+        gross_profit = money.to_store(revenue - cogs)
+        opex = opex_rows.get(month, {"rent": 0, "salaries": 0, "utilities": 0, "marketing": 0, "other": 0})
+        total_opex = money.to_store(sum(opex.get(k, 0) or 0 for k in ("rent", "salaries", "utilities", "marketing", "other")))
+        net_profit = money.to_store(gross_profit - total_opex)
+        net_margin = round(net_profit / revenue, 4) if revenue else None
+
+        mom_change = None
+        if prior_net not in (None, 0):
+            mom_change = round((net_profit - prior_net) / abs(prior_net) * 100, 1)
+        prior_net = net_profit
+
+        out.append({
+            "month": month, "revenue": revenue, "cogs": cogs, "gross_profit": gross_profit,
+            "rent": opex.get("rent", 0), "salaries": opex.get("salaries", 0), "utilities": opex.get("utilities", 0),
+            "marketing": opex.get("marketing", 0), "other": opex.get("other", 0), "total_opex": total_opex,
+            "net_profit": net_profit, "net_margin": net_margin, "mom_change": mom_change,
+        })
+    return out
+
+
+def yearly_pl(db):
+    """
+    Every year that has ever had revenue/COGS or opex activity, oldest
+    first, from the same per-month figures as the Monthly P&L (reports.py).
+    """
+    by_year = defaultdict(lambda: {"revenue": 0, "cogs": 0, "total_opex": 0})
+    for month, (revenue, cogs) in by_month(db).items():
+        y = month[:4]
+        by_year[y]["revenue"] += revenue
+        by_year[y]["cogs"] += cogs
+    for r in db.execute("SELECT * FROM monthly_opex").fetchall():
+        y = r["month"][:4]
+        by_year[y]["total_opex"] += sum((r[k] or 0) for k in ("rent", "salaries", "utilities", "marketing", "other"))
+
+    out = []
+    prior_net = None
+    for y in sorted(by_year.keys()):
+        d = by_year[y]
+        gross_profit = money.to_store(d["revenue"] - d["cogs"])
+        net_profit = money.to_store(gross_profit - d["total_opex"])
+        net_margin = round(net_profit / d["revenue"], 4) if d["revenue"] else None
+        yoy_change = None
+        if prior_net not in (None, 0):
+            yoy_change = round((net_profit - prior_net) / abs(prior_net) * 100, 1)
+        prior_net = net_profit
+        out.append({"year": y, "revenue": money.to_store(d["revenue"]), "cogs": money.to_store(d["cogs"]),
+                    "gross_profit": gross_profit, "total_opex": money.to_store(d["total_opex"]),
+                    "net_profit": net_profit, "net_margin": net_margin, "yoy_change": yoy_change})
     return out

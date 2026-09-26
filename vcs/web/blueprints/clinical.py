@@ -12,7 +12,7 @@ from datetime import timedelta
 from vcs.domain import attachments as attach_mod
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import logic
+from vcs.domain import appointments, billing, clinical, codes, members, search
 import os
 from vcs.web import pdf_export
 import re
@@ -146,7 +146,7 @@ def normalize_microchip(raw):
     """
     if raw is None or not str(raw).strip():
         return None
-    cleaned = logic.strip_microchip_separators(raw)
+    cleaned = search.strip_microchip_separators(raw)
     if not re.fullmatch(rf"[A-Z0-9]{{{MICROCHIP_MIN_LENGTH},{MICROCHIP_MAX_LENGTH}}}", cleaned):
         raise BadMicrochip(raw)
     return cleaned
@@ -182,7 +182,7 @@ def microchip_taken_message(microchip, row):
 
 
 def vet_users(db):
-    return logic.vet_users(db)
+    return appointments.vet_users(db)
 
 
 # ---------------------------------------------------------------------------
@@ -195,8 +195,8 @@ def api_patients_search():
     term = request.args.get("q", "").strip()
     if len(term) < 2:
         return jsonify([])
-    rows = logic.search_patients(db, term)
-    return jsonify([{"id": r["id"], "code": logic.code("PT", r["id"]),
+    rows = search.search_patients(db, term)
+    return jsonify([{"id": r["id"], "code": codes.code("PT", r["id"]),
                      "animal_name": r["animal_name"], "species": r["species"],
                       "owner_name": r["owner_name"], "owner_phone": r["owner_phone"],
                       "microchip": r["microchip"]} for r in rows])
@@ -208,11 +208,11 @@ def api_owners_search():
     """Customer lookup for POS, when a rewards card is presented.
 
     Matches name, phone or printed card number. `is_member` is the ACTIVE
-    answer from logic.is_active_member() — a lapsed card must not badge as
+    answer from members.is_active_member() — a lapsed card must not badge as
     current at the till, which is the one place it would mislead a customer
     to their face.
 
-    logic.like_pattern() escapes the term: raw user input in a LIKE was
+    search.like_pattern() escapes the term: raw user input in a LIKE was
     already a bug here once, which is why tests/test_search_wildcards.py
     exists.
     """
@@ -220,12 +220,12 @@ def api_owners_search():
     term = request.args.get("q", "").strip()
     if len(term) < 2:
         return jsonify([])
-    pat = logic.like_pattern(term)
+    pat = search.like_pattern(term)
     rows = db.execute(
         "SELECT * FROM owners WHERE name ILIKE ? OR phone ILIKE ? OR member_card_number ILIKE ? "
         "ORDER BY name LIMIT 10", (pat, pat, pat)).fetchall()
     return jsonify([{"id": r["id"], "name": r["name"], "phone": r["phone"],
-                     "is_member": logic.is_active_member(r),
+                     "is_member": members.is_active_member(r),
                      "card_number": r["member_card_number"]} for r in rows])
 
 
@@ -236,21 +236,21 @@ def api_owners_search():
 @auth.permission_required("manage_owners")
 def owners_list():
     db = get_db()
-    search = request.args.get("q", "").strip()
+    term = request.args.get("q", "").strip()
     page = get_page()
-    if search:
+    if term:
         total = db.execute("SELECT COUNT(*) c FROM owners WHERE name ILIKE ? OR phone ILIKE ?",
-                            (logic.like_pattern(search), logic.like_pattern(search))).fetchone()["c"]
+                            (search.like_pattern(term), search.like_pattern(term))).fetchone()["c"]
         rows = db.execute(
             "SELECT * FROM owners WHERE name ILIKE ? OR phone ILIKE ? ORDER BY name LIMIT ? OFFSET ?",
-            (logic.like_pattern(search), logic.like_pattern(search), PER_PAGE, page_offset(page)),
+            (search.like_pattern(term), search.like_pattern(term), PER_PAGE, page_offset(page)),
         ).fetchall()
     else:
         total = db.execute("SELECT COUNT(*) c FROM owners").fetchone()["c"]
         rows = db.execute("SELECT * FROM owners ORDER BY name LIMIT ? OFFSET ?",
                           (PER_PAGE, page_offset(page))).fetchall()
     counts = {r["owner_id"]: r["c"] for r in db.execute("SELECT owner_id, COUNT(*) c FROM patients GROUP BY owner_id").fetchall()}
-    return render_template("owners_list.html", owners=rows, search=search, counts=counts,
+    return render_template("owners_list.html", owners=rows, search=term, counts=counts,
                             page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -272,7 +272,7 @@ def owner_new():
         if phone:
             existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
             if existing:
-                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=logic.code('OW', existing['id'])), "error")
+                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=codes.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
         name = required_field(f, "name", "Owner name")
         if name is None:
@@ -293,11 +293,11 @@ def owner_new():
             db.rollback()
             existing = db.execute("SELECT id FROM owners WHERE phone=?", (phone,)).fetchone()
             if existing:
-                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=logic.code('OW', existing['id'])), "error")
+                flash(_("Owner %(id)s already has this phone number on file — add the pet to them instead of creating a new owner.", id=codes.code('OW', existing['id'])), "error")
                 return redirect(url_for("clinical.owner_detail", owner_id=existing["id"]))
             flash(_("That phone number is already on file for another owner."), "error")
             return render_template("owner_form.html", owner=None, form=f)
-        flash(_("Owner %(oid)s added.", oid=logic.code("OW", oid)), "success")
+        flash(_("Owner %(oid)s added.", oid=codes.code("OW", oid)), "success")
         return redirect(url_for("clinical.owner_detail", owner_id=oid))
     return render_template("owner_form.html", owner=None)
 
@@ -317,12 +317,12 @@ def owner_detail(owner_id):
         enrolled_by = u["username"] if u else None
     return render_template(
         "owner_detail.html", owner=owner, patients=patients,
-        is_active_member=logic.is_active_member(owner),
-        member_expires_in_days=logic.member_expires_in_days(owner),
-        member_expiring_soon_days=logic.MEMBER_EXPIRING_SOON_DAYS,
-        member_rate=logic.member_discount_rate(db),
+        is_active_member=members.is_active_member(owner),
+        member_expires_in_days=members.member_expires_in_days(owner),
+        member_expiring_soon_days=members.MEMBER_EXPIRING_SOON_DAYS,
+        member_rate=members.member_discount_rate(db),
         member_enrolled_by=enrolled_by,
-        default_expiry=logic.member_default_expiry(db).isoformat())
+        default_expiry=members.member_default_expiry(db).isoformat())
 
 
 @bp.route("/owners/<int:owner_id>/rewards/enroll", methods=["POST"])
@@ -449,17 +449,17 @@ PATIENT_SORT_COLUMNS = {
 @auth.permission_required("manage_patients")
 def patients_list():
     db = get_db()
-    search = request.args.get("q", "").strip()
+    term = request.args.get("q", "").strip()
     sort = request.args.get("sort", "id")
     direction = request.args.get("dir", "desc" if sort == "id" else "asc")
     sort_col = PATIENT_SORT_COLUMNS.get(sort, "p.id")
     direction_sql = "DESC" if direction == "desc" else "ASC"
     page = get_page()
 
-    if search:
+    if term:
         # search_patients() is already capped to the top 25 best matches —
         # a single page's worth, so no further pagination needed here.
-        rows = logic.search_patients(db, search)
+        rows = search.search_patients(db, term)
         total = len(rows)
         total_pages_ = 1
     else:
@@ -470,7 +470,7 @@ def patients_list():
             (PER_PAGE, page_offset(page)),
         ).fetchall()
         total_pages_ = page_count(total)
-    return render_template("patients_list.html", patients=rows, search=search, sort=sort, direction=direction,
+    return render_template("patients_list.html", patients=rows, search=term, sort=sort, direction=direction,
                             page=page, total_pages=total_pages_, total_count=total)
 
 
@@ -488,10 +488,10 @@ def patient_detail(patient_id):
     visits = db.execute("SELECT * FROM visits WHERE patient_id=? ORDER BY date DESC", (patient_id,)).fetchall()
     visits = [dict(v) for v in visits]
     for v in visits:
-        v["billing"] = logic.visit_billing_summary(db, v["id"])
+        v["billing"] = billing.visit_billing_summary(db, v["id"])
     grooming_sessions = [v for v in visits if v["grooming_needed"] == "Y"]
     cases = db.execute("SELECT * FROM inpatient_cases WHERE patient_id=? ORDER BY admission_date DESC", (patient_id,)).fetchall()
-    boarding_sessions = logic.boarding_sessions_for_patient(db, patient_id)
+    boarding_sessions = clinical.boarding_sessions_for_patient(db, patient_id)
     return render_template("patient_detail.html", patient=patient, visits=visits, cases=cases,
                             grooming_sessions=grooming_sessions, boarding_sessions=boarding_sessions)
 
@@ -561,7 +561,7 @@ def patient_history(patient_id):
     if not patient:
         flash(_("Patient not found."), "error")
         return redirect(url_for("clinical.patients_list"))
-    events = logic.patient_history(db, patient_id)
+    events = clinical.patient_history(db, patient_id)
     return render_template("patient_history.html", patient=patient, events=events)
 
 
@@ -612,7 +612,7 @@ CASE_STATUSES = ["Needs Filling", "Ongoing", "Admitted to Inpatient", "Deceased/
                   "Lost to Follow Up", "Resolved", "Referred"]
 FOLLOWUP_REASONS = ["Surgery Follow Up", "Medical Follow Up", "Vaccine", "Deworming", "Spot On", "Other"]
 WELLNESS_TYPES = ["Annual Vaccine", "First Vaccine", "Rabies Vaccine", "Deworming", "Spot On/Pill"]
-GROOMING_SERVICES = logic.GROOMING_SERVICES
+GROOMING_SERVICES = clinical.GROOMING_SERVICES
 
 
 @bp.route("/visits/new")
@@ -708,7 +708,7 @@ def visit_new_patient():
         existing_owner = db.execute("SELECT id FROM owners WHERE phone=?", (owner_phone,)).fetchone() if owner_phone else None
         if existing_owner:
             oid = existing_owner["id"]
-            flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=logic.code("OW", oid)), "success")
+            flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=codes.code("OW", oid)), "success")
         else:
             oid = dbmod.next_row_id(db, "owners")
             try:
@@ -735,7 +735,7 @@ def visit_new_patient():
                           "and try again."), "error")
                     return redisplay()
                 oid = existing["id"]
-                flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=logic.code("OW", oid)), "success")
+                flash(_("Owner %(oid)s already has this phone number on file — the new pet was added to their existing profile.", oid=codes.code("OW", oid)), "success")
 
         pid = dbmod.next_row_id(db, "patients")
         try:
@@ -833,8 +833,8 @@ def _create_inpatient_case(db, patient_id, visit_id, complaint, admission_date, 
     # Decided once, at admission (A2). A stay admitted the day before its
     # owner enrols carries no discount even though the whole bill accrues
     # afterwards — put to the clinic owner explicitly and accepted.
-    member_percent, member_source = logic.member_discount_for(
-        db, logic.owner_for_patient(db, patient_id))
+    member_percent, member_source = members.member_discount_for(
+        db, members.owner_for_patient(db, patient_id))
     cur = db.execute(
         "INSERT INTO inpatient_cases (patient_id, visit_id, complaint, admission_date, weight_kg, bcs, dismissed, created_by, "
         "discount_percent, discount_source, discount_applied_by) VALUES (?,?,?,?,?,?,false,?,?,?,?) RETURNING id",
@@ -855,7 +855,7 @@ def visits_list():
     db = get_db()
     sort = request.args.get("sort", "date")
     day_filter = date_filter_arg()
-    search = request.args.get("q", "").strip()
+    term = request.args.get("q", "").strip()
     page = get_page()
 
     from_join = "FROM visits v JOIN patients p ON p.id=v.patient_id JOIN owners o ON o.id=p.owner_id"
@@ -864,9 +864,9 @@ def visits_list():
     if day_filter:
         where.append("v.date=?")
         params.append(day_filter)
-    if search:
+    if term:
         where.append("(p.animal_name ILIKE ? OR o.name ILIKE ?)")
-        params.extend([logic.like_pattern(search), logic.like_pattern(search)])
+        params.extend([search.like_pattern(term), search.like_pattern(term)])
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
     total = db.execute(f"SELECT COUNT(*) c {from_join}{where_sql}", params).fetchone()["c"]
@@ -883,8 +883,8 @@ def visits_list():
 
     rows = [dict(r) for r in db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()]
     for r in rows:
-        r["billing"] = logic.visit_billing_summary(db, r["id"])
-    return render_template("visits_list.html", visits=rows, sort=sort, day_filter=day_filter or "", search=search,
+        r["billing"] = billing.visit_billing_summary(db, r["id"])
+    return render_template("visits_list.html", visits=rows, sort=sort, day_filter=day_filter or "", search=term,
                             page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -896,7 +896,7 @@ def _visit_detail_context(db, visit_id):
     if not visit:
         return None
     billing_row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit_id,)).fetchone()
-    summary = logic.visit_billing_summary(db, visit_id)
+    summary = billing.visit_billing_summary(db, visit_id)
     payments = db.execute("SELECT * FROM payments WHERE visit_id=? ORDER BY date DESC", (visit_id,)).fetchall()
     files = attach_mod.list_attachments(db, "visit", visit_id)
     cap = auth.discount_cap_for()
@@ -1110,7 +1110,7 @@ def visit_billing_save(visit_id):
         # non-discountable item on a member's bill.
         if (existing_discount and (existing_discount["discount_percent"] or 0) > 0
                 and existing_discount["discount_source"] == "staff"):
-            blocked = logic.non_discountable_line_names(db, [l["price_id"] for l in priced_lines])
+            blocked = billing.non_discountable_line_names(db, [l["price_id"] for l in priced_lines])
             if blocked:
                 flash(_("Can't save — this bill has a %(discount_percent)s%% discount applied, but includes item(s) marked as not discountable: %(join)s. Remove the discount first, or leave these items off this bill.", discount_percent=f"{existing_discount['discount_percent']:.0f}", join=', '.join(blocked)), "error")
                 return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
@@ -1151,7 +1151,7 @@ def visit_billing_save(visit_id):
                             else sum(l["quantity"] * l["unit_price"]
                                      for l in priced_lines if l["discountable"]))
         paid_row = db.execute("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE visit_id=?", (visit_id,)).fetchone()
-        new_total, _unused, _unused, _unused, _unused = logic.compute_bill_totals(
+        new_total, _unused, _unused, _unused, _unused = billing.compute_bill_totals(
             new_subtotal or 0, existing["discount_percent"], 0, existing["cleanup_amount"],
             discountable_subtotal=new_discountable or 0)
         if paid_row["s"] > new_total:
@@ -1169,8 +1169,8 @@ def visit_billing_save(visit_id):
     # this bill goes through the UPDATE branch, and listing them there would
     # re-stamp the snapshot on every edit.
     visit_row = db.execute("SELECT patient_id FROM visits WHERE id=?", (visit_id,)).fetchone()
-    member_percent, member_source = logic.member_discount_for(
-        db, logic.owner_for_patient(db, visit_row["patient_id"]) if visit_row else None)
+    member_percent, member_source = members.member_discount_for(
+        db, members.owner_for_patient(db, visit_row["patient_id"]) if visit_row else None)
     db.execute(
         "INSERT INTO billing (visit_id, billing_type, manual_amount, date_billed, notes, "
         "discount_percent, discount_source, discount_applied_by) VALUES (?,?,?,?,?,?,?,?) "
@@ -1185,12 +1185,12 @@ def visit_billing_save(visit_id):
         # cart right now, at Save time — this is what stops a price edit
         # next month from silently changing what this visit's bill (and
         # the revenue/COGS report for the month it was billed) says today.
-        logic.save_visit_billing_lines(db, visit_id, priced_lines)
+        billing.save_visit_billing_lines(db, visit_id, priced_lines)
     else:
         # Switched to (or re-saved as) Manual — any prior Automatic
         # snapshot for this visit no longer applies.
         db.execute("DELETE FROM visit_billing_lines WHERE visit_id=?", (visit_id,))
-    logic.refresh_visit_billing_total(db, visit_id)
+    billing.refresh_visit_billing_total(db, visit_id)
     auth.log_change(db, "billing", visit_id, "update" if existing else "create")
     db.commit()
     if had_bad_number:
@@ -1245,8 +1245,8 @@ def visit_discount_save(visit_id):
         flash(_("This bill carries a rewards-card discount. A staff discount can't be added on top of it, and can't replace it."), "error")
         return redisplay()
     if percent > 0:
-        summary = logic.visit_billing_summary(db, visit_id)
-        blocked = logic.non_discountable_line_names(db, [l["id"] for l in summary["lines"]])
+        summary = billing.visit_billing_summary(db, visit_id)
+        blocked = billing.non_discountable_line_names(db, [l["id"] for l in summary["lines"]])
         if blocked:
             flash(_("Can't apply a discount — this bill includes item(s) marked as not discountable: %(join)s.", join=', '.join(blocked)), "error")
             return redisplay()
@@ -1262,7 +1262,7 @@ def visit_discount_save(visit_id):
         "UPDATE billing SET discount_percent=?, discount_applied_by=? WHERE visit_id=?",
         (percent, session["user_id"], visit_id),
     )
-    logic.refresh_visit_billing_total(db, visit_id)
+    billing.refresh_visit_billing_total(db, visit_id)
     auth.log_change(db, "billing", visit_id, "update", {"discount_percent": (existing["discount_percent"] if existing else 0, percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")
@@ -1327,11 +1327,11 @@ def rewards_remove_discount(surface, bill_id):
     # Leaves an ordinary, staff-shaped, undiscounted bill — a state the rest
     # of the system already understands, not a fourth kind of bill.
     if surface == "visit":
-        logic.refresh_visit_billing_total(db, bill_id)
+        billing.refresh_visit_billing_total(db, bill_id)
     elif surface == "inpatient":
-        logic.refresh_inpatient_total(db, bill_id)
+        billing.refresh_inpatient_total(db, bill_id)
     else:
-        logic.refresh_boarding_total(db, bill_id)
+        billing.refresh_boarding_total(db, bill_id)
     auth.log_change(db, table, str(bill_id), "update", {
         "discount_percent": (row["discount_percent"], 0),
         "discount_source": ("member", "staff"),
@@ -1370,7 +1370,7 @@ def visit_payment_add(visit_id):
     if amount <= 0:
         flash(_("Payment amount must be greater than 0."), "error")
         return redisplay()
-    summary = logic.visit_billing_summary(db, visit_id)
+    summary = billing.visit_billing_summary(db, visit_id)
     balance = summary["balance"]
     if amount > balance:
         flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this visit.", fmt_money=display_money(balance), currency=currency_label()), "error")
@@ -1407,7 +1407,7 @@ def visit_payment_add(visit_id):
         )
         auth.log_change(db, "billing", visit_id, "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        logic.refresh_visit_billing_total(db, visit_id)
+        billing.refresh_visit_billing_total(db, visit_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -1499,7 +1499,7 @@ def followups_list():
     db = get_db()
     show_all = request.args.get("all") == "1"
     page = get_page()
-    rows, total = logic.followups_page(db, only_pending=not show_all, limit=PER_PAGE, offset=page_offset(page))
+    rows, total = clinical.followups_page(db, only_pending=not show_all, limit=PER_PAGE, offset=page_offset(page))
     return render_template("followups_list.html", followups=rows, show_all=show_all,
                             page=page, total_pages=page_count(total), total_count=total)
 
@@ -1531,7 +1531,7 @@ def followup_status_update(visit_id):
 def wellness_list():
     db = get_db()
     page = get_page()
-    rows, total = logic.wellness_reminders_page(db, limit=PER_PAGE, offset=page_offset(page))
+    rows, total = clinical.wellness_reminders_page(db, limit=PER_PAGE, offset=page_offset(page))
     return render_template("wellness_list.html", rows=rows,
                             page=page, total_pages=page_count(total), total_count=total)
 
@@ -1568,7 +1568,7 @@ def grooming_list():
     db = get_db()
     include_finished = request.args.get("all") == "1"
     page = get_page()
-    rows, total = logic.grooming_queue_page(db, include_finished=include_finished, limit=PER_PAGE, offset=page_offset(page))
+    rows, total = clinical.grooming_queue_page(db, include_finished=include_finished, limit=PER_PAGE, offset=page_offset(page))
     return render_template("grooming_list.html", rows=rows, include_finished=include_finished,
                             page=page, total_pages=page_count(total), total_count=total)
 
@@ -1624,7 +1624,7 @@ def _boarding_page_context(show_all):
     # Batched across the whole page instead of a paid-sum + incident-count
     # query per row (boarding_billing_summary() alone was also redundantly
     # re-fetching the boarding_sessions row this page already has) — see
-    # logic.boarding_billing_summary_from_fields().
+    # billing.boarding_billing_summary_from_fields().
     ids = [r["id"] for r in rows]
     paid_by_id = {}
     incidents_by_id = {}
@@ -1639,7 +1639,7 @@ def _boarding_page_context(show_all):
             f"WHERE boarding_id IN ({placeholders}) GROUP BY boarding_id", ids
         ).fetchall()}
     for r in rows:
-        r["billing"] = logic.boarding_billing_summary_from_fields(r, paid_by_id.get(r["id"], 0))
+        r["billing"] = billing.boarding_billing_summary_from_fields(r, paid_by_id.get(r["id"], 0))
         r["incident_count"] = incidents_by_id.get(r["id"], 0)
     return dict(sessions=rows, show_all=show_all, today=clock.today().isoformat(),
                 page=page, total_pages=page_count(total), total_count=total,
@@ -1694,10 +1694,10 @@ def boarding_new():
         return redisplay()
     total_is_auto = total is None
     if total_is_auto:
-        total = logic.boarding_suggested_total(price_per_day, entry_date, dismissal_date)
+        total = billing.boarding_suggested_total(price_per_day, entry_date, dismissal_date)
     special_needs = f.get("special_needs") == "on"
-    member_percent, member_source = logic.member_discount_for(
-        db, logic.owner_for_patient(db, patient_id))
+    member_percent, member_source = members.member_discount_for(
+        db, members.owner_for_patient(db, patient_id))
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, dismissal_date, admitted_items, special_needs, "
         "special_needs_notes, room, price_per_day, total, total_is_auto, dismissed, created_by, "
@@ -1710,7 +1710,7 @@ def boarding_new():
          session.get("user_id") if member_percent else None),
     )
     boarding_id = cur.fetchone()["id"]
-    logic.refresh_boarding_total(db, boarding_id)
+    billing.refresh_boarding_total(db, boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "create")
     db.commit()
     flash(_("Boarding session added."), "success")
@@ -1765,7 +1765,7 @@ def boarding_edit(boarding_id):
         return redisplay()
     total_is_auto = total is None
     if total_is_auto:
-        total = logic.boarding_suggested_total(price_per_day, entry_date, dismissal_date)
+        total = billing.boarding_suggested_total(price_per_day, entry_date, dismissal_date)
     # Once picked up, boarding_dismiss() locked in the final billed figure —
     # dates/price/total from this form are ignored from that point on, same
     # as a settled invoice. Other fields (room, admitted items, special
@@ -1786,7 +1786,7 @@ def boarding_edit(boarding_id):
         "special_needs_notes=?, room=?, price_per_day=?, total=?, total_is_auto=?, updated_at=? WHERE id=?",
         (*new_vals.values(), now, boarding_id),
     )
-    logic.refresh_boarding_total(db, boarding_id)
+    billing.refresh_boarding_total(db, boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes, at=now)
     db.commit()
     flash(_("Boarding session updated."), "success")
@@ -1815,13 +1815,13 @@ def boarding_dismiss(boarding_id):
         # this live; once dismissed, nothing recomputes it anymore, so
         # `total` needs to hold the real final figure, not whatever
         # (usually 1 night) it was left at when the session was created.
-        final_total = logic.boarding_suggested_total(row["price_per_day"], row["entry_date"], dismissal_date)
+        final_total = billing.boarding_suggested_total(row["price_per_day"], row["entry_date"], dismissal_date)
     # Bumps updated_at: an open edit form of this stay writes dismissal_date
     # and total too, and must see that they changed (audit B4).
     now = clock.now()
     db.execute("UPDATE boarding_sessions SET dismissed=true, dismissal_date=?, total=?, updated_at=? WHERE id=?",
                (dismissal_date, final_total, now, boarding_id))
-    logic.refresh_boarding_total(db, boarding_id)
+    billing.refresh_boarding_total(db, boarding_id)
     auth.log_change(db, "boarding_sessions", str(boarding_id), "update",
                     {"dismissed": (False, True), "dismissal_date": (row["dismissal_date"], dismissal_date),
                      "total": (row["total"], final_total)}, at=now)
@@ -1883,7 +1883,7 @@ def boarding_payment(boarding_id):
     if amount <= 0:
         flash(_("Payment amount must be greater than 0."), "error")
         return redisplay()
-    summary = logic.boarding_billing_summary(db, boarding_id)
+    summary = billing.boarding_billing_summary(db, boarding_id)
     # The discount arrives in the SAME submission as the payment, so this has
     # to settle before the balance checks below that use it.
     raw_discount = f.get("discount_percent")
@@ -1918,14 +1918,14 @@ def boarding_payment(boarding_id):
     # validate against the bill as this submission would leave it, not as it
     # stands now. Checking the payment against the pre-submission balance
     # would let a discount-and-pay-in-full click overpay the discounted bill.
-    _unused, _unused, balance_after_discount, _unused, _unused = logic.compute_bill_totals(
+    _unused, _unused, balance_after_discount, _unused, _unused = billing.compute_bill_totals(
         summary["subtotal"], discount_percent, summary["paid"], summary["cleanup_amount"],
         discountable_subtotal=summary["discountable_subtotal"])
     error = cleanup_amount_error(cleanup_amount, summary["cleanup_amount"], balance_after_discount)
     if error:
         flash(error, "error")
         return redisplay()
-    _unused, _unused, balance, _unused, _unused = logic.compute_bill_totals(
+    _unused, _unused, balance, _unused, _unused = billing.compute_bill_totals(
         summary["subtotal"], discount_percent, summary["paid"],
         summary["cleanup_amount"] + cleanup_amount,
         discountable_subtotal=summary["discountable_subtotal"])
@@ -1959,7 +1959,7 @@ def boarding_payment(boarding_id):
         auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
     if cleanup_amount > 0 or discount_percent != summary["discount_percent"]:
-        logic.refresh_boarding_total(db, boarding_id)
+        billing.refresh_boarding_total(db, boarding_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -2085,12 +2085,12 @@ def _inpatient_detail_context(db, case_id):
                          "WHERE case_id=? ORDER BY timestamp DESC", (case_id,)).fetchall()
     contacts = db.execute("SELECT c.*, us.full_name FROM inpatient_contact_log c LEFT JOIN users us ON us.id=c.staff_user_id "
                           "WHERE case_id=? ORDER BY timestamp DESC", (case_id,)).fetchall()
-    billing = logic.inpatient_billing_summary(db, case_id)
+    bill = billing.inpatient_billing_summary(db, case_id)
     payments = db.execute("SELECT * FROM payments WHERE inpatient_case_id=? ORDER BY date DESC", (case_id,)).fetchall()
     files = attach_mod.list_attachments(db, "inpatient", case_id)
     cap = auth.discount_cap_for()
     return dict(case=case, updates=updates, recent_updates=updates[:3],
-                contacts=contacts, recent_contacts=contacts[:3], billing=billing, payments=payments,
+                contacts=contacts, recent_contacts=contacts[:3], billing=bill, payments=payments,
                 vets=vet_users(db), files=files, discount_cap=cap)
 
 
@@ -2296,7 +2296,7 @@ def inpatient_billing_add(case_id):
         )
         added += 1
     if added:
-        logic.refresh_inpatient_total(db, case_id)
+        billing.refresh_inpatient_total(db, case_id)
         auth.log_change(db, "inpatient_billing", str(case_id), "create")
     db.commit()
     if had_bad_number:
@@ -2321,7 +2321,7 @@ def inpatient_billing_delete(case_id, line_id):
     # payments already taken against it stay on the books — nothing else
     # ever surfaces `paid > total` after that. See ORPHANED_RECORDS_AUDIT.md
     # F-14.
-    summary = logic.inpatient_billing_summary(db, case_id)
+    summary = billing.inpatient_billing_summary(db, case_id)
     this_line = next((l for l in summary["lines"] if l["id"] == line_id), None)
     remaining_subtotal = summary["subtotal"] - (this_line["line_total"] if this_line else 0)
     # Only subtract this line from the discountable side if it was itself
@@ -2329,14 +2329,14 @@ def inpatient_billing_delete(case_id, line_id):
     # discounted portion it never belonged to.
     remaining_discountable = summary["discountable_subtotal"] - (
         this_line["line_total"] if (this_line and this_line["discountable"]) else 0)
-    remaining_total, _unused, _unused, _unused, _unused = logic.compute_bill_totals(
+    remaining_total, _unused, _unused, _unused, _unused = billing.compute_bill_totals(
         remaining_subtotal, summary["discount_percent"], 0, summary["cleanup_amount"],
         discountable_subtotal=remaining_discountable)
     if summary["paid"] > remaining_total:
         flash(_("Removing this line would leave %(fmt_money)s paid against a %(fmt_money2)s %(currency)s bill. Process a service refund for the difference first.", fmt_money=display_money(summary['paid']), fmt_money2=display_money(remaining_total), currency=currency_label()), "error")
         return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
     db.execute("DELETE FROM inpatient_billing WHERE id=? AND case_id=?", (line_id, case_id))
-    logic.refresh_inpatient_total(db, case_id)
+    billing.refresh_inpatient_total(db, case_id)
     auth.log_change(db, "inpatient_billing", str(line_id), "delete")
     db.commit()
     flash(_("Line removed."), "success")
@@ -2385,14 +2385,14 @@ def inpatient_discount_save(case_id):
         price_ids = [r["price_id"] for r in db.execute(
             "SELECT DISTINCT price_id FROM inpatient_billing WHERE case_id=?", (case_id,)
         ).fetchall()]
-        blocked = logic.non_discountable_line_names(db, price_ids)
+        blocked = billing.non_discountable_line_names(db, price_ids)
         if blocked:
             flash(_("Can't apply a discount — this bill includes item(s) marked as not discountable: %(join)s.", join=', '.join(blocked)), "error")
             return redisplay()
     old = db.execute("SELECT discount_percent FROM inpatient_cases WHERE id=?", (case_id,)).fetchone()
     db.execute("UPDATE inpatient_cases SET discount_percent=?, discount_applied_by=? WHERE id=?",
               (percent, session["user_id"], case_id))
-    logic.refresh_inpatient_total(db, case_id)
+    billing.refresh_inpatient_total(db, case_id)
     auth.log_change(db, "inpatient_cases", str(case_id), "update", {"discount_percent": (old["discount_percent"], percent)})
     db.commit()
     flash(_("%(percent)s%% discount applied.", percent=f"{percent:.0f}"), "success")
@@ -2428,7 +2428,7 @@ def inpatient_payment_add(case_id):
     if amount <= 0:
         flash(_("Payment amount must be greater than 0."), "error")
         return redisplay()
-    summary = logic.inpatient_billing_summary(db, case_id)
+    summary = billing.inpatient_billing_summary(db, case_id)
     balance = summary["balance"]
     if amount > balance:
         flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this case.", fmt_money=display_money(balance), currency=currency_label()), "error")
@@ -2465,7 +2465,7 @@ def inpatient_payment_add(case_id):
         )
         auth.log_change(db, "inpatient_cases", str(case_id), "update", changes={
             "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        logic.refresh_inpatient_total(db, case_id)
+        billing.refresh_inpatient_total(db, case_id)
     db.commit()
     flash(_("Payment recorded."), "success")
     flash_cash_denomination_warning(amount)
@@ -2504,7 +2504,7 @@ def _appointments_page_context(day=None):
     # parameter is ABSENT. "?day=" (present but empty) once reached Postgres
     # as "" -- a 500 on a page reachable by clearing the date filter
     # (SIMULATION_AUDIT_2026-09-11.md F4). strict_date(), not the lenient
-    # logic.as_date(): "?day=2026-W39-4" parsed clean with that and 500'd the
+    # dates.as_date(): "?day=2026-W39-4" parsed clean with that and 500'd the
     # book too (audit B1). Checking the parse RESULT as well as catching
     # ValueError keeps a None from slipping through either way.
     # `day`: the day a failed booking was for, passed by appointment_new() —
@@ -2517,7 +2517,7 @@ def _appointments_page_context(day=None):
     except ValueError:
         flash(_("That week link wasn't valid, showing the current week instead."), "error")
         week_anchor = today_iso
-    days = logic.week_dates(week_anchor)
+    days = appointments.week_dates(week_anchor)
     selected_day = request.args.get("day") or day or today_iso
     try:
         if strict_date(selected_day) is None:
@@ -2525,11 +2525,11 @@ def _appointments_page_context(day=None):
     except ValueError:
         flash(_("That date wasn't valid, showing today instead."), "error")
         selected_day = today_iso
-    columns, grid = logic.day_grid(db, selected_day)
+    columns, grid = appointments.day_grid(db, selected_day)
     prev_week = (days[0] - timedelta(days=7)).isoformat()
     next_week = (days[0] + timedelta(days=7)).isoformat()
     show_past = request.args.get("show_past") == "1"
-    orphaned = logic.orphaned_appointments(db, include_past=show_past)
+    orphaned = appointments.orphaned_appointments(db, include_past=show_past)
     return dict(days=days, selected_day=selected_day, columns=columns,
                 grid=grid, week_anchor=week_anchor, prev_week=prev_week, next_week=next_week,
                 today_iso=today_iso, orphaned=orphaned, show_past=show_past)
@@ -2588,11 +2588,11 @@ def appointment_new():
     elif not resource_id or not any(v["id"] == resource_id for v in vet_users(db)):
         flash(_("Pick a valid, active vet for this appointment."), "error")
         return redisplay()
-    if not any(s["label"] == slot_label for s in logic.generate_slots(db)):
+    if not any(s["label"] == slot_label for s in appointments.generate_slots(db)):
         flash(_("That's not a valid time slot — the schedule may have changed. Reload and try again."), "error")
         return redisplay()
 
-    if logic.slot_conflict(db, appt_date, slot_label, resource_type, resource_id):
+    if appointments.slot_conflict(db, appt_date, slot_label, resource_type, resource_id):
         flash(_("That slot is already booked for this vet/groomer."), "error")
         return redisplay()
 

@@ -16,7 +16,7 @@ that routes validate against and that CHECK constraints enforce — translating
 the *stored* value would break both. Only the display goes through `|tr`.
 
 **The literals here are duplicates, and that is the point.** The real
-constants live in the blueprints, `core.py`, `logic.py` and the templates;
+constants live in the blueprints, `core.py`, the domain modules and the templates;
 `_(CASE_STATUSES)` on a variable extracts nothing, so extraction needs the
 strings spelled out. Duplication that nothing checks is how the first version
 of this file came to declare a grooming status of "In Progress" that no code
@@ -32,7 +32,7 @@ translating.
 from flask_babel import lazy_gettext as _
 
 # --- mirrors of Python constants (test_enum_labels checks each against its
-# --- module: blueprints.clinical, blueprints.inventory, core, logic)
+# --- module: blueprints.clinical, blueprints.inventory, core, vcs.domain)
 
 # blueprints.clinical.CASE_STATUSES — visits.case_status, a schema CHECK
 CASE_STATUSES = [
@@ -49,7 +49,7 @@ WELLNESS_TYPES = [
     _("Annual Vaccine"), _("First Vaccine"), _("Rabies Vaccine"),
     _("Deworming"), _("Spot On/Pill"),
 ]
-# logic.GROOMING_SERVICES — the grooming service checkboxes, stored as text
+# clinical.GROOMING_SERVICES — the grooming service checkboxes, stored as text
 GROOMING_SERVICES = [
     _("Bath"), _("Haircut"), _("De-shedding"), _("Nail Trim"), _("Ear Cleaning"),
     _("Ear Mites Cleaning"), _("Paw Clipping"), _("Nail Caps"),
@@ -62,7 +62,7 @@ PAYMENT_METHODS = [_("Cash"), _("Card"), _("Transfer")]
 PRICE_CATEGORIES = [_("Service"), _("Medicine"), _("Retail")]
 # blueprints.inventory.INVENTORY_CATEGORIES — inventory_list.category, a CHECK
 INVENTORY_CATEGORIES = [_("Medical"), _("Retail")]
-# logic.REVENUE_CATEGORIES — the insights/P&L breakdown
+# analytics.REVENUE_CATEGORIES — the insights/P&L breakdown
 REVENUE_CATEGORIES = [_("Service"), _("Medicine"), _("Retail"), _("Boarding")]
 
 # --- mirrors of literal lists that live only in a template
@@ -87,7 +87,7 @@ SEXES = [_("M"), _("F")]
 # --- values a route computes or a schema CHECK fixes, rendered but never
 # --- offered in a <select>, so there is no list to compare against
 
-# logic.compute_bill_totals() — visits.payment_status
+# billing.compute_bill_totals() — visits.payment_status
 PAYMENT_STATUSES = [_("Unpaid"), _("Partially Paid"), _("Fully Paid"), _("N/A")]
 # distributor_bills.status
 BILL_STATUSES = [_("Unpaid"), _("Partially Paid"), _("Paid")]
@@ -106,7 +106,7 @@ APPOINTMENT_TYPES = [_("Medical"), _("Grooming")]
 REFUND_TYPES = [_("retail"), _("service")]
 # audit_log.action, rendered as a badge on the change log
 AUDIT_ACTIONS = [_("create"), _("update"), _("delete")]
-# logic.WEEKDAY_LABELS — the Insights weekday-load table
+# analytics.WEEKDAY_LABELS — the Insights weekday-load table
 WEEKDAY_LABELS = [
     _("Sunday"), _("Monday"), _("Tuesday"), _("Wednesday"), _("Thursday"),
     _("Friday"), _("Saturday"),
@@ -123,7 +123,7 @@ SEEDED_ROLE_DESCRIPTIONS = [
     _("Clinical staff — patient care, visits, and inpatient cases."),
     _("Front desk — scheduling, checkout, and client-facing tasks."),
 ]
-# logic.cash_register_ledger() — the ledger's event_type column, built in SQL
+# cash_register.cash_register_ledger() — the ledger's event_type column, built in SQL
 CASH_LEDGER_EVENTS = [
     _("POS Sale"), _("Visit Payment"), _("Inpatient Payment"), _("Boarding Payment"),
     _("Retail Refund"), _("Service Refund"), _("Register Payout"),
@@ -149,10 +149,10 @@ PERMISSION_LABELS = [
     _("View Consignment"), _("Manage Consignment Items"),
     _("Log Receiving, Returns & Shrinkage"), _("Manage Settlements"),
 ]
-# logic.ordering_sheet() priority, and the appointments grid's non-vet column
+# inventory.ordering_sheet() priority, and the appointments grid's non-vet column
 ORDER_PRIORITIES = [_("CRITICAL"), _("URGENT"), _("SOON"), _("OK"), _("No data")]
 APPOINTMENT_COLUMNS = [_("Grooming")]
-# logic.inventory_status() stock_status, and the ordering sheet's usage trend
+# inventory.inventory_status() stock_status, and the ordering sheet's usage trend
 STOCK_STATUSES = [_("LOW STOCK"), _("No audits yet"), _("OK")]
 USAGE_TRENDS = [_("Not enough data"), _("Increasing"), _("Decreasing"), _("Steady")]
 TREND_NOTES = [
@@ -161,7 +161,7 @@ TREND_NOTES = [
     _("Usage falling - consider fewer coverage days"),
     _("Usage steady - keep current target"),
 ]
-# logic.inventory_status() — computed per row, rendered as a badge
+# inventory.inventory_status() — computed per row, rendered as a badge
 AUDIT_FRESHNESS = [_("Never audited"), _("OVERDUE"), _("OK")]
 EXPIRY_STATUSES = [_("EXPIRED"), _("EXPIRING SOON"), _("OK")]
 # retention contact_method / boarding wellness_contact_method

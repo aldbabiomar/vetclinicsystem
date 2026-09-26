@@ -23,7 +23,7 @@ from decimal import Decimal
 
 import pytest
 
-from vcs.domain import logic
+from vcs.domain import analytics
 from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
@@ -191,13 +191,13 @@ def test_a_boarding_refund_reduces_the_boarding_category(client, db, paid_stay):
     'Service'. Boarding revenue has its own column, so a boarding refund landing
     in Service would push the two columns apart and make neither correct."""
     month = clock.today().strftime("%Y-%m")
-    before = logic.revenue_by_category(db)["grid"].get(month, {})
+    before = analytics.revenue_by_category(db)["grid"].get(month, {})
     b_before = before.get("Boarding", 0)
     s_before = before.get("Service", 0)
 
     _refund(client, boarding_id=str(paid_stay["id"]), amount="5.000")
 
-    after = logic.revenue_by_category(db)["grid"].get(month, {})
+    after = analytics.revenue_by_category(db)["grid"].get(month, {})
     assert round(after.get("Boarding", 0) - b_before, 3) == Decimal("-5.000"), (
         "the boarding refund did not reduce the Boarding column")
     assert round(after.get("Service", 0) - s_before, 3) == 0.0, (
@@ -217,7 +217,7 @@ def paid_visit(db):
     db.execute("INSERT INTO visits (id, patient_id, date, visit_type) VALUES (?,?,?,?)",
                (v_id, p_id, clock.today().isoformat(), "Consultation"))
     # JO needs the billing row, IQ does not: JO's refund cap reads
-    # logic.visit_billing_summary()["paid"], which returns 0 for a visit with
+    # billing.visit_billing_summary()["paid"], which returns 0 for a visit with
     # no bill even when payments exist, whereas IQ sums the payments table
     # directly. Not reachable through the UI in either app -- visit_payment_add
     # checks the payment against the bill's balance first, so a payment on an
@@ -258,7 +258,7 @@ def test_a_visit_refund_still_nets_against_service(client, db, paid_visit):
     """CONTROL for the category change: non-boarding service refunds must
     still land in Service."""
     month = clock.today().strftime("%Y-%m")
-    before = logic.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)
+    before = analytics.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)
     _refund(client, visit_id=paid_visit["id"], amount="5.000")
-    after = logic.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)
+    after = analytics.revenue_by_category(db)["grid"].get(month, {}).get("Service", 0)
     assert round(after - before, 2) == Decimal("-5.000")

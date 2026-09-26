@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from vcs import auth
-from vcs.domain import logic
+from vcs.domain import logs
 from conftest import needs_db
 
 pytestmark = needs_db
@@ -44,7 +44,7 @@ def aged_rows(db):
                    "VALUES (?,?,?,?,?,?)", (ts, ts, "success", f"/tmp/{tag}.dump", None, "test"))
     db.commit()
     yield {"tag": tag, "old": old, "new": new}
-    for table, col in logic.RETENTION_TABLES:
+    for table, col in logs.RETENTION_TABLES:
         who = "username" if table in ("audit_log", "login_log") else "source_file"
         if table == "backup_log":
             db.execute(f"DELETE FROM {table} WHERE filepath LIKE ?", (f"%{tag}%",))
@@ -65,16 +65,16 @@ def _count(db, table, col, value):
 
 def test_rows_older_than_the_window_are_removed(db, aged_rows):
     """GUARD. Before this, none of these four tables was ever pruned."""
-    deleted = logic.prune_old_logs(db)
+    deleted = logs.prune_old_logs(db)
     assert sum(deleted.values()) >= 4, deleted
-    for table, _ in logic.RETENTION_TABLES:
+    for table, _ in logs.RETENTION_TABLES:
         assert table in deleted
 
 
 def test_rows_inside_the_window_survive(db, aged_rows):
     """CONTROL. A prune that deletes everything satisfies the guard above and
     destroys the audit trail."""
-    logic.prune_old_logs(db)
+    logs.prune_old_logs(db)
     tag = aged_rows["tag"]
     assert _count(db, "audit_log", "username", tag) == 1
     assert _count(db, "login_log", "username", tag) == 1
@@ -91,8 +91,8 @@ def test_the_retention_floor_cannot_disarm_the_lockout():
     constant moving without the other is what this catches.
     """
     lookback_days = auth.LOCKOUT_LOOKBACK_HOURS / 24.0
-    assert logic.LOG_RETENTION_MIN_DAYS > lookback_days * 2, (
-        f"retention can be set to {logic.LOG_RETENTION_MIN_DAYS} days while the "
+    assert logs.LOG_RETENTION_MIN_DAYS > lookback_days * 2, (
+        f"retention can be set to {logs.LOG_RETENTION_MIN_DAYS} days while the "
         f"lockout looks back {lookback_days:.1f} days — a prune would unlock "
         f"accounts that should still be locked")
 
@@ -115,7 +115,7 @@ def test_a_setting_below_the_floor_is_clamped(db):
                        (None, f"clamp{tag}", recent.isoformat(timespec="seconds"),
                         "update", "owners", tag))
             db.commit()
-            logic.prune_old_logs(db)
+            logs.prune_old_logs(db)
             survived = db.execute("SELECT COUNT(*) c FROM audit_log WHERE username=?",
                                   (f"clamp{tag}",)).fetchone()["c"]
             db.execute("DELETE FROM audit_log WHERE username=?", (f"clamp{tag}",))
@@ -124,7 +124,7 @@ def test_a_setting_below_the_floor_is_clamped(db):
     finally:
         db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                   (previous["value"] if previous else str(logic.LOG_RETENTION_DEFAULT_DAYS),))
+                   (previous["value"] if previous else str(logs.LOG_RETENTION_DEFAULT_DAYS),))
         db.commit()
 
 
@@ -146,14 +146,14 @@ def test_the_settings_form_accepts_a_sane_window(client, db):
     finally:
         db.execute("INSERT INTO settings (key,value) VALUES ('log_retention_days',?) "
                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                   (previous["value"] if previous else str(logic.LOG_RETENTION_DEFAULT_DAYS),))
+                   (previous["value"] if previous else str(logs.LOG_RETENTION_DEFAULT_DAYS),))
         db.commit()
 
 
 def test_pruning_is_idempotent(db, aged_rows):
     """CONTROL. The second run has nothing left to do and must not error or
     delete anything further."""
-    first = logic.prune_old_logs(db)
-    second = logic.prune_old_logs(db)
+    first = logs.prune_old_logs(db)
+    second = logs.prune_old_logs(db)
     assert sum(first.values()) >= 4
     assert sum(second.values()) == 0, second

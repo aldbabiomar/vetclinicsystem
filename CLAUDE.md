@@ -96,7 +96,11 @@ vcs/
 ├── db/              pool.py (connections), migrate.py + migrations/ (the schema:
 │                    numbered SQL files, each applied once; tests/schema_snapshot.json
 │                    pins the result)
-├── domain/          logic.py (the queries and calculations), reports.py, attachments.py
+├── domain/          the queries and calculations, one module per area — billing,
+│                    clinical, inventory, consignment, cash_register, members,
+│                    appointments, reports (P&L), analytics (Insights), alerts
+│                    (Dashboard), … and the shared dates, settings, codes,
+│                    display, search. No Flask beyond flask_babel (a test holds it).
 ├── web/             the request layer:
 │   ├── factory.py   create_app(): config, extensions, then registers the rest
 │   ├── hooks.py     around every request: allowlist, restore gate, money setting,

@@ -13,7 +13,7 @@ from datetime import timedelta
 import pytest
 
 from vcs import clock
-from vcs.domain import logic
+from vcs.domain import alerts, clinical
 from conftest import needs_db
 from test_money_routes import _uid
 
@@ -48,11 +48,11 @@ def pet(db):
 
 
 def _due_ids(db):
-    return [r["visit_id"] for r in logic.wellness_reminders(db, only_due=True)]
+    return [r["visit_id"] for r in clinical.wellness_reminders(db, only_due=True)]
 
 
 def _missed_ids(db):
-    return [m["visit_id"] for m in logic.missed_items(db) if m["kind"] == "Wellness"]
+    return [m["visit_id"] for m in alerts.missed_items(db) if m["kind"] == "Wellness"]
 
 
 def test_a_reminder_stops_being_due_when_it_becomes_missed(db, pet):
@@ -79,7 +79,7 @@ def test_a_newer_entry_for_the_same_pet_and_type_replaces_the_old_one(db, pet):
     old = pet(-20, visit_days_ago=400)
     new = pet(340, visit_days_ago=25)
     assert old not in _missed_ids(db) and old not in _due_ids(db)
-    page_ids = [r["visit_id"] for r in logic.wellness_reminders_page(db, limit=10_000)[0]]
+    page_ids = [r["visit_id"] for r in clinical.wellness_reminders_page(db, limit=10_000)[0]]
     assert old not in page_ids and new in page_ids
 
 
@@ -98,8 +98,8 @@ def test_both_screens_put_the_most_urgent_first(db, pet):
     mine = {later, sooner, missed, contacted}
     dashboard = [i for i in _due_ids(db) if i in mine]
     assert dashboard == [sooner, later]
-    page = [r["visit_id"] for r in logic.wellness_reminders_page(db, limit=10_000)[0] if r["visit_id"] in mine]
+    page = [r["visit_id"] for r in clinical.wellness_reminders_page(db, limit=10_000)[0] if r["visit_id"] in mine]
     assert page[:2] == [sooner, later], page
     assert set(page[2:]) == {missed, contacted} and page[2] == contacted, "closed ones: newest dose first"
-    unpaged = [r["visit_id"] for r in logic.wellness_reminders(db) if r["visit_id"] in mine]
+    unpaged = [r["visit_id"] for r in clinical.wellness_reminders(db) if r["visit_id"] in mine]
     assert unpaged == page, "the Dashboard's full list and the Wellness page disagree about the order"

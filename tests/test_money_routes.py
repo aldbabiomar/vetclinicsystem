@@ -30,7 +30,7 @@ import pytest
 
 from decimal import Decimal
 
-from vcs.domain import logic
+from vcs.domain import billing
 from conftest import new_id, ADMIN_ID, needs_db
 
 
@@ -322,7 +322,7 @@ def test_manual_bill_total_agrees_with_compute_bill_totals(client, db, visit):
     P&L disagree and neither is obviously wrong."""
     _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="13.755")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
-    expected, _, _, _, _ = logic.compute_bill_totals(
+    expected, _, _, _, _ = billing.compute_bill_totals(
         row["manual_amount"], row["discount_percent"], D(0), row["cleanup_amount"],
         # A Manual bill is one typed figure and is discountable in full (A4).
         discountable_subtotal=row["manual_amount"])
@@ -785,7 +785,7 @@ def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):
     _pay_visit(client, visit["visit_id"], amount="99.000", method="Cash", cleanup_amount="1.000")
     row = db.execute("SELECT * FROM billing WHERE visit_id=?", (visit["visit_id"],)).fetchone()
     assert row["cleanup_amount"] == D("1.000")
-    summary = logic.visit_billing_summary(db, visit["visit_id"])
+    summary = billing.visit_billing_summary(db, visit["visit_id"])
     # <= 0, not <= 0.5: in JOD a leftover half is real uncollected money, not
     # rounding artifact. See COMPARISON.md §1.1.
     assert summary["balance"] <= 0, "the bill should now be settled"
@@ -935,7 +935,7 @@ def test_inpatient_payment_cannot_exceed_the_balance(client, db, inpatient_case,
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
                 data={"price_id": priced_service["id"], f"qty_{priced_service['id']}": "1"},
                 follow_redirects=False)
-    summary = logic.inpatient_billing_summary(db, inpatient_case["id"])
+    summary = billing.inpatient_billing_summary(db, inpatient_case["id"])
     over = (summary["balance"] or D(0)) + D("100.000")
     resp = _inpatient_pay(client, inpatient_case["id"], amount=str(over), method="Cash")
     assert resp.status_code == 200
@@ -966,8 +966,8 @@ def test_inpatient_summary_agrees_with_the_shared_arithmetic(client, db, inpatie
     client.post(f"/inpatient/{inpatient_case['id']}/billing",
                 data={"price_id": priced_service["id"], f"qty_{priced_service['id']}": "3"},
                 follow_redirects=False)
-    summary = logic.inpatient_billing_summary(db, inpatient_case["id"])
-    expected, _, _, _, _ = logic.compute_bill_totals(
+    summary = billing.inpatient_billing_summary(db, inpatient_case["id"])
+    expected, _, _, _, _ = billing.compute_bill_totals(
         summary["subtotal"], summary["discount_percent"], D(0), summary["cleanup_amount"],
         discountable_subtotal=summary["discountable_subtotal"])
     assert summary["total"] == expected
@@ -1059,7 +1059,7 @@ def test_a_discount_cannot_be_applied_below_what_is_already_paid(client, db, vis
     db.commit()
     client.post(f"/visits/{visit['visit_id']}/discount",
                 data={"discount_percent": "50"}, follow_redirects=False)
-    summary = logic.visit_billing_summary(db, visit["visit_id"])
+    summary = billing.visit_billing_summary(db, visit["visit_id"])
     # No tolerance: in JOD an excess is real money, not rounding artifact.
     assert summary["paid"] <= summary["total"], (
         "a discount must not leave more paid than the bill is worth")

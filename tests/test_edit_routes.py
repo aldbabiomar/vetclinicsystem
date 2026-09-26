@@ -17,7 +17,6 @@ import pytest
 
 from decimal import Decimal as D
 
-from vcs.domain import logic
 from conftest import new_id, needs_db
 
 

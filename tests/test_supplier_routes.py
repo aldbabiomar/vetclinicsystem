@@ -16,7 +16,7 @@ import pytest
 
 from decimal import Decimal as D
 
-from vcs.domain import logic
+from vcs.domain import consignment
 from conftest import new_id, ADMIN_ID, needs_db
 
 
@@ -329,7 +329,7 @@ def test_the_consignment_balance_reflects_what_was_received(client, db, consignm
     client.post("/consignment/receiving/new", data={
         "item_id": consignment_item["id"], "quantity": "8", "unit_cost": "2.000",
         "received_date": clock.today().isoformat()}, follow_redirects=False)
-    bal = logic.consignment_balance(db, consignment_item["distributor_id"])
+    bal = consignment.consignment_balance(db, consignment_item["distributor_id"])
     assert bal is not None, "a distributor with deliveries must have a balance"
 
 
@@ -392,7 +392,7 @@ def sell_consigned(client, db, consignment_item):
     """sell(qty, unit_cost, sale_price) -> what the distributor is now owed.
 
     A distributor is owed for consigned units SOLD, at the cost snapshotted
-    on each sale line (logic.consignment_balance) — a delivery alone owes
+    on each sale line (consignment.consignment_balance) — a delivery alone owes
     nothing. So this sells through the real POS rather than writing rows.
     It exists because the over-settlement test below used to receive stock
     and sell none: every settlement it tried was refused as "nothing to
@@ -413,7 +413,7 @@ def sell_consigned(client, db, consignment_item):
         resp = client.post("/pos/checkout", data={"item_id": inv_id, "quantity": str(qty),
                                                   "payment_method": "Card"}, follow_redirects=False)
         assert resp.status_code == 302, "the consigned sale was refused — the test would prove nothing"
-        return logic.consignment_balance(db, dist)["amount_owed"]
+        return consignment.consignment_balance(db, dist)["amount_owed"]
 
     yield sell
     sale_ids = [r["sale_id"] for r in db.execute(
@@ -461,7 +461,7 @@ def test_control_settling_exactly_what_is_owed_is_recorded(client, db, sell_cons
     dist = consignment_item["distributor_id"]
     assert _settle(client, dist, str(owed)).status_code == 302
     assert _settled_amounts(db, dist) == [owed]
-    assert logic.consignment_balance(db, dist)["amount_owed"] == 0
+    assert consignment.consignment_balance(db, dist)["amount_owed"] == 0
 
 
 @pytest.mark.money("IQ")
@@ -477,7 +477,7 @@ def test_m3_an_iq_settlement_is_recorded_as_it_was_checked(client, db, sell_cons
     resp = _settle(client, dist, "1200")
     assert resp.status_code == 302
     assert _settled_amounts(db, dist) == [D(1200)]
-    assert logic.consignment_balance(db, dist)["amount_owed"] == 0
+    assert consignment.consignment_balance(db, dist)["amount_owed"] == 0
 
 
 def test_settling_a_distributor_with_no_activity_is_refused(client, db, distributor):
@@ -535,7 +535,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
     """An open count is a draft — it must not affect stock until confirmed.
     That is the whole basis of the "never-audited items cannot be sold"
     rule, so it is worth pinning rather than assuming."""
-    from vcs.domain import logic
+    from vcs.domain import inventory
     inv_id = _uid("INV")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
                "ownership_type, active) VALUES (?,?,?,?,?,?,?,?)",
@@ -551,7 +551,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
                "VALUES (?,?,?,?)", (sid, inv_id, D("30.000"), D(0)))
     db.commit()
     try:
-        draft_status = logic.inventory_status_by_id(db, inv_id)
+        draft_status = inventory.inventory_status_by_id(db, inv_id)
         assert draft_status is None or draft_status["current_stock"] is None, (
             "an unconfirmed count must not establish a stock figure")
 
@@ -562,7 +562,7 @@ def test_confirming_a_stock_count_is_what_makes_it_binding(client, db, distribut
                          (sid,)).fetchone()
         if row["status"] == "Confirmed":
             assert row["confirmed_at"], "a confirmed count must be stamped"
-            after = logic.inventory_status_by_id(db, inv_id)
+            after = inventory.inventory_status_by_id(db, inv_id)
             assert after is not None and after["current_stock"] == D("30.000"), (
                 "confirming must establish the counted figure")
     finally:

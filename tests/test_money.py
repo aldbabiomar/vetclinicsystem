@@ -29,7 +29,7 @@ from vcs import money
 import pytest
 
 from vcs.web import core
-from vcs.domain import logic
+from vcs.domain import billing, dates
 D = Decimal
 
 
@@ -159,7 +159,7 @@ def _totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
     reading against the 4-tuple they were written for. That the real
     signature REFUSES a missing discountable_subtotal is asserted separately,
     in test_rewards.py."""
-    total, paid_, balance, status, _pre_cleanup = logic.compute_bill_totals(
+    total, paid_, balance, status, _pre_cleanup = billing.compute_bill_totals(
         subtotal, discount_percent, paid, cleanup_amount,
         discountable_subtotal=(subtotal if discountable_subtotal is None
                                else discountable_subtotal))
@@ -345,7 +345,8 @@ def test_regression_no_smallest_note_rounding_leaked_in_from_iq():
     back as 250.000 JOD instead of 100.000."""
     total, _, _, _ = _totals(D("100.000"), D(0), D(0))
     assert total == D("100.000")
-    assert not hasattr(logic, "SMALLEST_NOTE")
+    from vcs.domain import billing, display
+    assert not any(hasattr(m, "SMALLEST_NOTE") for m in (billing, display, money))
 
 
 def test_regression_as_date_validates_the_whole_value_not_a_prefix():
@@ -354,7 +355,7 @@ def test_regression_as_date_validates_the_whole_value_not_a_prefix():
     DATE column. IQ had a reproducible 500 from this; JO shared the flawed
     helper."""
     with pytest.raises(ValueError):
-        logic.as_date("2026-08-25garbage")
-    assert logic.as_date("2026-08-25").isoformat() == "2026-08-25"
+        dates.as_date("2026-08-25garbage")
+    assert dates.as_date("2026-08-25").isoformat() == "2026-08-25"
     # ...while the ISO timestamps that TEXT columns really store still parse.
-    assert logic.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"
+    assert dates.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"

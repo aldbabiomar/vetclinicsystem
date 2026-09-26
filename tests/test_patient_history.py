@@ -10,7 +10,7 @@ from datetime import timedelta
 import pytest
 
 from vcs import clock
-from vcs.domain import logic
+from vcs.domain import clinical
 from conftest import ADMIN_ID, needs_db
 from test_money_routes import _uid
 
@@ -52,7 +52,7 @@ def pet(db):
 
 
 def _visit_ids(db, pet):
-    return [e["record"]["id"] for e in logic.patient_history(db, pet["id"]) if e["kind"] == "Visit"]
+    return [e["record"]["id"] for e in clinical.patient_history(db, pet["id"]) if e["kind"] == "Visit"]
 
 
 def test_the_admitting_visit_of_a_stay_is_not_listed_again(db, pet):

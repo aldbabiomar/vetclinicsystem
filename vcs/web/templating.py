@@ -11,7 +11,7 @@ from flask_babel import Babel, format_date, get_locale, gettext as _
 
 from vcs import auth, clock, money
 from vcs.config import BIND_PORT
-from vcs.domain import logic
+from vcs.domain import codes, dates, display, settings
 from vcs.errorlog import error_logger
 from vcs.web import js_strings, nav
 from vcs.web.core import (cached_dashboard_snapshot, csp_nonce, currency_label, display_date, display_number,
@@ -38,7 +38,7 @@ def _select_locale():
         return g.vz_locale
     lang = "en"
     try:
-        value = logic.get_setting(get_db(), "language", "en")
+        value = settings.get_setting(get_db(), "language", "en")
         if value in SUPPORTED_LOCALES:
             lang = value
     except Exception:
@@ -60,7 +60,7 @@ def money_filter(v):
 def qty_filter(v):
     """A count or measurement for display: "12", not "12.000"; "4.5", not
     "4.500"; Arabic-Indic digits under Arabic. Never on an <input> value."""
-    formatted = logic.format_quantity(v)
+    formatted = display.format_quantity(v)
     if str(get_locale()) == "ar":
         formatted = to_arabic_indic_digits(formatted)
     return formatted
@@ -129,14 +129,14 @@ def localdate_filter(d):
 
 
 def code_filter(record_id, prefix):
-    """{{ visit.id|code('V') }} -> V-00123 (logic.code)."""
-    return logic.code(prefix, record_id)
+    """{{ visit.id|code('V') }} -> V-00123 (codes.code)."""
+    return codes.code(prefix, record_id)
 
 
 def localtime_filter(v, fmt="%Y-%m-%d %H:%M"):
     """A stored moment, shown in the clinic's zone (the Time Zone setting),
     Arabic-Indic digits under Arabic. `|localtime("%H:%M:%S")` for a time."""
-    formatted = logic.fmt_datetime(v, fmt)
+    formatted = dates.fmt_datetime(v, fmt)
     if formatted and str(get_locale()) == "ar":
         formatted = to_arabic_indic_digits(formatted)
     return formatted
@@ -249,8 +249,8 @@ def inject_globals():
     trying to *show* the first one."""
     try:
         db = get_db()
-        clinic_name = logic.get_setting(db, "clinic_name", "VetClinicSystem")
-        clinic_location = logic.get_setting(db, "clinic_location", "Amman, Jordan")
+        clinic_name = settings.get_setting(db, "clinic_name", "VetClinicSystem")
+        clinic_location = settings.get_setting(db, "clinic_location", "Amman, Jordan")
         ctx = dict(clinic_name=clinic_name, clinic_location=clinic_location, today=clock.today().isoformat(),
                    current_role=session.get("role"), current_username=session.get("username"),
                    session_user_id=session.get("user_id"))
@@ -307,7 +307,7 @@ def register(app):
     app.jinja_env.globals["bind_port"] = BIND_PORT
     # A count or measurement as an <input> value or placeholder: "12", not
     # "12.000" — and Western digits, unlike |qty (an input is parsed back).
-    app.jinja_env.globals["qty_value"] = logic.format_quantity
+    app.jinja_env.globals["qty_value"] = display.format_quantity
     # The hidden expected_updated_at an edit form carries (clock.token).
     app.jinja_env.globals["edit_token"] = clock.token
     # A URL a script completes with a record id at click time is built with this
@@ -316,12 +316,12 @@ def register(app):
     app.jinja_env.globals["ID_SLOT"] = 2147483647
     app.jinja_env.globals["fv"] = form_value
     app.jinja_env.globals["nav_active"] = nav_active
-    # logic.format_percent() strips the meaningless decimal tail; display_number()
+    # display.format_percent() strips the meaningless decimal tail; display_number()
     # converts to Arabic-Indic digits when the locale is ar. Composed here rather
-    # than in logic.py, which deliberately has no Flask imports — and composed at
+    # than in vcs/domain, which deliberately has no Flask imports — and composed at
     # all because core.display_number()'s own docstring is the rule: a number on
     # its way into a user-facing message converts, or one sentence carries two
     # numeral systems.
-    app.jinja_env.globals["format_percent"] = lambda v: display_number(logic.format_percent(v))
+    app.jinja_env.globals["format_percent"] = lambda v: display_number(display.format_percent(v))
     app.jinja_env.globals["money_step"] = money.input_step
     app.jinja_env.globals["money_setting_label"] = money_setting_label

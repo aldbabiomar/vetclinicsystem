@@ -26,7 +26,7 @@ from decimal import Decimal
 
 import pytest
 
-from vcs.domain import logic
+from vcs.domain import analytics, billing, dates, members, refunds
 from conftest import new_id, ADMIN_ID, needs_db
 
 pytestmark = needs_db
@@ -124,7 +124,7 @@ def _bill(client, visit_id, items, which=("a", "b")):
 def test_a_member_bill_discounts_eligible_lines_only(client, db, rate_on, items, member):
     """The whole feature in one assertion: 10% off A, B charged in full."""
     _bill(client, member["visit_id"], items)
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_source"] == "member"
     assert s["discount_percent"] == RATE
     assert s["subtotal"] == Decimal("21.000")
@@ -138,7 +138,7 @@ def test_the_receipt_adds_up_on_a_mixed_member_bill(client, db, rate_on, items, 
     """subtotal - discount - Clean Up = total, which the old re-derivation
     (subtotal * (1 - d)) does NOT satisfy once a line is non-discountable."""
     _bill(client, member["visit_id"], items)
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     printed_discount = s["subtotal"] - s["pre_cleanup_total"]
     assert s["subtotal"] - printed_discount - s["cleanup_amount"] == s["total"]
     # And it is NOT the naive figure, which is the point.
@@ -148,7 +148,7 @@ def test_the_receipt_adds_up_on_a_mixed_member_bill(client, db, rate_on, items, 
 def test_a_non_member_bill_is_untouched(client, db, rate_on, items, non_member):
     """CONTROL. The same basket, no card: nothing is discounted."""
     _bill(client, non_member["visit_id"], items)
-    s = logic.visit_billing_summary(db, non_member["visit_id"])
+    s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
     assert s["discount_percent"] == 0
     assert s["total"] == Decimal("21.000")
@@ -161,7 +161,7 @@ def test_a_staff_discount_on_an_all_eligible_bill_is_unchanged(client, db, items
     _bill(client, non_member["visit_id"], items, which=("a",))
     client.post(f"/visits/{non_member['visit_id']}/discount",
                 data={"discount_percent": "10"}, follow_redirects=False)
-    s = logic.visit_billing_summary(db, non_member["visit_id"])
+    s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
     assert s["total"] == Decimal("9.450")   # 10.500 - 10%, exactly as before the card
 
@@ -171,7 +171,7 @@ def test_a_manual_bill_is_discountable_in_full(client, db, rate_on, member):
     client.post(f"/visits/{member['visit_id']}/billing",
                 data={"billing_type": "Manual", "manual_amount": "21.000",
                       "date_billed": clock.today().isoformat()}, follow_redirects=False)
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discountable_subtotal"] == Decimal("21.000")
     assert s["total"] == Decimal("18.900")
 
@@ -183,10 +183,10 @@ def test_a_manual_bill_is_discountable_in_full(client, db, rate_on, member):
 def test_a_staff_discount_is_refused_on_a_member_bill(client, db, rate_on, items, member):
     """Card only. Refused, not silently ignored."""
     _bill(client, member["visit_id"], items)
-    before = logic.visit_billing_summary(db, member["visit_id"])["total"]
+    before = billing.visit_billing_summary(db, member["visit_id"])["total"]
     client.post(f"/visits/{member['visit_id']}/discount",
                 data={"discount_percent": "25"}, follow_redirects=False)
-    after = logic.visit_billing_summary(db, member["visit_id"])
+    after = billing.visit_billing_summary(db, member["visit_id"])
     assert after["total"] == before
     assert after["discount_percent"] == RATE
     assert after["discount_source"] == "member"
@@ -198,13 +198,13 @@ def test_setting_a_member_discount_to_zero_is_also_refused(client, db, rate_on, 
     _bill(client, member["visit_id"], items)
     client.post(f"/visits/{member['visit_id']}/discount",
                 data={"discount_percent": "0"}, follow_redirects=False)
-    assert logic.visit_billing_summary(db, member["visit_id"])["discount_percent"] == RATE
+    assert billing.visit_billing_summary(db, member["visit_id"])["discount_percent"] == RATE
 
 
 def test_the_admin_removal_action_clears_a_member_discount(client, db, rate_on, items, member):
     _bill(client, member["visit_id"], items)
     client.post(f"/rewards/visit/{member['visit_id']}/remove-discount", follow_redirects=False)
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_percent"] == 0
     assert s["discount_source"] == "staff"
     assert s["total"] == Decimal("21.000")
@@ -217,7 +217,7 @@ def test_the_removal_action_reads_no_percentage_from_the_request(client, db, rat
     _bill(client, member["visit_id"], items)
     client.post(f"/rewards/visit/{member['visit_id']}/remove-discount",
                 data={"discount_percent": "40"}, follow_redirects=False)
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_percent"] == 0
     assert s["total"] == Decimal("21.000")
 
@@ -228,7 +228,7 @@ def test_the_removal_action_refuses_a_bill_with_no_card_discount(client, db, ite
     client.post(f"/visits/{non_member['visit_id']}/discount",
                 data={"discount_percent": "10"}, follow_redirects=False)
     client.post(f"/rewards/visit/{non_member['visit_id']}/remove-discount", follow_redirects=False)
-    assert logic.visit_billing_summary(db, non_member["visit_id"])["discount_percent"] == 10
+    assert billing.visit_billing_summary(db, non_member["visit_id"])["discount_percent"] == 10
 
 
 def test_enrolling_after_a_bill_exists_does_not_discount_it(client, db, rate_on, items, non_member):
@@ -236,16 +236,16 @@ def test_enrolling_after_a_bill_exists_does_not_discount_it(client, db, rate_on,
     _bill(client, non_member["visit_id"], items)
     db.execute("UPDATE owners SET is_member=true WHERE id=?", (non_member["owner_id"],))
     db.commit()
-    assert logic.visit_billing_summary(db, non_member["visit_id"])["total"] == Decimal("21.000")
+    assert billing.visit_billing_summary(db, non_member["visit_id"])["total"] == Decimal("21.000")
 
 
 def test_changing_the_rate_does_not_move_an_existing_bill(client, db, rate_on, items, member):
     """A2, the other direction."""
     _bill(client, member["visit_id"], items)
-    before = logic.visit_billing_summary(db, member["visit_id"])["total"]
+    before = billing.visit_billing_summary(db, member["visit_id"])["total"]
     _set_rate(db, 50)
     try:
-        assert logic.visit_billing_summary(db, member["visit_id"])["total"] == before
+        assert billing.visit_billing_summary(db, member["visit_id"])["total"] == before
     finally:
         _set_rate(db, RATE)
 
@@ -253,11 +253,11 @@ def test_changing_the_rate_does_not_move_an_existing_bill(client, db, rate_on, i
 def test_flipping_can_discount_after_billing_changes_nothing(client, db, rate_on, items, member):
     """A3. Eligibility is snapshotted per line at insert."""
     _bill(client, member["visit_id"], items)
-    before = logic.visit_billing_summary(db, member["visit_id"])["total"]
+    before = billing.visit_billing_summary(db, member["visit_id"])["total"]
     db.execute("UPDATE price_list SET can_discount=false WHERE id=?", (items["a"],))
     db.commit()
     try:
-        assert logic.visit_billing_summary(db, member["visit_id"])["total"] == before
+        assert billing.visit_billing_summary(db, member["visit_id"])["total"] == before
     finally:
         db.execute("UPDATE price_list SET can_discount=true WHERE id=?", (items["a"],))
         db.commit()
@@ -280,7 +280,7 @@ def test_the_card_is_valid_through_its_expiry_date(db, offset, expected_source):
     try:
         _set_rate(db, RATE)
         owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
-        _percent, source = logic.member_discount_for(db, owner)
+        _percent, source = members.member_discount_for(db, owner)
         assert source == expected_source
     finally:
         _set_rate(db, 0)
@@ -291,7 +291,7 @@ def test_a_null_expiry_never_lapses(db):
     chain = _owner_chain(db, member=True, expires=None)
     try:
         owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
-        assert logic.is_active_member(owner) is True
+        assert members.is_active_member(owner) is True
     finally:
         _cleanup_chain(db, chain)
 
@@ -303,7 +303,7 @@ def test_expiry_never_flips_is_member(db):
     try:
         owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
         assert owner["is_member"] is True
-        assert logic.is_active_member(owner) is False
+        assert members.is_active_member(owner) is False
     finally:
         _cleanup_chain(db, chain)
 
@@ -314,7 +314,7 @@ def test_the_programme_is_off_at_a_zero_rate(db, items):
     try:
         _set_rate(db, 0)
         owner = db.execute("SELECT * FROM owners WHERE id=?", (chain["owner_id"],)).fetchone()
-        assert logic.member_discount_for(db, owner) == (Decimal(0), "staff")
+        assert members.member_discount_for(db, owner) == (Decimal(0), "staff")
     finally:
         _cleanup_chain(db, chain)
 
@@ -336,9 +336,9 @@ def test_a_member_bill_can_still_be_re_saved_with_a_non_discountable_item(
     through the mutation.
     """
     _bill(client, member["visit_id"], items, which=("a",))
-    assert logic.visit_billing_summary(db, member["visit_id"])["discount_source"] == "member"
+    assert billing.visit_billing_summary(db, member["visit_id"])["discount_source"] == "member"
     _bill(client, member["visit_id"], items, which=("a", "b"))   # add the full-price line
-    s = logic.visit_billing_summary(db, member["visit_id"])
+    s = billing.visit_billing_summary(db, member["visit_id"])
     assert len(s["lines"]) == 2, "the non-discountable line was refused on a member's bill"
     assert s["subtotal"] == Decimal("21.000")
     assert s["total"] == Decimal("19.950")
@@ -357,7 +357,7 @@ def test_re_saving_a_bill_never_re_stamps_the_membership_snapshot(
                (clock.today().isoformat(), non_member["owner_id"]))
     db.commit()
     _bill(client, non_member["visit_id"], items)      # re-save
-    s = logic.visit_billing_summary(db, non_member["visit_id"])
+    s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
     assert s["total"] == Decimal("21.000")
 
@@ -371,7 +371,7 @@ def test_compute_bill_totals_refuses_a_missing_discountable_subtotal():
     a non-discountable item as discountable and produce a wrong total.
     """
     with pytest.raises(TypeError):
-        logic.compute_bill_totals(Decimal("21.000"), Decimal(10), 0)
+        billing.compute_bill_totals(Decimal("21.000"), Decimal(10), 0)
 
 
 def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
@@ -394,7 +394,7 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
                    "VALUES (?,?,?,?,?,?)", (sale_id, iid, 1, Decimal("10.500"), Decimal("10.500"), ok))
     db.commit()
     try:
-        _sale, lines = logic.refundable_sale_items(db, sale_id)
+        _sale, lines = refunds.refundable_sale_items(db, sale_id)
         by_item = {l["item_id"]: l["unit_price"] for l in lines}
         assert by_item[inv_a] == Decimal("9.450"), "the eligible line should refund at the discounted price"
         assert by_item[inv_b] == Decimal("10.500"), "the full-price line should refund in full"
@@ -419,7 +419,7 @@ def test_the_member_rate_is_not_bounded_by_the_staff_role_cap(client, db, rate_o
         sess["discount_cap"] = 5.0          # below the 10% member rate
     try:
         _bill(client, member["visit_id"], items)
-        s = logic.visit_billing_summary(db, member["visit_id"])
+        s = billing.visit_billing_summary(db, member["visit_id"])
         assert s["discount_source"] == "member"
         assert s["discount_percent"] == RATE, "the card's rate was clipped to the staff cap"
         assert s["total"] == Decimal("19.950")
@@ -439,7 +439,7 @@ def test_a_low_cap_user_is_still_capped_on_an_ordinary_staff_discount(
     try:
         client.post(f"/visits/{non_member['visit_id']}/discount",
                     data={"discount_percent": "25"}, follow_redirects=False)
-        assert logic.visit_billing_summary(db, non_member["visit_id"])["discount_percent"] == 0
+        assert billing.visit_billing_summary(db, non_member["visit_id"])["discount_percent"] == 0
     finally:
         with client.session_transaction() as sess:
             sess["discount_cap"] = original
@@ -458,7 +458,7 @@ def test_a_low_cap_user_is_still_capped_on_an_ordinary_staff_discount(
 def _month_revenue(db):
     """This month's revenue as each of the three reports sees it."""
     this_month = clock.today().strftime("%Y-%m")
-    cat = logic.revenue_by_category(db, months_back=1)
+    cat = analytics.revenue_by_category(db, months_back=1)
     grid = cat["grid"].get(this_month, {})
     return {"total": sum(grid.values()), "by_cat": dict(grid), "month": this_month}
 
@@ -473,14 +473,14 @@ def test_the_reports_agree_with_the_stored_total_on_a_member_bill(
     db.commit()
 
     before_cat = _month_revenue(db)
-    before_vets = {v["doctor"]: v["revenue"] for v in logic.vet_performance(db, months_back=1)}
+    before_vets = {v["doctor"]: v["revenue"] for v in analytics.vet_performance(db, months_back=1)}
 
     _bill(client, member["visit_id"], items)
-    summary = logic.visit_billing_summary(db, member["visit_id"])
+    summary = billing.visit_billing_summary(db, member["visit_id"])
     stored = summary["total"]
 
     after_cat = _month_revenue(db)
-    after_vets = {v["doctor"]: v["revenue"] for v in logic.vet_performance(db, months_back=1)}
+    after_vets = {v["doctor"]: v["revenue"] for v in analytics.vet_performance(db, months_back=1)}
 
     # 1. revenue_by_category, PER CATEGORY. The two items are deliberately in
     #    different Price List categories: summing the row cannot catch a
@@ -528,7 +528,7 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
         "discount_percent, discount_source) VALUES (?,?,?,?,?,?) RETURNING id",
         (member["patient_id"], clock.today().isoformat(), False, ADMIN_ID, RATE, "member"))
     case_id = cur.fetchone()["id"]
-    last_month_day = logic.add_months(clock.today().replace(day=1), -1)
+    last_month_day = dates.add_months(clock.today().replace(day=1), -1)
     this_month = clock.today().strftime("%Y-%m")
     last_month = last_month_day.strftime("%Y-%m")
     try:
@@ -540,10 +540,10 @@ def test_the_inpatient_pl_splits_a_member_case_by_each_line_s_own_eligibility(
                 "unit_cost, discountable, logged_by, timestamp) VALUES (?,?,?,?,?,?,?,?)",
                 (case_id, price_id, 1, items["price"], 0, discountable, ADMIN_ID, when))
         db.commit()
-        logic.refresh_inpatient_total(db, case_id)
+        billing.refresh_inpatient_total(db, case_id)
         db.commit()
 
-        summary = logic.inpatient_billing_summary(db, case_id)
+        summary = billing.inpatient_billing_summary(db, case_id)
         from vcs.domain import reports
         revenue = {m: rev for m, (rev, _cogs) in reports.by_month(db).items()}
 

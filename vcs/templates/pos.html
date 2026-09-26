@@ -153,7 +153,7 @@ function renderCart() {
   const subtotal = cart.reduce((s,c) => s + c.price * c.qty, 0);
   // A member's card discounts the ELIGIBLE lines only and charges the rest
   // in full; a staff discount covers the whole cart because pos_checkout()
-  // refuses the sale otherwise. Mirrors logic.discounted_raw_total().
+  // refuses the sale otherwise. Mirrors billing.discounted_raw_total().
   const discount = window.__posMember ? window.__posMemberRate
                                       : (parseFloat(document.getElementById('discountInput').value) || 0);
   const discountableSubtotal = cart.reduce(

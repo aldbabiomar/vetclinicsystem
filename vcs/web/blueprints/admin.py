@@ -9,7 +9,7 @@ Endpoint names carry the `admin.` prefix Flask gives every blueprint route:
 """
 
 from vcs import auth
-from vcs.domain import logic
+from vcs.domain import logs
 from flask_babel import gettext as _
 from flask import (
     Blueprint, abort, redirect, render_template, request, session, url_for
@@ -456,6 +456,6 @@ def admin_logs():
     # SEAM_RULES.md.
     day = date_filter_arg("date", _("That date wasn't valid — showing today instead.")) \
         or clock.today().isoformat()
-    changes = logic.changes_on_date(db, day)
-    logins = logic.logins_on_date(db, day)
+    changes = logs.changes_on_date(db, day)
+    logins = logs.logins_on_date(db, day)
     return render_template("admin_logs.html", day=day, today=clock.today().isoformat(), changes=changes, logins=logins)

@@ -12,7 +12,7 @@ from vcs import auth
 from vcs.web import barcode as barcode_mod
 from vcs.db import pool as dbmod
 import json
-from vcs.domain import logic
+from vcs.domain import billing, codes, consignment, inventory, search
 import re
 
 from flask_babel import gettext as _
@@ -47,30 +47,30 @@ def api_inventory_lookup():
         row = db.execute("SELECT id, name, barcode FROM inventory_list WHERE barcode=? AND active=true", (barcode_val,)).fetchone()
         if not row:
             return jsonify(None)
-        price = logic.item_sale_price(db, row["id"])
-        status = logic.inventory_status_by_id(db, row["id"])
+        price = inventory.item_sale_price(db, row["id"])
+        status = inventory.inventory_status_by_id(db, row["id"])
         # The POS live preview discounts per line for a member, so it needs
         # each item's eligibility. BOTH branches return it — the barcode scan
         # here and the name search below are separate paths into the same cart.
-        discountable = logic.discountable_by_item_ids(db, [row["id"]]).get(row["id"], False)
+        discountable = billing.discountable_by_item_ids(db, [row["id"]]).get(row["id"], False)
         return jsonify({"id": row["id"], "name": row["name"], "price": price,
                         "stock": status["current_stock"] if status else None,
                         "discountable": discountable})
     if q:
         rows = db.execute("SELECT id, name FROM inventory_list WHERE active=true AND category='Retail' AND name ILIKE ? LIMIT 10",
-                          (logic.like_pattern(q),)).fetchall()
+                          (search.like_pattern(q),)).fetchall()
         # inventory_status_by_id() re-runs the whole catalog-wide status
         # computation and linear-scans for one item — fine called once, not
         # once per matched row here (up to 10x per autocomplete keystroke
         # otherwise). Computed once up front and looked up by item_id
         # instead.
-        status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
+        status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
         # Batched the same way status_by_item is: one query for the page of
         # results rather than one per row (audit P13).
-        discountable_by_item = logic.discountable_by_item_ids(db, [r["id"] for r in rows])
+        discountable_by_item = billing.discountable_by_item_ids(db, [r["id"] for r in rows])
         out = []
         for r in rows:
-            price = logic.item_sale_price(db, r["id"])
+            price = inventory.item_sale_price(db, r["id"])
             status = status_by_item.get(r["id"])
             out.append({"id": r["id"], "name": r["name"], "price": price,
                         "stock": status["current_stock"] if status else None,
@@ -96,7 +96,7 @@ def api_price_list_lookup():
     sql = (f"SELECT id, name, category, sale_price FROM price_list "
            f"WHERE active=true AND sale_price IS NOT NULL AND category IN ({placeholders}) "
            f"AND (id = ? OR name ILIKE ?) ORDER BY name LIMIT 15")
-    params = [*categories, parse_id(q, "PL"), logic.like_pattern(q)]
+    params = [*categories, parse_id(q, "PL"), search.like_pattern(q)]
     rows = db.execute(sql, params).fetchall()
     return jsonify([{"id": r["id"], "name": r["name"], "category": r["category"], "price": r["sale_price"]} for r in rows])
 
@@ -109,24 +109,24 @@ PRICE_CATEGORIES = ["Service", "Medicine", "Retail"]
 
 def _price_list_context(db):
     cat = request.args.get("category")
-    search = request.args.get("q", "").strip()
+    term = request.args.get("q", "").strip()
     page = get_page()
     where = ["active=true"]
     params = []
     if cat:
         where.append("category=?")
         params.append(cat)
-    if search:
+    if term:
         where.append("name ILIKE ?")
-        params.append(logic.like_pattern(search))
+        params.append(search.like_pattern(term))
     where_sql = " WHERE " + " AND ".join(where)
     total = db.execute(f"SELECT COUNT(*) c FROM price_list{where_sql}", params).fetchone()["c"]
     q = f"SELECT * FROM price_list{where_sql} ORDER BY category, name LIMIT ? OFFSET ?"
     rows = db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()
     inv_items = db.execute("SELECT id, name, cost_price FROM inventory_list WHERE active=true AND category='Retail' ORDER BY name").fetchall()
-    flagged_price, _unused = logic.retail_consistency_flags(db)
+    flagged_price, _unused = billing.retail_consistency_flags(db)
     return dict(items=rows, categories=PRICE_CATEGORIES, active_cat=cat,
-                inv_items=inv_items, search=search, flagged_price=flagged_price,
+                inv_items=inv_items, search=term, flagged_price=flagged_price,
                 page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -175,7 +175,7 @@ def price_list_new():
             "SELECT id, name FROM price_list WHERE linked_item_id=? AND active=true", (linked_item_id,)
         ).fetchone()
         if existing_link:
-            flash(_("That inventory item is already linked to %(id)s (%(name)s) — an item can only be linked from one active Price List row at a time.", id=logic.code('PL', existing_link['id']), name=existing_link['name']), "error")
+            flash(_("That inventory item is already linked to %(id)s (%(name)s) — an item can only be linked from one active Price List row at a time.", id=codes.code('PL', existing_link['id']), name=existing_link['name']), "error")
             return redisplay()
     name = required_field(f, "name", "Name")
     if name is None:
@@ -189,7 +189,7 @@ def price_list_new():
     )
     auth.log_change(db, "price_list", pid, "create")
     db.commit()
-    flash(_("%(pid)s added to price list.", pid=logic.code("PL", pid)), "success")
+    flash(_("%(pid)s added to price list.", pid=codes.code("PL", pid)), "success")
     flash_price_rounding_notice(sale_price)
     return redirect(url_for("inventory.price_list"))
 
@@ -309,7 +309,7 @@ def price_list_bulk_edit():
             dup_id = dup["id"] if dup else claimed_in_batch.get(new_linked_item_id)
             if dup_id and dup_id != item_id:
                 errors[key] = _("That inventory item is already linked to %(row)s — an item can only be linked "
-                                "from one active row at a time.", row=logic.code("PL", dup_id))
+                                "from one active row at a time.", row=codes.code("PL", dup_id))
                 continue
             claimed_in_batch[new_linked_item_id] = item_id
         new_vals = {"name": name, "category": category,
@@ -346,27 +346,27 @@ INVENTORY_CATEGORIES = ["Medical", "Retail"]
 
 def _inventory_catalog_context(db):
     show_inactive = request.args.get("inactive") == "1"
-    search = request.args.get("q", "").strip()
+    term = request.args.get("q", "").strip()
     page = get_page()
     where = []
     params = []
     if not show_inactive:
         where.append("i.active=true")
-    if search:
+    if term:
         where.append("i.name ILIKE ?")
-        params.append(logic.like_pattern(search))
+        params.append(search.like_pattern(term))
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
     total = db.execute(f"SELECT COUNT(*) c FROM inventory_list i{where_sql}", params).fetchone()["c"]
     q = ("SELECT i.*, d.name as distributor_name FROM inventory_list i LEFT JOIN distributors d ON d.id=i.distributor_id"
          + where_sql + " ORDER BY i.category, i.name LIMIT ? OFFSET ?")
     rows = db.execute(q, params + [PER_PAGE, page_offset(page)]).fetchall()
     distributors = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
-    _unused, flagged_inventory = logic.retail_consistency_flags(db)
+    _unused, flagged_inventory = billing.retail_consistency_flags(db)
     has_barcodes = db.execute(
         "SELECT EXISTS(SELECT 1 FROM inventory_list WHERE barcode_source='generated' AND active=true) AS e"
     ).fetchone()["e"]
     return dict(items=rows, distributors=distributors,
-                show_inactive=show_inactive, categories=INVENTORY_CATEGORIES, search=search,
+                show_inactive=show_inactive, categories=INVENTORY_CATEGORIES, search=term,
                 flagged_inventory=flagged_inventory, has_barcodes=has_barcodes,
                 page=page, total_pages=page_count(total), total_count=total)
 
@@ -417,7 +417,7 @@ def inventory_catalog_new():
     )
     auth.log_change(db, "inventory_list", iid, "create")
     db.commit()
-    flash(_("%(iid)s added to inventory catalog.", iid=logic.code("INV", iid)), "success")
+    flash(_("%(iid)s added to inventory catalog.", iid=codes.code("INV", iid)), "success")
     return redirect(url_for("inventory.inventory_catalog"))
 
 
@@ -454,7 +454,7 @@ def inventory_catalog_edit(item_id):
             "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
         flash(_("That distributor no longer exists — reload the page and pick again."), "error")
         return redisplay()
-    if distributor_id != old["distributor_id"] and logic.consignment_item_locked(db, item_id):
+    if distributor_id != old["distributor_id"] and consignment.consignment_item_locked(db, item_id):
         flash(_("This item has consignment activity against it — its distributor can't be "
               "changed here. Create a new inventory item for the new supply source."), "error")
         return redisplay()
@@ -520,7 +520,7 @@ def inventory_catalog_bulk_edit():
                 "SELECT 1 FROM distributors WHERE id=?", (distributor_id,)).fetchone()):
             errors[key] = _("That distributor no longer exists — reload the page and pick again.")
             continue
-        if distributor_id != old["distributor_id"] and logic.consignment_item_locked(db, item_id):
+        if distributor_id != old["distributor_id"] and consignment.consignment_item_locked(db, item_id):
             errors[key] = (_("This item has consignment activity against it — its distributor can't be "
                                 "changed here. Create a new inventory item for the new supply source."))
             continue
@@ -719,7 +719,7 @@ def inventory_catalog_barcodes_bulk_print():
 @auth.permission_required("view_inventory_status")
 def inventory_status_page():
     db = get_db()
-    rows = logic.inventory_status(db)
+    rows = inventory.inventory_status(db)
     filter_ = request.args.get("filter")
     if filter_ == "low_stock":
         rows = [r for r in rows if r["stock_status"] == "LOW STOCK"]
@@ -727,18 +727,18 @@ def inventory_status_page():
         rows = [r for r in rows if r["audit_status"] in ("OVERDUE", "Never audited")]
     elif filter_ == "expiring":
         rows = [r for r in rows if r["expiry_status"] in ("EXPIRING SOON", "EXPIRED")]
-    search = request.args.get("q", "").strip()
-    if search:
-        needle = search.lower()
+    term = request.args.get("q", "").strip()
+    if term:
+        needle = term.lower()
         rows = [r for r in rows if needle in (r["name"] or "").lower()]
-    return render_template("inventory_status.html", rows=rows, filter_=filter_, search=search)
+    return render_template("inventory_status.html", rows=rows, filter_=filter_, search=term)
 
 
 @bp.route("/ordering-sheet")
 @auth.permission_required("manage_ordering_sheet")
 def ordering_sheet_page():
     db = get_db()
-    rows = logic.ordering_sheet(db)
+    rows = inventory.ordering_sheet(db)
     return render_template("ordering_sheet.html", rows=rows)
 
 
@@ -750,7 +750,7 @@ def ordering_sheet_page():
 def audit_history_list():
     db = get_db()
     page = get_page()
-    sessions, total = logic.list_audit_sessions(db, limit=PER_PAGE, offset=page_offset(page))
+    sessions, total = inventory.list_audit_sessions(db, limit=PER_PAGE, offset=page_offset(page))
     return render_template("audit_sessions_list.html", sessions=sessions,
                             page=page, total_pages=page_count(total), total_count=total)
 
@@ -759,7 +759,7 @@ def audit_history_list():
 @auth.permission_required("manage_audit_history")
 def audit_session_start():
     db = get_db()
-    session_id = logic.get_or_create_draft_session(db, clock.today().isoformat(), session["user_id"])
+    session_id = inventory.get_or_create_draft_session(db, clock.today().isoformat(), session["user_id"])
     db.commit()
     return redirect(url_for("inventory.audit_session_view", session_id=session_id))
 
@@ -783,12 +783,12 @@ def _audit_session_context(db, session_id):
     existing_lines = {r["item_id"]: dict(r) for r in db.execute(
         "SELECT * FROM audit_session_lines WHERE session_id=?", (session_id,)).fetchall()}
     # Effective (carried-forward) values from the last CONFIRMED audit, for placeholder display
-    confirmed_rows = logic.confirmed_audit_rows_by_item(db)
+    confirmed_rows = inventory.confirmed_audit_rows_by_item(db)
     latest_confirmed = {}
     for r in confirmed_rows:
         latest_confirmed[r["item_id"]] = r
     readonly = sess["status"] == "Confirmed"
-    received_suggested = {} if readonly else logic.consignment_received_since_audit(db, latest_confirmed)
+    received_suggested = {} if readonly else inventory.consignment_received_since_audit(db, latest_confirmed)
     return dict(sess=sess, items=items, existing_lines=existing_lines,
                 latest_confirmed=latest_confirmed, readonly=readonly, received_suggested=received_suggested)
 
@@ -957,7 +957,7 @@ def audit_session_confirm(session_id):
     # sale slip past the stock check unnoticed (see the matching change to
     # the `now` timestamps written alongside every inventory_transactions
     # row: pos_checkout(), refund restocking, and the consignment
-    # receipt/shrinkage/return helpers in logic.py).
+    # receipt/shrinkage/return helpers in vcs/domain/consignment.py).
     db.execute("UPDATE audit_sessions SET status='Confirmed', confirmed_at=? WHERE id=?",
               (clock.now().isoformat(timespec="microseconds"), session_id))
     auth.log_change(db, "audit_sessions", str(session_id), "update", {"status": ("Draft", "Confirmed")})
@@ -976,16 +976,16 @@ def _consignment_shortfalls(db, session_id):
     than sold is money nobody accounts for unless it is logged as shrinkage.
     Informational only -- it changes nothing about what is confirmed. Read
     before the confirm, since after it these counts ARE the expected stock."""
-    consignment = {r["id"]: r for r in db.execute(
+    consigned = {r["id"]: r for r in db.execute(
         "SELECT i.id, i.name, d.name AS distributor_name FROM inventory_list i "
         "JOIN distributors d ON d.id = i.distributor_id WHERE i.ownership_type='Consignment'").fetchall()}
-    if not consignment:
+    if not consigned:
         return []
-    status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
+    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
     out = []
     for line in db.execute("SELECT item_id, stock_counted FROM audit_session_lines "
                            "WHERE session_id=? AND stock_counted IS NOT NULL ORDER BY item_id", (session_id,)).fetchall():
-        item = consignment.get(line["item_id"])
+        item = consigned.get(line["item_id"])
         if not item:
             continue
         status = status_by_item.get(line["item_id"])

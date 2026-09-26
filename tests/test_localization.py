@@ -184,7 +184,6 @@ def test_the_form_refuses_an_unknown_language(client):
     token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
     client.post("/settings", data={"csrf_token": token, "language": "de"},
                 follow_redirects=True)
-    from vcs.domain import logic
     from vcs.db import pool as dbmod
     con = dbmod.connect()
     try:

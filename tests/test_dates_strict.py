@@ -9,7 +9,7 @@ appointment book — and compares the others as text, so the audit log and POS
 history came back silently EMPTY: read as "nothing happened that day".
 
 core.strict_date() is now the one parser for request input; the lenient
-reader, renamed logic.as_date(), is for stored values only.
+reader, renamed dates.as_date(), is for stored values only.
 """
 import uuid
 from datetime import date
@@ -17,7 +17,7 @@ from datetime import date
 import pytest
 
 from vcs.web import core
-from vcs.domain import logic
+from vcs.domain import dates
 from conftest import ADMIN_ID, needs_db
 
 # Every shape fromisoformat() accepts that is not the date's own spelling,
@@ -46,8 +46,8 @@ def test_the_lenient_reader_would_have_let_them_through():
     """The premise of the finding, pinned: if this ever stops being true, the
     strict parser is no longer the only thing between these and Postgres,
     and that is worth knowing."""
-    assert logic.as_date("2026-W39-4") == date(2026, 9, 24)
-    assert logic.as_date("20260925") == date(2026, 9, 25)
+    assert dates.as_date("2026-W39-4") == date(2026, 9, 24)
+    assert dates.as_date("20260925") == date(2026, 9, 25)
 
 
 @pytest.mark.parametrize("raw", ["2026-13", "2026-00", "2026-9", "202609", "2026-W39", "2026-09-01", "abcd-ef"])

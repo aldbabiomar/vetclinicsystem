@@ -24,7 +24,7 @@ from decimal import Decimal as D
 import pytest
 
 from vcs.web import core
-from vcs.domain import logic
+from vcs.domain import billing, dates, display
 from vcs import money
 pytestmark = pytest.mark.money("IQ")
 
@@ -147,9 +147,9 @@ def test_is_cash_payable():
 
 
 def test_fmt_money_uses_thousands_separator_and_no_decimals():
-    assert logic.fmt_money(D(1_234_567)) == "1,234,567"
-    assert logic.fmt_money(D(0)) == "0"
-    assert logic.fmt_money(None) == "—"
+    assert display.fmt_money(D(1_234_567)) == "1,234,567"
+    assert display.fmt_money(D(0)) == "0"
+    assert display.fmt_money(None) == "—"
 
 
 def test_change_is_rounded_down_to_a_note():
@@ -183,7 +183,7 @@ def _totals(subtotal, discount_percent, paid, cleanup_amount=0, *, discountable_
     whole subtotal (the case every test below asserts). The real function has
     no such default on purpose — see its docstring and seam rule 6."""
     subtotal, paid, cleanup_amount = D(subtotal), D(paid), D(cleanup_amount)
-    total, paid_, balance, status, _pre = logic.compute_bill_totals(
+    total, paid_, balance, status, _pre = billing.compute_bill_totals(
         subtotal, D(discount_percent), paid, cleanup_amount,
         discountable_subtotal=(subtotal if discountable_subtotal is None else D(discountable_subtotal)))
     return total, paid_, balance, status
@@ -304,6 +304,6 @@ def test_regression_exactly_half_a_note_rounds_up_not_to_free():
 
 def test_regression_as_date_validates_the_whole_value_not_a_prefix():
     with pytest.raises(ValueError):
-        logic.as_date("2026-08-25garbage")
-    assert logic.as_date("2026-08-25").isoformat() == "2026-08-25"
-    assert logic.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"
+        dates.as_date("2026-08-25garbage")
+    assert dates.as_date("2026-08-25").isoformat() == "2026-08-25"
+    assert dates.as_date("2026-08-25T02:00:00").isoformat() == "2026-08-25"

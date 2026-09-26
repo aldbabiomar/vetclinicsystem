@@ -255,13 +255,13 @@ MUTATIONS = [
      probe_discharge_before_admission),
 
     ("Obs2 cash discrepancy warning (IQ)", "iq", "routes/sales.py",
-     '{logic.fmt_money(abs(difference))} IQD.", "warning")',
-     '{logic.fmt_money(abs(difference))} IQD.", "error")',
+     '{display.fmt_money(abs(difference))} IQD.", "warning")',
+     '{display.fmt_money(abs(difference))} IQD.", "error")',
      probe_cash_warning),
 
     ("Obs2 cash discrepancy warning (JO)", "jo", "routes/sales.py",
-     '{logic.fmt_money(abs(difference))} JOD.", "warning")',
-     '{logic.fmt_money(abs(difference))} JOD.", "error")',
+     '{display.fmt_money(abs(difference))} JOD.", "warning")',
+     '{display.fmt_money(abs(difference))} JOD.", "error")',
      probe_cash_warning),
 ]
 

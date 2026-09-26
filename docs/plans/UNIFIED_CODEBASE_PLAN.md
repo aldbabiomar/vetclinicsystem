@@ -1051,3 +1051,33 @@ result under each money setting.
 
   **Suite:** IQ **1436 passed, 4 skipped**; JO **1436 passed, 4 skipped**;
   no database 577 passed.
+- **2026-09-26 — Restructure R3 (D-15): `logic.py` becomes domain modules.**
+  - **Seventeen modules.** Its 2,800 lines are now one module per area
+    under `vcs/domain/`:
+    - `billing`, `clinical`, `inventory`, `consignment`, `distributors`,
+      `cash_register`, `members`, `appointments`, `refunds`, `logs`;
+    - `analytics` (Insights, Retention) and `alerts` (the Dashboard);
+    - the shared `dates`, `settings`, `codes`, `display` and `search`.
+    - The P&L functions joined `reports.py`.
+  - **Proof of a pure move.** 128 of the 130 definitions are AST-identical
+    to the originals once module qualifiers are removed. The other two are
+    the P&L functions, whose `reports.by_month` is now in-module.
+  - **Names that collided.** Several module names are also natural local
+    names in the routes. A function that assigns `billing = …` and calls
+    `billing.…` fails with UnboundLocalError on that path only.
+    - Two modules were named to avoid view functions: `alerts` (not
+      `dashboard`) and `analytics` (not `insights`).
+    - Eight locals were renamed (`term`, `bill`, `refund_rows`,
+      `distributor_rows`, `stored`, `consigned`).
+    - `test_domain_imports.py` fails on any file that rebinds a domain
+      module it imports (mutation-checked).
+  - **No Flask in the domain.** The rule "no Flask in the domain beyond
+    flask_babel" is now a test, also mutation-checked.
+  - **Also fixed.**
+    - A test message that would have raised NameError instead of naming
+      the offender. It was introduced in R1, and is now mutation-checked.
+    - Two docstrings citing a `dashboard_counts()` that does not exist.
+    - The catalogue's source references (no translation changed).
+
+  **Suite:** IQ **1440 passed, 4 skipped**; JO **1440 passed, 4 skipped**;
+  no database 581 passed.

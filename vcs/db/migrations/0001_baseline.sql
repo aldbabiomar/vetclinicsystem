@@ -554,7 +554,7 @@ CREATE TABLE billing (
     discount_source TEXT NOT NULL DEFAULT 'staff' CHECK (discount_source IN ('staff','member')),
     notes TEXT,
     -- The final payable figure for this bill (what compute_bill_totals()
-    -- actually charges), kept in sync by logic.refresh_visit_billing_total()
+    -- actually charges), kept in sync by billing.refresh_visit_billing_total()
     -- every time lines/discount/manual_amount change. Reports read this
     -- instead of re-deriving subtotal*(1-discount%) independently.
     total NUMERIC(15,3) NOT NULL DEFAULT 0,
@@ -635,7 +635,7 @@ CREATE TABLE boarding_sessions (
     total_is_auto BOOLEAN NOT NULL DEFAULT TRUE,
     -- The persisted figure boarding_page()'s batched list view and any
     -- report read instead of recomputing per row — kept in sync by
-    -- logic.refresh_boarding_total() every time the session is saved.
+    -- billing.refresh_boarding_total() every time the session is saved.
     billed_total NUMERIC(15,3),
     -- "Clean Up" write-off — see the matching comment on billing.cleanup_amount.
     cleanup_amount NUMERIC(15,3) NOT NULL DEFAULT 0,
@@ -714,7 +714,7 @@ CREATE TABLE inpatient_cases (
     discount_source TEXT NOT NULL DEFAULT 'staff' CHECK (discount_source IN ('staff','member')),
     created_by INTEGER,
     -- The final payable figure for this case (what compute_bill_totals()
-    -- actually charges), kept in sync by logic.refresh_inpatient_total()
+    -- actually charges), kept in sync by billing.refresh_inpatient_total()
     -- every time procedures/discount change.
     total NUMERIC(15,3) NOT NULL DEFAULT 0,
     -- "Clean Up" write-off — see the matching comment on billing.cleanup_amount.
@@ -1133,14 +1133,14 @@ CREATE TABLE appointments (
     created_by INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
     -- resource_id is the one that already demonstrably orphans —
-    -- logic.orphaned_appointments() exists precisely because this
+    -- appointments.orphaned_appointments() exists precisely because this
     -- reference can stop resolving. See F-19.
     FOREIGN KEY (resource_id) REFERENCES users(id) ON DELETE RESTRICT,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_appt_date ON appointments(appt_date);
 
--- Enforces at the database level what logic.slot_conflict() only checks at
+-- Enforces at the database level what appointments.slot_conflict() only checks at
 -- the application level: two appointments can't occupy the same slot for
 -- the same vet/groomer. The app-level check-then-insert alone has a race
 -- window — two concurrent bookings for the same slot can both pass the

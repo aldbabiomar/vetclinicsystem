@@ -53,7 +53,7 @@ from urllib.parse import quote
 import psycopg
 
 from vcs.ops import backup as backup_mod
-from vcs.domain import logic
+from vcs.domain import settings
 from vcs import clock
 RESTORE_TIMEOUT_SECONDS = 600
 SETTING_KEY = "last_verified_restore"
@@ -357,7 +357,7 @@ def is_due(db, max_age_days=VERIFY_INTERVAL_DAYS):
     first backup instead of warning every day until the 1st comes around.
     """
     try:
-        raw = logic.get_setting(db, SETTING_KEY)
+        raw = settings.get_setting(db, SETTING_KEY)
     except Exception:
         return True
     if not raw:

@@ -23,7 +23,7 @@ from flask import flash as _flask_flash, g, render_template, request, url_for
 
 from vcs.db import pool as dbmod
 from vcs import jobs
-from vcs.domain import logic
+from vcs.domain import alerts, codes, dates, display
 from vcs import messages
 from vcs import money
 BASE_DIR = ROOT
@@ -139,8 +139,8 @@ def parse_percent(raw, required=False):
 MAX_INT = 2_147_483_647  # widest value any INTEGER column in this schema can hold
 
 
-# In logic.py (which core imports); re-exported so routes keep importing it here.
-parse_id = logic.parse_id
+# In vcs/domain/codes.py; re-exported so routes keep importing it here.
+parse_id = codes.parse_id
 
 
 def parse_int(raw, required=False):
@@ -201,7 +201,7 @@ def strict_date(v):
     2026-9-5. The value must be the date's own ISO spelling.
 
     Stored values (a DATE or timestamptz column, already a date/datetime)
-    are read with logic.as_date(), never this."""
+    are read with dates.as_date(), never this."""
     v = clean(v) if isinstance(v, str) or v is None else v
     if v is None:
         return None
@@ -647,7 +647,7 @@ def display_date(d):
     """A date for a message or a page: the clinic-zone day, in Arabic-Indic
     digits when the clinic's language is Arabic. The |localdate filter is
     this function."""
-    formatted = logic.fmt_date(d) if not isinstance(d, str) else d
+    formatted = dates.fmt_date(d) if not isinstance(d, str) else d
     return display_number(formatted) if formatted else formatted
 
 
@@ -675,15 +675,15 @@ def csp_nonce():
 # ---------------------------------------------------------------------------
 # Arabic-Indic numerals — display only
 # ---------------------------------------------------------------------------
-# Defined in logic.py (which cannot import this module — core imports it)
-# and re-exported here, so there is one digit table.
-to_arabic_indic_digits = logic.to_arabic_indic_digits
+# Defined in vcs/domain/display.py (the domain cannot import the request
+# layer) and re-exported here, so there is one digit table.
+to_arabic_indic_digits = display.to_arabic_indic_digits
 
 
 def display_quantity(v):
     """A count or measurement on its way into a message: trailing zeros
-    dropped (logic.format_quantity), Arabic-Indic digits under Arabic."""
-    return display_number(logic.format_quantity(v))
+    dropped (display.format_quantity), Arabic-Indic digits under Arabic."""
+    return display_number(display.format_quantity(v))
 
 
 def display_number(v):
@@ -721,5 +721,5 @@ def cached_dashboard_snapshot(db):
     (for the nav alert badge) and again on the dashboard route itself —
     cache it per-request so it only runs once."""
     if "dash_snap" not in g:
-        g.dash_snap = logic.dashboard_snapshot(db)
+        g.dash_snap = alerts.dashboard_snapshot(db)
     return g.dash_snap

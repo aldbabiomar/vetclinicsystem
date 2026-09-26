@@ -10,7 +10,7 @@ Endpoint names carry the `consignment.` prefix Flask gives every blueprint route
 
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import logic
+from vcs.domain import codes, consignment, distributors, search
 from vcs import money
 from vcs.web import pdf_export
 from flask_babel import gettext as _
@@ -53,22 +53,22 @@ bp = Blueprint("consignment", __name__)
 # ---------------------------------------------------------------------------
 # Distributors
 # ---------------------------------------------------------------------------
-def _distributors_list_context(search):
+def _distributors_list_context(term):
     db = get_db()
-    if search:
-        rows = db.execute("SELECT * FROM distributors WHERE name ILIKE ? ORDER BY name", (logic.like_pattern(search),)).fetchall()
+    if term:
+        rows = db.execute("SELECT * FROM distributors WHERE name ILIKE ? ORDER BY name", (search.like_pattern(term),)).fetchall()
     else:
         rows = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
-    outstanding = logic.distributor_outstanding_totals(db)
-    payables = logic.distributor_payables_summary(db)
-    return dict(distributors=rows, search=search, outstanding=outstanding, payables=payables)
+    outstanding = distributors.distributor_outstanding_totals(db)
+    payables = distributors.distributor_payables_summary(db)
+    return dict(distributors=rows, search=term, outstanding=outstanding, payables=payables)
 
 
 @bp.route("/distributors")
 @auth.permission_required("manage_distributors")
 def distributors_list():
-    search = request.args.get("q", "").strip()
-    return render_template("distributors.html", **_distributors_list_context(search))
+    term = request.args.get("q", "").strip()
+    return render_template("distributors.html", **_distributors_list_context(term))
 
 
 @bp.route("/distributors/new", methods=["POST"])
@@ -111,7 +111,7 @@ def distributor_new():
     )
     auth.log_change(db, "distributors", did, "create")
     db.commit()
-    flash(_("%(did)s added.", did=logic.code("D", did)), "success")
+    flash(_("%(did)s added.", did=codes.code("D", did)), "success")
     return redirect(url_for("consignment.distributors_list"))
 
 
@@ -214,7 +214,7 @@ def _distributor_detail_context(dist_id):
     dist = db.execute("SELECT * FROM distributors WHERE id=?", (dist_id,)).fetchone()
     if not dist:
         return None
-    ledger = logic.distributor_ledger(db, dist_id)
+    ledger = distributors.distributor_ledger(db, dist_id)
     return dict(distributor=dist, **ledger)
 
 
@@ -272,7 +272,7 @@ def distributor_bill_new(dist_id):
     )
     auth.log_change(db, "distributor_bills", bid, "create")
     db.commit()
-    flash(_("Bill %(bid)s logged.", bid=logic.code("DB", bid)), "success")
+    flash(_("Bill %(bid)s logged.", bid=codes.code("DB", bid)), "success")
     return redirect(url_for("consignment.distributor_detail", dist_id=dist_id))
 
 
@@ -420,7 +420,7 @@ def consignment_overview():
     def compute(update):
         con = dbmod.connect()
         try:
-            rows = logic.consignment_distributors_overview(con)
+            rows = consignment.consignment_distributors_overview(con)
         finally:
             con.close()
         return {"rows": rows}
@@ -447,9 +447,9 @@ def consignment_items():
         "WHERE i.category='Retail' AND i.active=true ORDER BY i.ownership_type DESC, i.name LIMIT ? OFFSET ?",
         (PER_PAGE, page_offset(page)),
     ).fetchall()
-    distributors = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
-    locked = {r["id"]: logic.consignment_item_locked(db, r["id"]) for r in rows if r["ownership_type"] == "Consignment"}
-    return render_template("consignment_items.html", items=rows, distributors=distributors, locked=locked,
+    distributor_rows = db.execute("SELECT * FROM distributors ORDER BY name").fetchall()
+    locked = {r["id"]: consignment.consignment_item_locked(db, r["id"]) for r in rows if r["ownership_type"] == "Consignment"}
+    return render_template("consignment_items.html", items=rows, distributors=distributor_rows, locked=locked,
                             page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -482,7 +482,7 @@ def consignment_items_bulk_edit():
         if not old or old["category"] != "Retail":
             errors[key] = _("Item not found.")
             continue
-        if logic.consignment_item_locked(db, item_id):
+        if consignment.consignment_item_locked(db, item_id):
             continue
         want_consignment = fields.get("is_consignment") == "on"
         if want_consignment:
@@ -590,7 +590,7 @@ def consignment_receiving_new():
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
-    logic.record_consignment_receipt(db, item_id, item["distributor_id"], quantity, unit_cost,
+    consignment.record_consignment_receipt(db, item_id, item["distributor_id"], quantity, unit_cost,
                                       received_date, f.get("delivery_reference"), f.get("notes"), session["user_id"])
     auth.log_change(db, "consignment_receipts", item_id, "create")
     db.commit()
@@ -657,7 +657,7 @@ def consignment_shrinkage_new():
         flash(_("Liable Party must be Distributor or Clinic."), "error")
         return redisplay()
     overridden = liable_party != default_liable
-    ok, _unused, error = logic.record_consignment_shrinkage(
+    ok, _unused, error = consignment.record_consignment_shrinkage(
         db, item_id, item["distributor_id"], quantity, reason, liable_party, overridden,
         f.get("notes"), session["user_id"],
     )
@@ -721,7 +721,7 @@ def consignment_returns_new():
     except BadDate as e:
         flash(str(e), "error")
         return redisplay()
-    ok, _unused, error = logic.record_consignment_return(
+    ok, _unused, error = consignment.record_consignment_return(
         db, item_id, item["distributor_id"], quantity, return_date, f.get("reason"), f.get("notes"), session["user_id"],
     )
     if not ok:
@@ -729,7 +729,7 @@ def consignment_returns_new():
         return redisplay()
     auth.log_change(db, "consignment_returns", item_id, "create")
     db.commit()
-    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=display_quantity(quantity), name=item['name'], distributor_id=logic.code('D', item['distributor_id'])), "success")
+    flash(_("Returned %(quantity)s %(name)s to %(distributor_id)s.", quantity=display_quantity(quantity), name=item['name'], distributor_id=codes.code('D', item['distributor_id'])), "success")
     return redirect(url_for("consignment.consignment_returns_page"))
 
 
@@ -746,15 +746,15 @@ def consignment_sales_page():
     # filter was not understood". See SEAM_RULES.md.
     date_from = date_filter_arg("date_from")
     date_to = date_filter_arg("date_to")
-    all_rows = logic.consignment_sales_by_distributor(db, distributor_id, date_from, date_to)
+    all_rows = consignment.consignment_sales_by_distributor(db, distributor_id, date_from, date_to)
     page = get_page()
     total = len(all_rows)
     rows = all_rows[page_offset(page):page_offset(page) + PER_PAGE]
-    distributors = db.execute(
+    distributor_rows = db.execute(
         "SELECT DISTINCT d.id, d.name FROM distributors d JOIN inventory_list i ON i.distributor_id=d.id "
         "WHERE i.ownership_type='Consignment' ORDER BY d.name"
     ).fetchall()
-    return render_template("consignment_sales.html", rows=rows, distributors=distributors,
+    return render_template("consignment_sales.html", rows=rows, distributors=distributor_rows,
                             distributor_id=distributor_id, date_from=date_from or "", date_to=date_to or "",
                             page=page, total_pages=page_count(total), total_count=total)
 
@@ -768,7 +768,7 @@ def _consignment_settlements_page_context(distributor_id):
     distributor = db.execute("SELECT * FROM distributors WHERE id=?", (distributor_id,)).fetchone()
     if not distributor:
         return None
-    balance = logic.consignment_balance(db, distributor_id)
+    balance = consignment.consignment_balance(db, distributor_id)
     history = db.execute(
         "SELECT s.*, u.full_name AS settled_by_name FROM consignment_settlements s "
         "LEFT JOIN users u ON u.id=s.settled_by WHERE s.distributor_id=? ORDER BY s.created_at DESC",
@@ -811,7 +811,7 @@ def consignment_settlement_new(distributor_id):
     # field — the balance is a live figure (more could have sold since
     # the page was opened) and this is a cash-recording action, not
     # something to take on faith from the client.
-    balance = logic.consignment_balance(db, distributor_id)
+    balance = consignment.consignment_balance(db, distributor_id)
 
     def redisplay():
         history = db.execute(

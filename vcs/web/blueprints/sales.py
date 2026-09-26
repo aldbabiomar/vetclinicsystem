@@ -10,7 +10,7 @@ Endpoint names carry the `sales.` prefix Flask gives every blueprint route:
 
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import logic
+from vcs.domain import billing, cash_register, codes, dates, inventory, members, refunds
 from vcs import money
 from vcs.web import pdf_export
 import uuid
@@ -44,12 +44,12 @@ def _money_setting_gate():
 @bp.route("/api/sales/<int:sale_id>/refundable-items")
 @auth.permission_required("manage_refunds")
 def api_sale_refundable_items(sale_id):
-    sale, lines = logic.refundable_sale_items(get_db(), sale_id)
+    sale, lines = refunds.refundable_sale_items(get_db(), sale_id)
     if not sale:
         return jsonify({"error": _("No sale with that ID.")}), 404
     return jsonify({
         "sale_id": sale["id"],
-        "sold_at": logic.fmt_datetime(sale["sold_at"]),
+        "sold_at": dates.fmt_datetime(sale["sold_at"]),
         "sale_total": sale["total"],
         "cleanup_amount": sale["cleanup_amount"] or 0,
         "lines": [
@@ -85,14 +85,14 @@ def pos_export_receipt(sale_id):
 # cash, paying a supplier directly out of the till). "Perform Audit"
 # records what staff actually counted against the system's Cash total for
 # that day and immutably logs the outcome (Deficit/Surplus/Perfect) — see
-# logic.cash_register_* for the actual math.
+# cash_register.cash_register_* (vcs/domain) for the actual math.
 # ---------------------------------------------------------------------------
 def _cash_register_page_context(day):
     db = get_db()
-    ledger = logic.cash_register_ledger(db, day)
-    totals = logic.cash_register_totals(db, day)
-    payouts = logic.cash_register_payouts_for_day(db, day)
-    latest_audit = logic.cash_register_latest_audit(db, day)
+    ledger = cash_register.cash_register_ledger(db, day)
+    totals = cash_register.cash_register_totals(db, day)
+    payouts = cash_register.cash_register_payouts_for_day(db, day)
+    latest_audit = cash_register.cash_register_latest_audit(db, day)
     return dict(day=day, ledger=ledger, totals=totals, payouts=payouts, latest_audit=latest_audit)
 
 
@@ -142,7 +142,7 @@ def cash_register_payout_new():
     # Recomputed fresh at submit time — cash_register_totals() already
     # subtracts every payout already logged for this day, so this is
     # exactly how much is left in the drawer before this new one.
-    drawer_cash = logic.cash_register_totals(db, day)["Cash"]
+    drawer_cash = cash_register.cash_register_totals(db, day)["Cash"]
     if amount > drawer_cash:
         flash(_("That's more than the %(fmt_money)s %(currency)s currently expected in the drawer for this day.", fmt_money=display_money(drawer_cash), currency=currency_label()), "error")
         return redisplay(day)
@@ -187,7 +187,7 @@ def cash_register_audit_new():
     # as consignment_settlement_new(): this is the figure the audit result
     # gets permanently compared against, so it has to be the real live
     # number, not whatever the page happened to show when it was loaded.
-    totals = logic.cash_register_totals(db, day)
+    totals = cash_register.cash_register_totals(db, day)
     difference = money.to_store(counted_cash - totals["Cash"])
     # Exact: "Perfect" only when the counts agree to the smallest amount a
     # person can enter. The predecessor JO app kept IQ's `abs(diff) < 1`, which
@@ -224,7 +224,7 @@ def pos_page():
     # Fresh one-time token per page load — see pos_checkout()'s dedup
     # check and idx_sales_idempotency_key in migrations/0001_baseline.sql.
     return render_template("pos.html", discount_cap=cap, idempotency_key=uuid.uuid4().hex,
-                           member_rate=logic.member_discount_rate(db))
+                           member_rate=members.member_discount_rate(db))
 
 
 # ---------------------------------------------------------------------------
@@ -314,15 +314,15 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
     subtotal, lines, notices = 0, [], []
     # One query for the whole cart rather than one per line, and read from
     # the same active price_list row item_sale_price() prices from.
-    discountable_by_item = logic.discountable_by_item_ids(db, list(qty_by_item))
+    discountable_by_item = billing.discountable_by_item_ids(db, list(qty_by_item))
     # Stock for the whole cart in one pass, not the whole catalogue's status
     # recomputed once per line (audit P13's shape). Read here, after
     # _lock_and_snapshot_cart_items() has locked the rows it describes.
-    status_by_item = {s["item_id"]: s for s in logic.inventory_status(db)}
+    status_by_item = {s["item_id"]: s for s in inventory.inventory_status(db)}
     for iid, qty in qty_by_item.items():
-        price = logic.item_sale_price(db, iid)
+        price = inventory.item_sale_price(db, iid)
         if price is None:
-            notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=logic.code("INV", iid)))
+            notices.append(_("Item %(iid)s has no sale price set in the Price List — skipped.", iid=codes.code("INV", iid)))
             continue
         status = status_by_item.get(iid)
         # Fail closed (audit B5). inventory_status() covers ACTIVE items only,
@@ -336,7 +336,7 @@ def _priced_cart_lines(db, qty_by_item, cost_by_item, distributor_by_item):
             row = db.execute("SELECT name FROM inventory_list WHERE id=?", (iid,)).fetchone()
             return 0, [], notices, _(
                 "%(name)s is no longer sold — it was deactivated in the catalogue. Remove it from the cart.",
-                name=row["name"] if row else logic.code("INV", iid))
+                name=row["name"] if row else codes.code("INV", iid))
         # current_stock is None until this item has been through at least one
         # confirmed inventory audit — treated as zero available stock here
         # (fail closed) rather than skipping the check, since skipping it let
@@ -470,7 +470,7 @@ def pos_checkout():
         cap = auth.discount_cap_for()
         return render_template("pos.html", discount_cap=cap,
                                 idempotency_key=f.get("idempotency_key") or uuid.uuid4().hex, form=f,
-                                member_rate=logic.member_discount_rate(db))
+                                member_rate=members.member_discount_rate(db))
 
     def refuse(message):
         flash(message, "error")
@@ -511,7 +511,7 @@ def pos_checkout():
         owner = db.execute("SELECT * FROM owners WHERE id=?", (owner_id,)).fetchone() if owner_id else None
         if not owner:
             return refuse(_("That customer no longer exists — search again."))
-    member_percent, discount_source = logic.member_discount_for(db, owner)
+    member_percent, discount_source = members.member_discount_for(db, owner)
     if discount_source == "member":
         # Card only. Refused outright rather than silently ignored, so the
         # cashier sees why the number they typed did not take effect.
@@ -531,7 +531,7 @@ def pos_checkout():
     # and charges the rest in full, which is the whole point of the per-line
     # snapshot.
     if discount_source == "staff" and discount_percent > 0:
-        blocked = logic.non_discountable_line_names_for_items(db, item_ids)
+        blocked = billing.non_discountable_line_names_for_items(db, item_ids)
         if blocked:
             return refuse(_("Can't apply a discount — the cart includes item(s) marked as "
                             "not discountable: %(names)s.", names=", ".join(blocked)))
@@ -551,7 +551,7 @@ def pos_checkout():
         return refuse(_("Nothing to sell."))
 
     # The discount comes off the eligible lines only, through the same
-    # logic.discounted_raw_total() the bill path uses — one function, not the
+    # billing.discounted_raw_total() the bill path uses — one function, not the
     # formula written out twice (SEAM_RULES.md F1 is what that costs). On a
     # staff discount every line is eligible, because the guard above refuses
     # the sale otherwise, so this is unchanged for any non-member sale.
@@ -563,7 +563,7 @@ def pos_checkout():
     # used to ring up as 0 and hand back every dinar tendered as change
     # (SEAM_RULES.md F1); under JO it changes nothing.
     total = money.payable(
-        logic.discounted_raw_total(subtotal, discountable_subtotal, discount_percent), discount_percent)
+        billing.discounted_raw_total(subtotal, discountable_subtotal, discount_percent), discount_percent)
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
     except BadNumber:
@@ -630,7 +630,7 @@ def pos_history():
     page = get_page()
     date_filter = date_filter_arg()
     where = " WHERE s.sold_at >= ? AND s.sold_at < ?" if date_filter else ""
-    params = list(logic.day_bounds(date_filter)) if date_filter else []
+    params = list(dates.day_bounds(date_filter)) if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM sales s{where}", params).fetchone()["c"]
     sales = db.execute(
         f"SELECT s.*, u.full_name as cashier_name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id{where} "
@@ -651,8 +651,8 @@ def _refunds_page_context():
     count_where = " WHERE refund_date = ?" if date_filter else ""
     count_params = [date_filter] if date_filter else []
     total = db.execute(f"SELECT COUNT(*) c FROM refunds{count_where}", count_params).fetchone()["c"]
-    refunds = logic.recent_refunds(db, limit=PER_PAGE, offset=page_offset(page), date_filter=date_filter)
-    return dict(refunds=refunds, today=clock.today().isoformat(), date_filter=date_filter,
+    refund_rows = refunds.recent_refunds(db, limit=PER_PAGE, offset=page_offset(page), date_filter=date_filter)
+    return dict(refunds=refund_rows, today=clock.today().isoformat(), date_filter=date_filter,
                 page=page, total_pages=page_count(total), total_count=total)
 
 
@@ -736,7 +736,7 @@ def refund_retail_save():
     for sid in sorted(set(sale_item_ids)):
         db.execute("SELECT id FROM sale_items WHERE id=? AND sale_id=? FOR UPDATE", (sid, sale_id))
 
-    sale, refundable = logic.refundable_sale_items(db, sale_id)
+    sale, refundable = refunds.refundable_sale_items(db, sale_id)
     if not sale:
         flash(_("Sale not found."), "error")
         return redisplay()
@@ -896,7 +896,7 @@ def refund_service_save():
         if origin is None:
             flash(_("Visit %(visit_id)s not found.", visit_id=visit_raw), "error")
             return redisplay()
-        paid = logic.visit_billing_summary(db, visit_id)["paid"]
+        paid = billing.visit_billing_summary(db, visit_id)["paid"]
         already_refunded = db.execute(
             "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND visit_id=?", (visit_id,)
         ).fetchone()["s"]
@@ -913,7 +913,7 @@ def refund_service_save():
             flash(_("Inpatient case %(case_id_raw)s not found.", case_id_raw=case_id_raw), "error")
             return redisplay()
         case_id = int(case_id_raw)
-        paid = logic.inpatient_billing_summary(db, case_id)["paid"]
+        paid = billing.inpatient_billing_summary(db, case_id)["paid"]
         already_refunded = db.execute(
             "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND inpatient_case_id=?", (case_id,)
         ).fetchone()["s"]
@@ -930,7 +930,7 @@ def refund_service_save():
             flash(_("Boarding stay %(boarding_id_raw)s not found.", boarding_id_raw=boarding_id_raw), "error")
             return redisplay()
         boarding_id = int(boarding_id_raw)
-        paid = logic.boarding_billing_summary(db, boarding_id)["paid"]
+        paid = billing.boarding_billing_summary(db, boarding_id)["paid"]
         already_refunded = db.execute(
             "SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE refund_type='service' AND boarding_id=?", (boarding_id,)
         ).fetchone()["s"]

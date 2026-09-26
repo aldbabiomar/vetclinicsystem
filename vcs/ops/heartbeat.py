@@ -43,7 +43,7 @@ import time
 
 import requests
 
-from vcs.domain import logic
+from vcs.domain import settings
 from vcs import clock
 from vcs import config
 APP = "jo"
@@ -66,7 +66,7 @@ ROW_COUNT_TABLES = ("owners", "patients", "visits", "sales")
 def install_id(db):
     """A short random id so one receiver can host several clinics and the
     alert can say WHICH one went quiet. Generated once, then stable."""
-    existing = logic.get_setting(db, INSTALL_ID_SETTING)
+    existing = settings.get_setting(db, INSTALL_ID_SETTING)
     if existing:
         return existing
     import secrets
@@ -132,7 +132,7 @@ def _backup_section(db):
         pass
 
     try:
-        raw = logic.get_setting(db, "last_verified_restore")
+        raw = settings.get_setting(db, "last_verified_restore")
         if raw:
             data = json.loads(raw)
             out["verified_at"] = data.get("at")
@@ -211,7 +211,7 @@ def send(db, payload):
     The URL never appears in the returned message — it is a credential.
     """
     try:
-        url = (logic.get_setting(db, URL_SETTING) or "").strip()
+        url = (settings.get_setting(db, URL_SETTING) or "").strip()
     except Exception:
         return False, "could not read the heartbeat setting"
 

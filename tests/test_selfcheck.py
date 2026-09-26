@@ -589,7 +589,7 @@ def test_a_backup_file_that_is_there_is_not_reported(env, tmp_path):
 # twice (2026-08-31)
 # ---------------------------------------------------------------------------
 #
-# logic.backup_alert_message() predates Layer 1 and reports the same four
+# alerts.backup_alert_message() predates Layer 1 and reports the same four
 # situations the backup_* findings do. On a real failing install both fired at
 # once, and because toast.js converts a .flash into a toast, the admin was
 # told the same thing twice in two different shapes on one screen.
