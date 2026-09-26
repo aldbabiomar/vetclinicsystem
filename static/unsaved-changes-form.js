@@ -30,6 +30,8 @@
  *     typed URL / back-forward navigation.
  */
 (function () {
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
   const dirtyForms = new Set();
   const originalValues = new Map(); // form -> Map(field -> value/checked)
   let pendingAction = null;
@@ -95,11 +97,11 @@
     wrap.innerHTML =
       '<div id="unsavedFormModalOverlay" class="modal-overlay" style="display:none;">' +
       '<div class="modal-box" style="max-width:420px;">' +
-      '<div class="section-title" style="margin-top:0;">Unsaved Changes</div>' +
-      '<p class="small muted" style="margin-bottom:6px;">You have unsaved changes on this page. Leave without saving?</p>' +
+      '<div class="section-title" style="margin-top:0;">' + escapeHtml(T("Unsaved Changes")) + '</div>' +
+      '<p class="small muted" style="margin-bottom:6px;">' + escapeHtml(T("You have unsaved changes on this page. Leave without saving?")) + '</p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
-      '<button class="btn small secondary" type="button" id="unsavedFormCancelBtn">Keep Editing</button>' +
-      '<button class="btn small danger" type="button" id="unsavedFormDiscardBtn">Discard Changes</button>' +
+      '<button class="btn small secondary" type="button" id="unsavedFormCancelBtn">' + escapeHtml(T("Keep Editing")) + '</button>' +
+      '<button class="btn small danger" type="button" id="unsavedFormDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);
     document.getElementById("unsavedFormCancelBtn").addEventListener("click", hideModal);

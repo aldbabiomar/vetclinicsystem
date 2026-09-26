@@ -5,6 +5,8 @@
  */
 (function () {
   "use strict";
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
 
   // ---------------------------------------------------------------
   // 1.8 — Inline validation: when the browser blocks a submit because a
@@ -51,8 +53,8 @@
       '<div class="modal-box vz-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="vz-confirm-msg">' +
       '<p id="vz-confirm-msg" class="vz-confirm-msg"></p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
-      '<button type="button" class="btn small secondary" id="vz-confirm-cancel">Cancel</button>' +
-      '<button type="button" class="btn small danger" id="vz-confirm-ok">Confirm</button>' +
+      '<button type="button" class="btn small secondary" id="vz-confirm-cancel">' + escapeHtml(T("Cancel")) + '</button>' +
+      '<button type="button" class="btn small danger" id="vz-confirm-ok">' + escapeHtml(T("Confirm")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);
     return document.getElementById("vz-confirm-overlay");
@@ -67,8 +69,8 @@
       overlay.querySelector("#vz-confirm-msg").textContent = message;
       const okBtn = overlay.querySelector("#vz-confirm-ok");
       const cancelBtn = overlay.querySelector("#vz-confirm-cancel");
-      okBtn.textContent = opts.okLabel || "Confirm";
-      cancelBtn.textContent = opts.cancelLabel || "Cancel";
+      okBtn.textContent = opts.okLabel || T("Confirm");
+      cancelBtn.textContent = opts.cancelLabel || T("Cancel");
 
       function cleanup(result) {
         okBtn.removeEventListener("click", onOk);
@@ -126,7 +128,7 @@
       if (btn.disabled) return;
       const label = btn.tagName === "INPUT" ? "value" : "textContent";
       btn.dataset.originalLabel = btn[label];
-      btn[label] = btn.dataset.savingLabel || "Saving…";
+      btn[label] = btn.dataset.savingLabel || T("Saving…");
       btn.disabled = true;
       btn.classList.add("is-saving");
     });
@@ -289,11 +291,11 @@
       const el = e.detail.elt;
       if (el && el.classList) el.classList.remove("is-loading");
       if (!e.detail.successful) {
-        window.VZToast.show("Couldn't reach the server — please check your connection and try again.", "error");
+        window.VZToast.show(T("Couldn't reach the server — please check your connection and try again."), "error");
       }
     });
     document.body.addEventListener("htmx:sendError", function () {
-      window.VZToast.show("Couldn't reach the server — please check your connection and try again.", "error");
+      window.VZToast.show(T("Couldn't reach the server — please check your connection and try again."), "error");
     });
   }
 

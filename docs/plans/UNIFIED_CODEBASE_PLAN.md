@@ -942,3 +942,16 @@ result under each money setting.
   - **Arabic.** 109 new Arabic strings, flagged in `ARABIC_REVIEW.md` §15.
 
   **Suite:** IQ **1381 passed, 4 skipped**; JO **1381 passed, 4 skipped**.
+- **2026-09-26 — Audit F2: the browser scripts speak the clinic's language.**
+  - **Static scripts.** `js_strings.py` is the registry. `base.html` emits
+    `window.VZ_I18N` and `vzT()`, and every static script's sentences go
+    through it.
+  - **Inline page scripts.** Their literals use `_()|tojson`.
+  - **Tests and Arabic.** `tests/test_js_strings.py`; 33 Arabic strings
+    flagged in `ARABIC_REVIEW.md` §16.
+  - **A slip, caught by the suite.** A `%(name)s` meant for JavaScript
+    must be passed to Jinja's `_()` as its own value, or the page 500s.
+    Eight tests caught it on the first run.
+
+  **Suite:** IQ **1414 passed, 4 skipped**; JO **1414 passed, 4 skipped**.
+  Every finding in the audit's §1 and §2 is now closed.

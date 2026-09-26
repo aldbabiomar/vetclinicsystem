@@ -66,7 +66,7 @@ Prior audits were read first so closed findings are not re-reported
 | **B9** | Medium | both | Restocked-refund COGS and the consignment restock credit use *current* cost (and current distributor) although `refund_items.sale_item_id` exists | **Fixed** — P&L (phase 3) and the consignment credit both reverse the sale line; `sale_item_id` NOT NULL; `test_consignment_restock.py` |
 | **S3** | Medium | both | Restore runs with the app serving: no request gate, `pg_restore` not single-transaction | **Fixed** — a 503 gate that reads no table; `--single-transaction`; `test_restore_gate.py` |
 | **F1** | Medium | both | ~30 `flash()` messages per app, plus every helper-returned message, are never translated (POS refusals, edit conflicts, date errors, refunds) | **Fixed** — every flash, JSON and bulk error through `_()`; background results are `messages.Msg`, translated by `core.flash`/`core.shown`; `test_untranslated_messages.py` |
-| **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | Confirmed by code |
+| **F2** | Medium | both | All UI text in `static/*.js` is English-only (unsaved-changes dialogs, upload progress, job progress, phone validation), and loading-shell titles | **Fixed** — `js_strings.py` + `window.VZ_I18N`/`vzT()`; inline literals through `_()|tojson`; `test_js_strings.py` |
 | **B10** | Low–Med | both | Payment method is validated only on refunds; POS, visit/inpatient/boarding payments, distributor payments and settlements store any string | **Fixed** — `core.clean_payment_method` on all eight reads, CHECK constraints, seam rule 10; `test_payment_methods.py` |
 | **B11** | Low–Med | both | Three POST routes 500 on a missing parent (one reachable from a stale tab after a delete) | **Fixed** — existence checks; the audit's sweep kept as `test_error_pages.py` |
 | **B12** | Low | both | After a DB error the 500 page renders on an aborted transaction: English, default clinic name, a second traceback | **Fixed** — `mark_transaction_failed()` rolls back; `test_error_pages.py` |
@@ -689,7 +689,7 @@ first argument is a string literal, f-string or concatenation.
 a literal flash, `core.flash` passing a `Msg` through untranslated, and the
 job poll without `shown()`.
 
-## F2 — UI text in static JavaScript is English-only — **Confirmed by code**
+## F2 — UI text in static JavaScript is English-only — **Fixed**
 
 **Severity: Medium · both apps**
 
@@ -717,6 +717,28 @@ Localization reaches inline `<script>` blocks in templates only
 ---
 
 # 3. Security and permissions
+
+**Fixed (merge).**
+
+- **Static scripts.** `js_strings.py` lists every sentence the static scripts
+  show (N_-marked, so it reaches the catalogue). `base.html` hands them to
+  the page translated, as `window.VZ_I18N`, together with
+  `vzT(msgid, args)`, which fills `%(name)s` placeholders. Each script looks
+  its sentences up through a local `T()`, with the English as the fallback.
+  Sentences that were built by concatenation are now whole ("You have unsaved
+  changes on 1 item (…)" / "… on %(n)s items (…)"; the upload size messages).
+  Lists use the Arabic comma.
+- **Inline page scripts.** The owner/microchip lines, "Delete …?", "Copied",
+  the barcode toasts, the folder browser's empty message and the progress
+  shells' step names go through `_()|tojson`. A placeholder that JavaScript
+  fills in is passed as its own value, because Jinja's `_()` always
+  %-formats (the first try 500'd two pages).
+
+`tests/test_js_strings.py` fails on a `T()` text that is not registered, on
+English prose in a static script outside `T()` (markup and key names aside),
+on a registered sentence no script uses, and on an Arabic page whose table is
+not Arabic. Mutation-checked three ways. 33 Arabic strings are flagged in
+`ARABIC_REVIEW.md` §16.
 
 ## S1 — `manage_settings` can write the maintenance-only settings — **Fixed**
 

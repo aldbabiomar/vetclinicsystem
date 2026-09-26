@@ -8,6 +8,18 @@
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script nonce="{{ csp_nonce }}">window.VZ_MONEY = {{ money_js|tojson }};</script>
+<script nonce="{{ csp_nonce }}">
+// The static scripts' sentences in the clinic's language (js_strings.py,
+// audit F2). vzT(msgid, {name: value}) returns the translation -- or the
+// English, for anything not listed -- with its %(name)s placeholders filled.
+window.VZ_I18N = {{ vz_i18n|tojson }};
+window.vzT = function (msgid, args) {
+  var text = (window.VZ_I18N && window.VZ_I18N[msgid]) || msgid;
+  return !args ? text : text.replace(/%\((\w+)\)s/g, function (whole, name) {
+    return Object.prototype.hasOwnProperty.call(args, name) ? String(args[name]) : whole;
+  });
+};
+</script>
 <script src="{{ url_for('static', filename='money.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 // In <head>, before any page's own script: a page that renders a list at

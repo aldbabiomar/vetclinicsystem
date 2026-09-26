@@ -46,6 +46,7 @@ import pdf_export
 import clock
 import money
 import backup
+import js_strings
 
 # BASE_DIR, VERSION, DB_REQUEST_TIMEOUT_SECONDS, get_db() and lan_address()
 # live in core.py so the route blueprints under routes/ can reach them
@@ -768,6 +769,13 @@ def inject_money_setting():
                    "quantum": str(m.quantum), "phoneCountryCode": m.phone_country_code,
                    "phoneLocalLength": m.phone_local_length} if m else None),
     )
+
+
+@app.context_processor
+def inject_js_strings():
+    """The static scripts' sentences, in the clinic's language, for base.html
+    to hand them as window.VZ_I18N (audit F2; js_strings.py)."""
+    return dict(vz_i18n={s: _(s) for s in js_strings.JS_STRINGS})
 
 
 # ---------------------------------------------------------------------------

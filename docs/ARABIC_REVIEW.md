@@ -333,3 +333,46 @@ a native speaker may prefer the counted forms.
 | 107 | launcher not found | لم يُعثر على ملف التشغيل |
 | 108 | the backup folder | مجلد النسخ الاحتياطي |
 | 109 | “%(path)s” isn’t a folder VetClinicSystem can see on this computer. | “%(path)s” ليس مجلدًا يمكن لـ VetClinicSystem رؤيته على هذا الجهاز. |
+
+## 16. Text shown by the browser scripts (audit F2) (33)
+
+The unsaved-changes dialogs, upload progress, job progress, the phone check,
+the toast's close button, and a few inline page scripts. Reuses
+حفظ / تجاهل / رفع / جارٍ …, المالك, الشريحة, and the catalogue's
+"%(n)s عنصر" singular-after-count style.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | %(file)s is %(size)s — that's over the %(max)s MB limit. Please choose a smaller file. | حجم %(file)s هو %(size)s — وهذا يتجاوز الحد الأقصى %(max)s ميجابايت. يرجى اختيار ملف أصغر. |
+| 2 | %(names)s, and %(n)s more | %(names)s، و%(n)s غيرها |
+| 3 | Backup | النسخ الاحتياطي |
+| 4 | Barcode %(code)s created. | تم إنشاء الباركود %(code)s. |
+| 5 | Copied | تم النسخ |
+| 6 | Couldn't reach the server — please check your connection and try again. | تعذّر الوصول إلى الخادم — يرجى التحقق من الاتصال والمحاولة مرة أخرى. |
+| 7 | Delete %(role)s? | حذف %(role)s؟ |
+| 8 | Discard Changes | تجاهل التغييرات |
+| 9 | Dismiss | إغلاق |
+| 10 | Keep Editing | متابعة التعديل |
+| 11 | Loading | جارٍ التحميل |
+| 12 | Lost track of this job — the server may have restarted. Try again. | فُقد تتبّع هذه المهمة — ربما أُعيد تشغيل الخادم. حاول مرة أخرى. |
+| 13 | Max file size: %(max)s MB. | الحد الأقصى لحجم الملف: %(max)s ميجابايت. |
+| 14 | Microchip: | الشريحة: |
+| 15 | No backup files here. | لا توجد ملفات نسخ احتياطي هنا. |
+| 16 | No subfolders here. | لا توجد مجلدات فرعية هنا. |
+| 17 | Owner: | المالك: |
+| 18 | Restore | الاستعادة |
+| 19 | Save & Continue | حفظ ومتابعة |
+| 20 | Save Changes (%(n)s) | حفظ التغييرات (%(n)s) |
+| 21 | Saving… | جارٍ الحفظ… |
+| 22 | Selected: %(file)s (%(size)s). Max %(max)s MB. | المحدد: %(file)s (%(size)s). الحد الأقصى %(max)s ميجابايت. |
+| 23 | Some changes couldn't be saved — please check your connection and try again. The items that failed are still highlighted. | تعذّر حفظ بعض التغييرات — يرجى التحقق من الاتصال والمحاولة مرة أخرى. العناصر التي فشل حفظها ما زالت مميّزة. |
+| 24 | Some changes couldn't be saved — please check your connection and try again. You're still on this page and nothing else has been lost. | تعذّر حفظ بعض التغييرات — يرجى التحقق من الاتصال والمحاولة مرة أخرى. ما زلت على هذه الصفحة ولم يُفقد أي شيء آخر. |
+| 25 | Something went wrong. | حدث خطأ ما. |
+| 26 | Unsaved Changes | تغييرات غير محفوظة |
+| 27 | Upload failed (server returned %(status)s). Please try again. | فشل الرفع (أعاد الخادم %(status)s). يرجى المحاولة مرة أخرى. |
+| 28 | Upload failed — check your connection and try again. | فشل الرفع — تحقق من الاتصال وحاول مرة أخرى. |
+| 29 | Uploading %(file)s… | جارٍ رفع %(file)s… |
+| 30 | Working | قيد التنفيذ |
+| 31 | You have unsaved changes on %(n)s items (%(names)s). Save them before leaving, or discard them? | لديك تغييرات غير محفوظة في %(n)s عنصر (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟ |
+| 32 | You have unsaved changes on 1 item (%(names)s). Save them before leaving, or discard them? | لديك تغييرات غير محفوظة في عنصر واحد (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟ |
+| 33 | You have unsaved changes on this page. Leave without saving? | لديك تغييرات غير محفوظة في هذه الصفحة. هل تريد المغادرة دون حفظ؟ |

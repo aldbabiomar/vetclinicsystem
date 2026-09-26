@@ -2,6 +2,8 @@
 // Used by Backup Now / Restore Now on Settings, and by the loading shells
 // for Insights, Retention, and Consignment Overview.
 window.VZProgress = (function () {
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
   function fmtElapsed(startedAt) {
     const secs = Math.max(0, Math.round((Date.now() / 1000) - startedAt));
     if (secs < 60) return `${secs}s`;
@@ -16,13 +18,13 @@ window.VZProgress = (function () {
       : (total > 0 ? Math.round((current / total) * 100) : 0);
     const isError = data.status === 'error';
     const label = isError
-      ? (data.message || 'Something went wrong.')
+      ? (data.message || T('Something went wrong.'))
       : (data.steps[Math.min(current, total - 1)] || '');
     const elapsed = data.started_at ? fmtElapsed(data.started_at) : '';
     el.innerHTML = `
       <div class="vz-progress-label">${label}${!isError && data.status === 'running' ? ` (${current}/${total})` : ''}</div>
       <div class="vz-progress-bar-track"><div class="vz-progress-bar-fill${isError ? ' error' : ''}" style="width:${pct}%"></div></div>
-      <div class="vz-progress-meta">${isError ? 'Failed' : (data.status === 'done' ? 'Done' : 'Working')} · ${elapsed}</div>
+      <div class="vz-progress-meta">${isError ? T('Failed') : (data.status === 'done' ? T('Done') : T('Working'))} · ${elapsed}</div>
     `;
   }
 
@@ -42,7 +44,7 @@ window.VZProgress = (function () {
         if (res.status === 404) {
           callbacks.onError && callbacks.onError({
             status: 'error',
-            message: 'Lost track of this job — the server may have restarted. Try again.',
+            message: T('Lost track of this job — the server may have restarted. Try again.'),
           });
           return;
         }
@@ -58,7 +60,7 @@ window.VZProgress = (function () {
           callbacks.onError && callbacks.onError(data);
         }
       } catch (e) {
-        callbacks.onError && callbacks.onError({ status: 'error', message: 'Could not reach the server.' });
+        callbacks.onError && callbacks.onError({ status: 'error', message: T('Could not reach the server.') });
       }
     }
     tick();

@@ -7550,3 +7550,135 @@ msgstr "مجلد النسخ الاحتياطي"
 #: audit F1
 msgid "“%(path)s” isn’t a folder VetClinicSystem can see on this computer."
 msgstr "“%(path)s” ليس مجلدًا يمكن لـ VetClinicSystem رؤيته على هذا الجهاز."
+
+#: audit F2
+msgid "%(file)s is %(size)s — that's over the %(max)s MB limit. Please choose a smaller file."
+msgstr "حجم %(file)s هو %(size)s — وهذا يتجاوز الحد الأقصى %(max)s ميجابايت. يرجى اختيار ملف أصغر."
+
+#: audit F2
+msgid "%(names)s, and %(n)s more"
+msgstr "%(names)s، و%(n)s غيرها"
+
+#: audit F2
+msgid "Backup"
+msgstr "النسخ الاحتياطي"
+
+#: audit F2
+msgid "Barcode %(code)s created."
+msgstr "تم إنشاء الباركود %(code)s."
+
+#: audit F2
+msgid "Copied"
+msgstr "تم النسخ"
+
+#: audit F2
+msgid "Couldn't reach the server — please check your connection and try again."
+msgstr "تعذّر الوصول إلى الخادم — يرجى التحقق من الاتصال والمحاولة مرة أخرى."
+
+#: audit F2
+msgid "Delete %(role)s?"
+msgstr "حذف %(role)s؟"
+
+#: audit F2
+msgid "Discard Changes"
+msgstr "تجاهل التغييرات"
+
+#: audit F2
+msgid "Dismiss"
+msgstr "إغلاق"
+
+#: audit F2
+msgid "Keep Editing"
+msgstr "متابعة التعديل"
+
+#: audit F2
+msgid "Loading"
+msgstr "جارٍ التحميل"
+
+#: audit F2
+msgid "Lost track of this job — the server may have restarted. Try again."
+msgstr "فُقد تتبّع هذه المهمة — ربما أُعيد تشغيل الخادم. حاول مرة أخرى."
+
+#: audit F2
+msgid "Max file size: %(max)s MB."
+msgstr "الحد الأقصى لحجم الملف: %(max)s ميجابايت."
+
+#: audit F2
+msgid "Microchip:"
+msgstr "الشريحة:"
+
+#: audit F2
+msgid "No backup files here."
+msgstr "لا توجد ملفات نسخ احتياطي هنا."
+
+#: audit F2
+msgid "No subfolders here."
+msgstr "لا توجد مجلدات فرعية هنا."
+
+#: audit F2
+msgid "Owner:"
+msgstr "المالك:"
+
+#: audit F2
+msgid "Restore"
+msgstr "الاستعادة"
+
+#: audit F2
+msgid "Save & Continue"
+msgstr "حفظ ومتابعة"
+
+#: audit F2
+msgid "Save Changes (%(n)s)"
+msgstr "حفظ التغييرات (%(n)s)"
+
+#: audit F2
+msgid "Saving…"
+msgstr "جارٍ الحفظ…"
+
+#: audit F2
+msgid "Selected: %(file)s (%(size)s). Max %(max)s MB."
+msgstr "المحدد: %(file)s (%(size)s). الحد الأقصى %(max)s ميجابايت."
+
+#: audit F2
+msgid "Some changes couldn't be saved — please check your connection and try again. The items that failed are still highlighted."
+msgstr "تعذّر حفظ بعض التغييرات — يرجى التحقق من الاتصال والمحاولة مرة أخرى. العناصر التي فشل حفظها ما زالت مميّزة."
+
+#: audit F2
+msgid "Some changes couldn't be saved — please check your connection and try again. You're still on this page and nothing else has been lost."
+msgstr "تعذّر حفظ بعض التغييرات — يرجى التحقق من الاتصال والمحاولة مرة أخرى. ما زلت على هذه الصفحة ولم يُفقد أي شيء آخر."
+
+#: audit F2
+msgid "Something went wrong."
+msgstr "حدث خطأ ما."
+
+#: audit F2
+msgid "Unsaved Changes"
+msgstr "تغييرات غير محفوظة"
+
+#: audit F2
+msgid "Upload failed (server returned %(status)s). Please try again."
+msgstr "فشل الرفع (أعاد الخادم %(status)s). يرجى المحاولة مرة أخرى."
+
+#: audit F2
+msgid "Upload failed — check your connection and try again."
+msgstr "فشل الرفع — تحقق من الاتصال وحاول مرة أخرى."
+
+#: audit F2
+msgid "Uploading %(file)s…"
+msgstr "جارٍ رفع %(file)s…"
+
+#: audit F2
+msgid "Working"
+msgstr "قيد التنفيذ"
+
+#: audit F2
+msgid "You have unsaved changes on %(n)s items (%(names)s). Save them before leaving, or discard them?"
+msgstr "لديك تغييرات غير محفوظة في %(n)s عنصر (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟"
+
+#: audit F2
+msgid "You have unsaved changes on 1 item (%(names)s). Save them before leaving, or discard them?"
+msgstr "لديك تغييرات غير محفوظة في عنصر واحد (%(names)s). هل تريد حفظها قبل المغادرة أم تجاهلها؟"
+
+#: audit F2
+msgid "You have unsaved changes on this page. Leave without saving?"
+msgstr "لديك تغييرات غير محفوظة في هذه الصفحة. هل تريد المغادرة دون حفظ؟"

@@ -11,6 +11,8 @@
  * actions per 1.9).
  */
 (function (global) {
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
   function ensureContainer() {
     let c = document.getElementById("vz-toast-stack");
     if (!c) {
@@ -42,7 +44,7 @@
     toast.innerHTML =
       '<span class="vz-toast-icon">' + iconFor(kind) + "</span>" +
       '<span class="vz-toast-msg"></span>' +
-      (opts.dismissible !== false ? '<button type="button" class="vz-toast-close" aria-label="Dismiss">&times;</button>' : "");
+      (opts.dismissible !== false ? '<button type="button" class="vz-toast-close" aria-label="' + escapeHtml(T("Dismiss")) + '">&times;</button>' : "");
     toast.querySelector(".vz-toast-msg").textContent = message;
     stack.appendChild(toast);
 

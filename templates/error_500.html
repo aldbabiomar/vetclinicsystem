@@ -30,7 +30,7 @@
       var text = document.getElementById(btn.dataset.copyTarget).textContent;
       navigator.clipboard.writeText(text).then(function () {
         var original = btn.textContent;
-        btn.textContent = 'Copied';
+        btn.textContent = {{ _('Copied')|tojson }};
         setTimeout(function () { btn.textContent = original; }, 1500);
       });
     });

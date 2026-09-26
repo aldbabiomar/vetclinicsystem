@@ -210,7 +210,7 @@ async function loadBulkBarcodeList() {
       var removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'btn small danger';
-      removeBtn.textContent = 'Remove';
+      removeBtn.textContent = {{ _('Remove')|tojson }};
       removeBtn.onclick = function () {
         row.remove();
         if (!list.children.length) {
@@ -331,7 +331,7 @@ function barcodeManagerRender(data) {
 async function barcodeManagerSaveManual() {
   const input = document.getElementById('barcodeManualInput');
   const raw = input.value.trim();
-  if (!raw) { window.VZToast.show('Enter a barcode.', 'error'); return; }
+  if (!raw) { window.VZToast.show({{ _('Enter a barcode.')|tojson }}, 'error'); return; }
   try {
     const res = await fetch(`{{ url_for('inventory.inventory_catalog_barcode_manual', item_id=ID_SLOT) }}`.replace('{{ ID_SLOT }}', encodeURIComponent(barcodeManagerItemId)), {
       method: 'POST',
@@ -359,7 +359,7 @@ async function barcodeManagerGenerate() {
     });
     const data = await res.json();
     if (!res.ok) { window.VZToast.show(data.error || {{ _('Could not create a barcode.')|tojson }}, 'error'); return; }
-    window.VZToast.show(`Barcode ${data.barcode} created.`, 'success');
+    window.VZToast.show({{ _('Barcode %(code)s created.', code='%(code)s')|tojson }}.replace('%(code)s', data.barcode), 'success');
     barcodeManagerRender(data);
     barcodeManagerRefreshRow();
   } catch (e) {

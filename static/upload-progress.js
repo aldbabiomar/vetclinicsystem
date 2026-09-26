@@ -12,6 +12,8 @@
  *   - a disabled submit button during upload, to prevent double-submits
  */
 (function () {
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
   var MAX_UPLOAD_MB = 100; // must match app.config["MAX_CONTENT_LENGTH"] in app.py
 
   function formatSize(bytes) {
@@ -51,20 +53,21 @@
       status.classList.remove("upload-status-error");
       var f = fileInput.files && fileInput.files[0];
       if (!f) {
-        status.textContent = "Max file size: " + MAX_UPLOAD_MB + " MB.";
+        status.textContent = T("Max file size: %(max)s MB.", { max: MAX_UPLOAD_MB });
         return;
       }
       if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
         tooLarge = true;
         status.classList.add("upload-status-error");
-        status.textContent = f.name + " is " + formatSize(f.size) + " — that's over the " +
-          MAX_UPLOAD_MB + " MB limit. Please choose a smaller file.";
+        status.textContent = T("%(file)s is %(size)s — that's over the %(max)s MB limit. Please choose a smaller file.",
+          { file: f.name, size: formatSize(f.size), max: MAX_UPLOAD_MB });
       } else {
-        status.textContent = "Selected: " + f.name + " (" + formatSize(f.size) + "). Max " + MAX_UPLOAD_MB + " MB.";
+        status.textContent = T("Selected: %(file)s (%(size)s). Max %(max)s MB.",
+          { file: f.name, size: formatSize(f.size), max: MAX_UPLOAD_MB });
       }
     });
     // Initial hint before anything is picked.
-    status.textContent = "Max file size: " + MAX_UPLOAD_MB + " MB.";
+    status.textContent = T("Max file size: %(max)s MB.", { max: MAX_UPLOAD_MB });
 
     form.addEventListener("submit", function (evt) {
       if (tooLarge) {
@@ -88,7 +91,7 @@
 
       xhr.addEventListener("loadstart", function () {
         progressWrap.style.display = "flex";
-        status.textContent = "Uploading " + f.name + "…";
+        status.textContent = T("Uploading %(file)s…", { file: f.name });
         if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add("disabled"); }
       });
 
@@ -101,7 +104,7 @@
           window.location.href = xhr.responseURL || form.action;
         } else {
           status.classList.add("upload-status-error");
-          status.textContent = "Upload failed (server returned " + xhr.status + "). Please try again.";
+          status.textContent = T("Upload failed (server returned %(status)s). Please try again.", { status: xhr.status });
           progressWrap.style.display = "none";
           if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove("disabled"); }
         }
@@ -109,7 +112,7 @@
 
       xhr.addEventListener("error", function () {
         status.classList.add("upload-status-error");
-        status.textContent = "Upload failed — check your connection and try again.";
+        status.textContent = T("Upload failed — check your connection and try again.");
         progressWrap.style.display = "none";
         if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove("disabled"); }
       });

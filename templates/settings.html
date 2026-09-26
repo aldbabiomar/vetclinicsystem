@@ -448,7 +448,7 @@ document.getElementById('backupNowForm').addEventListener('submit', async functi
       },
       onError: (d) => {
         resetSubmitButton(btn);
-        window.VZProgress.render(panel, { status: 'error', steps: ['Backup'], current: 0, message: d.message });
+        window.VZProgress.render(panel, { status: 'error', steps: [{{ _('Backup')|tojson }}], current: 0, message: d.message });
         window.VZToast.show(d.message || {{ _('Backup failed.')|tojson }}, 'error');
       },
     });
@@ -492,7 +492,7 @@ document.getElementById('restoreForm').addEventListener('submit', async function
       },
       onError: (d) => {
         resetSubmitButton(btn);
-        window.VZProgress.render(panel, { status: 'error', steps: ['Restore'], current: 0, message: d.message });
+        window.VZProgress.render(panel, { status: 'error', steps: [{{ _('Restore')|tojson }}], current: 0, message: d.message });
         window.VZToast.show(d.message || {{ _('Restore failed.')|tojson }}, 'error');
       },
     });
@@ -604,7 +604,7 @@ async function loadFolderBrowser(path) {
       const empty = document.createElement('div');
       empty.className = 'small muted';
       empty.style.padding = '12px';
-      empty.textContent = `No ${folderBrowserFilePicker ? {{ _('backup files')|tojson }} : 'subfolders'} here.`;
+      empty.textContent = folderBrowserFilePicker ? {{ _('No backup files here.')|tojson }} : {{ _('No subfolders here.')|tojson }};
       listEl.appendChild(empty);
     } else {
       const sep = data.current.includes('\\') ? '\\' : '/';

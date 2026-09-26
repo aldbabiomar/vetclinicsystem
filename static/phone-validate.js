@@ -29,7 +29,9 @@
   var MONEY = window.VZ_MONEY || null;
   var COUNTRY_CODE = MONEY ? String(MONEY.phoneCountryCode) : null;
   var LOCAL_LENGTH = MONEY ? Number(MONEY.phoneLocalLength) : null;
-  var MESSAGE = "That phone number doesn't look valid — check the digits and try again.";
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
+  var MESSAGE = T("That phone number doesn't look valid — check the digits and try again.");
 
   function isValidPhone(raw) {
     if (raw == null) return true;

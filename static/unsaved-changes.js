@@ -30,6 +30,8 @@
  *     warning, since custom text isn't permitted there by modern browsers).
  */
 (function () {
+  // Sentences in the clinic's language: vzT() comes from base.html (js_strings.py).
+  var T = function (msgid, args) { return window.vzT ? window.vzT(msgid, args) : msgid; };
   const dirtyForms = new Set();
   const dirtyNames = new Map();
   const originalValues = new Map(); // formId -> Map(fieldEl -> original value/checked)
@@ -64,7 +66,7 @@
     const btn = document.getElementById("saveChangesBtn");
     if (!btn) return;
     btn.disabled = dirtyForms.size === 0;
-    btn.textContent = dirtyForms.size > 0 ? "Save Changes (" + dirtyForms.size + ")" : "Save Changes";
+    btn.textContent = dirtyForms.size > 0 ? T("Save Changes (%(n)s)", { n: dirtyForms.size }) : T("Save Changes");
   }
 
   function snapshotForm(formId) {
@@ -215,13 +217,13 @@
       btn.addEventListener("click", async () => {
         if (dirtyForms.size === 0) return;
         btn.disabled = true;
-        btn.textContent = "Saving…";
+        btn.textContent = T("Saving…");
         const ok = await saveDirty();
         if (!ok) {
           updateSaveButton();
           window.VZToast.show(
-            "Some changes couldn't be saved — please check your connection and try again. " +
-            "The items that failed are still highlighted.",
+            T("Some changes couldn't be saved — please check your connection and try again. " +
+              "The items that failed are still highlighted."),
             "error"
           );
           return;
@@ -239,12 +241,12 @@
     wrap.innerHTML =
       '<div id="unsavedModalOverlay" class="modal-overlay" style="display:none;">' +
       '<div class="modal-box" style="max-width:460px;">' +
-      '<div class="section-title" style="margin-top:0;">Unsaved Changes</div>' +
+      '<div class="section-title" style="margin-top:0;">' + escapeHtml(T("Unsaved Changes")) + '</div>' +
       '<p class="small muted" id="unsavedModalMsg" style="margin-bottom:6px;"></p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
-      '<button class="btn small secondary" type="button" id="unsavedCancelBtn">Keep Editing</button>' +
-      '<button class="btn small danger" type="button" id="unsavedDiscardBtn">Discard Changes</button>' +
-      '<button class="btn small" type="button" id="unsavedSaveBtn">Save &amp; Continue</button>' +
+      '<button class="btn small secondary" type="button" id="unsavedCancelBtn">' + escapeHtml(T("Keep Editing")) + '</button>' +
+      '<button class="btn small danger" type="button" id="unsavedDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
+      '<button class="btn small" type="button" id="unsavedSaveBtn">' + escapeHtml(T("Save & Continue")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);
     document.getElementById("unsavedCancelBtn").addEventListener("click", hideModal);
@@ -255,15 +257,14 @@
   function showModal() {
     ensureModal();
     const names = Array.from(dirtyNames.values());
+    const sep = document.documentElement.lang === "ar" ? "، " : ", ";
     const list =
-      names.length <= 4 ? names.join(", ") : names.slice(0, 4).join(", ") + ", and " + (names.length - 4) + " more";
-    document.getElementById("unsavedModalMsg").textContent =
-      "You have unsaved changes on " +
-      dirtyForms.size +
-      (dirtyForms.size === 1 ? " item" : " items") +
-      " (" +
-      list +
-      "). Save them before leaving, or discard them?";
+      names.length <= 4 ? names.join(sep)
+        : T("%(names)s, and %(n)s more", { names: names.slice(0, 4).join(sep), n: names.length - 4 });
+    document.getElementById("unsavedModalMsg").textContent = dirtyForms.size === 1
+      ? T("You have unsaved changes on 1 item (%(names)s). Save them before leaving, or discard them?", { names: list })
+      : T("You have unsaved changes on %(n)s items (%(names)s). Save them before leaving, or discard them?",
+          { n: dirtyForms.size, names: list });
     document.getElementById("unsavedModalOverlay").style.display = "flex";
     // Reset button states/labels in case a previous attempt left them mid-save.
     const saveBtn = document.getElementById("unsavedSaveBtn");
@@ -290,14 +291,14 @@
       const discardBtn = document.getElementById("unsavedDiscardBtn");
       const cancelBtn = document.getElementById("unsavedCancelBtn");
       [saveBtn, discardBtn, cancelBtn].forEach((b) => { b.disabled = true; });
-      saveBtn.textContent = "Saving…";
+      saveBtn.textContent = T("Saving…");
       const ok = await saveDirty();
       if (!ok) {
         [saveBtn, discardBtn, cancelBtn].forEach((b) => { b.disabled = false; });
         saveBtn.textContent = "Save & Continue";
         window.VZToast.show(
-          "Some changes couldn't be saved — please check your connection and try again. " +
-          "You're still on this page and nothing else has been lost.",
+          T("Some changes couldn't be saved — please check your connection and try again. " +
+            "You're still on this page and nothing else has been lost."),
           "error"
         );
         return; // stay put; don't navigate away from a failed save
