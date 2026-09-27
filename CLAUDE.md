@@ -85,10 +85,11 @@ VetClinicSystem/                  ← repo root = this folder
 │   ├── ARABIC_REVIEW.md          ← Arabic written without clinic review; confirm, then delete rows
 │   ├── features/                 ← specs of built features (Clean Up, monitoring, rewards card)
 │   └── archive/                  ← IQ/JO-era documents, cited by code comments
-└── webapps/                      ← NOT tracked. The two predecessor apps' clones, kept as
-                                    read-only reference while their features are ported.
-                                    Never edit them; removed when the merge is done.
 ```
+
+The predecessor apps' code is on GitHub (`aldbabiomar/vetclinicsystem_iq`,
+`aldbabiomar/vetclinicsystem_jo`); their clones under `webapps/` were removed
+when the merge was done (2026-09-27). Clone one outside the repo to read it.
 
 ## 2. Where the code lives
 

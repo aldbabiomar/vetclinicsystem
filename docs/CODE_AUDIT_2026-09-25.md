@@ -6,7 +6,9 @@
 > ID to where it is fixed, and its §13 progress log records when. Where this
 > document says "both apps", read "the merged system, under both money
 > settings". File and line references point into the predecessor trees
-> (`webapps/`), not this repository.
+> (`aldbabiomar/vetclinicsystem_iq` v1.17.2 and `_jo` v1.15.2 on GitHub; the
+> `webapps/` clones they name were removed when the merge was done), not
+> this repository.
 
 Scope: bugs in the frontend, backend and database of both apps; parity between
 IQ and JO **excluding the deliberate money-model divergence** (float/250-note

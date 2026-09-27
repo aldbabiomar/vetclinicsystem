@@ -1319,3 +1319,10 @@ result under each money setting.
 
   **Suite:** IQ **1643 passed, 0 skipped**; JO **1643 passed, 0 skipped**;
   no database 721 passed. All six "Done means" items are met.
+- **2026-09-27 — `webapps/` removed (owner's choice).** The two predecessor
+  clones were clean, with nothing unpushed; their code stays on GitHub
+  (`aldbabiomar/vetclinicsystem_iq`, `_jo`). The installed predecessor apps
+  run from `~/Downloads` and were not involved. `CLAUDE.md`'s layout, the
+  audit's note on its line references and the Clean Up spec's links say where
+  that code is now. **The merge is done**; next is
+  `docs/plans/DEVELOPER_AND_LICENSING_PLAN.md`.

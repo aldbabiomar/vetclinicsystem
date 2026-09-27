@@ -38,9 +38,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PO = source_files.CATALOGUE
 
 # Directories that babel.cfg's patterns can never match but a walk would
-# still descend into (the predecessor clones under webapps/ alone hold two
-# more copies of every template).
-_SKIP_DIRS = {"webapps", "tests", "scripts", "docs", "translations", "static",
+# still descend into.
+_SKIP_DIRS = {"tests", "scripts", "docs", "translations", "static",
               "venv", "node_modules", "migrations"}
 
 

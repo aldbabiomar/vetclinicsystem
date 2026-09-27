@@ -1,5 +1,9 @@
 # "Clean Up" Feature — Implementation Plan
 
+> The `webapps/...` links below point into the predecessor apps' code, now
+> on GitHub (`aldbabiomar/vetclinicsystem_iq`, `_jo`); the local clones were
+> removed when the merge was done (2026-09-27).
+
 Status: **BUILT AND SHIPPED** — designed 2026-08-24, implemented in both apps
 the same day. This document is retained as the design record and the reasoning
 behind the code; it is **not** outstanding work. Do not re-implement it.
