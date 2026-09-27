@@ -237,6 +237,22 @@ def vendor():
                                  license=license, dev_pass=dev_pass)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def clinic_license(vendor, tmp_path_factory):
+    """The in-process clinic's license (licensing plan §14.4): one year, in a
+    license folder of its own, so no test writes into the checkout and no test
+    runs read-only by accident. A test that changes the license puts this one
+    back (tests/test_license.py)."""
+    from vcs.licensing import state
+    folder = tmp_path_factory.mktemp("license")
+    mp = pytest.MonkeyPatch()
+    mp.setattr(state, "license_dir", lambda: str(folder))
+    (folder / "license.key").write_text(vendor.license() + "\n")
+    state.refresh()
+    yield folder
+    mp.undo()
+
+
 def pytest_report_header(config):
     return f"money setting for unmarked tests: {run_money_code()}"
 

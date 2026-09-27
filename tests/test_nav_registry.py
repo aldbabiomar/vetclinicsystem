@@ -27,7 +27,7 @@ def _sidebar(client):
 
 def test_a_settings_only_role_is_offered_only_settings(as_role):
     """GUARD. The audit's measurement."""
-    assert _sidebar(as_role({"manage_settings"})["client"]) == ["/settings"]
+    assert _sidebar(as_role({"manage_settings"})["client"]) == ["/settings", "/settings/license"]
 
 
 def test_control_the_admin_is_offered_every_link(client, flask_app):

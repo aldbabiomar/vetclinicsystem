@@ -17,6 +17,7 @@
 </div>
 <div class="filter-chips">
   <a class="chip {{ 'active' if request.endpoint == 'developer.home' }}" href="{{ url_for('developer.home') }}">{{ _('Overview') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.license' }}" href="{{ url_for('developer.license') }}">{{ _('License') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.audit' }}" href="{{ url_for('developer.audit') }}">{{ _('Developer Audit') }}</a>
 </div>
 {% block dev_main %}{% endblock %}

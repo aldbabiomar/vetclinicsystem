@@ -51,6 +51,8 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_edit_conflict.html",
                         # Included by the Developer Audit and the clinic's copy of it.
                         "_developer_audit_table.html",
+                        # The license panel (two License pages) and banner (base.html).
+                        "_license_panel.html", "_license_banner.html",
                         # Included at the top of 15 detail pages (audit P5).
                         "_back_link.html"}
 

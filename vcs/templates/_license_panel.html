@@ -1,0 +1,34 @@
+{# The license, as the clinic's Settings -> License and the Developer area both
+   show it (licensing plan §8), and the box a new key is pasted into. #}
+<div class="card">
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('State') }}</div><div class="v">
+      <span class="badge {{ 'ok' if status.state == 'active' else ('warn' if status.state in ('expiring', 'grace') else 'danger') }}">{{ state_labels[status.state]|tr }}</span></div></div>
+    <div class="detail-item"><div class="k">{{ _('Installation ID') }}</div><div class="v u-mono">{{ install_id or '—' }}</div></div>
+    {% if status.payload %}
+    <div class="detail-item"><div class="k">{{ _('Clinic') }}</div><div class="v">{{ status.payload.clinic_name }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('License ID') }}</div><div class="v u-mono">{{ status.payload.license_id }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Issued') }}</div><div class="v">{{ status.payload.issued_at|localtime("%Y-%m-%d") }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Expires') }}</div><div class="v">{{ status.payload.expires_at|localtime("%Y-%m-%d") }}</div></div>
+    {% if status.expires_at %}
+    <div class="detail-item"><div class="k">{{ _('Days left') }}</div><div class="v">{{ (status.days_left if status.days_left > 0 else 0)|qty }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Read-only from') }}</div><div class="v">{{ status.read_only_from|localtime("%Y-%m-%d") }}</div></div>
+    {% endif %}
+    <div class="detail-item"><div class="k">{{ _('Warning, then grace') }}</div><div class="v">{{ _('%(warn)s days before, %(grace)s days after', warn=status.payload.warn_days|qty, grace=status.payload.grace_days|qty) }}</div></div>
+    {% endif %}
+  </div>
+  {% if status.message %}<p class="small">{{ status.message|shown }}</p>{% endif %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Enter a license key') }}</div>
+  <p class="small muted">{{ _('Paste the whole key your vendor sent. Spaces and line breaks added on the way do not matter.') }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field u-mb-2">
+      <label for="license-1-license_key">{{ _('License key') }}</label>
+      <textarea id="license-1-license_key" name="license_key" rows="5" required autocomplete="off" spellcheck="false"></textarea>
+    </div>
+    <button class="btn" type="submit">{{ _('Save license key') }}</button>
+  </form>
+</div>

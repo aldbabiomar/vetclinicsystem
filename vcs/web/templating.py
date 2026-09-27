@@ -16,7 +16,7 @@ from vcs.domain import codes, dates, display, settings
 from vcs.errorlog import error_logger
 from vcs.web import brand, devsession, js_strings, nav, palettes
 from vcs.web.core import (cached_dashboard_snapshot, csp_nonce, currency_label, display_date, display_number,
-                          get_db, money_setting_label, to_arabic_indic_digits)
+                          get_db, money_setting_label, shown, to_arabic_indic_digits)
 
 
 SUPPORTED_LOCALES = ("en", "ar")
@@ -239,6 +239,17 @@ def inject_nav():
     return dict(nav_groups=nav.visible(session.get("permissions") or [], developer=devsession.current() is not None))
 
 
+def inject_license():
+    """The license's cached state, for the banner (licensing plan §6.1). No
+    table read: it is worked out at start-up, sign-in and on the tick."""
+    from vcs.licensing import state
+    try:
+        return dict(license_status=state.current())
+    except Exception:
+        error_logger.error("License state could not be read for a page:\n" + traceback.format_exc())
+        return dict(license_status=None)
+
+
 def inject_js_strings():
     """The static scripts' sentences, in the clinic's language, for base.html
     to hand them as window.VZ_I18N (audit F2; js_strings.py)."""
@@ -313,6 +324,8 @@ def register(app):
     app.context_processor(inject_js_strings)
     app.context_processor(inject_csp_nonce)
     app.context_processor(inject_globals)
+    app.context_processor(inject_license)
+    app.add_template_filter(shown, "shown")
     Babel(app, locale_selector=_select_locale)
     # Flask-Babel 4.x does not register get_locale() as a Jinja global on its own,
     # and base.html needs it on the very first line to set <html lang>/<dir>. The

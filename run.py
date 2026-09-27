@@ -47,6 +47,11 @@ def _boot_housekeeping():
             reaped = backup.reap_stale_running(conn)
             if reaped:
                 print(f"  Reaped {reaped} stale 'running' backup log row(s) from an earlier, killed run.")
+            # The license state, worked out once at start-up. An invalid or
+            # missing license never stops the app; it only sets the state.
+            from vcs.licensing import state
+            print(f"  License: {state.refresh(conn).state}")
+            conn.commit()
         finally:
             conn.close()
         # Makes "no restore has happened" provable rather than assumed —

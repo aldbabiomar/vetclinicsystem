@@ -917,3 +917,43 @@ result under each money setting.
   **Suite:** IQ **1700 passed, 0 skipped**; JO **1700 passed, 0 skipped**
   (the overflow helper took `/developer/login` for the sign-in redirect in
   the full run; fixed and re-run in both); no database 763 passed.
+- **2026-09-27 — Phase 3: the license.**
+  - **Storage and state** (`vcs/licensing/state.py`): the key in
+    `<data dir>/license/license.key` (the checkout without a data dir;
+    `license/` is git-ignored, moved into the data folder by the switch to
+    the release layout and left out of release copies). `state.json` and
+    `settings.license_max_seen_at` keep the latest moment seen; a clock more
+    than 24 hours behind it is `clock_wrong`. States per §6.1, cached, worked
+    out at start-up, at every sign-in, after a key is entered and on the
+    scheduler's tick; a bad license never stops the app.
+  - **Read-only** (`vcs/web/readonly.py`): one `before_request` hook, after
+    the sign-in gate, and one allowlist — A7 as the owner confirmed
+    (payments refused; inpatient notes and contact log allowed) plus the
+    Developer area. It refuses a write only when the session signed in under
+    a non-writable state and the state is still non-writable; a renewal
+    unlocks every session at once. GET is never refused; the scheduler never
+    passes through it.
+  - **What people see:** a persistent banner (`_license_banner.html`, a
+    `notice-banner`, not a flash) — the warning before expiry to
+    `manage_settings` holders, grace and read-only to everyone — and a
+    refusal page. **Settings → License** (`manage_settings`) and
+    **Developer → License** share one panel and one save path; every key
+    entered, accepted or refused, is in `developer_audit`, never the key.
+  - **Setup requires a license (L-7):** `ensure_license()` keeps a stored
+    key, else takes `--license-key` or asks; no key, or a refused one, and
+    setup stops. `docs/DEVELOPER_GUIDE.md` says a release must trust the
+    vendor's key before any install can finish.
+  - Tests: an in-process license for the whole suite (`conftest`
+    `clinic_license`); `tests/test_license.py`, 22 tests — each state, a
+    missing and an edited key, the clock rollback and its control, the
+    **url_map walk (seam rule 13, `SEAM_RULES.md`)** over every writing
+    endpoint with a floor (the two that act on the machine are asked of the
+    hook directly, so a broken hook cannot run them), the control, GET never
+    refused, a mid-task session keeps writing, renewal unlocks, inpatient
+    notes allowed and payments refused, the nightly backup runs read-only,
+    the banners by reader, a refused key recorded, setup with and without a
+    key. Eight mutations, all proven. Arabic: `ARABIC_REVIEW.md` §25 (32).
+
+  **Suite:** IQ **1722 passed, 0 skipped**; JO **1722 passed, 0 skipped**
+  (two registry expectations — the new partials, and the settings role's
+  new License link — fixed and re-run in both); no database 763 passed.

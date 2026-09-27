@@ -346,6 +346,43 @@ def ensure_first_admin():
           "  setup again prints a new temporary password.\n")
 
 
+def _argument(name):
+    """The value after `--name` on the command line, or None."""
+    if name in sys.argv:
+        i = sys.argv.index(name)
+        if i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return None
+
+
+def ensure_license(key=None):
+    """Setup does not finish without a license key that verifies for this
+    installation (licensing plan L-7). There is no trial. A key already stored
+    is kept; otherwise `--license-key KEY`, or it is asked for."""
+    step("Checking the license")
+    from vcs import config
+    from vcs.licensing import state, tokens
+    status = state.evaluate()
+    if status.state not in (state.MISSING, state.INVALID):
+        print(f"  License: {state.LABELS[status.state]}.")
+        return status
+    key = key or _argument("--license-key")
+    if not key and sys.stdin.isatty():
+        print(f"  This installation's ID is {config.INSTALL_ID}. Your vendor signs the license for it.")
+        key = input("  Paste the license key: ")
+    if not key:
+        print(f"  No license key. Ask your vendor for one for installation {config.INSTALL_ID}, "
+              "then run setup again with --license-key.")
+        sys.exit(1)
+    try:
+        status = state.enter_key(None, key)
+    except tokens.TokenError as e:
+        print(f"  That license key was refused: {e.message}")
+        sys.exit(1)
+    print(f"  License saved: {state.LABELS[status.state]}, until {status.payload['expires_at']}.")
+    return status
+
+
 def ensure_dependencies():
     step("Checking Python dependencies")
     req = os.path.join(BASE_DIR, "requirements.txt")
@@ -380,6 +417,7 @@ def main():
     load_dotenv_now()
     apply_schema()
     ensure_first_admin()
+    ensure_license()
 
     # In-app updates (Settings -> Updates) are on by default for every new
     # install — this switches onto the versioned-release layout
@@ -617,7 +655,8 @@ def _copy_release_snapshot(dest):
     belongs to a specific machine/install rather than the versioned app
     itself (venv, .git, __pycache__, and anything already destined for
     vetclinicsystem-data/)."""
-    exclude = {"venv", ".git", "__pycache__", "logs", ".env", "vetclinicsystem-data", "vetclinicsystem-releases"}
+    exclude = {"venv", ".git", "__pycache__", "logs", ".env", "license", "vetclinicsystem-data",
+               "vetclinicsystem-releases"}
 
     def _skip(src, names):
         # `.env*` is excluded to keep this machine's real .env out of a
@@ -690,6 +729,15 @@ def enable_updates(data_dir=None, releases_dir=None):
     if os.path.isdir(logs_src):
         for name in os.listdir(logs_src):
             shutil.move(os.path.join(logs_src, name), os.path.join(logs_dst, name))
+
+    # The license key stays with the install, in the data folder: the app
+    # reads <data dir>/license/ (vcs/licensing/state.py), and a release copy
+    # must never carry it.
+    license_src = os.path.join(BASE_DIR, "license")
+    license_dst = os.path.join(data_dir, "license")
+    if os.path.isdir(license_src) and not os.path.isdir(license_dst):
+        shutil.move(license_src, license_dst)
+        print(f"  Moved license/ -> {license_dst}")
 
     uploads_src = os.path.join(BASE_DIR, "uploads")
     uploads_dst = os.path.join(data_dir, "attachments", "uploads")

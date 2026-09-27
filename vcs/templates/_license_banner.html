@@ -1,0 +1,19 @@
+{# The license, for the people it concerns (licensing plan §6.1): the warning
+   before expiry to those who can enter a key; after expiry, to everyone.
+   A notice-banner, not a flash: it stays until the cause is dealt with. #}
+{% if license_status and license_status.state != 'active' %}
+  {% set can_manage = 'manage_settings' in (session.get('permissions') or []) %}
+  {% if license_status.state == 'expiring' %}
+    {% if can_manage %}
+    <div class="notice-banner" role="note">{{ _('The license expires on %(date)s.', date=license_status.expires_at|localtime("%Y-%m-%d")) }}
+      <a href="{{ url_for('settings.settings_license') }}">{{ _('Enter a new license key') }}</a></div>
+    {% endif %}
+  {% elif license_status.state == 'grace' %}
+    <div class="notice-banner" role="note">{{ _('The license expired on %(date)s. The system becomes read-only on %(when)s.', date=license_status.expires_at|localtime("%Y-%m-%d"), when=license_status.read_only_from|localtime("%Y-%m-%d")) }}
+      {% if can_manage %}<a href="{{ url_for('settings.settings_license') }}">{{ _('Enter a new license key') }}</a>{% endif %}</div>
+  {% else %}
+    <div class="notice-banner danger" role="alert">
+      {% if license_status.state == 'read_only' %}{{ _('The license has expired, so the system is read-only: records can be viewed, searched, printed and exported, and backups still run.') }}{% else %}{{ license_status.message|shown }}{% endif %}
+      {% if can_manage %}<a href="{{ url_for('settings.settings_license') }}">{{ _('Enter a new license key') }}</a>{% endif %}</div>
+  {% endif %}
+{% endif %}

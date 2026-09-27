@@ -13,7 +13,7 @@ from flask_babel import gettext as _
 from vcs import clock, config
 from vcs.domain import developer_audit
 from vcs.licensing import tokens
-from vcs.web import devsession
+from vcs.web import devsession, license_pages
 from vcs.web.core import VERSION, flash, get_db, is_safe_local_path, login_rate_limit_check, shown
 
 bp = Blueprint("developer", __name__)
@@ -60,6 +60,16 @@ def logout():
 def home():
     return render_template("developer_home.html", developer=devsession.current(),
                            install_id=config.INSTALL_ID, version=VERSION)
+
+
+@bp.route("/developer/license", methods=["GET", "POST"])
+@devsession.required
+def license():
+    dev = devsession.current()
+    if request.method == "POST":
+        license_pages.save_key(get_db(), actor=developer_audit.developer_actor(dev["name"]), pass_id=dev["pass_id"])
+        return redirect(url_for("developer.license"))
+    return render_template("developer_license.html", developer=dev, **license_pages.context())
 
 
 @bp.route("/developer/audit")

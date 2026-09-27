@@ -29,7 +29,7 @@ from vcs import jobs
 from vcs.domain import appointments, logs, members, settings
 from vcs import clock
 from vcs import money
-from vcs.web import palettes
+from vcs.web import license_pages, palettes
 from vcs.web.core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
@@ -177,6 +177,18 @@ SETTING_FIELD_PERMISSION = {
 def setting_editable(key):
     """For the template: may the signed-in user change this field?"""
     return auth.has_permission(SETTING_FIELD_PERMISSION.get(key, "manage_settings"))
+
+
+@bp.route("/settings/license", methods=["GET", "POST"])
+@auth.permission_required("manage_settings")
+def settings_license():
+    """The clinic enters its license key here (plan L-5, A9). Allowed while
+    read-only: it is how a clinic gets out of read-only."""
+    if request.method == "POST":
+        db = get_db()
+        license_pages.save_key(db, actor=f"user:{auth.current_user(db)['username']}")
+        return redirect(url_for("settings.settings_license"))
+    return render_template("settings_license.html", **license_pages.context())
 
 
 @bp.route("/settings", methods=["GET", "POST"])

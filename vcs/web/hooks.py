@@ -18,6 +18,7 @@ from vcs import auth, clock, money
 from vcs.db import pool as dbmod
 from vcs.errorlog import error_logger
 from vcs.ops import backup
+from vcs.web import readonly
 from vcs.web.core import csp_nonce, flash, get_db
 
 
@@ -276,3 +277,6 @@ def register(app):
     app.after_request(add_security_headers)
     app.teardown_appcontext(close_db)
     app.before_request(require_login)
+    # After the sign-in gate: a signed-out POST is sent to sign in, not told
+    # the license has run out.
+    app.before_request(readonly.refuse_writes_when_read_only)

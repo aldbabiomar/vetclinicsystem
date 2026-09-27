@@ -423,6 +423,16 @@ def _do_tick(get_db, close_db):
     try:
         db = get_db()
         try:
+            from vcs.licensing import state
+            state.refresh(db)          # a license that ran out today, seen today
+            db.commit()
+        finally:
+            close_db(db)
+    except Exception:
+        _log_failure("the periodic tick's license check")
+    try:
+        db = get_db()
+        try:
             from vcs.ops import selfverify
             if selfverify.is_due(db):
                 _do_verify_restore_on(db)

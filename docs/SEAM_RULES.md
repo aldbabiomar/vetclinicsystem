@@ -105,8 +105,9 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 ## 3. What is enforced automatically
 
-`tests/test_seam_rules.py`. **Twelve** rules, each one derived from a defect
-above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
+`tests/test_seam_rules.py`, and rule 13 in `tests/test_license.py` (it needs a
+signed-in client). **Thirteen** rules, each one derived from a defect above,
+from `CODE_AUDIT_2026-09-25.md` or from the licensing plan, rather than invented:
 
 | Rule | Asserts | From |
 |---|---|---|
@@ -122,6 +123,7 @@ above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 | 10 | every read of a payment-method field from the request is the argument of `core.clean_payment_method()` | audit B10 |
 | 11 | who is a vet is decided in one place, `appointments.vet_users()` | audit P19 |
 | 12 | every function writing a bill's lines, manual amount, discount or Clean Up calls `billing.bill_changed()`, which stores the new total the reports read | audit D2, B2 |
+| 13 | every endpoint that writes (POST/PUT/PATCH/DELETE) is on the read-only allowlist (`vcs/web/readonly.py`) or refused while the license is read-only — a walk of the live `url_map`, with a floor | licensing plan §6.4 |
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already

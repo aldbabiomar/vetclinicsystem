@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ _('License') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('License') }}</h1>
+  <p class="page-sub">{{ _('The license your vendor issued for this installation. When it runs out and its grace period ends, the system becomes read-only until a new key is entered here.') }}</p></div></div>
+{% include "_license_panel.html" %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Read-only') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('The system is read-only') }}</h1></div></div>
+<div class="card">
+  <p>{% if status.state == 'read_only' %}{{ _('The license has expired and its grace period has ended, so nothing new can be saved.') }}{% else %}{{ status.message|shown }}{% endif %}</p>
+  <p>{{ _('Records can still be viewed, searched, printed and exported, backups still run, and notes on animals already admitted can still be added.') }}</p>
+  {% if 'manage_settings' in (session.get('permissions') or []) %}
+  <p><a class="btn" href="{{ url_for('settings.settings_license') }}">{{ _('Enter a new license key') }}</a></p>
+  {% else %}
+  <p class="small muted">{{ _('Ask whoever manages the clinic settings to enter a new license key.') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

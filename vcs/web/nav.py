@@ -97,9 +97,11 @@ NAV = (
         Link(N_("Users & Roles"), "admin.admin_users"),
         Link(N_("Logins and Changes"), "admin.admin_logs", active=("admin.admin_developer_audit",)),
         Link(N_("Settings"), "settings.settings_page"),
+        Link(N_("License"), "settings.settings_license"),
     )),
     Group("developer", N_("Developer"), developer_only=True, links=(
         Link(N_("Developer Area"), "developer.home"),
+        Link(N_("License"), "developer.license"),
         Link(N_("Developer Audit"), "developer.audit"),
     )),
 )

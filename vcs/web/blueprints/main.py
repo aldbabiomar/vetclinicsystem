@@ -13,7 +13,7 @@ from flask_babel import gettext as _
 from vcs import auth, clock, jobs
 from vcs.domain import alerts, settings
 from vcs.errorlog import error_logger
-from vcs.web import brand, palettes
+from vcs.web import brand, palettes, readonly
 from vcs.web.core import (PER_PAGE, VERSION, cached_dashboard_snapshot, flash, get_db, get_page, is_safe_local_path,
                           lan_address, login_rate_limit_check, page_count, page_offset, shown)
 
@@ -123,6 +123,10 @@ def login():
         # on a front-desk machine left open for a whole shift.
         session.permanent = True
         auth.refresh_session_permissions(db, row)
+        # The license state this session begins under (read-only starts at a
+        # sign-in, never mid-task); refreshing it also records the time seen.
+        readonly.remember_sign_in_state(db)
+        db.commit()
         nxt = request.args.get("next")
         if not is_safe_local_path(nxt):
             nxt = url_for("main.dashboard")

@@ -59,3 +59,5 @@ scripts/findings_*.json
 # Vendor signing keys never live in the repository (vcs/licensing).
 *.pem
 vendor-keys/
+# A development checkout keeps its license key here (vcs/licensing/state.py).
+/license/

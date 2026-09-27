@@ -8142,7 +8142,6 @@ msgstr "غرافيت"
 msgid "Never settled"
 msgstr "لم تتم أي تسوية بعد"
 
-
 #: vcs/templates/audit_sessions_list.html:23
 msgid "Discard this draft audit? This cannot be undone."
 msgstr "تجاهل هذا الجرد المسودة؟ لا يمكن التراجع عن ذلك."
@@ -8187,9 +8186,8 @@ msgstr ""
 "الاحتياطية هذا، ولا يمكن التراجع عن ذلك. سيُفقد كل ما أُضيف أو تغيّر منذ "
 "أخذ تلك النسخة. هل تريد المتابعة؟"
 
-#: vcs/templates/refunds.html:14 vcs/templates/refunds.html:68
-#: vcs/templates/visit_new_patient.html:28
-#: vcs/templates/patient_form_edit.html:24
+#: vcs/templates/patient_form_edit.html:24 vcs/templates/refunds.html:14
+#: vcs/templates/refunds.html:68 vcs/templates/visit_new_patient.html:28
 #, python-format
 msgid "e.g. %(example)s"
 msgstr "مثال: %(example)s"
@@ -8200,7 +8198,9 @@ msgstr "انتهت صلاحية تصريح المطوّر هذا."
 
 #: vcs/licensing/tokens.py
 #, python-format
-msgid "This Developer Pass lasts longer than %(hours)s hours, which is not allowed."
+msgid ""
+"This Developer Pass lasts longer than %(hours)s hours, which is not "
+"allowed."
 msgstr "تصريح المطوّر هذا صالح لأكثر من %(hours)s ساعة، وهذا غير مسموح."
 
 #: vcs/licensing/tokens.py
@@ -8224,8 +8224,8 @@ msgid ""
 "This key has been changed or damaged: it does not match its signature. "
 "Paste it again, or ask your vendor for a new one."
 msgstr ""
-"تم تغيير هذا المفتاح أو أنه تالف: لا يطابق توقيعه. الصقه مرة أخرى، أو اطلب "
-"مفتاحًا جديدًا من مزوّد البرنامج."
+"تم تغيير هذا المفتاح أو أنه تالف: لا يطابق توقيعه. الصقه مرة أخرى، أو "
+"اطلب مفتاحًا جديدًا من مزوّد البرنامج."
 
 #: vcs/licensing/tokens.py
 msgid "This key is for a different version of VetClinicSystem."
@@ -8234,8 +8234,8 @@ msgstr "هذا المفتاح لإصدار آخر من VetClinicSystem."
 #: vcs/licensing/tokens.py
 #, python-format
 msgid ""
-"This key is for another installation (%(theirs)s). This installation's ID "
-"is %(ours)s."
+"This key is for another installation (%(theirs)s). This installation's ID"
+" is %(ours)s."
 msgstr "هذا المفتاح لتثبيت آخر (%(theirs)s). معرّف هذا التثبيت هو %(ours)s."
 
 #: vcs/licensing/tokens.py
@@ -8258,11 +8258,11 @@ msgstr "العودة إلى سجل الدخول والتغييرات"
 msgid "Developer"
 msgstr "المطوّر"
 
-#: vcs/web/nav.py vcs/templates/developer_layout.html
+#: vcs/templates/developer_layout.html vcs/web/nav.py
 msgid "Developer Area"
 msgstr "منطقة المطوّر"
 
-#: vcs/web/nav.py vcs/templates/developer_layout.html
+#: vcs/templates/developer_layout.html vcs/web/nav.py
 msgid "Developer Audit"
 msgstr "سجل المطوّر"
 
@@ -8281,21 +8281,21 @@ msgstr "رُفض دخول المطوّر"
 #: vcs/templates/developer_audit.html
 msgid ""
 "Everything done in the Developer area at this clinic, and every license "
-"key entered here. The clinic cannot delete it, and the clinic can read it "
-"under Logins and Changes."
+"key entered here. The clinic cannot delete it, and the clinic can read it"
+" under Logins and Changes."
 msgstr ""
 "كل ما جرى في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص أُدخل هنا. لا "
 "تستطيع العيادة حذفه، ويمكنها قراءته في سجل الدخول والتغييرات."
 
 #: vcs/templates/admin_developer_audit.html
 msgid ""
-"Everything your vendor did in the Developer area at this clinic, and every "
-"license key entered here. Kept for good: nothing deletes it."
+"Everything your vendor did in the Developer area at this clinic, and "
+"every license key entered here. Kept for good: nothing deletes it."
 msgstr ""
-"كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص "
-"أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه."
+"كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح "
+"ترخيص أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه."
 
-#: vcs/templates/developer_login.html vcs/templates/developer_home.html
+#: vcs/templates/developer_home.html vcs/templates/developer_login.html
 msgid "Installation ID"
 msgstr "معرّف التثبيت"
 
@@ -8344,7 +8344,9 @@ msgid "Signed in to the Developer area"
 msgstr "دخل إلى منطقة المطوّر"
 
 #: vcs/web/blueprints/developer.py
-msgid "Too many sign-in attempts from this computer. Wait a few minutes and try again."
+msgid ""
+"Too many sign-in attempts from this computer. Wait a few minutes and try "
+"again."
 msgstr "محاولات دخول كثيرة من هذا الحاسوب. انتظر بضع دقائق ثم حاول مرة أخرى."
 
 #: vcs/templates/admin_developer_audit.html
@@ -8363,3 +8365,131 @@ msgstr "خرجت من منطقة المطوّر."
 #, python-format
 msgid "pass valid until %(time)s"
 msgstr "التصريح صالح حتى %(time)s"
+
+#, python-format
+msgid "%(warn)s days before, %(grace)s days after"
+msgstr "%(warn)s يومًا قبلها، و%(grace)s يومًا بعدها"
+
+msgid "Ask whoever manages the clinic settings to enter a new license key."
+msgstr "اطلب ممن يدير إعدادات العيادة إدخال مفتاح ترخيص جديد."
+
+msgid "Days left"
+msgstr "الأيام المتبقية"
+
+msgid "Enter a license key"
+msgstr "أدخل مفتاح الترخيص"
+
+msgid "Enter a new license key"
+msgstr "أدخل مفتاح ترخيص جديدًا"
+
+msgid "Expired, in its grace period"
+msgstr "منتهي، في فترة السماح"
+
+msgid "Expiring soon"
+msgstr "ينتهي قريبًا"
+
+msgid "Issued"
+msgstr "تاريخ الإصدار"
+
+msgid "License"
+msgstr "الترخيص"
+
+msgid "License ID"
+msgstr "معرّف الترخيص"
+
+msgid "License key"
+msgstr "مفتاح الترخيص"
+
+msgid "License key entered"
+msgstr "أُدخل مفتاح ترخيص"
+
+#, python-format
+msgid "License key saved. The license is now: %(state)s."
+msgstr "حُفظ مفتاح الترخيص. حالة الترخيص الآن: %(state)s."
+
+msgid "License state changed"
+msgstr "تغيّرت حالة الترخيص"
+
+msgid "No license key"
+msgstr "لا يوجد مفتاح ترخيص"
+
+msgid "Not valid"
+msgstr "غير صالح"
+
+msgid ""
+"Paste the whole key your vendor sent. Spaces and line breaks added on the"
+" way do not matter."
+msgstr ""
+"الصق المفتاح كاملًا كما أرسله مزوّد البرنامج. لا تهمّ المسافات أو الأسطر "
+"الجديدة التي تُضاف أثناء الإرسال."
+
+msgid "Read-only"
+msgstr "للقراءة فقط"
+
+msgid "Read-only from"
+msgstr "للقراءة فقط ابتداءً من"
+
+msgid ""
+"Records can still be viewed, searched, printed and exported, backups "
+"still run, and notes on animals already admitted can still be added."
+msgstr ""
+"ما زال بالإمكان عرض السجلات والبحث فيها وطباعتها وتصديرها، والنسخ "
+"الاحتياطي مستمر، ويمكن إضافة ملاحظات على الحيوانات المُقيمة حاليًا."
+
+msgid "Save license key"
+msgstr "حفظ مفتاح الترخيص"
+
+msgid "State"
+msgstr "الحالة"
+
+msgid "The computer's clock is wrong"
+msgstr "ساعة الحاسوب غير صحيحة"
+
+#, python-format
+msgid "The license expired on %(date)s. The system becomes read-only on %(when)s."
+msgstr "انتهى الترخيص في %(date)s. يصبح النظام للقراءة فقط في %(when)s."
+
+#, python-format
+msgid "The license expires on %(date)s."
+msgstr "ينتهي الترخيص في %(date)s."
+
+msgid ""
+"The license has expired and its grace period has ended, so nothing new "
+"can be saved."
+msgstr "انتهى الترخيص وانتهت فترة السماح، لذا لا يمكن حفظ أي شيء جديد."
+
+msgid ""
+"The license has expired, so the system is read-only: records can be "
+"viewed, searched, printed and exported, and backups still run."
+msgstr ""
+"انتهى الترخيص، لذا أصبح النظام للقراءة فقط: يمكن عرض السجلات والبحث فيها "
+"وطباعتها وتصديرها، والنسخ الاحتياطي مستمر."
+
+msgid ""
+"The license your vendor issued for this installation. When it runs out "
+"and its grace period ends, the system becomes read-only until a new key "
+"is entered here."
+msgstr ""
+"الترخيص الذي أصدره مزوّد البرنامج لهذا التثبيت. عند انتهائه وانتهاء فترة "
+"السماح، يصبح النظام للقراءة فقط حتى يُدخل مفتاح جديد هنا."
+
+msgid "The system is read-only"
+msgstr "النظام للقراءة فقط"
+
+msgid ""
+"This computer's clock is behind the time the app last saw. Correct the "
+"date and time, then sign in again."
+msgstr ""
+"ساعة هذا الحاسوب متأخرة عن آخر وقت سجّله البرنامج. صحّح التاريخ والوقت، "
+"ثم سجّل الدخول مرة أخرى."
+
+msgid ""
+"This installation has no license key. Ask your vendor for one, then enter"
+" it on the License page."
+msgstr ""
+"لا يوجد مفتاح ترخيص لهذا التثبيت. اطلب واحدًا من مزوّد البرنامج، ثم أدخله"
+" في صفحة الترخيص."
+
+msgid "Warning, then grace"
+msgstr "التنبيه، ثم فترة السماح"
+

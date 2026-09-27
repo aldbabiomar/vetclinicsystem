@@ -83,3 +83,32 @@ python3 scripts/vendor/vcs_vendor.py inspect '<key>'
 
 prints what the key says and whether this checkout's trusted keys accept its
 signature.
+
+## Setup needs a license
+
+`setup.py` does not finish without a license key that verifies for the
+installation it is setting up (there is no trial). It prints the installation
+ID, then takes the key from `--license-key` or asks for it. **So the release a
+clinic installs must already trust your key** (`TRUSTED_KEYS`): until it does,
+every key is "signed by a key this version does not know", and no install can
+finish.
+
+## The license's states
+
+| State | When | What the clinic sees |
+|---|---|---|
+| Active | more than the warning period left | nothing |
+| Expiring soon | within the warning period | a banner, to those who can enter a key |
+| Grace | expired, within the grace period | a banner to everyone, with the date it becomes read-only |
+| Read-only | past the grace period | a red banner; anything that saves is refused with a page saying why |
+| Not valid / No license key / Clock wrong | the key fails, is missing, or the computer's clock was wound back more than a day | treated as read-only, with its own message |
+
+Read-only begins at a **sign-in**: someone already working keeps working until
+they sign out (12 hours at most). What still saves while read-only: signing in,
+one's own password, the license key, backups, restore, updates, user
+administration, and notes and owner calls on animals already admitted.
+Payments do not. Entering a new key unlocks every session at once.
+
+The clinic enters a key on **Settings → License**; you can do the same in the
+Developer area. Every key entered, accepted or refused, is in the Developer
+Audit, which the clinic can read and nothing deletes.

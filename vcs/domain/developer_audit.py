@@ -19,6 +19,8 @@ OUTCOMES = ("ok", "refused", "failed")
 LABELS = {
     "developer.login": N_("Signed in to the Developer area"),
     "developer.login_failed": N_("Developer sign-in refused"),
+    "license.entered": N_("License key entered"),
+    "license.state_changed": N_("License state changed"),
     "ok": N_("Done"),
     "refused": N_("Refused"),
     "failed": N_("Failed"),

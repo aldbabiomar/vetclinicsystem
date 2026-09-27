@@ -533,3 +533,44 @@ read-only list of what the vendor did. Uses §23's terms (تصريح المطو�
 | 23 | Outcome | النتيجة |
 | 24 | Network address | عنوان الشبكة |
 | 25 | Refused | مرفوض |
+
+## 25. The license: its page, its banners, read-only mode (32)
+
+What the clinic sees about its license (licensing plan §6, §8). New terms to
+confirm: **read-only** — للقراءة فقط; **grace period** — فترة السماح;
+**license** — الترخيص (from §23).
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | %(warn)s days before, %(grace)s days after | %(warn)s يومًا قبلها، و%(grace)s يومًا بعدها |
+| 2 | Ask whoever manages the clinic settings to enter a new license key. | اطلب ممن يدير إعدادات العيادة إدخال مفتاح ترخيص جديد. |
+| 3 | Days left | الأيام المتبقية |
+| 4 | Enter a license key | أدخل مفتاح الترخيص |
+| 5 | Enter a new license key | أدخل مفتاح ترخيص جديدًا |
+| 6 | Expired, in its grace period | منتهي، في فترة السماح |
+| 7 | Expiring soon | ينتهي قريبًا |
+| 8 | Issued | تاريخ الإصدار |
+| 9 | License | الترخيص |
+| 10 | License ID | معرّف الترخيص |
+| 11 | License key | مفتاح الترخيص |
+| 12 | License key entered | أُدخل مفتاح ترخيص |
+| 13 | License key saved. The license is now: %(state)s. | حُفظ مفتاح الترخيص. حالة الترخيص الآن: %(state)s. |
+| 14 | License state changed | تغيّرت حالة الترخيص |
+| 15 | No license key | لا يوجد مفتاح ترخيص |
+| 16 | Not valid | غير صالح |
+| 17 | Paste the whole key your vendor sent. Spaces and line breaks added on the way do not matter. | الصق المفتاح كاملًا كما أرسله مزوّد البرنامج. لا تهمّ المسافات أو الأسطر الجديدة التي تُضاف أثناء الإرسال. |
+| 18 | Read-only | للقراءة فقط |
+| 19 | Read-only from | للقراءة فقط ابتداءً من |
+| 20 | Records can still be viewed, searched, printed and exported, backups still run, and notes on animals already admitted can still be added. | ما زال بالإمكان عرض السجلات والبحث فيها وطباعتها وتصديرها، والنسخ الاحتياطي مستمر، ويمكن إضافة ملاحظات على الحيوانات المُقيمة حاليًا. |
+| 21 | Save license key | حفظ مفتاح الترخيص |
+| 22 | State | الحالة |
+| 23 | The computer's clock is wrong | ساعة الحاسوب غير صحيحة |
+| 24 | The license expired on %(date)s. The system becomes read-only on %(when)s. | انتهى الترخيص في %(date)s. يصبح النظام للقراءة فقط في %(when)s. |
+| 25 | The license expires on %(date)s. | ينتهي الترخيص في %(date)s. |
+| 26 | The license has expired and its grace period has ended, so nothing new can be saved. | انتهى الترخيص وانتهت فترة السماح، لذا لا يمكن حفظ أي شيء جديد. |
+| 27 | The license has expired, so the system is read-only: records can be viewed, searched, printed and exported, and backups still run. | انتهى الترخيص، لذا أصبح النظام للقراءة فقط: يمكن عرض السجلات والبحث فيها وطباعتها وتصديرها، والنسخ الاحتياطي مستمر. |
+| 28 | The license your vendor issued for this installation. When it runs out and its grace period ends, the system becomes read-only until a new key is entered here. | الترخيص الذي أصدره مزوّد البرنامج لهذا التثبيت. عند انتهائه وانتهاء فترة السماح، يصبح النظام للقراءة فقط حتى يُدخل مفتاح جديد هنا. |
+| 29 | The system is read-only | النظام للقراءة فقط |
+| 30 | This computer's clock is behind the time the app last saw. Correct the date and time, then sign in again. | ساعة هذا الحاسوب متأخرة عن آخر وقت سجّله البرنامج. صحّح التاريخ والوقت، ثم سجّل الدخول مرة أخرى. |
+| 31 | This installation has no license key. Ask your vendor for one, then enter it on the License page. | لا يوجد مفتاح ترخيص لهذا التثبيت. اطلب واحدًا من مزوّد البرنامج، ثم أدخله في صفحة الترخيص. |
+| 32 | Warning, then grace | التنبيه، ثم فترة السماح |
