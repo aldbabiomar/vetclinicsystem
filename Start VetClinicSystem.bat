@@ -43,11 +43,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 5. Open the browser shortly after the server starts, then start the server
-start "" cmd /c "timeout /t 2 >nul && start http://127.0.0.1:5050"
+REM 5. setup.py puts a new install on the update-ready layout: from now on the
+REM    app runs from ..\vetclinicsystem-data, through the launcher there, which
+REM    also picks up updates. Hand over to it.
+if exist "..\vetclinicsystem-data\Start VetClinicSystem.bat" (
+    call venv\Scripts\deactivate.bat
+    call "..\vetclinicsystem-data\Start VetClinicSystem.bat"
+    exit /b
+)
+
+REM 6. A checkout set up with --no-enable-updates runs here, on its .env's port.
+if not defined VETCLINICSYSTEM_PORT if exist ".env" for /f "usebackq tokens=1,* delims==" %%A in (".env") do if "%%A"=="VETCLINICSYSTEM_PORT" set "VETCLINICSYSTEM_PORT=%%B"
+if not defined VETCLINICSYSTEM_PORT set "VETCLINICSYSTEM_PORT=5050"
+start "" cmd /c "timeout /t 2 >nul && start http://127.0.0.1:%VETCLINICSYSTEM_PORT%"
 
 echo.
-echo VetClinicSystem is running at http://127.0.0.1:5050
+echo VetClinicSystem is running at http://127.0.0.1:%VETCLINICSYSTEM_PORT%
 echo Leave this window open while you use the app.
 echo Close this window ^(or press Ctrl+C^) to stop it.
 echo.

@@ -127,3 +127,13 @@ def test_generated_script_quotes_paths_with_spaces(sandbox, monkeypatch):
     desktop_shortcut._macos_create()
     line = _launcher_line(sandbox["bundle"])
     assert line == f"LAUNCHER='{os.path.join(sandbox['data_dir'], LAUNCHER_NAME)}'"
+
+
+def test_the_shortcut_opens_the_port_this_install_was_given(sandbox, monkeypatch):
+    """setup.py moves an install off 5050 when that port is taken and writes
+    the choice into .env; a shortcut built with 5050 would open another app."""
+    monkeypatch.setattr(autostart, "BASE_DIR", sandbox["release_dir"])
+    with open(os.path.join(sandbox["data_dir"], ".env"), "w") as f:
+        f.write("SECRET_KEY=x\nVETCLINICSYSTEM_PORT=5051\n")
+    desktop_shortcut._macos_create()
+    assert 'PORT="${VETCLINICSYSTEM_PORT:-5051}"' in _script(sandbox["bundle"])

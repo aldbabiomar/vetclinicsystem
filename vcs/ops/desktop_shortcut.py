@@ -61,6 +61,15 @@ def _resolve_data_dir(data_dir=None):
     return data_dir or autostart.managed_data_dir()
 
 
+def install_port(data_dir):
+    """The port this install serves on: the VETCLINICSYSTEM_PORT setup.py
+    wrote into the data folder's .env (it moves off 5050 when that is taken),
+    else the default."""
+    from dotenv import dotenv_values
+    port = str(dotenv_values(os.path.join(data_dir, ".env")).get("VETCLINICSYSTEM_PORT") or "").strip()
+    return port if port.isdigit() else DEFAULT_PORT
+
+
 def _macos_bundle_path():
     return os.path.expanduser(f"~/Desktop/{APP_NAME}.app")
 
@@ -135,7 +144,7 @@ def _macos_create(data_dir=None):
         script_path = os.path.join(macos_dir, "launch")
         with open(script_path, "w", newline="\n") as f:
             f.write(_MACOS_LAUNCH_SCRIPT.format(
-                launcher=_sh_quote(launcher), port=DEFAULT_PORT))
+                launcher=_sh_quote(launcher), port=install_port(data_dir)))
         os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
         if os.path.isfile(icon_src):

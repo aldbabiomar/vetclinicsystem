@@ -1256,3 +1256,39 @@ result under each money setting.
   6. **Open.** `docs/archive/COMPARISON.md` is still cited by 18 comments in
      `vcs/` and by `CLAUDE.md` §6 (§57–§62, the localisation rules); the rules
      still in force need decision records before it is only history.
+- **2026-09-27 — §12 item 5: a fresh install, tried on this machine (owner's
+  choice: free ports, then test here and remove everything).**
+  - **Free ports.** A new install takes 5050 and 5432 unless something holds
+    them — a listening program, or another container's published port even
+    while that container is stopped — and then the next free one; both go into
+    the new `.env`. An explicit `POSTGRES_HOST_PORT` / `VETCLINICSYSTEM_PORT`
+    still wins. The app, both supervisor launchers, both download-folder
+    launchers and the Desktop shortcut read the app's port from `.env`.
+  - **Tried for real** in a throwaway copy beside the predecessor installs
+    (their databases on 5432 and 5433). Three runs; the first two failed, and
+    each failure was a real bug, now fixed and guarded:
+    1. `docker compose` published 5432 although `.env` said 5434: setup loads
+       `.env` only after the database is up, so compose never saw the port.
+       `_compose_env()` now reads it from `.env`.
+    2. The first double-click (the README's quick start) finished setup and
+       then ran `run.py` from the download folder, whose `.env` setup had
+       just moved into `vetclinicsystem-data/`: "SECRET_KEY is not set", and
+       the app did not start. The download-folder launchers now hand over to
+       the install's own launcher.
+    3. Found reading the same path: a second double-click re-ran setup, which
+       looked for `.env` only beside itself and would have written a new one —
+       a new secret key and new ports, the database republished on them.
+       Setup now finds the install's `.env` in the data folder beside it.
+  - **Third run: met.** First double-click → database on 5434, app on the
+    install's port, `/health` ok, the first admin signs in and is sent to
+    change the password, the Desktop shortcut opens that port. Second
+    double-click (no port in the environment) → `.env` kept, the same
+    container, the port read from `.env`. Everything the test created —
+    container, volume, network, folders, the Desktop shortcut — was removed,
+    and the machine matched its snapshot; the predecessor installs were
+    never touched.
+  - Limitation, stated in `setup.py`: an app that is not running holds no
+    port, so a predecessor app stopped at install time is not seen.
+  - Eight guards in `tests/test_install_ports.py` and
+    `test_desktop_shortcut_target.py`, all mutation-proven. The Windows
+    launchers are checked by their text only: there is no Windows here.

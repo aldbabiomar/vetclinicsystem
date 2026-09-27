@@ -50,7 +50,10 @@ python3 setup.py              # starts Postgres in Docker, builds the schema, lo
 python3 run.py
 ```
 
-Open **http://127.0.0.1:5050** on the server machine.
+Open **http://127.0.0.1:5050** on the server machine — or the address setup
+printed, if 5050 was already taken on this computer: setup then gives the app
+the next free port (and the database likewise, from 5432) and writes both into
+`.env`, which the launchers and the Desktop shortcut read.
 
 ## Using it from other devices on the clinic network
 

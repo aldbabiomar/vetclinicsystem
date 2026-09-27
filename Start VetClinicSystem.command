@@ -41,11 +41,26 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 5. Open the browser shortly after the server starts, then start the server
-( sleep 1.5 && open "http://127.0.0.1:5050" ) &
+# 5. setup.py puts a new install on the update-ready layout: from now on the
+#    app runs from ../vetclinicsystem-data, through the launcher there, which
+#    also picks up updates. Hand over to it. (Running run.py from this folder
+#    instead found no .env -- setup had moved it -- and the app would not start.)
+MANAGED="../vetclinicsystem-data/Start VetClinicSystem.command"
+if [ -f "$MANAGED" ]; then
+  deactivate 2>/dev/null || true
+  exec bash "$MANAGED"
+fi
+
+# 6. A checkout set up with --no-enable-updates runs here, on its .env's port.
+PORT="${VETCLINICSYSTEM_PORT:-}"
+if [ -z "$PORT" ] && [ -f .env ]; then
+  PORT="$(sed -n 's/^VETCLINICSYSTEM_PORT=//p' .env | tail -n 1 | tr -d '[:space:]')"
+fi
+PORT="${PORT:-5050}"
+( sleep 1.5 && open "http://127.0.0.1:$PORT" ) &
 
 echo ""
-echo "VetClinicSystem is running at http://127.0.0.1:5050"
+echo "VetClinicSystem is running at http://127.0.0.1:$PORT"
 echo "Leave this window open while you use the app."
 echo "Close this window (or press Control-C) to stop it."
 echo ""

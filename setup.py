@@ -7,7 +7,9 @@ Works the same way on macOS and Windows.
 What it does, in order:
   1. Checks Docker is installed and running (prints install instructions if not).
   2. Creates .env from .env.example if you don't have one yet (with a fresh
-     random SECRET_KEY).
+     random SECRET_KEY), choosing the app's port and the database's host
+     port: 5050 and 5432 unless another program or container already has
+     them, in which case the next free ones.
   3. Starts the PostgreSQL container (docker compose up -d) and waits for it
      to be ready.
   4. Creates the database schema if it isn't there yet, AND applies any
@@ -20,9 +22,12 @@ What it does, in order:
 
 Safe to re-run any time — every step skips itself if already done.
 """
+import json
 import os
+import re
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -76,7 +81,99 @@ def _env_dir():
     port, with a secret key that would sign everybody out.
     """
     data_dir = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
-    return data_dir if data_dir and os.path.isdir(data_dir) else BASE_DIR
+    if data_dir and os.path.isdir(data_dir):
+        return data_dir
+    # Run again from the folder it was downloaded to, after the first run
+    # switched the install onto the release layout: its .env is in the data
+    # folder beside this one. Looking only here, setup found no .env and
+    # wrote a new one -- a new SECRET_KEY, and new ports, on which it then
+    # republished the database while the app went on using the old port.
+    sibling = os.path.join(os.path.dirname(BASE_DIR), "vetclinicsystem-data")
+    if os.path.isfile(os.path.join(sibling, "active_release.txt")):
+        return sibling
+    return BASE_DIR
+
+
+DEFAULT_APP_PORT = 5050
+DEFAULT_DB_PORT = 5432
+PG_CONTAINER = "vetclinicsystem_postgres"      # docker-compose.yml's container_name
+
+
+def port_in_use(port):
+    """Something on this machine is listening on `port` (on any address)."""
+    for host in ("127.0.0.1", "0.0.0.0"):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((host, port))
+            except OSError:
+                return True
+    return False
+
+
+def docker_claimed_ports(inspect_output=None):
+    """Host ports published by every other container, running or stopped: a
+    stopped database takes its port back the next time Docker starts it, so
+    a port that is free this minute can still belong to another install.
+
+    `inspect_output` is for the tests: the text `docker inspect` printed."""
+    if inspect_output is None:
+        ids = subprocess.run(["docker", "ps", "-aq"], capture_output=True, text=True).stdout.split()
+        if not ids:
+            return set()
+        inspect_output = subprocess.run(
+            ["docker", "inspect", "--format", "{{.Name}} {{json .HostConfig.PortBindings}}", *ids],
+            capture_output=True, text=True).stdout
+    claimed = set()
+    for line in inspect_output.splitlines():
+        name, _, bindings = line.strip().partition(" ")
+        if not name or name.lstrip("/") == PG_CONTAINER:
+            continue
+        for binds in (json.loads(bindings or "null") or {}).values():
+            for b in binds or []:
+                if str(b.get("HostPort", "")).isdigit():
+                    claimed.add(int(b["HostPort"]))
+    return claimed
+
+
+def first_free_port(preferred, claimed, in_use=None, span=200):
+    in_use = in_use or port_in_use
+    for port in range(preferred, preferred + span):
+        if port not in claimed and not in_use(port):
+            return port
+    print(f"  No free port between {preferred} and {preferred + span - 1}. Free one, "
+          "or set it in .env yourself, then run setup again.")
+    sys.exit(1)
+
+
+def with_ports(content, db_port, app_port):
+    """.env.example's text for this install's two ports: the database's host
+    port inside DATABASE_URL (docker compose publishes whatever DATABASE_URL
+    says -- _compose_env), and the app's port as an active
+    VETCLINICSYSTEM_PORT line, which the app and every launcher read."""
+    content, n = re.subn(r"(DATABASE_URL=postgresql://[^@\s]+@127\.0\.0\.1:)\d+/", rf"\g<1>{db_port}/", content)
+    assert n == 1, "DATABASE_URL in .env.example is not the expected local URL"
+    line = f"VETCLINICSYSTEM_PORT={app_port}"
+    content, n = re.subn(r"(?m)^#?VETCLINICSYSTEM_PORT=.*$", line, content)
+    return content if n else content.rstrip("\n") + f"\n{line}\n"
+
+
+def choose_ports():
+    """(database host port, app port) for a new install. An explicit
+    POSTGRES_HOST_PORT / VETCLINICSYSTEM_PORT in the environment wins."""
+    claimed = docker_claimed_ports()
+    chosen = []
+    for var, preferred, what in (("POSTGRES_HOST_PORT", DEFAULT_DB_PORT, "database"),
+                                 ("VETCLINICSYSTEM_PORT", DEFAULT_APP_PORT, "app")):
+        if os.environ.get(var, "").isdigit():
+            port = int(os.environ[var])
+        else:
+            port = first_free_port(preferred, claimed)
+            if port != preferred:
+                print(f"  Port {preferred} is already taken on this computer — the {what} "
+                      f"will use {port} instead.")
+        claimed.add(port)
+        chosen.append(port)
+    return tuple(chosen)
 
 
 def ensure_env_file():
@@ -89,9 +186,12 @@ def ensure_env_file():
     with open(example_path) as f:
         content = f.read()
     content = content.replace("change-me", secrets.token_hex(32))
+    db_port, app_port = choose_ports()
+    content = with_ports(content, db_port, app_port)
     with open(env_path, "w") as f:
         f.write(content)
-    print("  Created .env with a fresh secret key.")
+    print(f"  Created .env with a fresh secret key. The app will be at http://127.0.0.1:{app_port}; "
+          f"its database on port {db_port}.")
 
 
 def _compose_env():
@@ -107,11 +207,19 @@ def _compose_env():
     Deriving one from the other means they cannot drift. An explicit
     POSTGRES_HOST_PORT already in the environment still wins, so an admin can
     override deliberately.
+
+    DATABASE_URL is read from .env when the environment does not carry it:
+    setup loads .env only after the database is up, so on a first install
+    the port setup had just written there never reached docker compose,
+    which published 5432 regardless ("port is already allocated").
     """
     env = dict(os.environ)
     if env.get("POSTGRES_HOST_PORT"):
         return env
     url = env.get("DATABASE_URL")
+    if not url:
+        from dotenv import dotenv_values
+        url = dotenv_values(os.path.join(_env_dir(), ".env")).get("DATABASE_URL")
     if url:
         try:
             from urllib.parse import urlparse
@@ -330,7 +438,13 @@ set -u
 DATA_DIR="$(cd "$(dirname "$0")" && pwd)"
 RELEASES_DIR="$(cd "$DATA_DIR/../vetclinicsystem-releases" && pwd)"
 POINTER="$DATA_DIR/active_release.txt"
-PORT="${VETCLINICSYSTEM_PORT:-5050}"
+# The port this install was given (setup.py moves off 5050 when it is taken
+# and writes the choice into .env); the environment still wins.
+PORT="${VETCLINICSYSTEM_PORT:-}"
+if [ -z "$PORT" ] && [ -f "$DATA_DIR/.env" ]; then
+  PORT="$(sed -n 's/^VETCLINICSYSTEM_PORT=//p' "$DATA_DIR/.env" | tail -n 1 | tr -d '[:space:]')"
+fi
+PORT="${PORT:-5050}"
 opened_browser=false
 
 echo "VetClinicSystem is running at http://127.0.0.1:$PORT"
@@ -398,6 +512,8 @@ setlocal
 set "DATA_DIR=%~dp0"
 set "RELEASES_DIR=%DATA_DIR%..\\vetclinicsystem-releases"
 set "POINTER=%DATA_DIR%active_release.txt"
+REM The port this install was given (setup.py writes it into .env).
+if not defined VETCLINICSYSTEM_PORT if exist "%DATA_DIR%.env" for /f "usebackq tokens=1,* delims==" %%A in ("%DATA_DIR%.env") do if "%%A"=="VETCLINICSYSTEM_PORT" set "VETCLINICSYSTEM_PORT=%%B"
 if not defined VETCLINICSYSTEM_PORT set "VETCLINICSYSTEM_PORT=5050"
 set "OPENED_BROWSER=0"
 
