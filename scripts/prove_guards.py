@@ -149,6 +149,18 @@ MUTATIONS = [
     Mutation("palettes.css is generated", "vcs/static/palettes.css",
              "   Do not edit: change the palette there and regenerate. */", "   Edited by hand. */",
              ["tests/test_palettes.py"]),
+    # --- the money setting's one home ----------------------------------------
+    Mutation("nothing outside money.py compares the setting's code", "vcs/web/blueprints/clinical.py",
+             '        if new_case_status != visit["case_status"]:',
+             '        if new_case_status != visit["case_status"] and money.current().code != "IQ":',
+             ["tests/test_money_home.py"]),
+    Mutation("nothing outside money.py rounds money", "vcs/domain/reports.py",
+             "        net_margin = round(net_profit / revenue, 4) if revenue else None",
+             '        net_margin = (net_profit / revenue).quantize(Decimal("0.0001")) if revenue else None',
+             ["tests/test_money_home.py"]),
+    Mutation("no country literal outside money.py", "vcs/web/pdf_export.py",
+             '    return m.currency if m else ""', '    return m.currency if m else "JOD"',
+             ["tests/test_money_home.py"]),
     # --- moments -------------------------------------------------------------
     Mutation("a case status change is stamped with its moment", "vcs/web/blueprints/clinical.py",
              "            status_changed_at = clock.now()", "            status_changed_at = clock.today().isoformat()",

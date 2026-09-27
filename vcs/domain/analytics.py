@@ -126,7 +126,8 @@ def client_value(db, limit=20, months_back=12):
 
     Returns (top_clients, average_spend_per_active_client, active_client_count).
     `is_member` on each row is the ACTIVE answer, so a lapsed card does not
-    badge as current. Rounded to 3 places, JO's exact JOD precision.
+    badge as current. Rounded to 3 places, the precision every amount is
+    stored to under either money setting.
     """
     months = dates.month_list(months_back)
     cutoff = months[0] + "-01"

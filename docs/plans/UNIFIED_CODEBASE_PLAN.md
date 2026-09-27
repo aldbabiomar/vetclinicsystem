@@ -1231,3 +1231,28 @@ result under each money setting.
   **Suite:** IQ **1615 passed, 0 skipped**; JO **1615 passed, 0 skipped** —
   the first runs with no skips, and the first IQ run in which the unmarked
   tests ran under IQ; no database 698 passed.
+- **2026-09-27 — §12 "Done means", checked item by item.**
+  1. **Met.** Both settings green with zero skips, the browser tier alive in
+     both languages (layout and JavaScript errors in Arabic) — the tooling
+     entry above.
+  2. **Met.** `scripts/simulation/audit_repro.py` runs every reproduction of
+     `CODE_AUDIT_2026-09-25.md` §9 (B1, B2, B3, S1, S2, B4, B5, B6, B7, B11)
+     against the live app under each setting — the recipes carried to
+     numeric ids and the live P&L. 13 of 13 refused or correct under IQ and
+     under JO. Each refusal must say why (S1, S2, B5, B6), and B4 carries its
+     own control: ticking "save my version" does save.
+  3. **Met, and now held.** `tests/test_money_home.py` scans every module's
+     code (not its docstrings or comments): no comparison with "IQ"/"JO", no
+     currency code, phone prefix, zone or Arabic currency label, outside
+     `money.py`. Two allowances by name: the discount-percent rounding, and
+     the translated names of the two settings (pybabel needs the literal).
+  4. **Met, and now held.** The same scan: nothing outside `money.py` rounds
+     money (`quantize`, `ROUND_*`); seam rule 12 already holds the one writer
+     of stored totals. The three new guards are mutation-proven.
+  5. **Open.** There is no `setup.py --country` (D-15), so the item reads as
+     "a fresh install works, and does not collide". Not tried on this
+     machine: `setup.py` defaults to app port 5050 and database port 5432,
+     the ports of the predecessor IQ install running here.
+  6. **Open.** `docs/archive/COMPARISON.md` is still cited by 18 comments in
+     `vcs/` and by `CLAUDE.md` §6 (§57–§62, the localisation rules); the rules
+     still in force need decision records before it is only history.
