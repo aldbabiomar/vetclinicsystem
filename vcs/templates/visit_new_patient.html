@@ -25,7 +25,7 @@
     </div>
     <div class="field"><label for="visitnewpatient-8-age_note">{{ _('Age / DOB Note') }}</label><input id="visitnewpatient-8-age_note" name="age_note" value="{{ fv(form, 'age_note') }}"></div>
     <div class="field"><label for="visitnewpatient-9-housing">{{ _('Housing') }}</label><select id="visitnewpatient-9-housing" name="housing"><option value="" {{ 'selected' if not fv(form, 'housing') }}>—</option><option value="Indoor" {{ 'selected' if fv(form, 'housing')=='Indoor' }}>{{ _('Indoor') }}</option><option value="Outdoor" {{ 'selected' if fv(form, 'housing')=='Outdoor' }}>{{ _('Outdoor') }}</option><option value="Stray" {{ 'selected' if fv(form, 'housing')=='Stray' }}>{{ _('Stray') }}</option></select></div>
-    <div class="field"><label for="visitnewpatient-10-microchip">{{ _('Microchip Number (optional)') }}</label><input id="visitnewpatient-10-microchip" name="microchip" autocomplete="off" placeholder="e.g. 985141000123456" value="{{ fv(form, 'microchip') }}"></div>
+    <div class="field"><label for="visitnewpatient-10-microchip">{{ _('Microchip Number (optional)') }}</label><input id="visitnewpatient-10-microchip" name="microchip" autocomplete="off" placeholder="{{ _('e.g. %(example)s', example='985141000123456') }}" value="{{ fv(form, 'microchip') }}"></div>
   </div>
 
   <div class="field full" style="margin-top:14px;"><label for="visitnewpatient-11-complaint">{{ _('Presenting Complaint / Reason for Visit') }}</label><input id="visitnewpatient-11-complaint" name="complaint" value="{{ fv(form, 'complaint') }}"></div>

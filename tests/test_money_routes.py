@@ -31,10 +31,14 @@ import pytest
 from decimal import Decimal
 
 from vcs.domain import billing
-from conftest import new_id, ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, amount, needs_db
 
 
-pytestmark = needs_db
+# JO's half of the money routes: every amount and assertion is in JO's
+# numbers. test_money_routes_iq.py is IQ's half, so both run in both runs.
+# The fixtures here are shared with other modules, which run under either
+# setting, so their amounts go through conftest.amount().
+pytestmark = [needs_db, pytest.mark.money("JO")]
 
 D = Decimal
 
@@ -62,10 +66,10 @@ def sellable(db):
     inv_id, pl_id = _uid("INV"), _uid("PL")
     db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-               (inv_id, f"Route Test Item {inv_id}", "Retail", "unit", False, D("2.000"), "Owned", True))
+               (inv_id, f"Route Test Item {inv_id}", "Retail", "unit", False, amount("2.000"), "Owned", True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, linked_item_id, can_discount) "
                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-               (pl_id, f"Route Test Item {inv_id}", "Retail", D("2.000"), D("10.000"), True, inv_id, True))
+               (pl_id, f"Route Test Item {inv_id}", "Retail", amount("2.000"), amount("10.000"), True, inv_id, True))
     cur = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
                      "VALUES (%s,%s,%s,%s,%s) RETURNING id",
                      (clock.today().isoformat(), ADMIN_ID, "Confirmed",
@@ -75,7 +79,7 @@ def sellable(db):
     db.execute("INSERT INTO audit_session_lines (session_id, item_id, stock_counted, received_since_prior) "
                "VALUES (%s,%s,%s,%s)", (session_id, inv_id, 100.0, 0.0))
     db.commit()
-    yield {"inv_id": inv_id, "pl_id": pl_id, "price": D("10.000"), "stock": 100}
+    yield {"inv_id": inv_id, "pl_id": pl_id, "price": amount("10.000"), "stock": 100}
     for sql, args in (
         ("DELETE FROM inventory_transactions WHERE item_id=%s", (inv_id,)),
         ("DELETE FROM sale_items WHERE item_id=%s", (inv_id,)),
@@ -304,8 +308,14 @@ def visit(db):
     db.commit()
 
 
+def _form(data):
+    """Form values as text (an amount may be a Decimal from conftest.amount);
+    a list stays a list, for a field sent more than once."""
+    return {k: v if isinstance(v, list) else str(v) for k, v in data.items()}
+
+
 def _bill(client, visit_id, **data):
-    return client.post(f"/visits/{visit_id}/billing", data=data, follow_redirects=False)
+    return client.post(f"/visits/{visit_id}/billing", data=_form(data), follow_redirects=False)
 
 
 def test_manual_bill_stores_the_rounded_total(client, db, visit):
@@ -393,17 +403,17 @@ def boarding(db, visit):
     cur = db.execute(
         "INSERT INTO boarding_sessions (patient_id, entry_date, special_needs, total_is_auto, "
         "cleanup_amount, discount_percent, dismissed, total) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-        (visit["patient_id"], clock.today().isoformat(), False, False, D(0), D(0), False, D("200.000")))
+        (visit["patient_id"], clock.today().isoformat(), False, False, D(0), D(0), False, amount("200.000")))
     bid = cur.fetchone()["id"]
     db.commit()
-    yield {"id": bid, "total": D("200.000"), "patient_id": visit["patient_id"]}
+    yield {"id": bid, "total": amount("200.000"), "patient_id": visit["patient_id"]}
     db.execute("DELETE FROM payments WHERE boarding_id=%s", (bid,))
     db.execute("DELETE FROM boarding_sessions WHERE id=%s", (bid,))
     db.commit()
 
 
 def _pay(client, bid, **data):
-    return client.post(f"/boarding/{bid}/payment", data=data, follow_redirects=False)
+    return client.post(f"/boarding/{bid}/payment", data=_form(data), follow_redirects=False)
 
 
 def test_boarding_payment_is_recorded(client, db, boarding):
@@ -469,7 +479,7 @@ def test_boarding_payment_rejects_a_discount_above_the_cap(client, db, boarding)
 @pytest.fixture
 def completed_sale(client, db, sellable):
     """A real sale, made through the real checkout, to refund against."""
-    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received="50.000")
+    _checkout(client, sellable["inv_id"], qty=4, payment_method="Cash", cash_received=amount("50.000"))
     sale = _latest_sale(db)
     line = db.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     yield {"sale": sale, "line": line, "inv_id": sellable["inv_id"]}
@@ -711,7 +721,7 @@ def test_service_refund_requires_a_payout_method(client, db, visit):
 # ---------------------------------------------------------------------------
 
 def _pay_visit(client, visit_id, **data):
-    return client.post(f"/visits/{visit_id}/payment", data=data, follow_redirects=False)
+    return client.post(f"/visits/{visit_id}/payment", data=_form(data), follow_redirects=False)
 
 
 def _payments_for(db, visit_id):
@@ -833,9 +843,9 @@ def priced_service(db):
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-               (pl_id, f"Inpatient Service {pl_id}", "Service", D("4.000"), D("12.000"), True, True))
+               (pl_id, f"Inpatient Service {pl_id}", "Service", amount("4.000"), amount("12.000"), True, True))
     db.commit()
-    yield {"id": pl_id, "price": D("12.000")}
+    yield {"id": pl_id, "price": amount("12.000")}
     # pytest tears fixtures down in reverse setup order, so this runs BEFORE
     # the inpatient case that billed against it — the price row is still
     # referenced by inpatient_billing at this point. Clear the lines that
@@ -854,7 +864,7 @@ def blocked_service(db):
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-               (pl_id, f"No-Discount Service {pl_id}", "Service", D("1.000"), D("5.000"), True, False))
+               (pl_id, f"No-Discount Service {pl_id}", "Service", amount("1.000"), amount("5.000"), True, False))
     db.commit()
     yield {"id": pl_id}
     db.execute("DELETE FROM inpatient_billing WHERE price_id=%s", (pl_id,))
@@ -1223,7 +1233,7 @@ def distributor_bill(db):
     db.execute("INSERT INTO distributors (id, name) VALUES (%s,%s)", (did, f"Precision Dist {did}"))
     db.execute("INSERT INTO distributor_bills (id, distributor_id, bill_date, total_amount, created_at) "
                "VALUES (%s,%s,%s,%s,%s)",
-               (bid, did, clock.today().isoformat(), D("10.000"), clock.now().isoformat(timespec="seconds")))
+               (bid, did, clock.today().isoformat(), amount("10.000"), clock.now().isoformat(timespec="seconds")))
     db.commit()
     yield {"dist_id": did, "bill_id": bid}
     db.execute("DELETE FROM distributor_bill_payments WHERE bill_id IN "

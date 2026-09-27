@@ -6,6 +6,7 @@ than sold owes nothing, and nobody accounts for it unless it is logged as
 shrinkage — so a count below what the records expect is worth a nudge.
 Informational: the count is confirmed either way.
 """
+import re
 from datetime import date
 
 import pytest
@@ -38,6 +39,9 @@ def test_a_consignment_item_counted_short_is_flagged_at_confirm(client, db, cons
     page = _confirm(client, draft, consignment_item["id"], "45")
     assert "came in under the expected count" in page
     assert f"Consign {consignment_item['id']}" in page and "short 5" in page
+    # A notice beside a confirm that went through, not an error: the audit is
+    # confirmed, and staff decide whether to log the difference as shrinkage.
+    assert re.search(r'<div class="flash warning">Consignment item\(s\) came in under', page)
     assert db.execute("SELECT status FROM audit_sessions WHERE id=%s", (draft,)).fetchone()["status"] == "Confirmed"
 
 

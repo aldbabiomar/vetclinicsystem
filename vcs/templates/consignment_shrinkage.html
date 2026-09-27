@@ -61,7 +61,7 @@
       <td>{{ l.item_name }}</td>
       <td>{{ l.distributor_name }}</td>
       <td class="num-col">{{ l.quantity|qty }}</td>
-      <td>{{ l.reason }}</td>
+      <td>{{ l.reason|tr }}</td>
       <td>{{ l.liable_party|tr }}{% if l.liability_overridden %} <span class="small muted">{{ _('(overridden)') }}</span>{% endif %}</td>
       <td class="num-col">{{ l.unit_cost|money }}</td>
       <td>{{ l.notes or '—' }}</td>

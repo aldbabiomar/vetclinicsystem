@@ -4,7 +4,7 @@
 <div class="flash warning notice-warn edit-conflict" role="alert">
   <p><strong>{{ _('Saved by someone else since you opened this form:') }}</strong></p>
   {% if edit_conflict.changes %}
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th scope="col">{{ _('Time') }}</th><th scope="col">{{ _('Who') }}</th><th scope="col">{{ _('Field') }}</th><th scope="col">{{ _('Old → New') }}</th></tr></thead>
     <tbody>
     {% for c in edit_conflict.changes %}
@@ -12,7 +12,7 @@
           <td>{{ c.old_value if c.old_value not in (none, '') else '—' }} → {{ c.new_value if c.new_value not in (none, '') else '—' }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% endif %}
   <p>{{ _('Your version is still in the form. Reload the page to start again from theirs, or save yours over it:') }}</p>
   <input type="hidden" name="overwrite_updated_at" value="{{ edit_conflict.token }}">

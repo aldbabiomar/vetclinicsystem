@@ -20,7 +20,7 @@
       <td style="display:flex; gap:6px;">
         <a class="btn small secondary" href="{{ url_for('inventory.audit_session_view', session_id=s.id) }}">{{ _('View') }}</a>
         {% if s.status != 'Confirmed' %}
-        <form method="post" action="{{ url_for('inventory.audit_session_delete', session_id=s.id) }}" style="display:inline;" data-confirm="Discard this draft audit? This can't be undone.">
+        <form method="post" action="{{ url_for('inventory.audit_session_delete', session_id=s.id) }}" style="display:inline;" data-confirm="{{ _('Discard this draft audit? This cannot be undone.') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn small danger" type="submit">{{ _('Discard') }}</button>
         </form>

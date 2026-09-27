@@ -8,7 +8,7 @@ complains, because the person out of pocket is the clinic.
 
 Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
-from vcs import clock
+from vcs import clock, money
 import uuid
 from datetime import date, datetime
 
@@ -17,7 +17,7 @@ import pytest
 from decimal import Decimal as D
 
 from vcs.domain import consignment
-from conftest import new_id, ADMIN_ID, needs_db
+from conftest import new_id, ADMIN_ID, amount, needs_db
 
 
 pytestmark = needs_db
@@ -439,12 +439,13 @@ def _settled_amounts(db, dist):
 
 def test_a_settlement_cannot_pay_more_than_is_owed(client, db, sell_consigned, consignment_item):
     """GUARD. Settling above the outstanding balance pays a distributor twice
-    for the same stock, and there is no delete route for a settlement. One
-    fils over is enough to be refused — and refused for THAT reason."""
-    owed = sell_consigned(5, "2.000", "3.500")
-    assert owed == D("10.000")
+    for the same stock, and there is no delete route for a settlement. The
+    smallest amount over (a fils, a dinar) is enough to be refused — and
+    refused for THAT reason."""
+    owed = sell_consigned(5, amount("2.000"), amount("3.500"))
+    assert owed == amount("10.000")
     dist = consignment_item["distributor_id"]
-    resp = _settle(client, dist, "10.001")
+    resp = _settle(client, dist, str(owed + D(1).scaleb(-money.current().minor_units)))
     assert resp.status_code == 200
     assert "owed this period" in resp.data.decode(), "refused, but not for being more than is owed"
     assert _settled_amounts(db, dist) == []

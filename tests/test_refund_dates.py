@@ -14,7 +14,7 @@ from decimal import Decimal as D
 import pytest
 
 from vcs import clock
-from conftest import ADMIN_ID, needs_db
+from conftest import ADMIN_ID, amount, needs_db
 from test_money_routes import (_bill, _checkout, _latest_sale, _pay_visit, _refund_retail,  # noqa: F401
                                completed_sale, sellable, visit)
 
@@ -48,9 +48,9 @@ def test_control_a_retail_refund_dated_today(client, db, completed_sale):
 def paid_visit_five_days_ago(client, db, visit):
     db.execute("UPDATE visits SET date=%s WHERE id=%s", (_day(-5), visit["visit_id"]))
     db.commit()
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount=amount("100.000"))
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
-               (visit["visit_id"], D("50.000"), "Cash", _day(-5), ADMIN_ID))
+               (visit["visit_id"], amount("50.000"), "Cash", _day(-5), ADMIN_ID))
     db.commit()
     yield visit
     db.execute("DELETE FROM refunds WHERE visit_id=%s", (visit["visit_id"],))
@@ -58,7 +58,7 @@ def paid_visit_five_days_ago(client, db, visit):
 
 
 def _service_refund(client, visit_id, refund_date):
-    return client.post("/refunds/service", data={"visit_id": visit_id, "amount": "10.000", "refund_method": "Cash",
+    return client.post("/refunds/service", data={"visit_id": visit_id, "amount": str(amount("10.000")), "refund_method": "Cash",
                                                   "reason": "dated refund", "refund_date": refund_date})
 
 
@@ -78,7 +78,7 @@ def test_control_a_service_refund_dated_on_the_visit_or_since(client, db, paid_v
 
 def test_a_visit_payment_is_recorded_today_whatever_date_is_posted(client, db, visit):
     """GUARD. No form sends `date`; a crafted one no longer back-dates it."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000")
-    assert _pay_visit(client, visit["visit_id"], amount="10.000", method="Cash", date="2001-01-01").status_code == 302
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount=amount("100.000"))
+    assert _pay_visit(client, visit["visit_id"], amount=amount("10.000"), method="Cash", date="2001-01-01").status_code == 302
     row = db.execute("SELECT date FROM payments WHERE visit_id=%s", (visit["visit_id"],)).fetchone()
     assert row["date"] == clock.today()

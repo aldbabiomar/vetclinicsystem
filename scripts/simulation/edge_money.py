@@ -3,7 +3,7 @@ import sys, random, json, datetime
 import os
 SIM = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SIM)
-from vzsim import Client, q, flashes
+from vzsim import Client, q, flashes, seeded_item, seeded_price
 from vzform import pick, inputs
 
 D = datetime.date.today().isoformat()
@@ -28,7 +28,7 @@ def setup(app):
     return c
 
 def price(app, p):
-    q(app, "UPDATE price_list SET sale_price=%s WHERE id='PL301'", (p,))
+    q(app, "UPDATE price_list SET sale_price=%s WHERE id=%s", (p, seeded_price(app)))
 
 def last_sale(app):
     r = q(app, "select id,subtotal,total,cash_received,change_given from sales order by id desc limit 1")
@@ -43,7 +43,7 @@ def run(app):
     # --- E1: POS anti-"looks free" floor (IQ) -------------------------
     price(app, unit)
     before = last_sale(app)
-    r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+    r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                  "discount_percent": "0", "cash_received": "50000" if app=="iq" else "50.000",
                                  "idempotency_key": K("floor")}, note="tiny-value POS sale")
     s = last_sale(app)
@@ -56,7 +56,7 @@ def run(app):
 
     # --- E2: retail refund rounding to zero ---------------------------
     price(app, 400 if app == "iq" else "0.400")
-    r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+    r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                  "discount_percent": "0", "cash_received": "50000" if app=="iq" else "50.000",
                                  "idempotency_key": K("refund-src")}, note="sale to refund")
     s = last_sale(app)
@@ -79,7 +79,7 @@ def run(app):
 
     # --- E3: cash received less than total is refused -----------------
     price(app, 1000 if app == "iq" else "10.000")
-    r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+    r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                  "discount_percent": "0", "cash_received": "1" if app=="iq" else "0.001",
                                  "idempotency_key": K("short")}, note="underpayment")
     c.expect_refusal(r, "POS: cash received below total")
@@ -87,7 +87,7 @@ def run(app):
     # --- E4: negative / zero / absurd quantities ----------------------
     for qty, label in [("0", "zero"), ("-3", "negative"), ("999999999", "absurd"),
                        ("2.5", "fractional"), ("1e3", "exponent"), ("abc", "text")]:
-        r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": qty, "payment_method": "Cash",
+        r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": qty, "payment_method": "Cash",
                                      "discount_percent": "0", "idempotency_key": K(f"qty{qty}")},
                    note=f"POS qty {label}")
         if r.status_code >= 500:
@@ -100,7 +100,7 @@ def run(app):
     # --- E5: discount above 100 / negative ----------------------------
     for dp, label in [("-10", "negative"), ("150", "over 100"), ("100", "full waiver"),
                       ("abc", "text"), ("NaN", "NaN"), ("Infinity", "infinity")]:
-        r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+        r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                      "discount_percent": dp, "cash_received": "50000" if app=="iq" else "50.000",
                                      "idempotency_key": K(f"disc{label}")}, note=f"POS discount {label}")
         if r.status_code >= 500:
@@ -114,10 +114,10 @@ def run(app):
     price(app, 1000 if app == "iq" else "10.000")
     key = K("dbl")
     n0 = q(app, "select count(*) from sales")[0][0]
-    r1 = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+    r1 = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                   "discount_percent": "0", "cash_received": "50000" if app=="iq" else "50.000",
                                   "idempotency_key": key}, note="checkout")
-    r2 = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+    r2 = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                   "discount_percent": "0", "cash_received": "50000" if app=="iq" else "50.000",
                                   "idempotency_key": key}, note="same submit again (double-click)")
     n1 = q(app, "select count(*) from sales")[0][0]
@@ -126,7 +126,7 @@ def run(app):
 
     # --- E7: overselling stock ----------------------------------------
     q(app, "UPDATE audit_session_lines SET stock_counted=3")
-    r = c.post("/pos/checkout", {"item_id": "INV301", "quantity": "10", "payment_method": "Cash",
+    r = c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "10", "payment_method": "Cash",
                                  "discount_percent": "0", "cash_received": "50000" if app=="iq" else "50.000",
                                  "idempotency_key": K("oversell")}, note="sell more than in stock")
     c.expect_refusal(r, "POS: oversell blocked")

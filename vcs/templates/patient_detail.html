@@ -71,7 +71,7 @@
     {% for g in grooming_sessions %}
     <tr data-vz-href="{{ url_for('clinical.visit_detail', visit_id=g.id) }}" tabindex="0" role="link">
       <td>{{ g.date|localdate or "—" }}</td><td>{{ g.grooming_services or "—" }}</td>
-      <td><span class="badge {{ 'ok' if g.grooming_status=='Finished' else 'warn' }}">{{ g.grooming_status or "—" }}</span></td>
+      <td><span class="badge {{ 'ok' if g.grooming_status=='Finished' else 'warn' }}">{{ g.grooming_status|tr or "—" }}</span></td>
       <td>{{ g.grooming_notes or "—" }}</td>
     </tr>
     {% endfor %}

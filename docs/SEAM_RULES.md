@@ -88,7 +88,7 @@ values where JO did not on three forms, and JO had them where IQ did not on
 others — which is the signature of a rule applied by hand each time rather
 than once. `tests/test_enum_labels.py` now refuses any `<option>` whose
 translated text is its submitted value, and
-`scripts/simulation/repro_option_value.py` walks it from the rendered page to
+`scripts/archive/predecessor-simulation/repro_option_value.py` walked it from the rendered page to
 the wrong total.
 
 **S1 is the one to study.** `visit_billing_save` took the visit row
@@ -126,7 +126,7 @@ above or in `CODE_AUDIT_2026-09-25.md` rather than invented:
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already
 shaped differently from each other.** All four were verified by reintroducing
-their bug — `scripts/simulation/prove_rewards_guards.py {iq|jo}` does this on
+their bug — `scripts/archive/predecessor-simulation/prove_rewards_guards.py {iq|jo}` did this on
 demand, and reported 9/9 in both apps.
 
 **Rule 2 counted the wrong parser.** It accepted `parse_date(` as

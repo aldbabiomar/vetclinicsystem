@@ -22,7 +22,7 @@
       <td>{{ c.table_name }}</td>
       <td class="muted">{{ c.record_id }}</td>
       <td>{{ c.field or "—" }}</td>
-      <td class="small">{% if c.field %}{{ c.old_value or "—" }} → {{ c.new_value or "—" }}{% else %}{{ _('whole record') }}{% endif %}</td>
+      <td class="small">{% if c.field %}{{ (c.old_value|logvalue) or "—" }} → {{ (c.new_value|logvalue) or "—" }}{% else %}{{ _('whole record') }}{% endif %}</td>
     </tr>
     {% else %}
     <tr><td colspan="7" class="empty-note">{{ _('No changes logged on this date.') }}</td></tr>

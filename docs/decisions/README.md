@@ -24,7 +24,7 @@ it** — a decision nothing checks is a decision the next change undoes.
 | [0006](0006-package-layout.md) | The `vcs/` package: a factory, blueprints, domain modules | `test_domain_imports.py`, `tests/source_files.py` |
 | [0007](0007-read-only-what-you-show.md) | What runs on every page reads only what it shows | `test_dashboard_snapshot_bounds.py`, `test_inventory_latest_state.py` |
 | [0008](0008-scripts-under-a-nonce.md) | Scripts run under a CSP nonce: no inline handlers | `test_no_inline_handlers.py`, `test_inline_styles.py` |
-| [0009](0009-a-guard-is-proven.md) | A guard test is proven by reintroducing its bug | `CLAUDE.md` §5.2, `scripts/simulation/prove_*.py` |
+| [0009](0009-a-guard-is-proven.md) | A guard test is proven by reintroducing its bug | `scripts/prove_guards.py --all` |
 | [0010](0010-palettes-are-data.md) | Palettes are data, generated to CSS, and held to AA by a test | `test_palettes.py`, the browser tier |
 
 New record: the next number, a short imperative title, and the four

@@ -23,7 +23,8 @@ What JO shares with IQ, and why each still needed its own fix:
 
 Every guard is paired with a control asserting the valid case still works
 (CLAUDE.md §7.3); each was also verified by reverting the fix and watching
-the test fail — see scripts/simulation/prove_guards.py.
+the test fail — see scripts/archive/predecessor-simulation/prove_guards.py
+(and scripts/prove_guards.py for the guards of this codebase).
 """
 from vcs import clock
 import uuid
@@ -94,6 +95,7 @@ def sellable(db):
 # ===========================================================================
 
 @needs_db
+@pytest.mark.money("JO")   # JO's half: sub-note amounts are real in JOD
 def test_a_small_pos_sale_stays_exact_and_is_never_floored(client, db, sellable):
     """IQ lifts a sub-note cart to 250 IQD because a 100 IQD charge cannot be
     paid with real notes. The JOD has a fils subunit in everyday use, so
@@ -115,6 +117,7 @@ def test_a_small_pos_sale_stays_exact_and_is_never_floored(client, db, sellable)
 
 
 @needs_db
+@pytest.mark.money("JO")   # JO's half: sub-note amounts are real in JOD
 def test_a_small_refund_stays_exact(client, db, sellable):
     """IQ rounds refunds down to a note and needed a guard against reaching
     zero. Here the refund is simply exact, and a sub-note value is normal."""

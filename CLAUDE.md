@@ -69,9 +69,14 @@ VetClinicSystem/                  ← repo root = this folder
 ├── tests/                        ← one suite; run it under BOTH money settings (§5)
 ├── scripts/
 │   ├── isolated_test_env.sh      ← throwaway Postgres + venv + app, per money setting (§4)
-│   ├── restore_drill.sh          ← proves a real backup restores
-│   └── simulation/               ← drives the app as a real user: repro_*.py per finding,
-│                                   hostile sweeps, the localization checkers
+│   ├── restore_drill.sh          ← proves a real backup restores (a .dump or a backup folder)
+│   ├── prove_guards.py           ← re-proves every guard by putting its bug back (§5.2)
+│   ├── build_palettes.py         ← writes vcs/static/palettes.css from vcs/web/palettes.py
+│   ├── schema_snapshot.py, palette_design.py, make_app_icons.py
+│   ├── simulation/               ← drives the running app as staff would: a day in the clinic
+│   │                               (day.py), hostile sweeps (edge_*.py), browser walks, the
+│   │                               localisation checkers, the seam audit
+│   └── archive/                  ← the predecessor apps' one-off scripts, kept for the record
 ├── docs/                         ← see docs/README.md for the index
 │   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log
 │   ├── CODE_AUDIT_2026-09-25.md          ← findings, tracked to their fixes
@@ -172,8 +177,9 @@ down to free, giving change and refunds down to the cash unit, and warning
 about an amount that cannot be paid in cash are **one** set of functions
 parameterised by the cash unit. With JO's unit of 0.001 they change nothing,
 which is JO's behaviour. All of it lives in `vcs/money.py` (phase 1, done); the
-browser previews mirror it in `vcs/static/money.js`. Tests default to JO; mark a
-test `@pytest.mark.money("IQ")` to run it under IQ.
+browser previews mirror it in `vcs/static/money.js`. An unmarked test runs under
+the run's money setting (§5); mark a test `@pytest.mark.money("IQ")` or
+`("JO")` only when it asserts that setting's values.
 
 Threshold constants are where money bugs hide: `balance <= 0.5` or
 `abs(diff) < 1` mean "noise" in one currency and "real money" in the other.
@@ -228,10 +234,16 @@ TEST_DATABASE_URL=postgresql://postgres:test@localhost:55491/vetclinicsystem \
 when the suite is green under **both**. `TEST_DATABASE_URL` is deliberately not
 `DATABASE_URL`: the tests write and delete rows.
 
+Every unmarked test runs under the **run's** money setting: the environment's
+(55491 is IQ, 55492 is JO), or `VCS_TEST_MONEY=IQ|JO`, or JO when neither says
+(`pytest -v` prints it in the header). That is what makes the two runs two
+different runs; until 2026-09-27 every unmarked test ran under JO in both.
+
 Baseline at the start of the merge (JO tree, renamed, jo setting):
-**844 passed, 4 skipped**; the plan's progress log records each phase's run. The 4 skips are data- or feature-dependent (no
-barcode seeded, no visit to export, no dated row, JO CSS not driving modal
-opacity) and are tracked for removal in the plan. Re-measure; do not quote.
+**844 passed, 4 skipped**; the plan's progress log records each phase's run. Those
+four skips were removed on 2026-09-27 (each test now seeds its own row, or always
+runs), so with `APP_URL` set a skip in a full run is a finding — except the
+scheduler's, in §5.1. Re-measure; do not quote.
 
 ### 5.1 What gates "zero skips"
 
@@ -250,8 +262,12 @@ reason" and "refused for any reason" look identical. Tests in this codebase
 have repeatedly passed while checking nothing: refused for an unrelated
 reason before reaching the guard, a payload rejected for a missing field
 before the value under test was read, a "mutation" edited into a comment, a
-check silently skipping on a wrong column name. `scripts/simulation/prove_*.py`
-do this systematically.
+check silently skipping on a wrong column name. **`scripts/prove_guards.py`**
+does this systematically: a registry of mutations, each put in, its tests
+required to fail, the file restored and the tests required to pass again —
+add your guard's mutation to it (`--all` re-proves every one). It restores the
+source but not the test database, which keeps rows written while the bugs were
+in: reset the environment before the next suite run.
 
 And a green suite is evidence about the paths it covers, not about rules that
 are supposed to hold across sibling paths: the suites of both predecessor apps

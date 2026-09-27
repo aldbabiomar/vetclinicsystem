@@ -951,7 +951,9 @@ def visit_edit(visit_id):
             return redisplay()
         status_changed_at = visit["case_status_changed_at"]
         if new_case_status != visit["case_status"]:
-            status_changed_at = clock.today().isoformat()
+            # A moment, like the column: today's date string was stored as
+            # the clinic's midnight, hours before the change was made.
+            status_changed_at = clock.now()
 
         try:
             edited_date = clean_date(f.get("date"), field="date")

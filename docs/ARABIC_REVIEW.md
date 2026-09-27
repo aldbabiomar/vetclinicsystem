@@ -439,3 +439,34 @@ Please check the colour words read naturally as the names of colour schemes.
 | 16 | Sand | رملي |
 | 17 | Olive | زيتوني |
 | 18 | Graphite | غرافيت |
+
+## 21. Consignment overview (1)
+
+The overview printed "Never settled" untranslated beside a distributor with no
+settlement yet (found by scripts/simulation/ar_coverage.py). Built from
+"التسوية", the word the settlement screens already use.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Never settled | لم تتم أي تسوية بعد |
+
+## 22. Confirm dialogs and field hints written straight into templates (9)
+
+Eight "are you sure" dialogs and six field hints were English in the template
+itself. They never passed through `_()`, so they showed English under the
+Arabic setting (`tests/test_catalogue.py::test_no_template_writes_english_into_an_attribute`
+now refuses that). The six hints share one string, "e.g. %(example)s". The
+wording follows the dialogs already in the catalogue: حذف … ؟, and تحديد
+كمُستلَم and تجاهل الجرد المسودة, as on the boarding and audit screens.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Discard this draft audit? This cannot be undone. | تجاهل هذا الجرد المسودة؟ لا يمكن التراجع عن ذلك. |
+| 2 | Mark %(name)s as picked up? | تحديد %(name)s كمُستلَم؟ |
+| 3 | Record this settlement? The amount owed will be recalculated at the moment you submit. | تسجيل هذه التسوية؟ سيُعاد حساب المبلغ المستحق لحظة الإرسال. |
+| 4 | Delete this payment? | حذف هذه الدفعة؟ |
+| 5 | Delete bill %(code)s? | حذف الفاتورة %(code)s؟ |
+| 6 | Delete %(name)s? | حذف %(name)s؟ |
+| 7 | Remove %(name)s? | إزالة %(name)s؟ |
+| 8 | This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue? | سيستبدل هذا كل البيانات الحالية في VetClinicSystem بمحتويات ملف النسخة الاحتياطية هذا، ولا يمكن التراجع عن ذلك. سيُفقد كل ما أُضيف أو تغيّر منذ أخذ تلك النسخة. هل تريد المتابعة؟ |
+| 9 | e.g. %(example)s | مثال: %(example)s |

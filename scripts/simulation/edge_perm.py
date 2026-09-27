@@ -7,24 +7,25 @@ sys.path.insert(0, SIM)
 from vzsim import Client, q, flashes
 from vzform import selects
 
-SAFE_GET_FOR_ALL = {"/", "/health", "/logout", "/change-password", "/favicon.ico",
+SAFE_GET_FOR_ALL = {"/", "/health", "/logout", "/change-password", "/favicon.ico", "/favicon.svg",
                     "/login", "/jobs/status"}
 
 
 def routes_of(app):
-    """Every GET rule with no path parameters, from the live url_map."""
-    path = f"{SIM}/../routes_{app}.txt"
+    """Every GET rule with no path parameters, from the app's own url_map (the
+    same code the environment runs; building the app reads no database)."""
+    repo = os.path.dirname(os.path.dirname(SIM))
+    if repo not in sys.path:
+        sys.path.insert(0, repo)
+    os.environ.setdefault("SECRET_KEY", "edge-perm-route-listing")
+    from vcs import create_app
     out = []
-    for line in open(path).read().splitlines()[1:]:
-        parts = line.split()
-        if len(parts) < 3:
+    for r in create_app().url_map.iter_rules():
+        rule = str(r)
+        if "<" in rule or not rule.startswith("/") or "GET" not in r.methods:
             continue
-        rule, methods, endpoint = parts[0], parts[1], parts[2]
-        if "<" in rule or not rule.startswith("/"):
-            continue
-        if "GET" in methods:
-            out.append((rule, endpoint))
-    return out
+        out.append((rule, r.endpoint))
+    return sorted(out)
 
 
 def run(app):

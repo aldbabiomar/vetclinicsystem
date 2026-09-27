@@ -93,6 +93,9 @@ def test_parse_money_rejects_absurd_values():
         core.parse_money(str(cap + 1))
     with pytest.raises(core.BadNumber):
         core.parse_money("1000000000000000000")
+    with pytest.raises(core.BadNumber):
+        core.parse_money("9" * 40)            # too long to round: refused, not InvalidOperation
+    assert core.parse_money(str(cap) + ".4") == cap
 
 
 def test_the_iq_bound_fits_the_money_column():

@@ -298,6 +298,12 @@ def parse(raw, m=None):
         raise BadAmount(raw)
     if not val.is_finite():
         raise BadAmount(raw)
+    # Refused before rounding as well as after: rounding a 40-digit figure to
+    # the setting's precision overflows Decimal's context (InvalidOperation,
+    # a 500 on the Price List form). One cash unit of headroom, so an amount
+    # that rounds down onto the limit is still accepted.
+    if abs(val) > m.max_amount + m.quantum:
+        raise BadAmount(f"{raw} is too large — check for a typo.")
     val = to_entry(val, m)
     if abs(val) > m.max_amount:
         raise BadAmount(f"{raw} is too large — check for a typo.")

@@ -207,7 +207,7 @@
     </div>
   </div>
 </div>
-<form class="u-mt-4" method="post" action="{{ url_for('settings.settings_restore_now') }}" id="restoreForm" data-confirm="This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue?">
+<form class="u-mt-4" method="post" action="{{ url_for('settings.settings_restore_now') }}" id="restoreForm" data-confirm="{{ _('This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue?') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="source_file" id="restoreSourceFile">
   <button class="btn danger" type="submit" id="restoreSubmitBtn" data-saving-label="Restoring…" disabled>{{ _('Restore Now') }}</button>

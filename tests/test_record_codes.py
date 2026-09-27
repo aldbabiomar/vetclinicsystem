@@ -13,7 +13,7 @@ import pytest
 
 from vcs import clock
 from vcs.domain import codes
-from conftest import ADMIN_ID, needs_db, new_id
+from conftest import ADMIN_ID, amount, needs_db, new_id
 
 
 # ---------------------------------------------------------------------------
@@ -60,9 +60,9 @@ def chain(db):
     db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
                (v, p, clock.today(), "Ongoing"))
     db.execute("INSERT INTO billing (visit_id, billing_type, manual_amount, total, discount_percent, cleanup_amount) "
-               "VALUES (%s,%s,%s,%s,%s,%s)", (v, "Manual", D(10), D(10), D(0), D(0)))
+               "VALUES (%s,%s,%s,%s,%s,%s)", (v, "Manual", amount(10), amount(10), D(0), D(0)))
     db.execute("INSERT INTO payments (visit_id, amount, method, date, user_id) VALUES (%s,%s,%s,%s,%s)",
-               (v, D(10), "Cash", clock.today(), ADMIN_ID))
+               (v, amount(10), "Cash", clock.today(), ADMIN_ID))
     db.commit()
     yield {"owner": o, "patient": p, "visit": v}
     for sql, arg in (("DELETE FROM refunds WHERE visit_id=%s", v), ("DELETE FROM payments WHERE visit_id=%s", v),
@@ -97,7 +97,7 @@ def test_a_patient_is_found_by_its_code(client, chain):
 def test_a_service_refund_accepts_the_visit_code_staff_read(client, db, chain):
     """GUARD. The refunds form asks for the visit; staff type the code."""
     resp = client.post("/refunds/service", data={
-        "visit_id": codes.code("V", chain["visit"]), "amount": "1", "refund_method": "Cash",
+        "visit_id": codes.code("V", chain["visit"]), "amount": str(amount(1)), "refund_method": "Cash",
         "reason": "code typed"}, follow_redirects=False)
     assert resp.status_code == 302
     assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=%s", (chain["visit"],)).fetchone()["n"] == 1
@@ -106,7 +106,7 @@ def test_a_service_refund_accepts_the_visit_code_staff_read(client, db, chain):
 @needs_db
 def test_control_a_code_for_another_kind_of_record_is_not_found(client, db, chain):
     resp = client.post("/refunds/service", data={
-        "visit_id": codes.code("PT", chain["visit"]), "amount": "1", "refund_method": "Cash",
+        "visit_id": codes.code("PT", chain["visit"]), "amount": str(amount(1)), "refund_method": "Cash",
         "reason": "wrong kind"}, follow_redirects=True)
     assert "not found" in resp.get_data(as_text=True)
     assert db.execute("SELECT count(*) AS n FROM refunds WHERE visit_id=%s", (chain["visit"],)).fetchone()["n"] == 0

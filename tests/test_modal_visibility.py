@@ -10,10 +10,11 @@ that dismisses itself before anyone can finish reading it. It took a
 frame-by-frame screen recording to find out what it said.
 
 **This guard is conditional on the stylesheet**, deliberately. The hazard only
-exists where CSS drives the opacity — IQ has that rule, JO does not, and JO's
-modals open with a raw display assignment perfectly correctly. Pinning the
-rule to the stylesheet means neither app carries a check that is wrong for it,
-and JO starts enforcing it automatically if it ever adopts the same CSS.
+exists where CSS drives the opacity. IQ's stylesheet did; this system's (JO's)
+does not, and its modals open with a raw display assignment perfectly
+correctly. The scan runs either way — it used to skip, which read as a check
+that was not there — and the rule starts biting the moment the stylesheet
+hands the overlay's opacity to motion.js.
 """
 import source_files
 import re
@@ -30,8 +31,9 @@ RAW_SHOW = re.compile(r"""(\w[\w.()'"\[\]#-]*)\s*\.style\.display\s*=\s*['"]flex
 VAR_BINDING = re.compile(r"""(?:var|let|const)\s+(\w+)\s*=\s*document\.getElementById\(\s*['"]([^'"]+)['"]""")
 
 
-def _css_drives_overlay_opacity():
-    src = re.sub(r"/\*.*?\*/", "", CSS.read_text(encoding="utf-8"), flags=re.S)
+def _css_drives_overlay_opacity(css=None):
+    css = CSS.read_text(encoding="utf-8") if css is None else css
+    src = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     for m in re.finditer(r"\.modal-overlay\s*\{([^}]*)\}", src):
         body = m.group(1)
         if re.search(r"opacity:\s*0\b", body):
@@ -44,31 +46,44 @@ def _modal_ids_in(template_src):
            set(re.findall(r'class="[^"]*modal-overlay[^"]*"[^>]*id="([^"]+)"', template_src))
 
 
+def _raw_shows(name, src):
+    """Each place `src` shows one of its modal overlays by setting display alone."""
+    modal_ids = _modal_ids_in(src)
+    bindings = {v: eid for v, eid in VAR_BINDING.findall(src)}
+    out = []
+    for m in RAW_SHOW.finditer(src):
+        target = m.group(1)
+        resolved = bindings.get(target, target)
+        if (any(mid in resolved for mid in modal_ids)
+                or any(mid in target for mid in modal_ids)
+                or "modal" in resolved.lower()):
+            out.append(f"{name}:{src[:m.start()].count(chr(10)) + 1}: {m.group(0)}")
+    return out
+
+
 def test_no_modal_is_shown_by_a_bare_display_assignment():
-    if not _css_drives_overlay_opacity():
-        import pytest
-        pytest.skip("this app's CSS does not drive overlay opacity, so a raw "
-                    "display assignment paints correctly")
-    offenders = []
+    modals, offenders = 0, []
     for f in sorted(TEMPLATES.rglob("*.html")):
         src = f.read_text(encoding="utf-8")
-        modal_ids = _modal_ids_in(src)
-        if not modal_ids:
-            continue
-        bindings = {v: eid for v, eid in VAR_BINDING.findall(src)}
-        for m in RAW_SHOW.finditer(src):
-            target = m.group(1)
-            resolved = bindings.get(target, target)
-            if (any(mid in resolved for mid in modal_ids)
-                    or any(mid in target for mid in modal_ids)
-                    or "modal" in resolved.lower()):
-                line = src[:m.start()].count("\n") + 1
-                offenders.append(f"{f.name}:{line}: {m.group(0)}")
-    assert not offenders, (
-        "These show a modal overlay by setting display alone. The stylesheet "
-        "keeps .modal-overlay at opacity 0 and motion.js animates it, so the "
-        "modal lays out invisible:\n  " + "\n  ".join(offenders)
-        + "\nUse window.VZSpring.present(el, true, {}).")
+        if _modal_ids_in(src):
+            modals += len(_modal_ids_in(src))
+            offenders += _raw_shows(f.name, src)
+    assert modals >= 5, f"only {modals} modal overlays found — did the templates move?"
+    if _css_drives_overlay_opacity():
+        assert not offenders, (
+            "These show a modal overlay by setting display alone. The stylesheet "
+            "keeps .modal-overlay at opacity 0 and motion.js animates it, so the "
+            "modal lays out invisible:\n  " + "\n  ".join(offenders)
+            + "\nUse window.VZSpring.present(el, true, {}).")
+
+
+def test_control_the_rule_bites_when_the_stylesheet_drives_opacity():
+    assert _css_drives_overlay_opacity(".modal-overlay { display: none; opacity: 0; }")
+    assert not _css_drives_overlay_opacity(".modal-overlay { display: none; }")
+    assert not _css_drives_overlay_opacity("/* .modal-overlay { opacity: 0 } */ .modal-overlay { }")
+    sample = ('<div id="warnModal" class="modal-overlay"></div><script>'
+              "var el = document.getElementById('warnModal'); el.style.display = 'flex';</script>")
+    assert _raw_shows("x.html", sample) == ["x.html:1: el.style.display = 'flex'"]
 
 
 def test_the_health_warning_modal_requires_a_button():

@@ -65,7 +65,7 @@ def run(app):
     inv = q(app, "select id from inventory_list where active=true order by id limit 1")
     if inv:
         iid = inv[0][0]
-        r = c.post(f"/inventory-catalog/{iid}/barcode/generate", {}, note="generate barcode")
+        r = c.post(f"/inventory-catalog/{iid}/create-barcode", {}, note="generate barcode")
         c.expect_success(r, "generate barcode")
         r = c.get(f"/inventory-catalog/{iid}/barcode/status", note="barcode status")
         r = c.get(f"/inventory-catalog/{iid}/barcode-label", note="barcode label")
@@ -97,18 +97,20 @@ def run(app):
             # discharge
             r = c.post(f"/inpatient/{cid}/edit", {
                 "admission_date": D, "attending_vet_id": vet or "", "complaint": "obs",
-                "dismissed": "Y", "dismissal_date": D, "expected_updated_at": stamp,
+                "dismissed": "on", "dismissal_date": D, "expected_updated_at": stamp,
                 "weight_kg": "10"}, note="discharge")
             c.expect_success(r, "discharge inpatient")
             # discharge dated before admission
             r = c.post(f"/inpatient/{cid}/edit", {
                 "admission_date": D, "attending_vet_id": vet or "", "complaint": "obs",
-                "dismissed": "Y", "dismissal_date": "2020-01-01",
+                "dismissed": "on", "dismissal_date": "2020-01-01",
                 "expected_updated_at": inputs(c.get(f"/inpatient/{cid}").text).get("expected_updated_at", ""),
                 "weight_kg": "10"}, note="discharge before admission")
             c.expect_refusal(r, "discharge dated before admission")
             # billing a discharged case
-            r = c.post(f"/inpatient/{cid}/billing", {"price_id": "PL301", "qty_PL301": "1"},
+            pl0 = q(app, "select id from price_list where active and sale_price is not null order by id limit 1")
+            pid0 = str(pl0[0][0]) if pl0 else ""
+            r = c.post(f"/inpatient/{cid}/billing", {"price_id": pid0, f"qty_{pid0}": "1"},
                        note="bill after discharge")
 
     # --- boarding lifecycle ---------------------------------------------
@@ -145,7 +147,7 @@ def run(app):
         if still == 0 and orph:
             F("ORPHANED_ROWS",
               f"distributor {did} was deleted leaving {orph} inventory row(s) pointing at it")
-    pl = q(app, "select id from price_list where id<>'PL301' order by id limit 1")
+    pl = q(app, "select id from price_list where name <> 'Test Retail Item' order by id desc limit 1")
     if pl:
         r = c.post(f"/price-list/{pl[0][0]}/delete", {}, note="delete price list item")
         if r.status_code >= 500:

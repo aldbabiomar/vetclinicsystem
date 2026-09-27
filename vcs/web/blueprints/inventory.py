@@ -963,7 +963,7 @@ def audit_session_confirm(session_id):
     if shortfalls:
         flash(_("Consignment item(s) came in under the expected count — %(items)s. If this wasn't just a "
                 "counting difference, log it as shrinkage from Consignment > Shrinkage so it's reflected in "
-                "what's owed.", items=list_join(shortfalls)), "error")
+                "what's owed.", items=list_join(shortfalls)), "warning")
     return redirect(url_for("inventory.audit_session_view", session_id=session_id))
 
 

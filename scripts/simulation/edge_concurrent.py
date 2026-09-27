@@ -3,7 +3,7 @@ import sys, re, json, random, datetime, threading
 import os
 SIM = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SIM)
-from vzsim import Client, q, flashes
+from vzsim import Client, q, flashes, seeded_item, seeded_price
 from vzform import inputs
 
 D = datetime.date.today().isoformat()
@@ -14,10 +14,10 @@ def confirmed_stock(c, app, n):
     r = c.post("/audit-history/start")
     sid = re.search(r"/session/(\d+)", r.url).group(1)
     pg = c.get(f"/audit-history/session/{sid}")
-    ids = sorted(set(re.findall(r'name="stock_(INV\d+)"', pg.text)))
+    ids = sorted(set(re.findall(r'name="stock_(\d+)"', pg.text)))
     data = {}
     for i in ids:
-        data[f"stock_{i}"] = str(n) if i == "INV301" else "0"
+        data[f"stock_{i}"] = str(n) if i == seeded_item(app) else "0"
         data[f"received_{i}"] = "0"
     c.post(f"/audit-history/session/{sid}/save", data)
     c.post(f"/audit-history/session/{sid}/confirm", data)
@@ -26,7 +26,7 @@ def confirmed_stock(c, app, n):
 def run(app):
     c = Client(app); c.login(); F = c.finding
     print(f"\n=== {app.upper()}: concurrency, auth, CSRF ===", flush=True)
-    q(app, "UPDATE price_list SET sale_price=%s WHERE id='PL301'", (1000 if app == "iq" else "10.000",))
+    q(app, "UPDATE price_list SET sale_price=%s WHERE id=%s", (1000 if app == "iq" else "10.000", seeded_price(app)))
 
     # --- C1: two tills selling the last unit at the same instant -------
     confirmed_stock(c, app, 1)
@@ -38,7 +38,7 @@ def run(app):
 
     def buy(i):
         t = tills[i]
-        r = t.post("/pos/checkout", {"item_id": "INV301", "quantity": "1",
+        r = t.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1",
                                      "payment_method": "Cash", "discount_percent": "0",
                                      "cash_received": "9999999" if app == "iq" else "99999.000",
                                      "idempotency_key": f"race-{i}-{random.randint(1,10**9)}"})
@@ -62,8 +62,8 @@ def run(app):
     m = re.search(r"/visits/(V\d+)", r.url)
     if m:
         vid = m.group(1)
-        c.post(f"/visits/{vid}/billing", {"billing_type": "Automatic", "price_id": "PL301",
-                                          "qty_PL301": "1", "date_billed": D})
+        c.post(f"/visits/{vid}/billing", {"billing_type": "Automatic", "price_id": seeded_price(app),
+                                          f"qty_{seeded_price(app)}": "1", "date_billed": D})
         total = q(app, "select total from billing where visit_id=%s", (vid,))[0][0]
         pay = {}
 
@@ -140,7 +140,7 @@ def run(app):
         r = anon.s.get(anon.base + p, allow_redirects=True)
         if "/login" not in r.url:
             F("UNAUTH_ACCESS", f"{p} served to a logged-out visitor (final url {r.url})")
-    r = anon.s.post(anon.base + "/pos/checkout", data={"item_id": "INV301", "quantity": "1"})
+    r = anon.s.post(anon.base + "/pos/checkout", data={"item_id": seeded_item(app), "quantity": "1"})
     if r.status_code < 400 and "/login" not in r.url:
         F("UNAUTH_WRITE", "POST /pos/checkout accepted from a logged-out visitor")
 
@@ -152,7 +152,7 @@ def run(app):
         r = bf.post("/login", {"username": "admin", "password": f"wrong{i}"}, note="bad login")
         outcomes.append([m for _, m in flashes(r.text)][:1])
     locked = any("lock" in str(o).lower() or "too many" in str(o).lower() for o in outcomes)
-    print(f"  12 bad logins -> locked out: {locked}")
+    print(f"  12 bad logins -> locked out: {locked}; last messages: {outcomes[-3:]}")
     if not locked:
         F("NO_LOGIN_LOCKOUT", "12 consecutive failed logins produced no lockout message",
           dict(last=outcomes[-3:]))

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Rewards card — the member discount across every payment surface (JO).
+Rewards card — the member discount across every payment surface (IQ).
 
-JO's half: the figures here are fractional JOD so they exercise exact
-3-decimal arithmetic. test_rewards_iq.py is IQ's half, with whole thousands
-that land on a 250-note boundary, because IQ rounds to the note and JO has
-nothing to round (COMPARISON.md §1.1). A test moved across unchanged would
-assert one setting's money model against the other's.
+IQ's half of test_rewards.py: the same tests, with the predecessor IQ app's
+figures, kept one for one — whole thousands of dinars that land on a 250-note
+boundary, because IQ rounds a payable total to the note. test_rewards.py
+holds JO's fractional figures, which exercise exact three-decimal arithmetic.
+A test moved across unchanged would assert one setting's money model against
+the other's; so the two files stay two, each pinned to its setting.
 
 The shape that matters here, and the reason this file is organised by
 BEHAVIOUR rather than by route: this feature puts one rule on four payment
@@ -29,12 +30,12 @@ import pytest
 from vcs.domain import analytics, billing, dates, members, refunds
 from conftest import new_id, ADMIN_ID, needs_db
 
-pytestmark = [needs_db, pytest.mark.money("JO")]
+pytestmark = [needs_db, pytest.mark.money("IQ")]
 
-TOLERANCE = Decimal("0.001")
+TOLERANCE = Decimal("0.01")
 HUNDRED = Decimal(100)
 
-RATE = Decimal("10")
+RATE = Decimal("10.0")
 
 
 def _uid(prefix):
@@ -61,11 +62,11 @@ def items(db):
     """Two priced services: A discountable, B deliberately not."""
     a, b = _uid("PLA"), _uid("PLB")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (a, f"Eligible {a}", "Service", Decimal("0.000"), Decimal("10.500"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (a, f"Eligible {a}", "Service", Decimal("0.0"), Decimal("10000.0"), True, True))
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (b, f"Full price {b}", "Medicine", Decimal("0.000"), Decimal("10.500"), True, False))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (b, f"Full price {b}", "Medicine", Decimal("0.0"), Decimal("10000.0"), True, False))
     db.commit()
-    yield {"a": a, "b": b, "price": Decimal("10.500")}
+    yield {"a": a, "b": b, "price": Decimal("10000.0")}
     for pid in (a, b):
         db.execute("DELETE FROM visit_billing_lines WHERE price_id=%s", (pid,))
         db.execute("DELETE FROM price_list WHERE id=%s", (pid,))
@@ -127,11 +128,10 @@ def test_a_member_bill_discounts_eligible_lines_only(client, db, rate_on, items,
     s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_source"] == "member"
     assert s["discount_percent"] == RATE
-    assert s["subtotal"] == Decimal("21.000")
-    assert s["discountable_subtotal"] == Decimal("10.500")
-    # 10.500 * 0.9 = 9.450, plus the full-price 10.500. Exact to the
-    # fils, with no denomination rounding anywhere — JO has none.
-    assert s["total"] == Decimal("19.950")
+    assert s["subtotal"] == Decimal("20000")
+    assert s["discountable_subtotal"] == Decimal("10000")
+    # 10000*0.9 + 10000 = 19000, already a multiple of the note.
+    assert s["total"] == Decimal("19000")
 
 
 def test_the_receipt_adds_up_on_a_mixed_member_bill(client, db, rate_on, items, member):
@@ -151,7 +151,7 @@ def test_a_non_member_bill_is_untouched(client, db, rate_on, items, non_member):
     s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
     assert s["discount_percent"] == 0
-    assert s["total"] == Decimal("21.000")
+    assert s["total"] == Decimal("20000")
 
 
 def test_a_staff_discount_on_an_all_eligible_bill_is_unchanged(client, db, items, non_member):
@@ -163,17 +163,17 @@ def test_a_staff_discount_on_an_all_eligible_bill_is_unchanged(client, db, items
                 data={"discount_percent": "10"}, follow_redirects=False)
     s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
-    assert s["total"] == Decimal("9.450")   # 10.500 - 10%, exactly as before the card
+    assert s["total"] == Decimal("9000")   # 10000 - 10%, exactly as before the card
 
 
 def test_a_manual_bill_is_discountable_in_full(client, db, rate_on, member):
     """A4 — no item lines to check, so the card applies to the whole figure."""
     client.post(f"/visits/{member['visit_id']}/billing",
-                data={"billing_type": "Manual", "manual_amount": "21.000",
+                data={"billing_type": "Manual", "manual_amount": "20000",
                       "date_billed": clock.today().isoformat()}, follow_redirects=False)
     s = billing.visit_billing_summary(db, member["visit_id"])
-    assert s["discountable_subtotal"] == Decimal("21.000")
-    assert s["total"] == Decimal("18.900")
+    assert s["discountable_subtotal"] == Decimal("20000")
+    assert s["total"] == Decimal("18000")
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ def test_the_admin_removal_action_clears_a_member_discount(client, db, rate_on, 
     s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_percent"] == 0
     assert s["discount_source"] == "staff"
-    assert s["total"] == Decimal("21.000")
+    assert s["total"] == Decimal("20000")
 
 
 def test_the_removal_action_reads_no_percentage_from_the_request(client, db, rate_on, items, member):
@@ -219,7 +219,7 @@ def test_the_removal_action_reads_no_percentage_from_the_request(client, db, rat
                 data={"discount_percent": "40"}, follow_redirects=False)
     s = billing.visit_billing_summary(db, member["visit_id"])
     assert s["discount_percent"] == 0
-    assert s["total"] == Decimal("21.000")
+    assert s["total"] == Decimal("20000")
 
 
 def test_the_removal_action_refuses_a_bill_with_no_card_discount(client, db, items, non_member):
@@ -236,7 +236,7 @@ def test_enrolling_after_a_bill_exists_does_not_discount_it(client, db, rate_on,
     _bill(client, non_member["visit_id"], items)
     db.execute("UPDATE owners SET is_member=true WHERE id=%s", (non_member["owner_id"],))
     db.commit()
-    assert billing.visit_billing_summary(db, non_member["visit_id"])["total"] == Decimal("21.000")
+    assert billing.visit_billing_summary(db, non_member["visit_id"])["total"] == Decimal("20000")
 
 
 def test_changing_the_rate_does_not_move_an_existing_bill(client, db, rate_on, items, member):
@@ -340,8 +340,8 @@ def test_a_member_bill_can_still_be_re_saved_with_a_non_discountable_item(
     _bill(client, member["visit_id"], items, which=("a", "b"))   # add the full-price line
     s = billing.visit_billing_summary(db, member["visit_id"])
     assert len(s["lines"]) == 2, "the non-discountable line was refused on a member's bill"
-    assert s["subtotal"] == Decimal("21.000")
-    assert s["total"] == Decimal("19.950")
+    assert s["subtotal"] == Decimal("20000")
+    assert s["total"] == Decimal("19000")
 
 
 def test_re_saving_a_bill_never_re_stamps_the_membership_snapshot(
@@ -359,7 +359,7 @@ def test_re_saving_a_bill_never_re_stamps_the_membership_snapshot(
     _bill(client, non_member["visit_id"], items)      # re-save
     s = billing.visit_billing_summary(db, non_member["visit_id"])
     assert s["discount_source"] == "staff"
-    assert s["total"] == Decimal("21.000")
+    assert s["total"] == Decimal("20000")
 
 
 def test_compute_bill_totals_refuses_a_missing_discountable_subtotal():
@@ -371,7 +371,7 @@ def test_compute_bill_totals_refuses_a_missing_discountable_subtotal():
     a non-discountable item as discountable and produce a wrong total.
     """
     with pytest.raises(TypeError):
-        billing.compute_bill_totals(Decimal("21.000"), Decimal(10), 0)
+        billing.compute_bill_totals(Decimal("10000"), Decimal(10), 0)
 
 
 def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
@@ -383,21 +383,21 @@ def test_a_refund_prices_each_line_by_its_own_eligibility(db, rate_on):
     inv_a, inv_b = _uid("INVA"), _uid("INVB")
     for iid in (inv_a, inv_b):
         db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, ownership_type, active) "
-                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (iid, f"Item {iid}", "Retail", "unit", False, Decimal("1.000"), "Owned", True))
+                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (iid, f"Item {iid}", "Retail", "unit", False, Decimal("100.0"), "Owned", True))
     cur = db.execute(
         "INSERT INTO sales (sold_at, subtotal, discount_percent, discount_source, total, payment_method) "
         "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-        (clock.today().isoformat(), Decimal("21.000"), RATE, "member", Decimal("19.950"), "Cash"))
+        (clock.today().isoformat(), Decimal("20000.0"), RATE, "member", Decimal("19000.0"), "Cash"))
     sale_id = cur.fetchone()["id"]
     for iid, ok in ((inv_a, True), (inv_b, False)):
         db.execute("INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, line_total, discountable) "
-                   "VALUES (%s,%s,%s,%s,%s,%s)", (sale_id, iid, 1, Decimal("10.500"), Decimal("10.500"), ok))
+                   "VALUES (%s,%s,%s,%s,%s,%s)", (sale_id, iid, 1, Decimal("10000.0"), Decimal("10000.0"), ok))
     db.commit()
     try:
         _sale, lines = refunds.refundable_sale_items(db, sale_id)
         by_item = {l["item_id"]: l["unit_price"] for l in lines}
-        assert by_item[inv_a] == Decimal("9.450"), "the eligible line should refund at the discounted price"
-        assert by_item[inv_b] == Decimal("10.500"), "the full-price line should refund in full"
+        assert by_item[inv_a] == Decimal("9000"), "the eligible line should refund at the discounted price"
+        assert by_item[inv_b] == Decimal("10000"), "the full-price line should refund in full"
     finally:
         db.execute("DELETE FROM sale_items WHERE sale_id=%s", (sale_id,))
         db.execute("DELETE FROM sales WHERE id=%s", (sale_id,))
@@ -422,7 +422,7 @@ def test_the_member_rate_is_not_bounded_by_the_staff_role_cap(client, db, rate_o
         s = billing.visit_billing_summary(db, member["visit_id"])
         assert s["discount_source"] == "member"
         assert s["discount_percent"] == RATE, "the card's rate was clipped to the staff cap"
-        assert s["total"] == Decimal("19.950")
+        assert s["total"] == Decimal("19000")
     finally:
         with client.session_transaction() as sess:
             sess["discount_cap"] = original

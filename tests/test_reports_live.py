@@ -11,6 +11,10 @@ The audit findings these pin:
       Clean Up, and Insights re-derived revenue and disagreed with the P&L;
   B9  a restocked refund reversed COGS at TODAY's cost, not the sale's;
   B14 the Rebuild button itself could erase a concurrent sale.
+
+Every test runs under the run's money setting. Amounts are written in JO's
+terms through conftest.amount() (12.000 JOD, 12,000 IQD), in multiples of
+0.250, so no payable figure rounds under IQ.
 """
 from datetime import date
 from decimal import Decimal as D
@@ -19,7 +23,7 @@ import pytest
 
 from vcs import clock
 from vcs.domain import reports
-from conftest import ADMIN_ID, needs_db
+from conftest import ADMIN_ID, amount, needs_db
 # Fixtures and helpers from the money route tests, reused rather than copied.
 from test_money_routes import (_bill, _checkout, _latest_sale, _pay, _pay_visit, _refund_retail,  # noqa: F401
                                boarding, inpatient_case, priced_service, sellable, visit)
@@ -38,10 +42,10 @@ def _month(db, month):
 def test_a_clean_up_taken_at_payment_lowers_the_months_revenue_at_once(client, db, visit):
     """GUARD. The P&L used to read a summary row that the payment route never
     refreshed; the Clean Up only reached it after a Rebuild."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="100.000", date_billed="2001-01-15")
-    assert _month(db, "2001-01")[0] == D("100.000")
-    _pay_visit(client, visit["visit_id"], amount="99.000", method="Cash", cleanup_amount="1.000")
-    assert _month(db, "2001-01")[0] == D("99.000"), "the Clean Up did not reach the month's revenue"
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount=amount("100.000"), date_billed="2001-01-15")
+    assert _month(db, "2001-01")[0] == amount("100.000")
+    _pay_visit(client, visit["visit_id"], amount=amount("99.000"), method="Cash", cleanup_amount=amount("1.000"))
+    assert _month(db, "2001-01")[0] == amount("99.000"), "the Clean Up did not reach the month's revenue"
 
 
 def test_a_boarding_discount_at_payment_is_booked_at_the_discounted_total(client, db, boarding):
@@ -49,11 +53,11 @@ def test_a_boarding_discount_at_payment_is_booked_at_the_discounted_total(client
     discount — billed_total — not the pre-discount subtotal."""
     db.execute("UPDATE boarding_sessions SET entry_date=%s WHERE id=%s", (date(2001, 2, 10), boarding["id"]))
     db.commit()
-    resp = _pay(client, boarding["id"], amount="10.000", discount_percent="10", method="Cash")
+    resp = _pay(client, boarding["id"], amount=amount("10.000"), discount_percent="10", method="Cash")
     assert resp.status_code == 302, "the discounted payment was refused — the test would prove nothing"
     billed = db.execute("SELECT billed_total FROM boarding_sessions WHERE id=%s", (boarding["id"],)).fetchone()["billed_total"]
-    assert billed == D("180.000")
-    assert _month(db, "2001-02")[0] == D("180.000")
+    assert billed == amount("180.000")
+    assert _month(db, "2001-02")[0] == amount("180.000")
 
 
 def test_an_inpatient_clean_up_lowers_the_cases_revenue(client, db, inpatient_case, priced_service):
@@ -66,27 +70,27 @@ def test_an_inpatient_clean_up_lowers_the_cases_revenue(client, db, inpatient_ca
                ("2001-03-10T10:00:00+03:00", inpatient_case["id"]))
     db.commit()
     client.post(f"/inpatient/{inpatient_case['id']}/payment",
-                data={"amount": "11.000", "method": "Cash", "cleanup_amount": "1.000"}, follow_redirects=False)
+                data={"amount": str(amount("11.000")), "method": "Cash", "cleanup_amount": str(amount("1.000"))}, follow_redirects=False)
     total = db.execute("SELECT total FROM inpatient_cases WHERE id=%s", (inpatient_case["id"],)).fetchone()["total"]
-    assert total == D("11.000"), "the Clean Up was not applied — the test would prove nothing"
-    assert _month(db, "2001-03")[0] == D("11.000")
+    assert total == amount("11.000"), "the Clean Up was not applied — the test would prove nothing"
+    assert _month(db, "2001-03")[0] == amount("11.000")
 
 
 def test_insights_categories_add_up_to_the_pnl_for_every_month(client, db, visit, boarding):
     """GUARD (B3). Two reports, one set of lines: for each month, the
     categories Insights shows sum exactly to the P&L's revenue."""
-    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount="40.000", date_billed="2001-05-03")
+    _bill(client, visit["visit_id"], billing_type="Manual", manual_amount=amount("40.000"), date_billed="2001-05-03")
     db.execute("UPDATE boarding_sessions SET entry_date=%s WHERE id=%s", (date(2001, 5, 4), boarding["id"]))
     db.commit()
-    _pay(client, boarding["id"], amount="10.000", discount_percent="5", method="Cash")
+    _pay(client, boarding["id"], amount=amount("10.000"), discount_percent="5", method="Cash")
     by_cat = reports.by_month_and_category(db, since_month="2001-05")
     by_month = reports.by_month(db, since_month="2001-05")
     assert "2001-05" in by_month
     for month, (revenue, cogs) in by_month.items():
         assert revenue == sum(r for r, _ in by_cat[month].values()), month
         assert cogs == sum(c for _, c in by_cat[month].values()), month
-    assert by_cat["2001-05"]["Service"][0] == D("40.000")
-    assert by_cat["2001-05"]["Boarding"][0] == D("190.000")
+    assert by_cat["2001-05"]["Service"][0] == amount("40.000")
+    assert by_cat["2001-05"]["Boarding"][0] == amount("190.000")
 
 
 # ---------------------------------------------------------------------------
@@ -101,13 +105,13 @@ def test_a_restocked_refund_reverses_the_sale_lines_cost_not_todays(client, db, 
     sale = _latest_sale(db)
     line = db.execute("SELECT id FROM sale_items WHERE sale_id=%s", (sale["id"],)).fetchone()
     db.execute("UPDATE sales SET sold_at=%s WHERE id=%s", ("2001-06-05T10:00:00+03:00", sale["id"]))
-    db.execute("UPDATE inventory_list SET cost_price=%s WHERE id=%s", (D("5.000"), sellable["inv_id"]))
+    db.execute("UPDATE inventory_list SET cost_price=%s WHERE id=%s", (amount("5.000"), sellable["inv_id"]))
     db.commit()
     try:
         resp = _refund_retail(client, sale["id"], line["id"], 1, restock="on", refund_date="2001-06-20")
         assert resp.status_code == 302, "the refund was refused — the test would prove nothing"
         revenue, cogs = _month(db, "2001-06")
-        assert cogs == D("0.000"), f"sold at 2.000 cost and returned: net cost {cogs}, expected 0"
+        assert cogs == amount("0.000"), f"sold at 2.000 cost and returned: net cost {cogs}, expected 0"
     finally:
         db.execute("DELETE FROM refund_items WHERE refund_id IN (SELECT id FROM refunds WHERE sale_id=%s)", (sale["id"],))
         db.execute("DELETE FROM refunds WHERE sale_id=%s", (sale["id"],))
@@ -132,7 +136,7 @@ def medicine(db):
     from test_money_routes import _uid
     pl_id = _uid("PL")
     db.execute("INSERT INTO price_list (id, name, category, cost_price, sale_price, active, can_discount) "
-               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Report Medicine {pl_id}", "Medicine", D("3.000"), D("8.000"), True, True))
+               "VALUES (%s,%s,%s,%s,%s,%s,%s)", (pl_id, f"Report Medicine {pl_id}", "Medicine", amount("3.000"), amount("8.000"), True, True))
     db.commit()
     yield {"id": pl_id}
     db.execute("DELETE FROM visit_billing_lines WHERE price_id=%s", (pl_id,))
@@ -149,7 +153,7 @@ def test_an_itemised_bill_is_split_by_category_and_still_sums_to_what_was_charge
                  price_id=[priced_service["id"], medicine["id"]],
                  **{f"qty_{priced_service['id']}": "1", f"qty_{medicine['id']}": "1"})
     assert resp.status_code == 302, "the itemised bill was refused — the test would prove nothing"
-    _pay_visit(client, visit["visit_id"], amount="19.000", method="Cash", cleanup_amount="1.000")
+    _pay_visit(client, visit["visit_id"], amount=amount("19.000"), method="Cash", cleanup_amount=amount("1.000"))
     by_cat = reports.by_month_and_category(db, since_month="2001-07")["2001-07"]
-    assert by_cat["Service"][0] == D("11.400") and by_cat["Medicine"][0] == D("7.600"), by_cat
-    assert _month(db, "2001-07") == (D("19.000"), D("7.000")), "revenue 19 charged, cost 4 + 3"
+    assert by_cat["Service"][0] == amount("11.400") and by_cat["Medicine"][0] == amount("7.600"), by_cat
+    assert _month(db, "2001-07") == (amount("19.000"), amount("7.000")), "revenue 19 charged, cost 4 + 3"

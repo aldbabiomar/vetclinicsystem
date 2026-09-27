@@ -21,7 +21,7 @@
     <div class="field"><label for="patientformedit-6-housing">{{ _('Housing') }}</label>
       <select id="patientformedit-6-housing" name="housing"><option value="">—</option>{% for h in ['Indoor','Outdoor','Stray'] %}<option value="{{ h }}" {{ 'selected' if patient.housing==h }}> {{ h|tr }} </option>{% endfor %}</select>
     </div>
-    <div class="field"><label for="patientformedit-7-microchip">{{ _('Microchip Number (optional)') }}</label><input id="patientformedit-7-microchip" name="microchip" autocomplete="off" placeholder="e.g. 985141000123456" value="{{ fv(form, 'microchip', patient.microchip or '') }}"></div>
+    <div class="field"><label for="patientformedit-7-microchip">{{ _('Microchip Number (optional)') }}</label><input id="patientformedit-7-microchip" name="microchip" autocomplete="off" placeholder="{{ _('e.g. %(example)s', example='985141000123456') }}" value="{{ fv(form, 'microchip', patient.microchip or '') }}"></div>
     <div class="field full"><label for="patientformedit-8-notes">{{ _('Notes') }}</label><textarea id="patientformedit-8-notes" name="notes">{{ patient.notes or '' }}</textarea></div>
   </div>
   <div class="form-actions">

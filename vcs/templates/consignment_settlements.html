@@ -20,7 +20,7 @@
     · {{ _('%(units)s unit(s) sold since last settlement.', units=balance.units_sold_since|round(2)) }}</p>
 
   {% if has_permission('manage_consignment_settlements') %}
-  <form method="post" action="{{ url_for('consignment.consignment_settlement_new', distributor_id=distributor.id) }}" class="form-grid" style="margin-top:16px;" data-confirm="Record this settlement? The amount owed will be recalculated at the moment you submit.">
+  <form method="post" action="{{ url_for('consignment.consignment_settlement_new', distributor_id=distributor.id) }}" class="form-grid" style="margin-top:16px;" data-confirm="{{ _('Record this settlement? The amount owed will be recalculated at the moment you submit.') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="field"><label for="consignmentsettlements-1-amount_paid">{{ _('Amount Paid (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="consignmentsettlements-1-amount_paid" type="number" step="{{ money_step() }}" name="amount_paid" value="{{ fv(form, 'amount_paid', balance.amount_owed) }}" required></div>
     <div class="field"><label for="consignmentsettlements-2-payment_method">{{ _('Payment Method') }}</label>
@@ -53,7 +53,7 @@
       <td class="num-col">{{ s.amount_owed|money }}</td>
       <td class="num-col">{{ s.amount_paid|money }}</td>
       <td class="num-col">{{ (s.amount_owed - s.amount_paid)|money }}</td>
-      <td>{{ s.payment_method or '—' }}</td>
+      <td>{{ s.payment_method|tr or '—' }}</td>
       <td>{{ s.settled_by_name or '—' }}</td>
       <td><a class="btn small secondary" href="{{ url_for('consignment.consignment_settlement_export', settlement_id=s.id) }}">{{ _('PDF') }}</a></td>
     </tr>

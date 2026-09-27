@@ -7,11 +7,9 @@ That was found by extracting the checks into one helper and then removing one
 of them: nothing failed. Four copies of a rule, none of them covered, is worse
 than one copy uncovered, because it also hides how far the copies had drifted.
 
-Amounts here are JOD: exact three-decimal Decimal against app.CLEANUP_CAP,
-with no denomination rounding. IQ's copy uses whole IQD against
-money.CLEANUP_CAP and steps in multiples of 250, because a service amount
-there passes through round_to_denomination(). Same rules, each stated in its
-own app's money model; the two must not be merged (COMPARISON.md §1.1).
+The rules are the same under both money settings, with the setting's values:
+the cap (1.000 JOD, 1,000 IQD), and the smallest amount a person can enter
+(0.001 JOD, 1 IQD). Every test here runs under the run's setting.
 """
 import source_files
 import pytest
@@ -20,9 +18,16 @@ from decimal import Decimal
 
 from vcs import money
 from vcs.web.core import cleanup_amount_error
+from conftest import amount
 
-# The JO money setting's cap — this module runs under JO (conftest's default).
-CAP = money.JO.cleanup_cap
+
+def cap():
+    return money.current().cleanup_cap
+
+
+def step():
+    """The smallest amount a person can enter: 0.001 JOD, 1 IQD."""
+    return Decimal(1).scaleb(-money.current().minor_units)
 
 
 # ---------------------------------------------------------------------------
@@ -32,24 +37,24 @@ CAP = money.JO.cleanup_cap
 def test_a_negative_write_off_is_refused():
     """A negative Clean Up would ADD to what the client owes, under a control
     labelled as a write-off."""
-    assert "negative" in cleanup_amount_error(Decimal("-0.001"), 0, Decimal("100.000"))
+    assert "negative" in cleanup_amount_error(-step(), 0, amount("100.000"))
 
 
 def test_a_write_off_over_the_cap_is_refused():
-    assert "exceed" in cleanup_amount_error(CAP + Decimal("0.001"), 0, Decimal("100.000"))
+    assert "exceed" in cleanup_amount_error(cap() + step(), 0, amount("100.000"))
 
 
 def test_the_cap_accumulates_across_submissions():
     """GUARD. A bill can be cleaned up more than once; the ceiling is on the
     total, not on each submission. Checking only the new amount would let an
     unlimited write-off through in small pieces."""
-    assert cleanup_amount_error(CAP, CAP, Decimal("100.000")) is not None
-    assert cleanup_amount_error(Decimal("0.001"), CAP, Decimal("100.000")) is not None
+    assert cleanup_amount_error(cap(), cap(), amount("100.000")) is not None
+    assert cleanup_amount_error(step(), cap(), amount("100.000")) is not None
 
 
 def test_a_write_off_larger_than_the_balance_is_refused():
     """GUARD. Writing off more than is owed would turn a bill negative."""
-    err = cleanup_amount_error(Decimal("0.500"), 0, Decimal("0.250"))
+    err = cleanup_amount_error(amount("0.500"), 0, amount("0.250"))
     assert err is not None and "remaining balance" in err
 
 
@@ -59,28 +64,28 @@ def test_a_write_off_larger_than_the_balance_is_refused():
 
 def test_an_ordinary_write_off_is_allowed():
     """Without this, 'refuse everything' passes every guard above."""
-    assert cleanup_amount_error(Decimal("0.250"), 0, Decimal("100.000")) is None
+    assert cleanup_amount_error(amount("0.250"), 0, amount("100.000")) is None
 
 
 def test_exactly_the_cap_is_allowed():
     """Boundary: the rule is 'may not exceed', not 'must be under'."""
-    assert cleanup_amount_error(CAP, 0, Decimal("100.000")) is None
+    assert cleanup_amount_error(cap(), 0, amount("100.000")) is None
 
 
 def test_exactly_the_balance_is_allowed():
     """Boundary: clearing the remainder exactly is the common case."""
-    assert cleanup_amount_error(Decimal("0.250"), 0, Decimal("0.250")) is None
+    assert cleanup_amount_error(amount("0.250"), 0, amount("0.250")) is None
 
 
 def test_zero_is_allowed():
     """Every payment form posts this field whether or not it was used."""
-    assert cleanup_amount_error(0, 0, Decimal("100.000")) is None
+    assert cleanup_amount_error(0, 0, amount("100.000")) is None
 
 
 def test_a_new_sale_has_nothing_to_accumulate_against():
     """CONTROL for POS, which passes existing_amount=0 — a brand-new sale has
     no prior Clean Up, unlike the three surfaces paid off over time."""
-    assert cleanup_amount_error(CAP, 0, Decimal("100.000")) is None
+    assert cleanup_amount_error(cap(), 0, amount("100.000")) is None
 
 
 # ---------------------------------------------------------------------------

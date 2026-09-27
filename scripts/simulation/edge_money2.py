@@ -3,7 +3,7 @@ import sys, re, random, json, datetime
 import os
 SIM = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SIM)
-from vzsim import Client, q, flashes
+from vzsim import Client, q, flashes, seeded_item, seeded_price
 from vzform import pick, inputs
 
 D = datetime.date.today().isoformat()
@@ -24,7 +24,7 @@ def setup(app):
             c.post(f"/audit-history/session/{sid}/confirm", data)
     return c
 
-def price(app, p): q(app, "UPDATE price_list SET sale_price=%s WHERE id='PL301'", (p,))
+def price(app, p): q(app, "UPDATE price_list SET sale_price=%s WHERE id=%s", (p, seeded_price(app)))
 def last_sale(app):
     r = q(app, "select id,subtotal,total from sales order by id desc limit 1"); return r[0] if r else None
 
@@ -36,7 +36,7 @@ def run(app):
     # --- R1: refund of a line worth less than one note -----------------
     for unit in ([240, 200, 130] if iq else ["0.240"]):
         price(app, unit)
-        c.post("/pos/checkout", {"item_id": "INV301", "quantity": "1", "payment_method": "Cash",
+        c.post("/pos/checkout", {"item_id": seeded_item(app), "quantity": "1", "payment_method": "Cash",
                                  "discount_percent": "0", "cash_received": "50000" if iq else "50.000",
                                  "idempotency_key": K("rf")}, note=f"sale @{unit}")
         s = last_sale(app)
@@ -74,8 +74,8 @@ def run(app):
     vid = vid.group(1) if vid else None
     if vid:
         price(app, 1000 if iq else "10.000")
-        c.post(f"/visits/{vid}/billing", {"billing_type": "Automatic", "price_id": "PL301",
-                                          "qty_PL301": "1", "date_billed": D}, note="bill")
+        c.post(f"/visits/{vid}/billing", {"billing_type": "Automatic", "price_id": seeded_price(app),
+                                          f"qty_{seeded_price(app)}": "1", "date_billed": D}, note="bill")
         bal = q(app, "select total,discount_percent from billing where visit_id=%s", (vid,))
         # overpayment must be refused
         r = c.post(f"/visits/{vid}/payment", {"amount": "999999" if iq else "999999.000",

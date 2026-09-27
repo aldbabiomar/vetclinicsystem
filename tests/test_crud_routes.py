@@ -19,7 +19,7 @@ from decimal import Decimal
 
 import pytest
 
-from conftest import new_id, needs_db
+from conftest import local_phone, new_id, needs_db
 
 
 pytestmark = needs_db
@@ -31,18 +31,7 @@ def _uid(prefix):
 
 
 def _phone():
-    """A local-format mobile number of exactly PHONE_LOCAL_LENGTH digits,
-    unique per call so tests never collide with a number already on file.
-
-    Phone format is one of the two apps' deliberate divergences, so the
-    length is read from the app rather than hardcoded here — this helper
-    works unchanged in both."""
-    # PHONE_LOCAL_LENGTH counts digits AFTER the leading trunk 0 is stripped,
-    # so the string itself carries one more: "0" + LENGTH digits. Verified
-    # against normalize_phone() rather than assumed.
-    body = str(uuid.uuid4().int)[:money.JO.phone_local_length - 1].ljust(
-        money.JO.phone_local_length - 1, "0")
-    return "07" + body
+    return local_phone()
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ Two things, both of which produce a page that looks fine until you read it:
 Both are invisible to a status-code sweep: the pages are 200.
 """
 import json
+import pathlib
 import re
 import subprocess
 import sys
@@ -33,8 +34,8 @@ from vzsim import Client, set_language  # noqa: E402
 
 SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S)
 
-ROOT = "/Users/omaraldbabi/Desktop/VetClinicSystem/webapps"
-VENV = "/private/tmp/vz_%s_test_venv/bin/python3"
+ROOT = str(pathlib.Path(__file__).resolve().parent.parent.parent)   # this checkout
+VENV = "/tmp/vcs_test_venv_%s/bin/python3"
 
 # A hand-written page list goes stale silently, and a page it forgets is a page
 # these checks cannot fail on: a deliberately broken /retention passed this
@@ -42,18 +43,18 @@ VENV = "/private/tmp/vz_%s_test_venv/bin/python3"
 # the app's own url_map instead, the way tests/test_permissions.py does.
 def pages(app):
     code = (
-        "import app as m, json;"
-        "print(json.dumps(sorted({r.rule for r in m.app.url_map.iter_rules()"
+        "from vcs import create_app; import json;"
+        "print(json.dumps(sorted({r.rule for r in create_app().url_map.iter_rules()"
         " if 'GET' in r.methods and not r.arguments"
         " and not r.rule.startswith('/static')})))"
     )
     env = {
-        "iq": ("55491", "vetclinicsystemiq"),
-        "jo": ("55492", "vetclinicsystemjo"),
+        "iq": ("55491", "vetclinicsystem"),
+        "jo": ("55492", "vetclinicsystem"),
     }[app]
     out = subprocess.run(
         [VENV % app, "-c", code],
-        cwd=f"{ROOT}/vetclinicsystem_{app}-main", capture_output=True, text=True,
+        cwd=ROOT, capture_output=True, text=True,
         env={"PATH": "/usr/bin:/bin", "SECRET_KEY": "x",
              "DATABASE_URL": f"postgresql://postgres:test@localhost:{env[0]}/{env[1]}"},
     )

@@ -22,9 +22,37 @@ def uid(app, n=0):
     r7 = str(random.randint(10**6, 10**7 - 1))
     return ("0770" + r7) if app == "iq" else ("079" + r7)
 
+def priced(app):
+    """A priced, active Price List row -- what a vet picks from the billing search."""
+    rows = q(app, "select id from price_list where active and sale_price is not null order by id limit 1")
+    return str(rows[0][0]) if rows else ""
+
+
 def idof(r, pat):
     m = re.search(pat, r.url)
     return m.group(1) if m else None
+
+
+def audit_everything(c, count, counts=None):
+    """A shelf count of every item on the audit sheet, saved and confirmed:
+    `count` each, or `counts[item_id]` where given."""
+    r = c.post("/audit-history/start", note="start stock audit")
+    c.expect_success(r, "start audit session")
+    sid = idof(r, r"/session/(\d+)")
+    if sid:
+        pg = c.get(f"/audit-history/session/{sid}", note="audit sheet")
+        ids = sorted(set(re.findall(r'name="stock_(\d+)"', pg.text)))
+        print(f"  audit sheet items: {ids}", flush=True)
+        if ids:
+            data = {}
+            for i in ids:
+                data[f"stock_{i}"] = (counts or {}).get(i, count)
+                data[f"received_{i}"] = "0"
+                data[f"threshold_{i}"] = "10"
+            r = c.post(f"/audit-history/session/{sid}/save", data, note="save counts")
+            c.expect_success(r, "save audit counts")
+            r = c.post(f"/audit-history/session/{sid}/confirm", data, note="confirm audit")
+            c.expect_success(r, "confirm audit")
 
 
 def run(app):
@@ -38,25 +66,7 @@ def run(app):
     c.expect_success(c.get("/health", note="health"), "health")
 
     # ---------- 08:45 stock take so retail can be sold ----------
-    r = c.post("/audit-history/start", note="start stock audit")
-    c.expect_success(r, "start audit session")
-    sid = idof(r, r"/session/(\d+)")
-    st["audit"] = sid
-    if sid:
-        pg = c.get(f"/audit-history/session/{sid}", note="audit sheet")
-        ids = sorted(set(re.findall(r'name="stock_(INV\d+)"', pg.text)))
-        st["inv_ids"] = ids
-        P(f"  audit sheet items: {ids}")
-        if ids:
-            data = {}
-            for i in ids:
-                data[f"stock_{i}"] = "40"
-                data[f"received_{i}"] = "0"
-                data[f"threshold_{i}"] = "10"
-            r = c.post(f"/audit-history/session/{sid}/save", data, note="save counts")
-            c.expect_success(r, "save audit counts")
-            r = c.post(f"/audit-history/session/{sid}/confirm", data, note="confirm audit")
-            c.expect_success(r, "confirm audit")
+    audit_everything(c, "40")
 
     # ---------- 09:00 reception registers clients ----------
     st["owners"] = []
@@ -65,7 +75,7 @@ def run(app):
         r = c.post("/owners/new", {"name": name, "phone": uid(app, 1), "address": addr,
                                    "notes": "New client"}, note=f"register {name}")
         if c.expect_success(r, f"register owner {name}"):
-            o = idof(r, r"/owners/(OW\d+)")
+            o = idof(r, r"/owners/(\d+)")
             if o: st["owners"].append(o)
     P(f"  owners: {st['owners']}")
     if st["owners"]:
@@ -85,12 +95,12 @@ def run(app):
         "history": "Indoor only, vaccinated", "weight_kg": "4.2", "bcs": "5",
     }, note="walk-in new patient+visit")
     c.expect_success(r, "new-patient visit")
-    st["v1"] = idof(r, r"/visits/(V\d+)")
+    st["v1"] = idof(r, r"/visits/(\d+)")
     P(f"  visit1={st['v1']}")
 
     # find the patient id for later
     pr = c.get("/patients", note="patients list")
-    m = re.search(r'/patients/(P\d+)', pr.text)
+    m = re.search(r'/patients/(\d+)', pr.text)
     st["p1"] = m.group(1) if m else None
     P(f"  patient1={st['p1']}")
 
@@ -100,22 +110,23 @@ def run(app):
         ed = c.get(f"/visits/{st['v1']}/edit", note="edit form")
         exp = inputs(ed.text).get("expected_updated_at", "")
         r = c.post(f"/visits/{st['v1']}/edit", {
-            "date": D, "doctor": "Dr. Sara", "visit_type": "Consultation",
+            "date": D, "doctor": "Dr. Sara", "visit_type": "Outpatient",
             "complaint": "Not eating for two days", "history": "Indoor only",
             "exam": "Mild dehydration, T 39.1C, abdomen soft, MM pink",
             "treatment": "SC fluids 100ml; appetite stimulant; recheck 48h",
             "weight_kg": "4.2", "bcs": "5", "case_status": "Ongoing",
             "expected_updated_at": exp,
-            "followup_needed": "Y", "followup_date": TOM, "followup_method": "Phone",
+            "followup_needed": "Y", "followup_date": TOM, "followup_method": "Phone Call",
             "followup_reason": "Check appetite", "followup_status": "Pending",
-            "wellness_needed": "Y", "wellness_type": "Vaccination",
+            "wellness_needed": "Y", "wellness_type": "Annual Vaccine",
             "wellness_next_dose_date": TOM,
         }, note="vet writes exam/treatment")
         c.expect_success(r, "visit edit (SOAP)")
 
         # bill the consult from the price list
+        pl = priced(app)
         r = c.post(f"/visits/{st['v1']}/billing", {
-            "billing_type": "Automatic", "price_id": "PL301", "qty_PL301": "2",
+            "billing_type": "Automatic", "price_id": pl, f"qty_{pl}": "2",
             "date_billed": D, "notes": "Consult + meds",
         }, note="bill visit from price list")
         c.expect_success(r, "visit billing (automatic)")
@@ -131,16 +142,25 @@ def run(app):
         if r.status_code >= 400:
             c.finding("EXPORT_FAIL", f"visit PDF export -> {r.status_code}")
 
-    # ---------- 10:00 appointment book ----------
+    # ---------- 10:00 appointment book (the admin adds the clinic's vet first) ----------
+    vet_role = q(app, "select id from roles where is_vet_role order by id limit 1")
+    if vet_role and not q(app, "select 1 from users u join roles r on r.id=u.role_id where r.is_vet_role and u.active"):
+        r = c.post("/admin/users/new", {"username": f"sara{random.randint(1000, 9999)}", "full_name": "Dr. Sara",
+                                        "password": "Clinic-Vet-2026!", "role_id": str(vet_role[0][0])},
+                   note="admin adds a vet")
+        c.expect_success(r, "add vet user")
     ap = c.get("/appointments", note="appointment book")
     c.expect_success(ap, "appointments page")
-    slot = re.search(r"data-slot(?:-label)?=\"([^\"]+)\"", ap.text)
+    # a free slot, as a receptionist would pick -- not always the first one,
+    # which an earlier run of this script has already booked
+    slots = sorted(set(re.findall(r"data-slot(?:-label)?=\"([^\"]+)\"", ap.text)))
+    slot = random.choice(slots) if slots else None
     rid = re.search(r'data-resource-id="([^"]*)"', ap.text)
     r = c.post("/appointments/new", {
         "appt_date": TOM, "owner_name": "Ahmed Al-Rashid", "pet_name": "Rex",
         "appointment_type": "Medical", "reason": "Vaccination booster",
         "resource_type": "vet", "resource_id": (rid.group(1) if rid else ""),
-        "slot_label": (slot.group(1) if slot else "10:00"),
+        "slot_label": slot or "10:00",
     }, note="book appointment")
     c.expect_success(r, "book appointment")
 
@@ -166,7 +186,7 @@ def run(app):
             r = c.post(f"/inpatient/{cid}/contact", {"notes": "Owner called, updated on progress",
                                                     "picked_up": "Y"}, note="owner contact log")
             c.expect_success(r, "inpatient contact log")
-            r = c.post(f"/inpatient/{cid}/billing", {"price_id": "PL301", "qty_PL301": "3"},
+            r = c.post(f"/inpatient/{cid}/billing", {"price_id": priced(app), f"qty_{priced(app)}": "3"},
                        note="bill inpatient items")
             c.expect_success(r, "inpatient billing")
             r = c.post(f"/inpatient/{cid}/discount", {"discount_percent": "5"}, note="inpatient discount")
@@ -224,8 +244,10 @@ def run(app):
 
     # ---------- 13:00 over-the-counter retail ----------
     c.expect_success(c.get("/pos", note="POS"), "POS page")
+    rows = q(app, "select id from inventory_list where name='Test Retail Item'")
+    retail = str(rows[0][0]) if rows else ""
     r = c.post("/pos/checkout", {
-        "item_id": "INV301", "quantity": "2", "payment_method": "Cash",
+        "item_id": retail, "quantity": "2", "payment_method": "Cash",
         "discount_percent": "0", "cash_received": M(app, 50),
         "idempotency_key": f"day-{app}-{random.randint(1,10**9)}",
     }, note="retail sale 2 units")
@@ -276,7 +298,8 @@ def run(app):
         "notes": "Main supplier", "catalog_link": "https://example.com/catalog",
     }, note="add supplier")
     c.expect_success(r, "new distributor")
-    st["dist"] = idof(r, r"/distributors/(D\w+)")
+    rows = q(app, "select id from distributors where name='Baghdad Vet Supplies' order by id desc limit 1")
+    st["dist"] = str(rows[0][0]) if rows else None
     P(f"  distributor={st['dist']}")
     if st["dist"]:
         d = st["dist"]
@@ -306,7 +329,7 @@ def run(app):
     }, note="add retail item (supplier stock)")
     c.expect_success(r, "new retail item")
     rows = q(app, "select id from inventory_list where category='Retail' order by id desc limit 1")
-    citem = str(rows[0][0]) if rows else "INV301"
+    citem = str(rows[0][0]) if rows else ""
     if st.get("dist"):
         rj = c.post_json("/consignment/items/bulk-edit", {"items": [
             {"id": citem, "fields": {"is_consignment": "on", "distributor_id": st["dist"],
@@ -323,13 +346,26 @@ def run(app):
         "delivery_reference": "DN-8891", "notes": "Consignment delivery",
     }, note="receive consignment stock")
     c.expect_success(r, "consignment receiving")
+    # a shelf count before anything goes back: returns and shrinkage are
+    # checked against audited stock
+    audit_everything(c, "40", counts={citem: "20"})
+    # priced, so it can be sold -- the sale is what the supplier is owed for
+    r = c.post("/price-list/new", {"name": "Flea Collar (each)", "category": "Retail", "cost_price": M(app, 2),
+                                   "sale_price": M(app, 4), "linked_item_id": citem, "can_discount": "Y"},
+               note="price the consigned item")
+    c.expect_success(r, "price consigned item")
+    r = c.post("/pos/checkout", {"item_id": citem, "quantity": "1", "payment_method": "Cash",
+                                 "discount_percent": "0", "cash_received": M(app, 10),
+                                 "idempotency_key": f"day-c-{app}-{random.randint(1, 10**9)}"},
+               note="sell a consigned unit")
+    c.expect_success(r, "sell consigned unit")
     r = c.post("/consignment/returns/new", {
         "item_id": citem, "quantity": "2", "reason": "Near expiry", "return_date": D,
         "notes": "Returned to rep",
     }, note="return to supplier")
     c.expect_success(r, "consignment return")
     r = c.post("/consignment/shrinkage/new", {
-        "item_id": citem, "quantity": "1", "reason": "Broken vial", "liable_party": "Clinic",
+        "item_id": citem, "quantity": "1", "reason": "Damaged", "liable_party": "Clinic",
         "notes": "Dropped during round",
     }, note="record shrinkage")
     c.expect_success(r, "consignment shrinkage")
@@ -340,7 +376,7 @@ def run(app):
         sp = c.get(f"/consignment/settlements/{st['dist']}", note="settlement page")
         c.expect_success(sp, "settlements page")
         r = c.post(f"/consignment/settlements/{st['dist']}/new", {
-            "amount_paid": M(app, 10), "payment_method": "Cash", "notes": "Monthly settlement",
+            "amount_paid": M(app, 1), "payment_method": "Cash", "notes": "Part settlement",
         }, note="settle with supplier")
         c.expect_success(r, "consignment settlement")
 
@@ -376,8 +412,6 @@ def run(app):
                                  "utilities": M(app, 30), "marketing": M(app, 10),
                                  "other": M(app, 5)}, note="enter monthly costs")
     c.expect_success(r, "opex save")
-    r = c.post("/reports/rebuild", {}, note="rebuild summary")
-    c.expect_success(r, "reports rebuild")
 
     # ---------- 18:15 admin housekeeping ----------
     au = c.get("/admin/users", note="staff list")

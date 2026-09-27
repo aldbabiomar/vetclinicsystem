@@ -201,15 +201,19 @@ html[data-theme="dark"] .theme-toggle-btn .icon-moon { display: block; }
 .stat-card.warn .num { color: var(--warn-ink); }
 .stat-card.ok .num { color: var(--primary); }
 
-.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 /* .panel-grid holds two side-by-side cards. The collapse to a single
    column lived at 760px, but a standard tablet is 768px -- eight pixels
    above it -- so on the most common tablet width the grid stayed at two
    columns and the second card ran off the right edge, taking the whole
    page into horizontal scroll (/refunds: 1046px of content in a 768px
    window). Collapsed at 900px instead. .stat-grid stays at two columns:
-   the stat tiles are narrow and stacking them makes the page very long. */
-@media (max-width: 900px) { .panel-grid { grid-template-columns: 1fr; } .stat-grid { grid-template-columns: 1fr 1fr; } }
+   the stat tiles are narrow and stacking them makes the page very long.
+   The tracks are minmax(0, 1fr), not 1fr: a bare 1fr track never shrinks
+   below its widest unbreakable content, so an Arabic label longer than its
+   English one widened the card past a phone's edge (/refunds, 397px of
+   content in a 390px window) instead of letting the row inside it give way. */
+@media (max-width: 900px) { .panel-grid { grid-template-columns: minmax(0, 1fr); } .stat-grid { grid-template-columns: 1fr 1fr; } }
 
 .panel h2 { font-size: 14.5px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; font-weight: 620; }
 .panel h2 .count { color: var(--ink-soft); font-weight: 480; font-size: 12.5px; }
@@ -344,6 +348,14 @@ textarea { resize: vertical; min-height: 72px; }
    Was an inline style; moved here so it stays off the inline-style ratchet. */
 .inpatient-upload-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .inpatient-upload-row .btn { margin-inline-start: auto; }
+/* A bill's inline forms on a visit and an inpatient case: the discount row
+   and the payment row. The payment row holds three fields and a button; it
+   did not wrap, and in a half-width card it pushed the page sideways below
+   about 1100px (/visits/<id>: 1195px of content in a 1024px window). It
+   wraps now, each field keeping a usable width. */
+.bill-form { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; margin: 8px 0; }
+.bill-form > .field { flex: 1 1 140px; min-width: 0; }
+.bill-form.bill-pay { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
 .chip {
   padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
   font-size: 12.5px; font-weight: 600; color: var(--ink-soft); background: var(--paper);
@@ -458,7 +470,8 @@ textarea { resize: vertical; min-height: 72px; }
 }
 
 @media (max-width: 760px) {
-  .stat-grid, .panel-grid, .detail-grid { grid-template-columns: 1fr; }
+  .stat-grid, .detail-grid { grid-template-columns: 1fr; }
+  .panel-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 900px) {
@@ -792,7 +805,10 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
 .u-inline      { display: inline; }
 .u-nowrap      { white-space: nowrap; }
 .u-wrap        { white-space: normal; }
-.u-grow        { flex: 1; }
+/* min-width: 0 lets a growing input give way to the button beside it. Without
+   it an input keeps its intrinsic ~200px, and a longer Arabic button label
+   pushes the row out of its card on a phone (/refunds, "Find Sale"). */
+.u-grow        { flex: 1; min-width: 0; }
 .u-mono        { font-family: monospace; }
 .u-strong.u-strong { font-weight: 600; }   /* doubled: see the note below */
 

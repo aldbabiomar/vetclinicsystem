@@ -60,8 +60,8 @@
     <div class="card" style="margin-bottom:16px;">
       <div class="section-title" style="margin-top:0;">{{ _('Follow-Up') }}</div>
       <div class="detail-grid">
-        <div class="detail-item"><div class="k">{{ _('Method') }}</div><div class="v">{{ visit.followup_method or "—" }}</div></div>
-        <div class="detail-item"><div class="k">{{ _('Reason') }}</div><div class="v">{{ visit.followup_reason or "—" }}</div></div>
+        <div class="detail-item"><div class="k">{{ _('Method') }}</div><div class="v">{{ visit.followup_method|tr or "—" }}</div></div>
+        <div class="detail-item"><div class="k">{{ _('Reason') }}</div><div class="v">{{ visit.followup_reason|tr or "—" }}</div></div>
         <div class="detail-item"><div class="k">{{ _('Date') }}</div><div class="v">{{ visit.followup_date|localdate or "—" }}</div></div>
         <div class="detail-item"><div class="k">{{ _('Status') }}</div><div class="v"><span class="badge {{ 'warn' if visit.followup_status=='Pending' else 'ok' }}">{{ visit.followup_status|tr }}</span></div></div>
       </div>
@@ -72,7 +72,7 @@
     <div class="card" style="margin-bottom:16px;">
       <div class="section-title" style="margin-top:0;">{{ _('Wellness Reminder') }}</div>
       <div class="detail-grid">
-        <div class="detail-item"><div class="k">{{ _('Type') }}</div><div class="v">{{ visit.wellness_type or "—" }}</div></div>
+        <div class="detail-item"><div class="k">{{ _('Type') }}</div><div class="v">{{ visit.wellness_type|tr or "—" }}</div></div>
         <div class="detail-item"><div class="k">{{ _('Next Dose Date') }}</div><div class="v">{{ visit.wellness_next_dose_date|localdate or "—" }}</div></div>
         <div class="detail-item"><div class="k">{{ _('Contacted') }}</div><div class="v">{{ visit.wellness_contacted }}</div></div>
       </div>
@@ -84,7 +84,7 @@
       <div class="section-title" style="margin-top:0;">{{ _('Grooming') }}</div>
       <div class="detail-item"><div class="k">{{ _('Services') }}</div><div class="v">{{ visit.grooming_services or "—" }}</div></div>
       <div class="detail-item"><div class="k">{{ _('Admitted Items') }}</div><div class="v">{{ visit.grooming_admitted_items or "—" }}</div></div>
-      <div class="detail-item"><div class="k">{{ _('Status') }}</div><div class="v"><span class="badge {{ 'ok' if visit.grooming_status=='Finished' else 'warn' }}">{{ visit.grooming_status or "Waiting" }}</span></div></div>
+      <div class="detail-item"><div class="k">{{ _('Status') }}</div><div class="v"><span class="badge {{ 'ok' if visit.grooming_status=='Finished' else 'warn' }}">{{ (visit.grooming_status or "Waiting")|tr }}</span></div></div>
     </div>
     {% endif %}
 
@@ -123,9 +123,9 @@
         {% if summary.discount_source == 'member' %}
           {{ member_discount_line(summary, url_for('clinical.rewards_remove_discount', surface='visit', bill_id=visit.id)) }}
         {% else %}
-        <form method="post" action="{{ url_for('clinical.visit_discount_save', visit_id=visit.id) }}" style="display:flex; gap:8px; align-items:flex-end; margin:8px 0;">
+        <form method="post" action="{{ url_for('clinical.visit_discount_save', visit_id=visit.id) }}" class="bill-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="field" style="flex:1;"><label for="visitdetail-4-discount_percent">{{ _('Discount %% (Max %(discount_cap)s%%)', discount_cap=discount_cap) }}</label><input id="visitdetail-4-discount_percent" type="number" step="1" max="{{ discount_cap }}" min="0" name="discount_percent" value="{{ fv(form, 'discount_percent', summary.discount_percent) if discount_error else summary.discount_percent }}"></div>
+          <div class="field"><label for="visitdetail-4-discount_percent">{{ _('Discount %% (Max %(discount_cap)s%%)', discount_cap=discount_cap) }}</label><input id="visitdetail-4-discount_percent" type="number" step="1" max="{{ discount_cap }}" min="0" name="discount_percent" value="{{ fv(form, 'discount_percent', summary.discount_percent) if discount_error else summary.discount_percent }}"></div>
           <button class="btn small secondary" type="submit">{{ _('Apply') }}</button>
         </form>
         {% endif %}
@@ -135,9 +135,9 @@
         <span class="badge {{ 'ok' if summary.status=='Fully Paid' else ('danger' if summary.status=='Unpaid' else 'muted') }}">{{ summary.status|tr }}</span>
       </div>
 
-      <form method="post" action="{{ url_for('clinical.visit_payment_add', visit_id=visit.id) }}" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; align-items:flex-end;">
+      <form method="post" action="{{ url_for('clinical.visit_payment_add', visit_id=visit.id) }}" class="bill-form bill-pay">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="field" style="flex:1;"><label for="visitdetail-5-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="visitdetail-5-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
+        <div class="field"><label for="visitdetail-5-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="visitdetail-5-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
         <div class="field"><label for="visitdetail-6-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="visitdetail-6-cleanup_amount" type="number" step="{{ money_step() }}" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error else '0' }}"></div>
         <div class="field"><label for="visitdetail-7-method">{{ _('Method') }}</label>
           <select id="visitdetail-7-method" name="method">

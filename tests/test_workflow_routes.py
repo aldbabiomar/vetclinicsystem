@@ -11,13 +11,14 @@ Needs a throwaway Postgres; skips cleanly without one. See conftest.py.
 """
 from vcs import clock
 from vcs import money
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
-from conftest import new_id, ADMIN_ID, needs_db
+from conftest import local_phone, new_id, ADMIN_ID, needs_db
 
 
 pytestmark = needs_db
@@ -29,9 +30,7 @@ def _uid(prefix):
 
 
 def _phone():
-    body = str(uuid.uuid4().int)[:money.JO.phone_local_length - 1].ljust(
-        money.JO.phone_local_length - 1, "0")
-    return "07" + body
+    return local_phone()
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +153,35 @@ def test_visit_edit_rejects_an_unknown_case_status(client, db, a_visit):
     _edit_visit(client, a_visit["visit_id"], db, case_status="Teleported")
     row = db.execute("SELECT * FROM visits WHERE id=%s", (a_visit["visit_id"],)).fetchone()
     assert row["case_status"] == "Ongoing", "the original status must stand"
+
+
+def _status_stamp(db, visit_id):
+    return db.execute("SELECT case_status, case_status_changed_at FROM visits WHERE id=%s",
+                      (visit_id,)).fetchone()
+
+
+def test_a_case_status_change_is_stamped_with_the_moment_it_was_made(client, db, a_visit):
+    """case_status_changed_at is a moment. The edit stored today's date
+    string, which Postgres read as the clinic's midnight — hours before the
+    change — and the change log recorded it in a form it then printed raw."""
+    before = clock.now() - timedelta(seconds=1)
+    assert _edit_visit(client, a_visit["visit_id"], db, case_status="Resolved").status_code == 302
+    row = _status_stamp(db, a_visit["visit_id"])
+    assert row["case_status"] == "Resolved"
+    assert row["case_status_changed_at"] >= before, (
+        f"stamped {row['case_status_changed_at']}, before the change at {before}")
+    logged = db.execute(
+        "SELECT new_value FROM audit_log WHERE table_name='visits' AND record_id=%s "
+        "AND field='case_status_changed_at' ORDER BY id DESC LIMIT 1",
+        (str(a_visit["visit_id"]),)).fetchone()
+    assert logged is not None and re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", logged["new_value"]), (
+        f"the change log should hold an ISO moment, not {logged and logged['new_value']!r}")
+
+
+def test_control_an_edit_that_keeps_the_status_keeps_its_stamp(client, db, a_visit):
+    assert _edit_visit(client, a_visit["visit_id"], db, complaint="Still ongoing").status_code == 302
+    row = _status_stamp(db, a_visit["visit_id"])
+    assert row["case_status"] == "Ongoing" and row["case_status_changed_at"] is None
 
 
 def test_visit_edit_rejects_a_malformed_date(client, db, a_visit):

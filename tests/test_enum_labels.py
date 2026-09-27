@@ -89,7 +89,7 @@ def test_every_translatable_option_has_an_explicit_value():
     Proven end to end once: a visit payment submitted in Arabic stored
     method='نقدًا', which the cash register buckets as "other" rather than
     Cash, so the drawer count reported a surplus that was not real.
-    scripts/simulation/repro_option_value.py.
+    scripts/archive/predecessor-simulation/repro_option_value.py.
     """
     offenders = []
     for f in sorted(TEMPLATES.rglob("*.html")):
@@ -161,3 +161,62 @@ def test_seeded_roles_mirror_auth():
     descs = [re.sub(r"\s+", " ", d) for _, d in pairs]
     assert labels("SEEDED_ROLE_NAMES") == names
     assert [re.sub(r"\s+", " ", d) for d in labels("SEEDED_ROLE_DESCRIPTIONS")] == descs
+
+
+# ---------------------------------------------------------------------------
+# A stored constant is shown through |tr
+# ---------------------------------------------------------------------------
+# Fields that only ever hold one of the app's own English constants. Printed
+# raw, they stay English on an Arabic page: scripts/simulation/ar_coverage.py
+# found a boarding bill's "Fully Paid", a follow-up's reason and a shrinkage
+# reason that way. (`reason` elsewhere is free text a person typed, so it is
+# checked only where it is a constant.)
+CONSTANT_FIELDS = {
+    "status", "payment_status", "case_status", "followup_status", "grooming_status", "visit_type", "sex",
+    "method", "payment_method", "refund_method", "category", "ownership_type", "liable_party", "billing_type",
+    "event_type", "audit_status", "stock_status", "expiry_status", "followup_method", "wellness_type",
+    "followup_reason", "appointment_type", "resource_type",
+}
+CONSTANT_FIELDS_IN = {"consignment_shrinkage.html": {"reason"}}
+# `{{ x.field }}`, and the same with a fallback — `{{ x.field or "—" }}`,
+# `{{ x.field if x.field else "—" }}` — which prints the raw value just the same.
+OUTPUT = re.compile(r"\{\{\s*([A-Za-z_][\w.]*)\s*(?:\}\}|or\b|if\b)")
+
+
+def _raw_constants(name, src):
+    """`{{ x.field }}` printed as text (not inside a tag's attributes) with no
+    filter, where `field` holds a constant."""
+    fields = CONSTANT_FIELDS | CONSTANT_FIELDS_IN.get(name, set())
+    out = []
+    for m in OUTPUT.finditer(src):
+        before = src[:m.start()]
+        if before.rfind("<") > before.rfind(">"):
+            continue                      # inside a tag: an attribute, not text
+        if m.group(1).split(".")[-1] in fields:
+            out.append(f"{name}:{before.count(chr(10)) + 1} {{{{ {m.group(1)} }}}}")
+    return out
+
+
+def test_a_stored_constant_is_shown_through_tr():
+    """A stored constant (a status, a payment method, a reason) printed raw is
+    English under the Arabic setting. Found printed raw: a boarding bill's
+    status, a follow-up reason, a shrinkage reason, and a distributor
+    payment's method behind an `or "—"` fallback."""
+    offenders, outputs = [], 0
+    for f in sorted(TEMPLATES.glob("*.html")):
+        src = f.read_text(encoding="utf-8")
+        outputs += len(OUTPUT.findall(src))
+        offenders += _raw_constants(f.name, src)
+    assert outputs >= 500, f"only {outputs} {{{{ }}}} outputs scanned — did the templates move?"
+    assert not offenders, ("these print a stored English constant raw — add |tr:\n  " + "\n  ".join(offenders))
+
+
+def test_control_the_constant_scan_reads_text_not_attributes():
+    sample = ('<span class="badge {{ s.status }}">{{ s.status }}</span> {{ s.status|tr }} '
+              '<div class="flash {{ category }}">{{ note.reason }}</div>')
+    assert _raw_constants("x.html", sample) == ["x.html:1 {{ s.status }}"]
+    assert _raw_constants("consignment_shrinkage.html", "<td>{{ l.reason }}</td>") == [
+        "consignment_shrinkage.html:1 {{ l.reason }}"]
+    fallback = ('<td>{{ p.method or "—" }}</td><td>{{ p.method if p.method else "—" }}</td>'
+                '<td>{{ p.method|tr if p.method else "—" }}</td>')
+    assert _raw_constants("x.html", fallback) == ["x.html:1 {{ p.method }}"] * 2

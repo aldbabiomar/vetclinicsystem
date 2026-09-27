@@ -10,8 +10,8 @@
 
     <div class="field" style="margin-bottom:14px;">
       <label for="refundSaleId">{{ _('Sale ID') }}</label>
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="refundSaleId" autocomplete="off" placeholder="e.g. 1042" style="flex:1;">
+      <div class="u-row-sm">
+        <input class="u-grow" type="text" id="refundSaleId" autocomplete="off" placeholder="{{ _('e.g. %(example)s', example='1042') }}">
         <button type="button" class="btn secondary" data-vzh="refunds-1">{{ _('Find Sale') }}</button>
       </div>
     </div>
@@ -65,9 +65,9 @@
             <option value="Transfer" {{ 'selected' if fv(service_form, 'refund_method')=='Transfer' }}>{{ _('Transfer') }}</option>
           </select>
         </div>
-        <div class="field"><label for="refunds-7-visit_id">{{ _('Visit ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-7-visit_id" type="text" name="visit_id" value="{{ fv(service_form, 'visit_id') }}" placeholder="e.g. V001"></div>
-        <div class="field"><label for="refunds-8-inpatient_case_id">{{ _('Inpatient Case ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-8-inpatient_case_id" type="text" name="inpatient_case_id" value="{{ fv(service_form, 'inpatient_case_id') }}" placeholder="e.g. 12"></div>
-        <div class="field"><label for="refunds-9-boarding_id">{{ _('Boarding ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-9-boarding_id" type="text" name="boarding_id" value="{{ fv(service_form, 'boarding_id') }}" placeholder="e.g. 7"></div>
+        <div class="field"><label for="refunds-7-visit_id">{{ _('Visit ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-7-visit_id" type="text" name="visit_id" value="{{ fv(service_form, 'visit_id') }}" placeholder="{{ _('e.g. %(example)s', example=1|code('V')) }}"></div>
+        <div class="field"><label for="refunds-8-inpatient_case_id">{{ _('Inpatient Case ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-8-inpatient_case_id" type="text" name="inpatient_case_id" value="{{ fv(service_form, 'inpatient_case_id') }}" placeholder="{{ _('e.g. %(example)s', example='12') }}"></div>
+        <div class="field"><label for="refunds-9-boarding_id">{{ _('Boarding ID') }} <span class="muted">{{ _('(one of these three)') }}</span></label><input id="refunds-9-boarding_id" type="text" name="boarding_id" value="{{ fv(service_form, 'boarding_id') }}" placeholder="{{ _('e.g. %(example)s', example='7') }}"></div>
         <div class="field" style="grid-column:1/-1;"><label for="refunds-10-reason">{{ _('Reason (optional)') }}</label><input id="refunds-10-reason" type="text" name="reason" value="{{ fv(service_form, 'reason') }}" placeholder="{{ _('e.g. service not completed') }}"></div>
       </div>
       <div class="form-actions"><button class="btn" type="submit">{{ _('Process Service Refund') }}</button></div>

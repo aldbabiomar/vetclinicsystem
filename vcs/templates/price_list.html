@@ -74,7 +74,7 @@
       <td><input form="edit-{{ i.id }}" name="notes" value="{{ fv(row_form, 'notes', i.notes or '') }}" style="border:none; background:transparent; padding:2px; width:100%;"></td>
       <td style="text-align:center;"><input form="edit-{{ i.id }}" type="checkbox" name="can_discount" {{ 'checked' if fv(row_form, 'can_discount', 'on' if i.can_discount else '')=='on' }}></td>
       <td style="white-space:nowrap;">
-        <form method="post" action="{{ url_for('inventory.price_list_delete', item_id=i.id) }}" style="display:inline;" data-confirm="Remove {{ i.name }}?">
+        <form method="post" action="{{ url_for('inventory.price_list_delete', item_id=i.id) }}" style="display:inline;" data-confirm="{{ _('Remove %(name)s?', name=i.name) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn small danger" type="submit">{{ _('Remove') }}</button>
         </form>

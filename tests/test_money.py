@@ -32,6 +32,10 @@ from vcs.web import core
 from vcs.domain import billing, dates
 D = Decimal
 
+# JO's half of the money specification: every assertion is in JO's numbers.
+# test_money_iq.py is IQ's half, so both run in both runs.
+pytestmark = pytest.mark.money("JO")
+
 
 # ---------------------------------------------------------------------------
 # parse_money — the front door. Everything downstream trusts its output.
@@ -98,6 +102,21 @@ def test_parse_money_rejects_values_too_large_for_the_column():
     assert core.parse_money(str(money.JO.max_amount)) == money.JO.max_amount
     with pytest.raises(core.BadNumber):
         core.parse_money("1000000000000000000")
+
+
+@pytest.mark.parametrize("raw", ["9" * 40, "1e309", "-1e400", "123456789012345678901234567890.5"])
+def test_an_amount_too_long_to_round_is_refused_not_a_500(raw):
+    """GUARD. Rounding a 40-digit figure to three places overflows Decimal's
+    context -- InvalidOperation, a 500 on the Price List form (found by
+    scripts/simulation/edge_post.py). Refused as a bad number instead."""
+    with pytest.raises(core.BadNumber):
+        core.parse_money(raw)
+
+
+def test_control_an_amount_that_rounds_onto_the_limit_is_accepted():
+    """CONTROL on the check made before rounding: its headroom is one cash
+    unit, so the largest amount, typed with a tail that rounds away, passes."""
+    assert core.parse_money(str(money.JO.max_amount) + "4") == money.JO.max_amount
 
 
 def test_parse_money_allows_negative_by_design():

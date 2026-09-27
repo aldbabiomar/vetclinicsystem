@@ -21,15 +21,13 @@ import re
 
 import pytest
 
-from conftest import TEST_DB_URL, needs_db
+from conftest import ADMIN_ID, TEST_DB_URL, needs_db, new_id
 
 EASTERN = "٠١٢٣٤٥٦٧٨٩"
 # A string translated in translations/ar/LC_MESSAGES/messages.po. If the
 # catalogue is ever regenerated from scratch this is the first thing to fix.
 KNOWN_AR = "الملاك"      # "Owners"
 KNOWN_EN = "Owners"
-LATIN_CURRENCY = "JOD"
-ARABIC_CURRENCY = "د.أ"
 
 
 def _set_language(value):
@@ -40,8 +38,11 @@ def _set_language(value):
     palette. A direct write is right for arranging a test; the settings FORM
     is exercised by its own tests below, so both the mechanism and the way a
     user reaches it are covered."""
-    from vcs.db import pool as dbmod
-    con = dbmod.connect()
+    # TEST_DB_URL, not the app's pool: the pool reads DATABASE_URL, which
+    # only the flask_app fixture sets, so a pure test run on its own (whose
+    # teardown still lands here) errored in teardown.
+    import psycopg
+    con = psycopg.connect(TEST_DB_URL)
     try:
         with con.cursor() as cur:
             if value is None:
@@ -275,19 +276,34 @@ def test_pdf_export_is_not_locale_aware():
             f"ARABIC_LOCALIZATION_PLAN.md §0.")
 
 
+@pytest.fixture
+def a_visit(db):
+    """A visit of the test's own. The test once exported whichever visit the
+    database happened to hold, and skipped on an empty one."""
+    from vcs import clock
+    o, p, v = new_id(), new_id(), new_id()
+    db.execute("INSERT INTO owners (id, name) VALUES (%s,%s)", (o, "PDF Owner"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name) VALUES (%s,%s,%s)", (p, o, "PDF Pet"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status, complaint) VALUES (%s,%s,%s,%s,%s)",
+               (v, p, clock.today(), "Ongoing", "Limping on the left foreleg"))
+    db.commit()
+    yield v
+    for sql, arg in (("DELETE FROM visits WHERE id=%s", v), ("DELETE FROM patients WHERE id=%s", p),
+                     ("DELETE FROM owners WHERE id=%s", o)):
+        db.execute(sql, (arg,))
+    db.commit()
+
+
 @needs_db
-def test_a_pdf_is_byte_identical_in_both_languages(client, db):
+def test_a_pdf_is_byte_identical_in_both_languages(client, db, a_visit):
     """The behavioural half of §0: not just 'the module does not import
     gettext' but 'the bytes do not change'."""
-    row = db.execute("SELECT id FROM visits ORDER BY id LIMIT 1").fetchone()
-    if not row:
-        pytest.skip("no visit to export")
     _as(client, "en")
-    en = client.get(f"/visits/{row['id']}/export")
+    en = client.get(f"/visits/{a_visit}/export")
     _as(client, "ar")
-    ar = client.get(f"/visits/{row['id']}/export")
-    if en.status_code != 200 or ar.status_code != 200:
-        pytest.skip(f"export not available (en={en.status_code} ar={ar.status_code})")
+    ar = client.get(f"/visits/{a_visit}/export")
+    assert (en.status_code, ar.status_code) == (200, 200)
+    assert en.data.startswith(b"%PDF") and ar.data.startswith(b"%PDF")
     # A PDF embeds a creation timestamp, so compare the drawn text rather than
     # raw bytes: no Arabic codepoints and no Eastern digits in either.
     for label, data in (("en", en.data), ("ar", ar.data)):
@@ -372,47 +388,59 @@ def test_numeric_columns_keep_a_fixed_right_alignment():
 
 @needs_db
 def test_the_currency_label_is_the_arabic_abbreviation_in_arabic(client):
-    """Confirmed choice: the Arabic abbreviation rather than the Latin ISO
-    code, in the same position as before."""
-    from vcs.web import core
-    latin = "IQD" if "IQD" in (core.__doc__ or "") or True else "JOD"
+    """Confirmed choice: the Arabic abbreviation (د.ع, د.أ) rather than the
+    Latin ISO code, in the same position as before — the run's setting's."""
+    from vcs import money
+    latin, arabic = money.current().currency, money.current().label_ar
     _as(client, "ar")
     ar = client.get("/boarding").data.decode("utf-8")
-    assert ARABIC_CURRENCY in ar, f"expected {ARABIC_CURRENCY} in the Arabic rendering"
-    assert LATIN_CURRENCY not in ar, f"{LATIN_CURRENCY} leaked into the Arabic rendering"
+    assert arabic in ar, f"expected {arabic} in the Arabic rendering"
+    assert latin not in ar, f"{latin} leaked into the Arabic rendering"
 
     _as(client, "en")           # CONTROL
     en = client.get("/boarding").data.decode("utf-8")
-    assert LATIN_CURRENCY in en
-    assert ARABIC_CURRENCY not in en
+    assert latin in en
+    assert arabic not in en
 
 
 def test_pdf_export_still_uses_the_latin_currency_code():
     """§0 again, from the other direction: the currency decision must not have
-    reached the PDFs. They stay English with the Latin code, permanently."""
-    import pathlib
+    reached the PDFs. They stay English with the Latin code, permanently.
+    (This once asserted "JOD" appeared in the source; after the merge it
+    appeared only in a docstring, and the check held nothing.)"""
+    from vcs import money
     src = source_files.module("pdf_export").read_text(encoding="utf-8")
-    assert LATIN_CURRENCY in src, "pdf_export.py no longer names the Latin currency code"
-    assert ARABIC_CURRENCY not in src, (
-        f"pdf_export.py contains {ARABIC_CURRENCY} — PDFs stay English (§0)")
+    assert "m.currency" in src, "pdf_export.py no longer reads the setting's Latin currency code"
+    assert "label_ar" not in src, "pdf_export.py reads the Arabic currency label — PDFs stay English (§0)"
+    for setting in money.SETTINGS.values():
+        assert setting.label_ar not in src, (
+            f"pdf_export.py contains {setting.label_ar} — PDFs stay English (§0)")
+
+
+@pytest.fixture
+def a_dated_audit(db):
+    """A confirmed audit dated today, the top row of /audit-history. The test
+    once looked for whatever dated row the page had, and skipped without one."""
+    from vcs import clock
+    sid = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at, confirmed_at) "
+                     "VALUES (%s,%s,'Confirmed',%s,%s) RETURNING id",
+                     (clock.today(), ADMIN_ID, clock.now(), clock.now())).fetchone()["id"]
+    db.commit()
+    yield clock.today().isoformat()
+    db.execute("DELETE FROM audit_sessions WHERE id=%s", (sid,))
+    db.commit()
 
 
 @needs_db
-def test_dates_render_in_arabic_indic_digits_when_arabic(client, db):
+def test_dates_render_in_arabic_indic_digits_when_arabic(client, db, a_dated_audit):
     """Confirmed choice: dates get Eastern digits too, consistent with money."""
-    import re as _re
-    db.execute("INSERT INTO settings (key,value) VALUES ('opening_date','2026-01-15') "
-               "ON CONFLICT (key) DO UPDATE SET value='2026-01-15'")
-    db.commit()
+    eastern = a_dated_audit.translate(str.maketrans("0123456789", EASTERN))
     _as(client, "ar")
     ar = client.get("/audit-history").data.decode("utf-8")
     _as(client, "en")           # CONTROL
     en = client.get("/audit-history").data.decode("utf-8")
-    ar_date = bool(_re.search(r"[٠-٩]{4}-[٠-٩]{2}-[٠-٩]{2}", ar))
-    en_date = bool(_re.search(r"\b[0-9]{4}-[0-9]{2}-[0-9]{2}\b", en))
-    if not en_date:
-        pytest.skip("no dated row on this page to compare")
-    assert ar_date, "dates did not render with Arabic-Indic digits in Arabic"
+    assert a_dated_audit in en, "the audit's date is not on the page in English"
+    assert eastern in ar, "dates did not render with Arabic-Indic digits in Arabic"
 
 
 @needs_db

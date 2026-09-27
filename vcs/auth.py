@@ -3,7 +3,7 @@ Authentication, roles, permissions, audit trail, and discount-cap logic for
 VetClinicSystem.
 """
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from functools import wraps
 
 from flask import session, redirect, url_for, request, abort
@@ -344,7 +344,10 @@ def log_login(db, user_id, username, success):
     ip = request.remote_addr
     db.execute(
         "INSERT INTO login_log (user_id, username, success, timestamp, ip, user_agent) VALUES (%s,%s,%s,%s,%s,%s)",
-        (user_id, username, 1 if success else 0, clock.now().isoformat(timespec="seconds"), ip, ua),
+        # The full timestamp, not the second: login_lock_status() counts the
+        # failures AFTER the last success, and at one-second resolution a
+        # failure in the same second as a success did not count at all.
+        (user_id, username, 1 if success else 0, clock.now(), ip, ua),
     )
     db.commit()
 
@@ -502,8 +505,16 @@ def _as_text(v):
     Postgres removed implicit casts to text in 8.3, so whether that works
     depends on how psycopg types the bound parameter. Coerced explicitly
     here so it never depends on that. See ERROR_500_AUDIT.md's
-    'Could not verify without a live database' section."""
-    return None if v is None else str(v)
+    'Could not verify without a live database' section.
+
+    A date or a moment is written as ISO 8601 ("2026-09-27T14:05:09+03:00"),
+    which the change log shows in the clinic's time (templating.logvalue).
+    str() gave "2026-09-27 14:05:09+03:00", which it printed raw."""
+    if v is None:
+        return None
+    if isinstance(v, date):             # a datetime is a date too
+        return v.isoformat()
+    return str(v)
 
 
 def log_change(db, table_name, record_id, action, changes=None, at=None):
@@ -530,7 +541,7 @@ def log_change(db, table_name, record_id, action, changes=None, at=None):
 
     if action == "update" and changes:
         for field, (old, new) in changes.items():
-            if str(old) == str(new):
+            if _as_text(old) == _as_text(new):
                 continue
             db.execute(
                 "INSERT INTO audit_log (user_id,username,timestamp,action,table_name,record_id,field,old_value,new_value) "

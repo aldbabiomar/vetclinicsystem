@@ -11,8 +11,9 @@ green through every finding in the audit.
 ## Decision
 
 - After adding a guard, **reintroduce the bug it protects against and see the
-  suite fail**, then put the fix back. `scripts/simulation/prove_*.py` do this
-  systematically.
+  suite fail**, then put the fix back. `scripts/prove_guards.py` does this
+  systematically: add the guard's mutation to its registry, and `--all`
+  re-proves every guard, refusing a mutation whose tests were skipped.
 - Pair every guard with a **control**: the valid case succeeds. Without it,
   "refused for the right reason" and "refused for any reason" look the same.
 - A test that scans source takes its files from `tests/source_files.py` and
@@ -20,7 +21,12 @@ green through every finding in the audit.
   passes hardest when it scanned nothing.
 - Run the suite under **both** money settings, with the browser tier alive
   (`APP_URL` set, `pytest tests/test_browser.py --collect-only` shows its
-  tests).
+  tests). An unmarked test runs under the run's setting (the environment's,
+  or `VCS_TEST_MONEY`), so the two runs are two different runs. Until
+  2026-09-27 every unmarked test ran under JO in both.
+- A guard in the browser tier is proven the same way: `prove_guards.py`
+  restarts the app after putting the bug in and after taking it out, because
+  the app caches its templates.
 
 ## Consequences
 
@@ -30,5 +36,5 @@ checklist for a rule that must hold on paths it does not.
 
 ## Held by
 
-`CLAUDE.md` §5.2 and the reviewers who read it. The progress log in
+`scripts/prove_guards.py --all`; `CLAUDE.md` §5.2. The progress log in
 `plans/UNIFIED_CODEBASE_PLAN.md` records the mutation run for each guard.

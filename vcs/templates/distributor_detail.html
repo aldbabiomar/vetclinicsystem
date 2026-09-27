@@ -54,15 +54,15 @@
   </div>
   {% if bill.notes %}<p class="muted">{{ bill.notes }}</p>{% endif %}
 
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th scope="col">{{ _('Date') }}</th><th scope="col">{{ _('Amount (%(currency_label)s)', currency_label=currency_label()) }}</th><th scope="col">{{ _('Method') }}</th><th scope="col">{{ _('Notes') }}</th><th scope="col"></th></tr></thead>
     <tbody>
       {% for p in bill.payments %}
       <tr>
         <td>{{ p.payment_date|localdate }}</td><td>{{ p.amount|money }}</td>
-        <td>{{ p.method or "—" }}</td><td>{{ p.notes or "—" }}</td>
+        <td>{{ p.method|tr if p.method else "—" }}</td><td>{{ p.notes or "—" }}</td>
         <td>
-          <form method="post" action="{{ url_for('consignment.distributor_payment_delete', dist_id=distributor.id, payment_id=p.id) }}" style="display:inline;" data-confirm="Delete this payment?">
+          <form method="post" action="{{ url_for('consignment.distributor_payment_delete', dist_id=distributor.id, payment_id=p.id) }}" style="display:inline;" data-confirm="{{ _('Delete this payment?') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn small danger" type="submit">{{ _('Delete') }}</button>
           </form>
@@ -70,7 +70,7 @@
       </tr>
       {% else %}<tr><td colspan="5" class="empty-note">{{ _('No payments recorded yet.') }}</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
 
   {% if bill.balance > 0 %}
   {% set pay_form = form if payment_form_bill_id == bill.id else None %}
@@ -89,7 +89,7 @@
   </form>
   {% endif %}
 
-  <form method="post" action="{{ url_for('consignment.distributor_bill_delete', dist_id=distributor.id, bill_id=bill.id) }}" style="margin-top:8px;" data-confirm="Delete bill {{ bill.id }}?">
+  <form method="post" action="{{ url_for('consignment.distributor_bill_delete', dist_id=distributor.id, bill_id=bill.id) }}" style="margin-top:8px;" data-confirm="{{ _('Delete bill %(code)s?', code=bill.id|code('DB')) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="btn small danger" type="submit">{{ _('Delete Bill') }}</button>
   </form>

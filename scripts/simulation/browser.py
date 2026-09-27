@@ -59,6 +59,12 @@ def run(app, findings):
         for path in PAGES:
             try:
                 page.goto(base + path, wait_until="networkidle", timeout=30000)
+                # /insights, /retention and the consignment overview answer with
+                # a loading shell that polls a job and then navigates itself
+                # (CLAUDE.md §4). Moving on before it has would cancel the NEXT
+                # page's load -- the ERR_ABORTED this walk used to report.
+                page.wait_for_function("() => !document.querySelector('.vz-progress-shell')", timeout=45000)
+                page.wait_for_load_state("networkidle")
             except Exception as e:
                 note("PAGE_LOAD_ERROR", f"{path}: {str(e)[:120]}")
                 continue

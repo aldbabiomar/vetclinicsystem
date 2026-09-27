@@ -4,6 +4,7 @@ the display filters (|money, |qty, |tr, |localdate, ...), the globals, and
 the context processors that feed base.html: the sidebar, the money setting,
 the scripts' sentences, the CSP nonce.
 """
+import re
 import traceback
 
 from flask import current_app, g, request, session, url_for
@@ -140,6 +141,22 @@ def localtime_filter(v, fmt="%Y-%m-%d %H:%M"):
     if formatted and str(get_locale()) == "ar":
         formatted = to_arabic_indic_digits(formatted)
     return formatted
+
+
+_ISO_MOMENT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}")
+
+
+def logvalue_filter(v):
+    """A value from the change log, as a person reads it. The log stores what
+    changed as text; a field that holds a moment (consignment_since, say) was
+    written as ISO text and printed as "2026-09-27T01:58:40+03:00". Shown in
+    the clinic's time like every other moment; anything else as it is."""
+    if isinstance(v, str) and _ISO_MOMENT.match(v):
+        try:
+            return localtime_filter(v)
+        except (TypeError, ValueError):
+            return v
+    return v
 
 
 def weekdate_filter(d):
@@ -290,6 +307,7 @@ def register(app):
     app.add_template_filter(code_filter, "code")
     app.add_template_filter(localtime_filter, "localtime")
     app.add_template_filter(weekdate_filter, "weekdate")
+    app.add_template_filter(logvalue_filter, "logvalue")
     app.context_processor(inject_money_setting)
     app.context_processor(inject_nav)
     app.context_processor(inject_js_strings)

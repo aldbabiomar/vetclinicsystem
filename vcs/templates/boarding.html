@@ -116,7 +116,7 @@
       <td class="small">{{ s.entry_date|localdate }}</td>
       <td class="small">{{ s.dismissal_date or ("Picked up" if s.dismissed else "—") }}</td>
       <td class="num-col">{{ s.billing.total|money }}</td>
-      <td><span class="badge {{ 'ok' if s.billing.status=='Fully Paid' else ('danger' if s.billing.status=='Unpaid' else 'muted') }}">{{ s.billing.status }}</span></td>
+      <td><span class="badge {{ 'ok' if s.billing.status=='Fully Paid' else ('danger' if s.billing.status=='Unpaid' else 'muted') }}">{{ s.billing.status|tr }}</span></td>
       <td>{% if s.special_needs %}<span class="badge warn" title="{{ s.special_needs_notes or '' }}">{{ _('Yes') }}</span>{% else %}<span class="muted small">{{ _('None') }}</span>{% endif %}</td>
       <td>{% if s.incident_count %}<span class="badge danger">{{ s.incident_count }}</span>{% else %}<span class="muted small">0</span>{% endif %}</td>
       <td class="actions-cell">
@@ -128,7 +128,7 @@
           </div>
           <a class="btn small secondary" href="{{ url_for('clinical.boarding_export_pdf', boarding_id=s.id) }}">{{ _('Export (PDF)') }}</a>
           {% if not s.dismissed %}
-          <form method="post" action="{{ url_for('clinical.boarding_dismiss', boarding_id=s.id) }}" style="display:inline;" data-confirm="Mark {{ s.animal_name }} as picked up?">
+          <form method="post" action="{{ url_for('clinical.boarding_dismiss', boarding_id=s.id) }}" style="display:inline;" data-confirm="{{ _('Mark %(name)s as picked up?', name=s.animal_name) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn small secondary" type="submit">{{ _('Mark Picked Up') }}</button>
           </form>

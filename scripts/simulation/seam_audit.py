@@ -13,7 +13,11 @@ saw. Read the output, then check each hole against the route.
 """
 import os, re, sys, ast, json
 
-WEB = "/Users/omaraldbabi/Desktop/VetClinicSystem/webapps"
+# The blueprints of this checkout (vcs/web/blueprints). This used to compare
+# the two predecessor apps' copies; with one codebase it lists the holes once,
+# and the rules worth keeping become seam rules (tests/test_seam_rules.py).
+BLUEPRINTS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                          "vcs", "web", "blueprints")
 
 # Parallel surfaces: groups of functions that do the same job on different
 # records. A guard used by some members of a group and not others is the
@@ -115,16 +119,12 @@ def expand(src, module_fns, depth=2):
     return src
 
 
-def audit(app):
-    root = f"{WEB}/vetclinicsystem_{app}-main"
+def audit():
     mods = {}
-    for mod in ("settings", "admin", "consignment", "inventory", "sales", "clinical"):
-        p = f"{root}/routes/{mod}.py"
-        if os.path.exists(p):
-            mods[mod] = functions_in(p)
-    mods["app"] = functions_in(f"{root}/app.py")
+    for mod in ("main", "reports", "settings", "admin", "consignment", "inventory", "sales", "clinical"):
+        mods[mod] = functions_in(os.path.join(BLUEPRINTS, f"{mod}.py"))
 
-    print(f"\n{'='*100}\n{app.upper()}  — guard coverage across parallel surfaces\n{'='*100}")
+    print(f"\n{'='*100}\nGuard coverage across parallel surfaces\n{'='*100}")
     holes = []
     for group, members in GROUPS.items():
         present = {}
@@ -165,21 +165,8 @@ def audit(app):
 
 
 if __name__ == "__main__":
-    allholes = {}
-    for app in ("iq", "jo"):
-        allholes[app] = audit(app)
+    holes = audit()
     print(f"\n{'='*100}\nHOLES TO REVIEW (a blank is not automatically a bug — check each)\n{'='*100}")
-    # a hole present in BOTH apps is a shared design choice; one app only is
-    # more likely a genuine divergence
-    iq = {(g, f, r) for g, f, r in allholes["iq"]}
-    jo = {(g, f, r) for g, f, r in allholes["jo"]}
-    both = sorted(iq & jo)
-    only_iq = sorted(iq - jo)
-    only_jo = sorted(jo - iq)
-    print(f"\nIn BOTH apps ({len(both)}) — consistent between the two, so likely deliberate:")
-    for g, f, r in both:
+    for g, f, r in sorted(holes):
         print(f"  [{g}] {f}  lacks  {r}")
-    for label, rows in (("IQ only", only_iq), ("JO only", only_jo)):
-        print(f"\n{label} ({len(rows)}) — ASYMMETRIC BETWEEN THE APPS, look at these first:")
-        for g, f, r in rows:
-            print(f"  [{g}] {f}  lacks  {r}")
+    print(f"\n{len(holes)} hole(s).")

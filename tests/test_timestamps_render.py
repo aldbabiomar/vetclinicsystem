@@ -89,10 +89,19 @@ def timed_rows(db):
         "INSERT INTO cash_register_audits (audit_date, system_cash, system_card, system_transfer, counted_cash, "
         "difference, status, performed_by, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (clock.today(), D(0), D(0), D(0), D(0), D(0), "Perfect", ADMIN_ID, now)).fetchone()["id"]
+    # a change-log value that is itself a moment, written as ISO text -- as
+    # flagging an item as consignment records consignment_since (found by
+    # scripts/simulation/day.py: the Logins & Changes page printed it raw)
+    ids["log_id"] = db.execute(
+        "INSERT INTO audit_log (user_id, username, timestamp, action, table_name, record_id, field, old_value, "
+        "new_value) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (ADMIN_ID, "admin", now, "update", "inventory_list", str(inv), "consignment_since", None,
+         now.isoformat())).fetchone()["id"]
     ids.update(owner=o, patient=p, visit=v, dist=dist, item=inv, now=now)
     db.commit()
     yield ids
     for sql, arg in (
+        ("DELETE FROM audit_log WHERE id=%s", ids["log_id"]),
         ("DELETE FROM cash_register_audits WHERE id=%s", ids["audit_id"]),
         ("DELETE FROM self_check_log WHERE id=%s", ids["check_id"]),
         ("DELETE FROM restore_log WHERE id=%s", ids["restore_id"]),

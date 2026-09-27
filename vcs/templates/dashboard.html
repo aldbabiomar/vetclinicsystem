@@ -109,7 +109,7 @@
     {% if snap.due_today %}
       {% for f in snap.due_today[:6] %}
       <div class="list-line">
-        <div><div class="who">{{ f.animal_name }} <span class="meta">({{ f.owner_name }})</span></div><div class="meta">{{ f.followup_method|tr }} — {{ f.followup_reason }}</div></div>
+        <div><div class="who">{{ f.animal_name }} <span class="meta">({{ f.owner_name }})</span></div><div class="meta">{{ f.followup_method|tr }} — {{ f.followup_reason|tr }}</div></div>
         <a class="btn small secondary" href="{{ url_for('clinical.visit_detail', visit_id=f.visit_id) }}">{{ _('Open') }}</a>
       </div>
       {% endfor %}

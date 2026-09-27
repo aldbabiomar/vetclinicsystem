@@ -1160,3 +1160,74 @@ result under each money setting.
 
   **Suite:** IQ **1561 passed, 4 skipped**; JO **1561 passed, 4 skipped**;
   no database 687 passed.
+- **2026-09-27 — Tooling phase: the scripts, the harness, and what they found.**
+  - **The scripts target this tree.**
+    - `scripts/restore_drill.sh` restores a `.dump` or a backup folder into
+      a throwaway container (`vcs_test_drill`), refuses the predecessor
+      installs' data folders, and checks the restored clinic under its own
+      money setting (every stored total a whole cash unit, and to the
+      setting's places) and that the app boots on it. Proven on an IQ and a
+      JO backup, on a planted bad total, and on a predecessor path.
+    - `scripts/prove_guards.py` puts each guard's bug back, requires its
+      tests to fail, restores the file and requires them to pass; a skip is
+      NOT PROVEN. Browser guards restart the app around each run, since it
+      caches its templates. 39 mutations registered, every one proven (38 in one
+      `--all` run under JO, the last on its own after it was added). It
+      restores the source, not the test database: a page-wide check found a
+      change-log row one of its runs had written with the bug in, so an
+      environment is reset after proving (`CLAUDE.md` §5.2).
+    - The simulation (`day.py`, the `edge_*.py` sweeps, the browser walk,
+      the seam audit, the rendered-JS check) drives this app by its numeric
+      ids and seeded rows. The predecessor apps' one-off scripts moved to
+      `scripts/archive/predecessor-simulation/`. The app icons are drawn
+      from the shield + paw mark.
+  - **Found by the simulation, fixed, each with a proven guard:**
+    - an amount too long to round was a 500 (`money.parse`);
+    - failed sign-ins in the same second as a successful one were not
+      counted toward the lockout (`login_log` now keeps the full moment);
+    - a consignment shortfall was flashed as an error, not a warning;
+    - stored constants printed raw, in English under Arabic — a boarding
+      bill's status, reasons, methods, and twelve more behind an
+      `or "—"` fallback the guard did not recognise;
+    - eight confirm dialogs and six field hints written as English into
+      the templates, where no msgid could reach them (a stale "e.g. V001"
+      among them); Arabic in `ARABIC_REVIEW.md` §21–§22;
+    - the change log printed raw ISO moments; a case-status edit stored
+      today's date — the clinic's midnight — instead of the moment, and the
+      log wrote it in a form it then printed raw;
+    - layout: Arabic `/refunds` was 397px wide on a 390px phone; a visit's
+      payment row pushed the page sideways on a phone and between 900 and
+      1100px; a distributor's payments table ran out of its card.
+  - **The browser tier** checks the detail pages as well as the lists, in
+    Arabic as well as English, at 1024px as well as 390/768/1440, and
+    flags content sticking out of its card or overfilling its row. The
+    JavaScript-error check runs in Arabic too: a number written into a
+    script through a display filter is `const n = ٣;` in Arabic only, a
+    SyntaxError the English run never sees (proven by putting one back).
+  - **The harness ran the same suite twice.** Every unmarked test ran under
+    JO in both runs; the "iq" run differed only in the 192 tests marked IQ.
+    Now an unmarked test runs under the run's setting (the environment's,
+    or `VCS_TEST_MONEY`). The first honest IQ run failed 94 tests:
+    - JO's specification files (`test_money.py`, `test_money_routes.py`,
+      `test_rewards.py`) are pinned to JO; their IQ halves already existed,
+      except rewards, whose IQ half is now ported from the predecessor
+      (`test_rewards_iq.py`, 27 tests, figures kept one for one);
+    - the feature files that had no IQ coverage at all — Clean Up cap,
+      boarding refunds, refund dates, live reports, unpriced items, record
+      codes, CRUD phone numbers, the currency label — run under both, with
+      amounts written through `conftest.amount()` and phones through
+      `conftest.local_phone()`;
+    - a PDF check that held only because a docstring said "JOD" now checks
+      the code.
+  - **The four skips tracked since the bootstrap are gone.**
+    - "No visit to export" and "no dated row" now seed their own rows.
+    - The barcode label test looked for a barcoded item by the old text ids
+      (INV001), which no numeric id matches, so it skipped in every
+      database; it now seeds one.
+    - The modal-opacity guard skipped under this stylesheet. It now always
+      scans (with a floor, and controls for both detectors) and bites when
+      the stylesheet hands the overlay's opacity to motion.js.
+
+  **Suite:** IQ **1615 passed, 0 skipped**; JO **1615 passed, 0 skipped** —
+  the first runs with no skips, and the first IQ run in which the unmarked
+  tests ran under IQ; no database 698 passed.

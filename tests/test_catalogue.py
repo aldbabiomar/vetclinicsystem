@@ -170,3 +170,52 @@ def test_every_translation_keeps_its_placeholders():
              if m.id and _text(m.string)
              and _placeholders(_text(m.id)) != _placeholders(_text(m.string))]
     assert not wrong, f"placeholder sets differ (msgid, en, ar): {wrong[:5]}"
+
+
+# ---------------------------------------------------------------------------
+# Text a person reads in an attribute goes through _() too
+# ---------------------------------------------------------------------------
+
+# The attributes whose text reaches the screen: a confirm dialog (ui.js shows
+# data-confirm as it is), a field's hint, a tooltip, a screen reader's label.
+_READ_ATTRS = re.compile(r'\s(placeholder|title|aria-label|alt|data-confirm)="([^"]*)"')
+
+
+def _english_in_attributes(source):
+    """Attribute values with Latin letters outside any {{ }} / {% %} block:
+    English written straight into the template, which no msgid can reach."""
+    found = []
+    for m in _READ_ATTRS.finditer(source):
+        literal = re.sub(r"\{\{.*?\}\}|\{%.*?%\}|&#?\w+;", "", m.group(2))
+        if re.search(r"[A-Za-z]", literal):
+            found.append(f'{m.group(1)}="{m.group(2)}"')
+    return found
+
+
+def test_control_english_written_into_an_attribute_is_reported():
+    sample = ('<form data-confirm="Delete {{ d.name }}?">'
+              '<input placeholder="e.g. 1042">'
+              '<form data-confirm="{{ _(\'Delete %(name)s?\', name=d.name) }}">'
+              '<input placeholder="{{ _(\'e.g. %(example)s\', example=\'1042\') }}">'
+              '<span title="—">')
+    assert _english_in_attributes(sample) == [
+        'data-confirm="Delete {{ d.name }}?"', 'placeholder="e.g. 1042"']
+
+
+def test_no_template_writes_english_into_an_attribute():
+    """Eight confirm dialogs (deleting a distributor, a bill, a payment, a
+    price-list item; discarding an audit; picking up a boarder; recording a
+    settlement; restoring a backup) and six field hints were plain English
+    in the template. test_every_string_the_code_uses_has_arabic cannot see
+    them: they never passed through _(), so there was no msgid to miss.
+    Under Arabic they appeared in English."""
+    scanned, found = 0, []
+    for path in source_files.templates():
+        source = path.read_text(encoding="utf-8")
+        scanned += len(_READ_ATTRS.findall(source))
+        found += [f"{path.name}: {a}" for a in _english_in_attributes(source)]
+    assert scanned >= 70, f"only {scanned} attributes scanned — did the templates move?"
+    assert not found, (
+        "English written straight into an attribute renders English under the "
+        "Arabic setting; wrap it in {{ _('...') }} and add the Arabic: "
+        + "; ".join(found[:8]))

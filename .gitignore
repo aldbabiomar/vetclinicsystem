@@ -50,3 +50,8 @@ messages.pot
 
 # simulation run output, regenerated on every run
 scripts/findings_*.json
+
+# scripts/prove_guards.py, only while a mutation is in place
+.prove_guards_backup.json
+# the simulation sweeps write their findings here on every run
+scripts/findings_*.json

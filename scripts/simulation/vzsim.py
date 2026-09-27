@@ -118,6 +118,14 @@ class Client:
         if r.status_code >= 500:
             self.finding("HTTP_5XX", f"{what}: HTTP {r.status_code}")
             return False
+        # A 404 or 405 is a page or action that is not there -- a script left
+        # pointing at a removed URL used to read as success here.
+        if r.status_code >= 400:
+            self.finding("HTTP_4XX", f"{what}: HTTP {r.status_code} at {r.url}")
+            return False
+        if r.url.rstrip("/").endswith("/login") and "login" not in what:
+            self.finding("SIGNED_OUT", f"{what}: ended on the login page")
+            return False
         if errs:
             self.finding("UNEXPECTED_REFUSAL", f"{what}: refused with {errs!r}")
             return False
@@ -173,3 +181,21 @@ def q(app, sql, params=None):
 def dump(findings, path):
     with open(path, "w") as f:
         json.dump(findings, f, indent=2, default=str)
+
+
+# The one Retail item scripts/isolated_test_env.sh seeds, and its Price List
+# row: the ids the sweeps sell and bill with (numeric since the merge).
+_SEEDED = {}
+
+
+def seeded_item(app):
+    if ("item", app) not in _SEEDED:
+        _SEEDED[("item", app)] = str(q(app, "select id from inventory_list where name='Test Retail Item'")[0][0])
+    return _SEEDED[("item", app)]
+
+
+def seeded_price(app):
+    if ("price", app) not in _SEEDED:
+        _SEEDED[("price", app)] = str(q(app, "select id from price_list where linked_item_id=%s order by id limit 1",
+                                        (seeded_item(app),))[0][0])
+    return _SEEDED[("price", app)]

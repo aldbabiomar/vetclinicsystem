@@ -269,3 +269,38 @@ def test_a_real_successful_login_unlocks_it(db):
     finally:
         db.execute("DELETE FROM login_log WHERE username=%s", (username,))
         db.commit()
+
+
+@needs_db
+def test_failures_in_the_same_second_as_a_sign_in_still_count(flask_app, db, monkeypatch):
+    """GUARD. Sign-ins were logged to the second, and the lockout counts the
+    failures strictly after the last success: a burst of wrong passwords in
+    the same second as a real sign-in counted for nothing, and the lock armed
+    only after the burst (found by scripts/simulation/edge_concurrent.py).
+    Here the clock stays in one second, moving a microsecond per read."""
+    import itertools
+    import uuid
+    username = f"samesecond{uuid.uuid4().hex[:6]}"
+    role = db.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()["id"]
+    uid = db.execute("INSERT INTO users (username, password_hash, full_name, role_id, active, must_change_password, "
+                     "created_at) VALUES (%s,%s,%s,%s,true,false,now()) RETURNING id",
+                     (username, auth.hash_password("Right-Pass-2026!"), "Same Second", role)).fetchone()["id"]
+    db.commit()
+    base = clock.now().replace(microsecond=0)
+    ticks = itertools.count()
+    monkeypatch.setattr(clock, "now", lambda: base + timedelta(microseconds=next(ticks)))
+    client = flask_app.test_client()
+    env = {"REMOTE_ADDR": f"10.61.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250}"}
+    try:
+        client.post("/login", data={"username": username, "password": "Right-Pass-2026!"}, environ_base=env)
+        client.get("/logout", environ_base=env)
+        pages = [client.post("/login", data={"username": username, "password": f"wrong{i}"}, environ_base=env)
+                 .get_data(as_text=True) for i in range(auth.LOCKOUT_THRESHOLD + 1)]
+        assert "Too many failed attempts for that account" not in pages[auth.LOCKOUT_THRESHOLD - 1], \
+            "CONTROL: locked before the threshold"
+        assert "Too many failed attempts for that account" in pages[auth.LOCKOUT_THRESHOLD], \
+            "the failures in the sign-in's own second were not counted"
+    finally:
+        db.execute("DELETE FROM login_log WHERE username=%s", (username,))
+        db.execute("DELETE FROM users WHERE id=%s", (uid,))
+        db.commit()

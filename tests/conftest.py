@@ -166,24 +166,68 @@ def db(flask_app):
 # The money setting
 # ---------------------------------------------------------------------------
 # VetClinicSystem runs under a money setting, IQ or JO (money.py). Every test
-# runs under one: JO unless the test (or its module, via `pytestmark`) is
-# marked `@pytest.mark.money("IQ")`. The setting is made active in-process
-# (money.set_current) for tests that call logic/money directly, AND written
-# to the test database's settings table, because routes — through the test
-# client or the live app the browser tests drive — read it from there on
-# every request.
+# runs under one. A test (or its module, via `pytestmark`) marked
+# `@pytest.mark.money("IQ")` or `("JO")` always runs under that setting: it
+# asserts that setting's values. Every other test runs under the RUN's
+# setting — the isolated environment's (TEST_DATABASE_URL on 55491 is iq,
+# 55492 is jo), or VCS_TEST_MONEY=IQ|JO, or JO when neither says. That is
+# what makes the two runs CLAUDE.md §5 asks for two different runs: until
+# 2026-09-27 every unmarked test ran under JO in both, and the "iq" run
+# repeated the "jo" run except for the tests marked IQ.
 #
-# Most of this suite was written for JO's exact three-decimal behaviour and
-# runs under JO; IQ's rules (250-note rounding, the anti-"looks free" floor,
-# change and refunds rounded down) have their own tests marked IQ, and the
-# money specification in test_money.py covers both side by side.
+# The setting is made active in-process (money.set_current) for tests that
+# call logic/money directly, AND written to the test database's settings
+# table, because routes — through the test client or the live app the
+# browser tests drive — read it from there on every request.
 from vcs import money as _money
 _stored_money_code = None
+_ENV_PORTS = {"55491": "IQ", "55492": "JO"}
+
+
+def run_money_code():
+    """The money setting an unmarked test runs under in this run."""
+    explicit = os.environ.get("VCS_TEST_MONEY", "").strip().upper()
+    if explicit:
+        if explicit not in _money.SETTINGS:
+            raise pytest.UsageError(f"VCS_TEST_MONEY={explicit!r}: expected IQ or JO")
+        return explicit
+    port = (TEST_DB_URL or "").rsplit("@", 1)[-1].split("/", 1)[0].rsplit(":", 1)[-1]
+    return _ENV_PORTS.get(port, "JO")
 
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", 'money(code): run this test under money setting "IQ" or "JO" (default JO)')
+        "markers", 'money(code): run this test under money setting "IQ" or "JO" '
+                   "(unmarked: the run's setting, see run_money_code)")
+
+
+def pytest_report_header(config):
+    return f"money setting for unmarked tests: {run_money_code()}"
+
+
+def local_phone():
+    """A mobile number as staff type it in the run's setting — the trunk 0,
+    then the setting's local digits (9 in JO, 10 in IQ) — unique per call, so
+    a test never meets a number already on file."""
+    import uuid
+    digits = _money.current().phone_local_length
+    return "07" + str(uuid.uuid4().int)[:digits - 1].ljust(digits - 1, "0")
+
+
+def amount(jo_value):
+    """An amount written the way JO writes it, in the setting the test runs
+    under: unchanged under JO, a thousand times larger under IQ ("12.000" is
+    12,000 IQD).
+
+    For a test about billing, refunds or reports rather than about one
+    setting's arithmetic, so that it runs under both. Write values that are
+    multiples of 0.250, results included: under IQ they are then whole
+    250-dinar amounts, and nothing rounds."""
+    from decimal import Decimal
+    value = Decimal(str(jo_value))
+    if _money.current().code == "IQ":
+        value *= 1000
+    return value.quantize(Decimal("0.001"))
 
 
 def _store_money_setting(code):
@@ -211,7 +255,7 @@ def forget_stored_money_setting():
 @pytest.fixture(autouse=True)
 def money_setting(request):
     marker = request.node.get_closest_marker("money")
-    code = (marker.args[0] if marker else "JO").upper()
+    code = (marker.args[0] if marker else run_money_code()).upper()
     setting = _money.SETTINGS[code]
     _store_money_setting(code)
     token = _money.set_current(setting)

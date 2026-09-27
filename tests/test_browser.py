@@ -11,7 +11,9 @@ anything — which is worse than not having it.
 What these assert instead is true of any correct page regardless of how it
 looks, so nothing here ever needs regenerating or eyeballing:
 
-  - the page does not scroll sideways (the tablet-overflow bug)
+  - the page does not scroll sideways (the tablet-overflow bug), and nothing
+    in a card sticks out of it or overfills its row -- on the lists and on the
+    detail pages they link to, in English and in Arabic
   - no JavaScript errors, and no failed asset requests
   - no interactive element rendered at zero size (the collapsed-modal bug)
   - touch targets are big enough on a phone
@@ -66,9 +68,13 @@ pytestmark = pytest.mark.skipif(
     reason="no APP_URL — start the app (scripts/isolated_test_env.sh up iq) and set "
            "APP_URL=http://127.0.0.1:5091")
 
-# Phone, tablet, laptop. The clinic works on the last one; the first two are
-# where layout breaks without anyone noticing.
-VIEWPORTS = [("phone", 390, 844), ("tablet", 768, 1024), ("laptop", 1440, 900)]
+# Phone, tablet, small laptop, laptop. The clinic works on the last two; the
+# first two are where layout breaks without anyone noticing. The small laptop
+# (1024) is the width between the single-column collapse (900) and a full
+# laptop, where two cards share the width left by the sidebar: a visit's
+# payment row overflowed there and nowhere the other three looked.
+VIEWPORTS = [("phone", 390, 844), ("tablet", 768, 1024), ("small-laptop", 1024, 768),
+             ("laptop", 1440, 900)]
 
 # Pages reachable without an id, i.e. everything on the navigation.
 PAGES = [
@@ -185,38 +191,184 @@ def test_the_app_is_actually_reachable(signed_in):
     assert page.locator("nav, .sidebar, aside").count() > 0, "no navigation on the dashboard"
 
 
-@pytest.mark.parametrize("viewport", [v[0] for v in VIEWPORTS])
-def test_no_page_scrolls_sideways(signed_in, viewport):
-    """Horizontal overflow is the single most common responsive break, and
-    the one a desktop-only check never sees. A wide table escaping its card
-    pushes the whole page sideways; the fix is that the table scrolls inside
-    its own container instead."""
-    page = signed_in[viewport]
+# What a card holds that does not fit it, two ways, neither of which need make
+# the page any wider:
+#  - an element sticking out past the card's edge, over the card beside it,
+#    unless it sits in a scroll container (a wide table in .table-wrap, or a
+#    card that scrolls itself, is meant to);
+#  - a flex row holding more than it fits, its last item pushed into the
+#    card's padding (Arabic /refunds: the Find Sale row, 335px in 312).
+_SPILLS = """() => {
+  const clipped = (el, card) => {
+    for (let a = el.parentElement; a; a = a.parentElement) {
+      if (/(auto|scroll|hidden)/.test(getComputedStyle(a).overflowX)) return true;
+      if (a === card) return false;          // the card itself may be the scroller
+    }
+    return false;
+  };
+  const out = [];
+  for (const card of document.querySelectorAll('.card, .panel')) {
+    const c = card.getBoundingClientRect();
+    if (!c.width) continue;
+    for (const el of card.querySelectorAll('*')) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || getComputedStyle(el).position === 'fixed') continue;
+      if ((r.right > c.right + 1 || r.left < c.left - 1) && !clipped(el, card)) {
+        out.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')
+                 + ' [' + (el.textContent || '').trim().slice(0, 30) + '] sticks out of its card');
+        break;
+      }
+    }
+    for (const el of card.querySelectorAll('*')) {
+      const s = getComputedStyle(el);
+      if (/flex/.test(s.display) && s.overflowX === 'visible' && el.clientWidth
+          && el.scrollWidth > el.clientWidth + 1) {
+        out.push('a row holding ' + el.scrollWidth + 'px in ' + el.clientWidth + 'px ['
+                 + (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 30) + ']');
+        break;
+      }
+    }
+  }
+  return out;
+}"""
+
+
+def _scrolling_sideways(page, paths):
+    """The paths whose page is wider than the window, or where a card holds
+    something that does not fit it."""
     offenders = []
-    for path in PAGES:
+    for path in paths:
         page.goto(f"{APP_URL}{path}", wait_until="networkidle")
+        _settle_loading_shell(page)
+        assert "/login" not in page.url, f"{path} sent the browser to the login page"
         overflow = page.evaluate(
             "() => ({doc: document.documentElement.scrollWidth,"
             " win: window.innerWidth})")
         # A couple of pixels of slack for sub-pixel rounding and scrollbars.
         if overflow["doc"] > overflow["win"] + 3:
             offenders.append(f"{path}: content {overflow['doc']}px in a {overflow['win']}px window")
+        for spill in page.evaluate(_SPILLS):
+            offenders.append(f"{path}: {spill}")
+    return offenders
+
+
+@pytest.mark.parametrize("viewport", [v[0] for v in VIEWPORTS])
+def test_no_page_scrolls_sideways(signed_in, viewport):
+    """Horizontal overflow is the single most common responsive break, and
+    the one a desktop-only check never sees. A wide table escaping its card
+    pushes the whole page sideways; the fix is that the table scrolls inside
+    its own container instead."""
+    offenders = _scrolling_sideways(signed_in[viewport], PAGES)
     assert not offenders, (
         f"page(s) scrolling sideways at {viewport} size:\n  " + "\n  ".join(offenders))
 
 
-def test_no_page_raises_a_javascript_error_or_fails_an_asset(signed_in):
-    """A broken script leaves buttons that look fine and do nothing. A failed
-    asset leaves an unstyled page. Neither shows up in a server-side test."""
-    page = signed_in["laptop"]
+@pytest.fixture
+def detail_pages(db):
+    """One record behind each detail page, so the pages a list links to are
+    checked as well as the lists. Until they were, a visit's payment row
+    pushed the page sideways on a phone and on a 1024px laptop, and a
+    distributor's payments table ran out of its card on a phone."""
+    o, p, v, d, b = (new_id() for _ in range(5))
+    today = clock.today().isoformat()
+    db.execute("INSERT INTO owners (id, name, phone) VALUES (%s,%s,%s)",
+               (o, "Browser Detail Owner", "+962791234567"))
+    db.execute("INSERT INTO patients (id, owner_id, animal_name, species, sex) VALUES (%s,%s,%s,%s,%s)",
+               (p, o, "Browser Detail Pet", "Dog", "Male"))
+    db.execute("INSERT INTO visits (id, patient_id, date, case_status) VALUES (%s,%s,%s,%s)",
+               (v, p, today, "Ongoing"))
+    case = db.execute(
+        "INSERT INTO inpatient_cases (patient_id, admission_date, dismissed, discount_percent, "
+        "total, cleanup_amount) VALUES (%s,%s,%s,0,0,0) RETURNING id", (p, today, False)).fetchone()["id"]
+    db.execute("INSERT INTO distributors (id, name) VALUES (%s,%s)", (d, "Browser Detail Distributor"))
+    db.execute("INSERT INTO distributor_bills (id, distributor_id, bill_date, total_amount, created_at) "
+               "VALUES (%s,%s,%s,%s,%s)", (b, d, today, "100", clock.now()))
+    db.execute("INSERT INTO distributor_bill_payments (bill_id, amount, payment_date, method, notes, "
+               "created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+               (b, "40", today, "Transfer", "Part payment against the monthly statement", clock.now()))
+    # A draft: only a draft's page carries the counting script.
+    audit = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
+                       "VALUES (%s,%s,'Draft',%s) RETURNING id",
+                       (today, ADMIN_ID, clock.now())).fetchone()["id"]
+    db.commit()
+    yield [f"/owners/{o}", f"/owners/{o}/edit", f"/patients/{p}", f"/patients/{p}/edit",
+           f"/patients/{p}/history", f"/visits/{v}", f"/visits/{v}/edit", f"/inpatient/{case}",
+           f"/distributors/{d}", f"/audit-history/session/{audit}"]
+    for sql, arg in (("DELETE FROM audit_sessions WHERE id=%s", audit),
+                     ("DELETE FROM distributor_bill_payments WHERE bill_id=%s", b),
+                     ("DELETE FROM distributor_bills WHERE id=%s", b),
+                     ("DELETE FROM distributors WHERE id=%s", d),
+                     ("DELETE FROM inpatient_cases WHERE id=%s", case),
+                     ("DELETE FROM visits WHERE id=%s", v),
+                     ("DELETE FROM patients WHERE id=%s", p),
+                     ("DELETE FROM owners WHERE id=%s", o)):
+        db.execute(sql, (arg,))
+    db.commit()
+
+
+@pytest.mark.parametrize("viewport", [v[0] for v in VIEWPORTS])
+def test_no_detail_page_scrolls_sideways(signed_in, viewport, detail_pages):
+    offenders = _scrolling_sideways(signed_in[viewport], detail_pages)
+    assert not offenders, (
+        f"detail page(s) scrolling sideways at {viewport} size:\n  " + "\n  ".join(offenders))
+
+
+@pytest.fixture
+def arabic_clinic(db):
+    """The clinic's language set to Arabic for one test, then put back."""
+    row = db.execute("SELECT value FROM settings WHERE key='language'").fetchone()
+    db.execute("INSERT INTO settings (key, value) VALUES ('language', 'ar') "
+               "ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+    db.commit()
+    yield
+    if row:
+        db.execute("UPDATE settings SET value=%s WHERE key='language'", (row["value"],))
+    else:
+        db.execute("DELETE FROM settings WHERE key='language'")
+    db.commit()
+
+
+@pytest.mark.parametrize("viewport", [v[0] for v in VIEWPORTS])
+def test_no_page_scrolls_sideways_in_arabic(signed_in, viewport, detail_pages, arabic_clinic):
+    """Arabic labels run longer than English ones, and the page is laid out
+    right to left. /refunds overflowed a phone in Arabic only: "Find Sale"
+    became a button wide enough that its row no longer fitted the card."""
+    page = signed_in[viewport]
+    page.goto(f"{APP_URL}/", wait_until="networkidle")
+    assert page.evaluate("document.documentElement.dir") == "rtl", "the clinic is not in Arabic"
+    offenders = _scrolling_sideways(page, PAGES + detail_pages)
+    assert not offenders, (
+        f"page(s) scrolling sideways in Arabic at {viewport} size:\n  " + "\n  ".join(offenders))
+
+
+def _script_problems(page, paths):
     problems = []
-    for path in PAGES:
+    for path in paths:
         errors, failed = _visit(page, path)
         for e in errors:
             problems.append(f"{path}: JS error: {e[:120]}")
         for f in failed:
             problems.append(f"{path}: failed request: {f[:120]}")
+    return problems
+
+
+def test_no_page_raises_a_javascript_error_or_fails_an_asset(signed_in, detail_pages):
+    """A broken script leaves buttons that look fine and do nothing. A failed
+    asset leaves an unstyled page. Neither shows up in a server-side test."""
+    problems = _script_problems(signed_in["laptop"], PAGES + detail_pages)
     assert not problems, "browser problem(s):\n  " + "\n  ".join(problems)
+
+
+def test_no_page_raises_a_javascript_error_in_arabic(signed_in, detail_pages, arabic_clinic):
+    """What a page writes into its scripts can break in Arabic alone: a
+    translated sentence that skips |tojson, or a number shown through a
+    display filter, which writes Arabic-Indic digits that JavaScript cannot
+    read (`const n = ٣;` is a SyntaxError). The English run never sees either."""
+    page = signed_in["laptop"]
+    page.goto(f"{APP_URL}/", wait_until="networkidle")
+    assert page.evaluate("document.documentElement.dir") == "rtl", "the clinic is not in Arabic"
+    problems = _script_problems(page, PAGES + detail_pages)
+    assert not problems, "browser problem(s) in Arabic:\n  " + "\n  ".join(problems)
 
 
 def test_no_interactive_element_is_rendered_invisible(signed_in):
@@ -490,31 +642,35 @@ def test_the_nonce_changes_between_requests(signed_in):
 # that existed. COMPARISON.md §59.
 # ---------------------------------------------------------------------------
 
-def _barcode_label_url(page):
-    """The label URL of an item that actually has a barcode, or None.
+@pytest.fixture
+def barcoded_item(db):
+    """An inventory item with a barcode. The test once looked for one in the
+    catalogue by the old text ids (INV001), which no numeric id matches, so it
+    skipped in every database, barcodes or not."""
+    iid = new_id()
+    db.execute("INSERT INTO inventory_list (id, name, category, unit, track_expiry, cost_price, "
+               "ownership_type, active, barcode, barcode_source) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+               (iid, f"Barcode Label Item {iid}", "Retail", "unit", False, 1, "Owned", True,
+                f"VCS{iid}", "manual"))
+    db.commit()
+    yield iid
+    db.execute("DELETE FROM inventory_list WHERE id=%s", (iid,))
+    db.commit()
 
-    There is no anchor to scrape: the catalog reaches the label through the
-    /barcode/status JSON its barcode-manager modal calls, so the test asks the
-    same endpoint the page does."""
+
+def _barcode_label_url(page, item_id):
+    """The item's label URL, from the /barcode/status JSON the catalogue's
+    barcode-manager modal calls: there is no anchor to scrape."""
     page.goto(f"{APP_URL}/inventory-catalog", wait_until="networkidle")
-    ids = page.evaluate("""() => [...new Set(
-        [...document.querySelectorAll('[data-item-id], tbody tr td:first-child')]
-          .map(e => (e.getAttribute('data-item-id') || e.textContent).trim())
-          .filter(v => /^[A-Z]{2,4}\\d+$/.test(v)))].slice(0, 25)""")
-    for item_id in ids:
-        r = page.evaluate("""async (id) => {
-          const res = await fetch(`/inventory-catalog/${id}/barcode/status`,
-                                  {headers: {'Accept': 'application/json'}});
-          if (!res.ok) return null;
-          const j = await res.json();
-          return j.label_url || null;
-        }""", item_id)
-        if r:
-            return r
-    return None
+    return page.evaluate("""async (id) => {
+      const res = await fetch(`/inventory-catalog/${id}/barcode/status`,
+                              {headers: {'Accept': 'application/json'}});
+      if (!res.ok) return null;
+      return (await res.json()).label_url || null;
+    }""", item_id)
 
 
-def test_the_barcode_label_actually_draws_a_barcode(signed_in):
+def test_the_barcode_label_actually_draws_a_barcode(signed_in, barcoded_item):
     """It never did. The page bound its render function to the JsBarcode
     <script>'s load event from an inline script placed AFTER it — and a
     classic <script src> has already loaded and fired by then, so the listener
@@ -524,9 +680,8 @@ def test_the_barcode_label_actually_draws_a_barcode(signed_in):
     Asserting on the drawn SVG rather than on the page rendering is the whole
     point: the page rendered perfectly for as long as this was broken."""
     page = signed_in["laptop"]
-    href = _barcode_label_url(page)
-    if not href:
-        pytest.skip("no inventory item has a barcode in this database")
+    href = _barcode_label_url(page, barcoded_item)
+    assert href, "the barcode status endpoint gave no label for an item with a barcode"
     page.goto(f"{APP_URL}{href}", wait_until="networkidle")
     drawn = page.evaluate("document.getElementById('barcodeSvg').children.length")
     assert drawn > 0, (
@@ -775,6 +930,7 @@ def _shown_total(page):
     return float(re.sub(r"[^\d.]", "", raw.replace(",", "")))
 
 
+@pytest.mark.money("JO")   # JO's half; IQ's is test_the_iq_preview_matches_the_server_on_a_member_mixed_cart
 def test_the_pos_preview_matches_the_server_on_a_member_mixed_cart(browser, db, member_cart):
     """GUARD. The POS preview computes the member discount in JavaScript; the
     server computes it again in Python. A member's cart is the only place they
