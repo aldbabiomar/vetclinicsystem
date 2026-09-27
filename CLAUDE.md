@@ -287,8 +287,9 @@ surfaces.
 ## 6. Localization
 
 English and Arabic; the language is a clinic setting. Before touching a
-template, an `<option>` or the catalogue, read `docs/archive/COMPARISON.md`
-§57–§62:
+template, an `<option>` or the catalogue, read `docs/decisions/0011` (the
+rules, and the test that holds each; the history is in
+`docs/archive/COMPARISON.md` §55–§63). The ones that bite most:
 
 - An `<option>` must carry the stored constant in `value=`; translated text as
   the submitted value once stored `method='نقدًا'` and broke the cash register.

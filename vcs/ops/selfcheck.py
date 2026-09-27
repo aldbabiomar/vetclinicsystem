@@ -23,24 +23,8 @@ Design rules, from features/MONITORING_FEATURE_PLAN.md §1:
 * No "row counts look wrong" check. There is no baseline to compare against
   and it would fire on a quiet clinic.
 
-This file is identical to IQ's apart from this paragraph — **as verified by
-`diff` on 2026-09-09**, not as a copy-paste (CLAUDE.md §1, §2). Take the date
-seriously: the previous version of this paragraph claimed a parity that had
-never been true. consecutive_fail_days() diverged in the original feature
-commit and nobody noticed until 2026-08-31, because a comment asserting
-parity is not evidence of parity (COMPARISON.md §40.6). That divergence was
-closed on 2026-09-09 by porting IQ's version here: each day's verdict is now
-keyed by the ran_at timestamp rather than by insert order (COMPARISON.md
-§43). **`diff` the two files rather than trusting this sentence.** Every API
-it touches was
-checked against JO's own code on 2026-08-26: settings.get_setting/int_setting,
-backup.last_backup/recent_backups, the backup_log columns, and
-updater.DATA_DIR all match IQ's exactly — DATA_DIR reads
-VETCLINICSYSTEM_DATA_DIR rather than the IQ variable, but the attribute
-this module reads has the same name, so no branch is needed. Nothing here
-touches money, so the float/Decimal divergence (COMPARISON.md §1.1) does not
-apply. **If either app's backup or settings API changes, re-derive rather
-than re-copying.**
+consecutive_fail_days() keys each day's verdict by the ran_at timestamp,
+not by insert order (archive/COMPARISON.md §43). Nothing here touches money.
 """
 import json
 import os

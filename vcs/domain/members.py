@@ -68,10 +68,8 @@ def member_discount_rate(db):
     Read through here by all four bill-creation sites so they cannot parse
     the setting four different ways.
 
-    Returns DECIMAL, because this is JO — IQ's copy returns float
-    (COMPARISON.md §1.1). Mixing the two raises TypeError here rather than
-    silently losing fils, which is the property that makes JO's money code
-    safe to change; do not "simplify" this to float.
+    Returns Decimal, like every figure that reaches a bill
+    (docs/decisions/0001); do not "simplify" it to float.
 
     A stored value outside the allowed range degrades to 0 (programme off)
     rather than raising: settings can arrive from a restored backup or a

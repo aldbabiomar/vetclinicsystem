@@ -161,6 +161,10 @@ MUTATIONS = [
     Mutation("no country literal outside money.py", "vcs/web/pdf_export.py",
              '    return m.currency if m else ""', '    return m.currency if m else "JOD"',
              ["tests/test_money_home.py"]),
+    Mutation("the nightly restore check applies the clinic's own money rules", "vcs/ops/selfverify.py",
+             "    places, unit = setting.minor_units, setting.cash_unit",
+             '    places, unit = 3, "0.001"',
+             ["tests/test_selfverify.py"], db=True, why="JO's rules verified an IQ backup"),
     # --- a fresh install -----------------------------------------------------
     Mutation("the launcher serves on the port in .env", "setup.py",
              'PORT="${VETCLINICSYSTEM_PORT:-}"\nif [ -z "$PORT" ] && [ -f "$DATA_DIR/.env" ]; then',

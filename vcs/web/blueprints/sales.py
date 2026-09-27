@@ -236,12 +236,9 @@ def pos_page():
 # owns the response, so a helper cannot return a page from three frames down —
 # which is the failure mode that makes a long route hard to change safely.
 #
-# These are NOT shared with IQ, and must not become shared. JO prices in exact
-# 3-decimal `Decimal` with no denomination rounding anywhere, and parses cart
-# quantities with parse_quantity(); IQ prices in `float` and rounds every
-# payable figure to the nearest 250-IQD note. A line copied across in either
-# direction is a TypeError at best and a silent precision bug at worst.
-# COMPARISON.md §1.1 and CLAUDE.md §2.
+# Money is Decimal and every rounding is money.py's, parameterised by the
+# clinic's money setting (docs/decisions/0001): nothing here rounds, and cart
+# quantities go through parse_quantity().
 # ---------------------------------------------------------------------------
 
 

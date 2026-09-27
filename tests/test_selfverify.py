@@ -146,30 +146,26 @@ def test_a_real_backup_verifies_and_passes(clean_backup_log, tmp_path):
 
 
 @pg_tools
-def test_the_money_check_asserts_this_app_s_own_model(clean_backup_log, tmp_path):
-    """JO: numeric, 3 decimals. IQ's copy asserts double precision and the
-    250-IQD note rule. If these two files are ever reconciled into one, this
-    fails in whichever app is wrong — the same guard test_money.py already
-    carries."""
+def test_the_money_checks_follow_the_backups_own_money_setting(clean_backup_log, tmp_path):
+    """numeric under both settings; the decimal places and the cash unit are
+    the restored clinic's own -- the test database carries the run's setting."""
+    from vcs import money
     from vcs.ops import selfverify
-    assert selfverify.MONEY_EXPECTED_TYPE == "numeric"
-    assert selfverify.MAX_DECIMAL_PLACES == 3
-    assert not hasattr(selfverify, "DENOMINATION"), (
-        "IQ's 250-IQD note rounding has no meaning in JOD and must never be "
-        "ported into JO — see COMPARISON.md §1.1"
-    )
-
+    m = money.current()
     _log_backup(clean_backup_log, _real_dump(tmp_path))
     result = selfverify.verify_latest_backup(clean_backup_log)
     names = {c["name"] for c in result["checks"]}
     assert "billing.total is numeric" in names
-    assert "no bill exceeds 3 decimal places (1 fils)" in names
+    assert f"no bill carries more than {m.minor_units} decimal place(s) ({m.code})" in names
+    assert f"every bill is whole cash units ({m.cash_unit} {m.currency})" in names
 
 
-def _dump_of_scratch_db(tmp_path, money_type, name="wrongmoney.dump"):
+def _dump_of_scratch_db(tmp_path, money_type, name="wrongmoney.dump", setting="JO", total="500"):
     """Build a minimal but STRUCTURALLY VALID database whose only fault is the
     money column's type, dump it, and drop it. Every other check this layer
     runs is arranged to pass, so a failure isolates the money assertion.
+    `setting` is the clinic's money setting (None: never chosen); `total` the
+    one bill's amount.
     """
     import psycopg
     import secrets
@@ -187,10 +183,13 @@ def _dump_of_scratch_db(tmp_path, money_type, name="wrongmoney.dump"):
                         "owner_id TEXT REFERENCES owners(id))")
             con.execute("CREATE TABLE users (id TEXT PRIMARY KEY, role_id TEXT)")
             con.execute(f"CREATE TABLE billing (id TEXT PRIMARY KEY, total {money_type})")
+            con.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)")
             con.execute("INSERT INTO owners VALUES ('O1')")
             con.execute("INSERT INTO patients VALUES ('P1','O1')")
             con.execute("INSERT INTO users VALUES ('U1','admin')")
-            con.execute("INSERT INTO billing VALUES ('B1', 500)")
+            con.execute(f"INSERT INTO billing VALUES ('B1', {total})")
+            if setting:
+                con.execute("INSERT INTO settings VALUES ('money_setting', %s)", (setting,))
         env = backup_mod._pg_env(password)
         subprocess.run(
             ["pg_dump", "-w", "-h", host, "-p", port, "-U", user,
@@ -246,6 +245,42 @@ def test_the_control_the_same_backup_with_the_right_money_type_passes(
         "the identical database with JO's own money type must verify: %r"
         % result["detail"]
     )
+
+
+@pg_tools
+@pytest.mark.parametrize("setting, total, rules", [
+    ("IQ", "400", {"every bill is whole cash units (250 IQD)"}),
+    # a fourth decimal is both too precise and not a whole fils
+    ("JO", "10.0005", {"no bill carries more than 3 decimal place(s) (JO)",
+                       "every bill is whole cash units (0.001 JOD)"}),
+])
+def test_a_bill_outside_the_backups_money_rules_fails(clean_backup_log, tmp_path, setting, total, rules):
+    """GUARD. The check used JO's three decimals for every clinic: an IQ
+    backup with a bill of 400 dinars -- no combination of notes pays it --
+    verified clean."""
+    from vcs.ops import selfverify
+    _log_backup(clean_backup_log, _dump_of_scratch_db(tmp_path, "NUMERIC", setting=setting, total=total))
+    result = selfverify.verify_latest_backup(clean_backup_log)
+    failed = {c["name"] for c in result["checks"] if not c["ok"]}
+    assert result["result"] == "fail" and failed == rules, result["checks"]
+
+
+@pg_tools
+@pytest.mark.parametrize("setting, total", [("IQ", "500"), ("JO", "10.500")])
+def test_control_a_bill_within_the_backups_money_rules_passes(clean_backup_log, tmp_path, setting, total):
+    from vcs.ops import selfverify
+    _log_backup(clean_backup_log, _dump_of_scratch_db(tmp_path, "NUMERIC", setting=setting, total=total))
+    assert selfverify.verify_latest_backup(clean_backup_log)["result"] == "pass"
+
+
+@pg_tools
+def test_bills_with_no_money_setting_fail(clean_backup_log, tmp_path):
+    """Money screens stay locked until a setting is chosen, so a backup with
+    charges and no setting did not come from this app's own arithmetic."""
+    from vcs.ops import selfverify
+    _log_backup(clean_backup_log, _dump_of_scratch_db(tmp_path, "NUMERIC(15,3)", setting=None))
+    failed = {c["name"] for c in selfverify.verify_latest_backup(clean_backup_log)["checks"] if not c["ok"]}
+    assert failed == {"money setting recorded"}
 
 
 # --- the three deliberately-broken backups -------------------------------

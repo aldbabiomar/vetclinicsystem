@@ -1,11 +1,10 @@
 """
 Regression tests for SIMULATION_AUDIT_2026-09-11.md — VetClinicSystem.
 
-**This is NOT a copy of IQ's file of the same name, and must never become
-one.** Of the six findings, two (F1, F3) were IQ-only: they are consequences
-of 250-IQD note rounding, which does not exist here. JO's assertions for
-those paths are the OPPOSITE — that a small sale and a small refund stay
-exact to the fils, with no floor and no rounding. COMPARISON.md §1.1.
+Of the six findings, two (F1, F3) are about IQ's 250-dinar note rounding.
+Their tests here are JO's half, pinned to JO: a small sale and a small refund
+stay exact to the fils, with no floor and no rounding. IQ's half of the same
+rules is in test_money_iq.py and test_money_routes_iq.py (docs/decisions/0001).
 
 What JO shares with IQ, and why each still needed its own fix:
 

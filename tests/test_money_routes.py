@@ -797,7 +797,7 @@ def test_visit_cleanup_write_off_reduces_the_balance(client, db, visit):
     assert row["cleanup_amount"] == D("1.000")
     summary = billing.visit_billing_summary(db, visit["visit_id"])
     # <= 0, not <= 0.5: in JOD a leftover half is real uncollected money, not
-    # rounding artifact. See COMPARISON.md §1.1.
+    # rounding artifact. See docs/decisions/0001.
     assert summary["balance"] <= 0, "the bill should now be settled"
 
 

@@ -5,7 +5,7 @@ Rewards card — the member discount across every payment surface (JO).
 JO's half: the figures here are fractional JOD so they exercise exact
 3-decimal arithmetic. test_rewards_iq.py is IQ's half, with whole thousands
 that land on a 250-note boundary, because IQ rounds to the note and JO has
-nothing to round (COMPARISON.md §1.1). A test moved across unchanged would
+nothing to round (docs/decisions/0001). A test moved across unchanged would
 assert one setting's money model against the other's.
 
 The shape that matters here, and the reason this file is organised by

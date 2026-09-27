@@ -26,6 +26,7 @@ it** — a decision nothing checks is a decision the next change undoes.
 | [0008](0008-scripts-under-a-nonce.md) | Scripts run under a CSP nonce: no inline handlers | `test_no_inline_handlers.py`, `test_inline_styles.py` |
 | [0009](0009-a-guard-is-proven.md) | A guard test is proven by reintroducing its bug | `scripts/prove_guards.py --all` |
 | [0010](0010-palettes-are-data.md) | Palettes are data, generated to CSS, and held to AA by a test | `test_palettes.py`, the browser tier |
+| [0011](0011-localization-rules.md) | What the Arabic setting needs from the code: stored English, shown translated; everything read goes through the catalogue | `test_catalogue.py`, `test_enum_labels.py`, `test_localization.py`, the browser tier in Arabic |
 
 New record: the next number, a short imperative title, and the four
 headings the others use.

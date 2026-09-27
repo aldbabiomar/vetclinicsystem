@@ -17,11 +17,11 @@ JO's money model, which every assertion below depends on:
   - A leftover balance is real debt, however small. There is no
     tolerance threshold.
 
-IQ is deliberately different (float, 250 IQD note rounding, an
-anti-"looks free" floor). Its equivalent file makes the opposite
-assertions on purpose — see COMPARISON.md §1.1 before copying anything
-between them. The single most expensive mistake available in this
-codebase is porting a money fix across without re-deriving it.
+IQ's half is test_money_iq.py: the same functions with IQ's values (whole
+dinars, the 250-IQD note, an anti-"looks free" floor), so its assertions are
+different numbers on purpose -- see docs/decisions/0001 before copying one
+between the files. The single most expensive mistake available in this
+codebase is moving a money assertion across without re-deriving it.
 """
 from decimal import Decimal
 
@@ -345,8 +345,8 @@ def test_status_is_always_one_of_the_four_known_values():
 
 @pytest.mark.parametrize("leftover", ["0.001", "0.100", "0.500"])
 def test_regression_any_leftover_balance_is_real_debt(leftover):
-    """COMPARISON.md §1.1, the failure mode that has already bitten this
-    codebase once. The `balance <= 0.5` threshold was carried over unchanged
+    """The failure mode that has already bitten this codebase once
+    (docs/decisions/0001). The `balance <= 0.5` threshold was carried over unchanged
     from the IQD fork, where it absorbed genuine rounding artifact. In JOD
     there is no rounding artifact to absorb, so it silently marked bills with
     up to 500 fils still owing as "Fully Paid" — uncollected money that

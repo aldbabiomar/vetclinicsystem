@@ -1292,3 +1292,30 @@ result under each money setting.
   - Eight guards in `tests/test_install_ports.py` and
     `test_desktop_shortcut_target.py`, all mutation-proven. The Windows
     launchers are checked by their text only: there is no Windows here.
+- **2026-09-27 — §12 item 6: the rules still in force live in `docs/decisions/`.**
+  - **Localisation → decision 0011.** The rules `CLAUDE.md` §6 sent readers
+    to `COMPARISON.md` §57–§62 for — stored English shown through `|tr`,
+    options carrying their constant, stored messages translated when shown,
+    everything a person reads through the catalogue (attributes and scripts
+    included), which digits are Arabic-Indic and which must not be, the
+    layout rules for right to left — each with the test that holds it.
+    `CLAUDE.md` §6 points there now.
+  - **The money model → decision 0001.** Every `COMPARISON.md` §1.1
+    citation in the code and tests now points to 0001; several stated
+    predecessor facts that are no longer true ("IQ prices in `float`",
+    "Returns DECIMAL, because this is JO — IQ's copy returns float", a
+    paragraph in `selfcheck.py` about staying in step with IQ's copy) and
+    were rewritten.
+  - **Found on the way: the nightly restore check verified every clinic
+    by JO's rules.** `vcs/ops/selfverify.py` said "This is JO" and checked
+    three decimal places only, so an IQ backup with a bill no notes can pay
+    verified clean. It now applies the restored clinic's own money setting —
+    the setting's decimal places, whole cash units with the Clean Up added
+    back, and no charges without a recorded setting — as
+    `scripts/restore_drill.sh` does. Guarded, mutation-proven.
+  - The remaining `COMPARISON.md` citations in the code say why a line is
+    the way it is; they point at the archive as history, which is what
+    `docs/decisions/README.md` asks of a comment.
+
+  **Suite:** IQ **1643 passed, 0 skipped**; JO **1643 passed, 0 skipped**;
+  no database 721 passed. All six "Done means" items are met.

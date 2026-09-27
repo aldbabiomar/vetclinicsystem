@@ -78,8 +78,8 @@ def lan_address():
 #
 # Money is parsed through money.py, which takes its precision, bounds and
 # rounding from the clinic's money setting (IQ or JO). Nothing here knows which
-# one is active. See money.py for the rules and COMPARISON.md §1.1 for why the
-# two predecessor apps' money models used to differ.
+# one is active. See money.py for the rules and docs/decisions/0001 for why
+# they are one policy.
 class BadNumber(ValueError):
     """Raised by parse_money() when a submitted field isn't blank but also
     isn't a valid number — lets the route catch it once and show a friendly

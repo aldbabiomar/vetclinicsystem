@@ -31,17 +31,13 @@ GUARD RAILS — these are the whole reason this is safe to run unattended:
   check that skips quietly reports as success, which is exactly the failure
   this whole feature exists to prevent.
 
-MONEY — the one place the IQ/JO divergence shows up in this feature
-(CLAUDE.md §1, COMPARISON.md §1.1). This is JO: billing.total must come back
-as `numeric`, and no bill may carry more than 3 decimal places, because the
-JOD's fils subunit is in everyday real use and NUMERIC(12,3) is what stores
-it. The column TYPE is the thing that silently destroys money here — a JO
-backup restoring numeric as double precision would keep every value looking
-right today and lose fils on the next write.
-
-IQ's copy of this file asserts deliberately OPPOSITE things (`double
-precision`, and every non-zero bill a whole multiple of 250 IQD) and the two
-must never be reconciled — the same rule test_money.py already follows.
+MONEY is checked under the restored clinic's own money setting (decision
+0001), the same checks scripts/restore_drill.sh makes: billing.total must come
+back as `numeric` -- a backup restoring it as double precision keeps every
+value looking right today and loses precision on the next write -- no bill may
+carry more decimal places than the setting has (3 for JO, 0 for IQ), and every
+bill must be whole cash units (250 IQD notes; 0.001 JOD) once its Clean Up is
+added back, since the payable total is rounded before the Clean Up comes off.
 """
 import json
 import os
@@ -54,7 +50,7 @@ import psycopg
 
 from vcs.ops import backup as backup_mod
 from vcs.domain import settings
-from vcs import clock
+from vcs import clock, money
 RESTORE_TIMEOUT_SECONDS = 600
 SETTING_KEY = "last_verified_restore"
 
@@ -66,7 +62,6 @@ VERIFY_INTERVAL_DAYS = 30
 
 # --- JO's money model. See the module docstring. ---
 MONEY_EXPECTED_TYPE = "numeric"
-MAX_DECIMAL_PLACES = 3
 
 CORE_TABLES = ("users", "owners", "patients", "visits", "billing",
                "sales", "price_list", "inventory_list")
@@ -201,24 +196,36 @@ def _run_checks(con):
         f"restored as '{money_type}'",
     ))
 
-    # JO only: nothing may carry more precision than NUMERIC(12,3) stores. A
-    # value with more decimals than that came back from somewhere other than
-    # this app's own arithmetic, and would be silently truncated on write.
-    #
-    # The ::numeric cast is load-bearing, not tidiness. scale() accepts only
-    # numeric, so on the one input this check exists to catch — a backup whose
-    # total came back as double precision — the bare call RAISES. That aborted
-    # the whole verification and reported "warn" (could not run), throwing away
-    # the type-check failure that had just been recorded and turning the single
-    # most important negative result in this layer into a shrug. Caught by
-    # test_a_backup_whose_money_column_is_the_wrong_type_fails.
-    over = scalar(
-        f"SELECT count(*) FROM billing WHERE scale(total::numeric) > {MAX_DECIMAL_PLACES}")
+    # The restored clinic's own rules. The ::numeric casts are load-bearing:
+    # on the one input the type check exists to catch -- a total restored as
+    # double precision -- round() and mod() without them RAISE, which aborted
+    # the whole verification as "could not run" and threw away the type
+    # failure just recorded (test_a_backup_whose_money_column_is_the_wrong_type_fails).
+    code = None
+    if scalar("SELECT to_regclass('public.settings') IS NOT NULL"):
+        code = scalar("SELECT value FROM settings WHERE key='money_setting'")
+    setting = money.SETTINGS.get(code) if code else None
+    if setting is None:
+        charged = scalar("SELECT count(*) FROM billing WHERE total::numeric > 0") or 0
+        checks.append(_check(
+            "money setting recorded", code is None and charged == 0,
+            f"unknown money setting {code!r}" if code else
+            ("no money setting chosen, and nothing charged" if not charged else
+             f"{charged} bill(s) charged with no money setting recorded")))
+        return checks
+    places, unit = setting.minor_units, setting.cash_unit
+    extra = scalar(f"SELECT count(*) FROM billing WHERE total::numeric <> round(total::numeric, {places})")
     checks.append(_check(
-        f"no bill exceeds {MAX_DECIMAL_PLACES} decimal places (1 fils)",
-        over == 0,
-        "all within 3 decimals" if over == 0 else f"{over} bill(s) exceed it",
-    ))
+        f"no bill carries more than {places} decimal place(s) ({setting.code})",
+        extra == 0, "all within" if extra == 0 else f"{extra} bill(s) exceed it"))
+    has_cleanup = scalar("SELECT count(*) FROM information_schema.columns "
+                         "WHERE table_name='billing' AND column_name='cleanup_amount'")
+    cleanup = "COALESCE(cleanup_amount, 0)::numeric" if has_cleanup else "0"
+    off = scalar(f"SELECT count(*) FROM billing WHERE total::numeric > 0 "
+                 f"AND mod(total::numeric + {cleanup}, {unit}) <> 0")
+    checks.append(_check(
+        f"every bill is whole cash units ({unit} {setting.currency})",
+        off == 0, "all of them" if off == 0 else f"{off} bill(s) are not"))
     return checks
 
 
