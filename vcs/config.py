@@ -48,6 +48,12 @@ STARTED_MONOTONIC = time.monotonic()
 # itself doesn't terminate TLS, by its own design, so TLS here always means
 # "there's a reverse proxy in front", never "pass Waitress a certificate").
 BIND_PORT = int(os.environ.get("VETCLINICSYSTEM_PORT", "5050"))
+
+# This install's identity for licensing: a UUID setup.py writes into .env on
+# the first install and never changes. Licenses and Developer Passes are
+# signed for it (vcs/licensing). Not heartbeat_install_id, which is a
+# different, older identifier for the monitoring ping.
+INSTALL_ID = os.environ.get("VETCLINICSYSTEM_INSTALL_ID", "").strip()
 BEHIND_TLS_PROXY = os.environ.get("BEHIND_TLS_PROXY") == "1"
 
 # A login session's server-enforced expiry. session.permanent is set at a

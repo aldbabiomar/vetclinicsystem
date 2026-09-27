@@ -9,5 +9,7 @@ python-dotenv==1.2.3
 Flask-WTF==1.3.0
 Flask-Babel>=4.0,<5
 requests==2.34.2
+# Ed25519 signatures on licenses and Developer Passes (vcs/licensing).
+cryptography==50.0.1
 # IANA time zones for zoneinfo; Windows Python ships none (clock.py).
 tzdata==2026.4

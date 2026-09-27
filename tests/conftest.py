@@ -43,6 +43,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 # Any non-placeholder value satisfies config.secret_key(). Set before import.
 os.environ.setdefault("SECRET_KEY", "test-only-key-not-used-for-real-sessions")
+# The in-process app's install identity, which licenses are signed for.
+TEST_INSTALL_ID = "00000000-7e57-4000-8000-000000000001"
+os.environ.setdefault("VETCLINICSYSTEM_INSTALL_ID", TEST_INSTALL_ID)
 
 TEST_DB_URL = os.environ.get("TEST_DATABASE_URL")
 
@@ -199,6 +202,39 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", 'money(code): run this test under money setting "IQ" or "JO" '
                    "(unmarked: the run's setting, see run_money_code)")
+
+
+@pytest.fixture(scope="session")
+def vendor():
+    """An ephemeral vendor signing key, trusted for this test process only
+    (plan §14.4), and the vendor tool's own functions to mint tokens with it.
+    Nothing here is written to disk, and the production launchers never
+    trust a key at run time."""
+    import types
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "vendor"))
+    import vcs_vendor
+    from vcs import config
+    from vcs.licensing import tokens
+    key = Ed25519PrivateKey.generate()
+    public = vcs_vendor.public_bytes(key)
+    tokens.trust_for_tests(vcs_vendor.kid_for(public), public)
+    install_id = config.INSTALL_ID
+
+    def license(install=None, **fields):
+        from datetime import datetime, timedelta, timezone
+        payload = vcs_vendor.license_payload(key, install or install_id, "Test Clinic",
+                                             datetime.now(timezone.utc) + timedelta(days=365))
+        payload.update(fields)
+        return vcs_vendor.sign(key, payload)
+
+    def dev_pass(install=None, hours=8, **fields):
+        payload = vcs_vendor.pass_payload(key, install or install_id, "Test Developer", hours=hours)
+        payload.update(fields)
+        return vcs_vendor.sign(key, payload)
+
+    return types.SimpleNamespace(key=key, tool=vcs_vendor, install_id=install_id,
+                                 license=license, dev_pass=dev_pass)
 
 
 def pytest_report_header(config):

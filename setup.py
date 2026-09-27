@@ -31,6 +31,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -188,6 +189,7 @@ def ensure_env_file():
     content = content.replace("change-me", secrets.token_hex(32))
     db_port, app_port = choose_ports()
     content = with_ports(content, db_port, app_port)
+    content = content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={uuid.uuid4()}\n"
     with open(env_path, "w") as f:
         f.write(content)
     print(f"  Created .env with a fresh secret key. The app will be at http://127.0.0.1:{app_port}; "
@@ -257,6 +259,24 @@ def start_postgres():
         time.sleep(2)
     print("  PostgreSQL didn't become ready in time — check `docker compose logs db`.")
     sys.exit(1)
+
+
+def ensure_install_id():
+    """This install's identity for licensing (vcs/config.py INSTALL_ID): a
+    UUID written into .env once, and never changed after -- a license is
+    signed for it. An .env made before it existed gets one added."""
+    env_path = os.path.join(_env_dir(), ".env")
+    with open(env_path) as f:
+        content = f.read()
+    found = re.search(r"(?m)^VETCLINICSYSTEM_INSTALL_ID=(\S+)", content)
+    if found:
+        install_id = found.group(1)
+    else:
+        install_id = str(uuid.uuid4())
+        with open(env_path, "a") as f:
+            f.write(("" if content.endswith("\n") else "\n") + f"VETCLINICSYSTEM_INSTALL_ID={install_id}\n")
+    print(f"  This installation's ID: {install_id} (your vendor needs it for the license key).")
+    return install_id
 
 
 def load_dotenv_now():
@@ -355,6 +375,7 @@ def main():
     ensure_dependencies()
     check_docker()
     ensure_env_file()
+    ensure_install_id()
     start_postgres()
     load_dotenv_now()
     apply_schema()

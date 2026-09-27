@@ -104,8 +104,46 @@ status() {
 # Starts the app against the environment's database and verifies that the
 # recorded pid is the process actually listening on the port. Used by both
 # `up` and `restart`.
+# The throwaway clinic's licensing (docs/plans/DEVELOPER_AND_LICENSING_PLAN.md
+# §14.4): its own install ID, an ephemeral vendor key made here and never
+# committed, a one-year license in the data dir, and a fresh Developer Pass
+# for the browser tests. The app is then started through scripts/test_launcher.py,
+# which trusts that key; production launchers never can.
+prepare_licensing() {
+  "$VENV_DIR/bin/python3" - "$REPO_DIR" "$DATA_DIR" <<'PYEOF'
+import sys, uuid
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+repo, data = Path(sys.argv[1]), Path(sys.argv[2])
+sys.path.insert(0, str(repo / "scripts" / "vendor"))
+import vcs_vendor as vendor
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+keys = data / "test-vendor"
+keys.mkdir(parents=True, exist_ok=True)
+pem = keys / "private.pem"
+if not pem.exists():
+    pem.write_bytes(Ed25519PrivateKey.generate().private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+key = serialization.load_pem_private_key(pem.read_bytes(), password=None)
+public = vendor.public_bytes(key)
+(keys / "trusted.key").write_text(f"{vendor.kid_for(public)} {public.hex()}\n")
+install = data / "install_id"
+if not install.exists():
+    install.write_text(str(uuid.uuid4()))
+install_id = install.read_text().strip()
+now = datetime.now(timezone.utc)
+(data / "license").mkdir(exist_ok=True)
+(data / "license" / "license.key").write_text(vendor.sign(key, vendor.license_payload(
+    key, install_id, "Test Clinic", now + timedelta(days=365))) + "\n")
+(keys / "dev_pass.txt").write_text(vendor.sign(key, vendor.pass_payload(
+    key, install_id, "Test Developer", hours=8)) + "\n")
+PYEOF
+}
+
 launch_app() {
   echo "== Starting the app =="
+  prepare_licensing
   [[ -n "${SECRET_KEY:-}" ]] || SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
   # `${ENV_PREFIX}_HOST=val cmd` does NOT work as an env-assignment prefix in
   # bash — assignment-prefix detection is purely lexical (checks for a literal
@@ -134,8 +172,10 @@ launch_app() {
       "${ENV_PREFIX}_DATA_DIR=$DATA_DIR" \
       "${ENV_PREFIX}_HOST=127.0.0.1" \
       "${ENV_PREFIX}_PORT=$APP_PORT" \
+      "${ENV_PREFIX}_INSTALL_ID=$(cat "$DATA_DIR/install_id")" \
       SECRET_KEY="$SECRET_KEY" \
-      "$VENV_DIR/bin/python3" run.py > "$DATA_DIR/app_stdout.log" 2>&1 ) &
+      "$VENV_DIR/bin/python3" scripts/test_launcher.py "$DATA_DIR/test-vendor/trusted.key" \
+      > "$DATA_DIR/app_stdout.log" 2>&1 ) &
   echo $! > "$PID_FILE"
   sleep 3
 

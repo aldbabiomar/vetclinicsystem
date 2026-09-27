@@ -470,3 +470,29 @@ wording follows the dialogs already in the catalogue: حذف … ؟, and تحد�
 | 7 | Remove %(name)s? | إزالة %(name)s؟ |
 | 8 | This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue? | سيستبدل هذا كل البيانات الحالية في VetClinicSystem بمحتويات ملف النسخة الاحتياطية هذا، ولا يمكن التراجع عن ذلك. سيُفقد كل ما أُضيف أو تغيّر منذ أخذ تلك النسخة. هل تريد المتابعة؟ |
 | 9 | e.g. %(example)s | مثال: %(example)s |
+
+## 23. License keys and Developer Passes (11)
+
+The refusals the license verifier shows when a key is pasted
+(`vcs/licensing/tokens.py`). **Three new terms to confirm first**, each used
+throughout what the licensing work adds:
+
+- **license key** — مفتاح الترخيص
+- **Developer Pass** — تصريح المطوّر
+- **your vendor** (the company that supplies the software) — مزوّد البرنامج
+
+"Installation" reuses the catalogue's التثبيت, from the backup messages.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | This Developer Pass has expired. | انتهت صلاحية تصريح المطوّر هذا. |
+| 2 | This Developer Pass lasts longer than %(hours)s hours, which is not allowed. | تصريح المطوّر هذا صالح لأكثر من %(hours)s ساعة، وهذا غير مسموح. |
+| 3 | This Developer Pass was issued in the future. Check this computer's clock. | صدر تصريح المطوّر هذا بتاريخ في المستقبل. تحقّق من ساعة هذا الحاسوب. |
+| 4 | This is a Developer Pass, not a license key. | هذا تصريح مطوّر، وليس مفتاح ترخيص. |
+| 5 | This is a license key, not a Developer Pass. | هذا مفتاح ترخيص، وليس تصريح مطوّر. |
+| 6 | This is not a VetClinicSystem key. Check that all of it was copied. | هذا ليس مفتاحًا لـ VetClinicSystem. تأكّد من أنه نُسخ كاملًا. |
+| 7 | This key has been changed or damaged: it does not match its signature. Paste it again, or ask your vendor for a new one. | تم تغيير هذا المفتاح أو أنه تالف: لا يطابق توقيعه. الصقه مرة أخرى، أو اطلب مفتاحًا جديدًا من مزوّد البرنامج. |
+| 8 | This key is for a different version of VetClinicSystem. | هذا المفتاح لإصدار آخر من VetClinicSystem. |
+| 9 | This key is for another installation (%(theirs)s). This installation's ID is %(ours)s. | هذا المفتاح لتثبيت آخر (%(theirs)s). معرّف هذا التثبيت هو %(ours)s. |
+| 10 | This key is missing information it needs. Ask your vendor for a new one. | ينقص هذا المفتاح معلومات يحتاجها. اطلب مفتاحًا جديدًا من مزوّد البرنامج. |
+| 11 | This key was signed by a key this version of VetClinicSystem does not know. Ask your vendor for a new one. | وُقّع هذا المفتاح بمفتاح لا يعرفه هذا الإصدار من VetClinicSystem. اطلب مفتاحًا جديدًا من مزوّد البرنامج. |

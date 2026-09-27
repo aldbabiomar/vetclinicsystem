@@ -1,6 +1,6 @@
 # Plan — Developer area, licensing, and native PostgreSQL
 
-**Written 2026-09-25. Status: NOT STARTED — waits for the merge.**
+**Written 2026-09-25. Status: IN PROGRESS — started 2026-09-27, after the merge.**
 Owner decisions are in §1.1 and were taken with the owner on 2026-09-25; they
 override the original request wherever the two disagree (§1.4 lists every
 place they do). Progress goes in the log, §18.
@@ -805,4 +805,78 @@ Give the owner:
 Newest last. Each entry: what landed, how it was verified, and the suite
 result under each money setting.
 
-*(empty)*
+- **2026-09-27 — Phase 0: preconditions, the owner's defaults, the map.**
+  - **Preconditions hold.** The merge is done (`UNIFIED_CODEBASE_PLAN.md`
+    §12 all met, commit `762cae6`); 1.0.0 is unpublished, so schema changes
+    go into `0001_baseline.sql`; the tree was clean.
+  - **§1.3 and §1.5, confirmed by the owner 2026-09-27:** every default as
+    written. A7: payments on existing bills are **refused** in read-only
+    mode; notes and contact-log entries on admitted inpatient cases are
+    **allowed**. A1: 14 days' warning, 14 days' grace.
+  - **Where things live now:**
+
+    | Concept | In the merged tree |
+    |---|---|
+    | App factory; hooks (allowlist, restore gate, sign-in gate) | `vcs/web/factory.py` `create_app()`; `vcs/web/hooks.py` (`OPEN_ENDPOINTS`, `RESTORE_PASSTHROUGH`) |
+    | Shared seam for blueprints | `vcs/web/core.py` |
+    | Permission list, system role, `log_change()` | `vcs/auth.py` (`PERMISSIONS`, `ADMIN_ONLY_TODAY`, `log_change`) — not a separate `web/permissions.py` |
+    | Settings field → permission registry | `vcs/web/blueprints/settings.py` `SETTING_FIELD_PERMISSION` (S1 fixed) |
+    | Navigation registry | `vcs/web/nav.py` (`Link`, `NAV`); `templating.inject_nav` |
+    | Settings page and POST; `SECRET_SETTING_KEYS` | `vcs/web/blueprints/settings.py` |
+    | Money setting and its lock | `vcs/money.py` (`SETTING_KEY = "money_setting"`); no `vcs/country/` — `money.py` is the home (D-15, `tests/test_money_home.py`) |
+    | Palette | `vcs/web/palettes.py`; the `theme_palette` setting, in Settings |
+    | Clinic clock | `vcs/clock.py` |
+    | Heartbeat | `vcs/ops/heartbeat.py` (`URL_SETTING`, `INSTALL_ID_SETTING`) |
+    | Updater | `vcs/ops/updater.py`; the token is still read once at import (`GITHUB_TOKEN = os.environ.get(...)`) |
+    | Update routes | `vcs/web/blueprints/settings.py` `settings_updates_*` (`manage_maintenance`) |
+    | Backup, restore, tool discovery | `vcs/ops/backup.py` (`shutil.which("pg_dump")`, Docker fallback) |
+    | Self-verify, self-check | `vcs/ops/selfverify.py` (now checks the restored clinic's own money setting); `vcs/ops/selfcheck.py` (`run_self_check`, `_check_disk_low`) |
+    | Setup | `setup.py` (free ports since 2026-09-27; the first double-click hands over to the install's launcher) |
+    | Scheduler | `vcs/ops/scheduler.py` (`_run_backup_if_due`, `_do_self_check`, `_do_verify_restore`, `_do_tick`) |
+    | Admin password reset | `vcs/web/blueprints/admin.py` `admin_user_reset_password()` (S2 fixed) |
+    | Login rate limit, lockout | `vcs/web/blueprints/main.py` `_login_rate_limit_check()`; `vcs/auth.py` `login_lock_status()` |
+    | Log pruning | `vcs/domain/logs.py` `prune_old_logs()` |
+    | Background jobs, progress UI | `vcs/jobs.py`; `vcs/static/progress.js` |
+    | Maintenance during a restore | the restore gate in `vcs/web/hooks.py` |
+    | Env var prefix | `VETCLINICSYSTEM_` |
+
+  - **Not built: `install_slug`.** It belonged to the per-country installs
+    D-15 replaced; nothing in this plan depends on it (§5.1 only says
+    `install_id` is not it). Known limit: two installs of this system on one
+    machine would share the container, volume and folder names.
+- **2026-09-27 — Phase 1: tokens, trust, the vendor tool, `install_id`.**
+  - `cryptography==50.0.1` pinned in `requirements.txt` (Ed25519).
+  - `vcs/licensing/tokens.py` verifies `VCS1.<payload>.<signature>`: the
+    signature is checked against the trusted keys **before** the payload is
+    read; then kind, required fields and types, version, install, times with
+    an offset; a pass at most 12 hours (A2), not issued more than 10 minutes
+    in the clinic clock's future, and not expired. A license past its expiry
+    still verifies — expiry is a state (Phase 3). Each refusal is a `Msg`
+    (English logged, the clinic's language shown); Arabic in
+    `ARABIC_REVIEW.md` §23, with three new terms flagged first.
+  - `vcs/licensing/trusted_keys.py` is a literal dict, **empty** until the
+    vendor runs `keygen` (§17a's manual step). `trust_for_tests()` is the one
+    run-time way in; only the tests and `scripts/test_launcher.py` call it.
+  - `scripts/vendor/vcs_vendor.py`: `keygen` (passphrase-encrypted, refuses a
+    path inside the repo), `license`, `pass`, `inspect`. The only code that
+    signs. `.gitignore` covers `*.pem` and `vendor-keys/`.
+  - `install_id`: `setup.py` writes `VETCLINICSYSTEM_INSTALL_ID` into a new
+    `.env`, adds one to an older `.env`, never replaces one, and prints it;
+    `vcs/config.py` `INSTALL_ID`.
+  - Test environments (§14.4): `isolated_test_env.sh` gives each throwaway
+    clinic its own install ID, an ephemeral key in its data dir, a one-year
+    license at `<data dir>/license/license.key` and a fresh 8-hour pass, and
+    starts the app through `scripts/test_launcher.py`. `tests/conftest.py`
+    has a session `vendor` fixture doing the same in-process.
+  - `docs/DEVELOPER_GUIDE.md` started: key custody, rotation, issuing a
+    license and a pass, `inspect`.
+  - **Guards** (`tests/test_licensing_tokens.py`, 39 tests; install ID in
+    `test_install_ports.py`): eleven mutations registered in
+    `scripts/prove_guards.py`, all proven — signature checked, install
+    bound, kind, 12-hour pass, future pass, expired pass, no run-time trust in
+    production, trusted keys are source constants, the app never signs, keys
+    kept out of the repo, the install ID never replaced.
+
+  **Suite:** IQ **1685 passed, 0 skipped** (one citation failure in the run,
+  fixed by the guide and re-run); JO **1685 passed, 0 skipped**; no database
+  763 passed.

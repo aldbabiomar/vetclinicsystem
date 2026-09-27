@@ -55,3 +55,7 @@ scripts/findings_*.json
 .prove_guards_backup.json
 # the simulation sweeps write their findings here on every run
 scripts/findings_*.json
+
+# Vendor signing keys never live in the repository (vcs/licensing).
+*.pem
+vendor-keys/

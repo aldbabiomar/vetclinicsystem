@@ -8193,3 +8193,59 @@ msgstr ""
 #, python-format
 msgid "e.g. %(example)s"
 msgstr "مثال: %(example)s"
+
+#: vcs/licensing/tokens.py
+msgid "This Developer Pass has expired."
+msgstr "انتهت صلاحية تصريح المطوّر هذا."
+
+#: vcs/licensing/tokens.py
+#, python-format
+msgid "This Developer Pass lasts longer than %(hours)s hours, which is not allowed."
+msgstr "تصريح المطوّر هذا صالح لأكثر من %(hours)s ساعة، وهذا غير مسموح."
+
+#: vcs/licensing/tokens.py
+msgid "This Developer Pass was issued in the future. Check this computer's clock."
+msgstr "صدر تصريح المطوّر هذا بتاريخ في المستقبل. تحقّق من ساعة هذا الحاسوب."
+
+#: vcs/licensing/tokens.py
+msgid "This is a Developer Pass, not a license key."
+msgstr "هذا تصريح مطوّر، وليس مفتاح ترخيص."
+
+#: vcs/licensing/tokens.py
+msgid "This is a license key, not a Developer Pass."
+msgstr "هذا مفتاح ترخيص، وليس تصريح مطوّر."
+
+#: vcs/licensing/tokens.py
+msgid "This is not a VetClinicSystem key. Check that all of it was copied."
+msgstr "هذا ليس مفتاحًا لـ VetClinicSystem. تأكّد من أنه نُسخ كاملًا."
+
+#: vcs/licensing/tokens.py
+msgid ""
+"This key has been changed or damaged: it does not match its signature. "
+"Paste it again, or ask your vendor for a new one."
+msgstr ""
+"تم تغيير هذا المفتاح أو أنه تالف: لا يطابق توقيعه. الصقه مرة أخرى، أو اطلب "
+"مفتاحًا جديدًا من مزوّد البرنامج."
+
+#: vcs/licensing/tokens.py
+msgid "This key is for a different version of VetClinicSystem."
+msgstr "هذا المفتاح لإصدار آخر من VetClinicSystem."
+
+#: vcs/licensing/tokens.py
+#, python-format
+msgid ""
+"This key is for another installation (%(theirs)s). This installation's ID "
+"is %(ours)s."
+msgstr "هذا المفتاح لتثبيت آخر (%(theirs)s). معرّف هذا التثبيت هو %(ours)s."
+
+#: vcs/licensing/tokens.py
+msgid "This key is missing information it needs. Ask your vendor for a new one."
+msgstr "ينقص هذا المفتاح معلومات يحتاجها. اطلب مفتاحًا جديدًا من مزوّد البرنامج."
+
+#: vcs/licensing/tokens.py
+msgid ""
+"This key was signed by a key this version of VetClinicSystem does not "
+"know. Ask your vendor for a new one."
+msgstr ""
+"وُقّع هذا المفتاح بمفتاح لا يعرفه هذا الإصدار من VetClinicSystem. اطلب "
+"مفتاحًا جديدًا من مزوّد البرنامج."

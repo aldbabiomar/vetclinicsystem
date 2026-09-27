@@ -234,3 +234,31 @@ def test_the_windows_double_click_hands_over_before_running_in_place():
     handover = bat.index('call "..\\vetclinicsystem-data\\Start VetClinicSystem.bat"')
     assert handover < bat.index("python run.py")
     assert "127.0.0.1:5050" not in bat, "the in-place launcher still announces a fixed port"
+
+
+# ---------------------------------------------------------------------------
+# The install's identity for licensing (docs/plans/DEVELOPER_AND_LICENSING_PLAN.md §5.1)
+# ---------------------------------------------------------------------------
+
+def test_an_env_without_an_install_id_gets_one(tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text("SECRET_KEY=x")
+    monkeypatch.setattr(setup, "_env_dir", lambda: str(tmp_path))
+    install_id = setup.ensure_install_id()
+    assert f"\nVETCLINICSYSTEM_INSTALL_ID={install_id}\n" in (tmp_path / ".env").read_text()
+
+
+def test_control_an_install_id_is_never_replaced(tmp_path, monkeypatch):
+    """GUARD. A license is signed for it: a new ID on a re-run would
+    invalidate the clinic's license."""
+    (tmp_path / ".env").write_text("SECRET_KEY=x\nVETCLINICSYSTEM_INSTALL_ID=kept-1234\n")
+    monkeypatch.setattr(setup, "_env_dir", lambda: str(tmp_path))
+    assert setup.ensure_install_id() == "kept-1234"
+    assert (tmp_path / ".env").read_text().count("VETCLINICSYSTEM_INSTALL_ID=") == 1
+
+
+def test_a_new_env_is_created_with_an_install_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "BASE_DIR", str(ROOT))
+    monkeypatch.setattr(setup, "_env_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(setup, "choose_ports", lambda: (5432, 5050))
+    setup.ensure_env_file()
+    assert _env_line((tmp_path / ".env").read_text(), "VETCLINICSYSTEM_INSTALL_ID").count("-") == 4
