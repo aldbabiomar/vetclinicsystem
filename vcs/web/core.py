@@ -15,6 +15,8 @@ from vcs.paths import ROOT
 import secrets
 import re
 import socket
+import threading
+import time
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -723,3 +725,39 @@ def cached_dashboard_snapshot(db):
     if "dash_snap" not in g:
         g.dash_snap = alerts.dashboard_snapshot(db)
     return g.dash_snap
+
+
+# Simple in-memory per-IP rate limit on sign-in attempts -- clinic sign-in
+# and Developer Pass sign-in share it (plan §7.1) — independent of
+# (and in addition to) auth.py's existing per-USERNAME lockout, which
+# doesn't slow down someone trying many different usernames from one
+# source. No new dependency: a small sliding window keyed by client IP,
+# reset lazily. This is intentionally generous (20 requests / 5 minutes)
+# since a busy front desk can generate real login traffic from behind a
+# single router's IP; it's meant to blunt automated spraying, not to
+# police normal multi-person use of one shared network address.
+_LOGIN_ATTEMPTS_BY_IP = {}
+_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 300
+_LOGIN_RATE_LIMIT_MAX = 20
+# Waitress serves from 8 threads, and they all update the dict above; the
+# cleanup loop could meet a key another thread had just deleted (KeyError,
+# a 500 on the login page) and two sign-ins could each read the list before
+# either wrote it back, losing one from the count (audit B20).
+_LOGIN_RATE_LIMIT_LOCK = threading.Lock()
+
+
+def login_rate_limit_check(ip):
+    now = time.monotonic()
+    window_start = now - _LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    with _LOGIN_RATE_LIMIT_LOCK:
+        attempts = [t for t in _LOGIN_ATTEMPTS_BY_IP.get(ip, []) if t > window_start]
+        attempts.append(now)
+        _LOGIN_ATTEMPTS_BY_IP[ip] = attempts
+        # Opportunistic cleanup so this dict doesn't grow unbounded over a
+        # long-running process — cheap, and only runs on the (low-traffic)
+        # login route.
+        if len(_LOGIN_ATTEMPTS_BY_IP) > 1000:
+            for k in list(_LOGIN_ATTEMPTS_BY_IP.keys()):
+                if not [t for t in _LOGIN_ATTEMPTS_BY_IP[k] if t > window_start]:
+                    del _LOGIN_ATTEMPTS_BY_IP[k]
+        return len(attempts) <= _LOGIN_RATE_LIMIT_MAX

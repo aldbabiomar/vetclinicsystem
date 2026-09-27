@@ -880,3 +880,40 @@ result under each money setting.
   **Suite:** IQ **1685 passed, 0 skipped** (one citation failure in the run,
   fixed by the guide and re-run); JO **1685 passed, 0 skipped**; no database
   763 passed.
+- **2026-09-27 — Phase 2: Developer access.**
+  - **Sign-in** (`vcs/web/blueprints/developer.py`): `/developer/login` takes a
+    Developer Pass, verified for this install (Phase 1). It shares the
+    clinic sign-in's rate limiter, which moved from the main blueprint to
+    `vcs/web/core.py` (`login_rate_limit_check`). CSRF as every form.
+  - **The session** (`vcs/web/devsession.py`): `developer = {name, pass_id,
+    expires_at}`, beside any clinic user, ending at the pass's expiry, on
+    `/developer/logout` or with the session. `devsession.required` guards
+    every page; the clinic sign-in gate exempts `developer.*` (A12), so the
+    area works signed in or not — in the clinic's shell when signed in, in
+    a bare page otherwise (`developer_layout.html` draws both).
+  - **No role reaches it:** there is no `developer` permission, and the role
+    editor drops one named in a form.
+  - **`developer_audit`** (baseline edited in place; snapshot regenerated):
+    written by `vcs/domain/developer_audit.record()` — every sign-in, and
+    every refusal with its reason, never the pass itself. Not in
+    `RETENTION_TABLES`, and nothing deletes from it. Developer → Developer
+    Audit lists it; clinic users with `view_logins_changes` read it at
+    `/admin/developer-audit`, linked from Logins and Changes (A10).
+  - **Navigation:** a Developer group, drawn only in a developer session
+    (`Group.developer_only`).
+  - **Sections so far:** Overview (install ID, who, until when, version)
+    and Developer Audit. The rest arrive with their phases; none is a
+    placeholder.
+  - Arabic: `ARABIC_REVIEW.md` §24 (25 strings; new terms flagged).
+  - **Guards** (`tests/test_developer_access.py`, 15 tests; mutation-proven
+    seven ways): the system Admin refused on every Developer page, and a
+    valid pass let in with no clinic sign-in; no `developer` permission,
+    and a role naming one gets nothing; expired / other-install / wrong-kind
+    / garbage passes refused and recorded; the session ends with its pass;
+    the shared sign-in limit; sign-ins recorded; the audit never pruned; the
+    Developer group only for a developer. The suite's registries learnt the
+    new area (route discovery, public pages, the nav tests).
+
+  **Suite:** IQ **1700 passed, 0 skipped**; JO **1700 passed, 0 skipped**
+  (the overflow helper took `/developer/login` for the sign-in redirect in
+  the full run; fixed and re-run in both); no database 763 passed.

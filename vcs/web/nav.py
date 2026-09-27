@@ -40,6 +40,10 @@ class Group:
     label: str
     links: tuple
     collapsible: bool = True
+    # Drawn only while a Developer Pass session is active. Its pages carry no
+    # permission (none can reach them), so the permission test alone would
+    # draw them for everyone.
+    developer_only: bool = False
 
 
 NAV = (
@@ -91,8 +95,12 @@ NAV = (
     )),
     Group("admin", N_("Admin"), links=(
         Link(N_("Users & Roles"), "admin.admin_users"),
-        Link(N_("Logins and Changes"), "admin.admin_logs"),
+        Link(N_("Logins and Changes"), "admin.admin_logs", active=("admin.admin_developer_audit",)),
         Link(N_("Settings"), "settings.settings_page"),
+    )),
+    Group("developer", N_("Developer"), developer_only=True, links=(
+        Link(N_("Developer Area"), "developer.home"),
+        Link(N_("Developer Audit"), "developer.audit"),
     )),
 )
 
@@ -109,11 +117,14 @@ def can_open(link, granted):
     return (not any_of or any(p in granted for p in any_of)) and all(p in granted for p in all_of)
 
 
-def visible(granted):
+def visible(granted, developer=False):
     """The groups, each with only the links these permissions can open; a
-    group with none is left out."""
+    group with none is left out. The Developer group only in a developer
+    session."""
     out = []
     for group in NAV:
+        if group.developer_only and not developer:
+            continue
         links = [link for link in group.links if can_open(link, granted)]
         if links:
             out.append({"key": group.key, "label": group.label, "collapsible": group.collapsible, "links": links})

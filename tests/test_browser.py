@@ -51,6 +51,7 @@ Run with:
 """
 from vcs import clock
 import os
+from urllib.parse import urlparse
 
 import pytest
 from conftest import new_id, ADMIN_ID
@@ -83,7 +84,7 @@ PAGES = [
     "/inventory-status", "/inventory-catalog", "/ordering-sheet", "/audit-history",
     "/distributors", "/consignment", "/billing", "/refunds", "/cash-register",
     "/reports", "/reports/yearly", "/insights", "/retention", "/admin/users",
-    "/admin/logs", "/settings",
+    "/admin/logs", "/settings", "/admin/developer-audit", "/developer/login",
 ]
 
 
@@ -104,7 +105,7 @@ def _login(page):
     session's cookie after it.
 
     The app lets one address try to sign in 20 times in five minutes, counting
-    the refused tries (main._login_rate_limit_check). This tier signed in
+    the refused tries (core.login_rate_limit_check). This tier signed in
     through the form for every test, about fifteen times a run, so a second
     run within five minutes was refused at the login page, and every test
     after that failed as a 30-second timeout on a page that never came.
@@ -240,7 +241,7 @@ def _scrolling_sideways(page, paths):
     for path in paths:
         page.goto(f"{APP_URL}{path}", wait_until="networkidle")
         _settle_loading_shell(page)
-        assert "/login" not in page.url, f"{path} sent the browser to the login page"
+        assert urlparse(page.url).path != "/login", f"{path} sent the browser to the login page"
         overflow = page.evaluate(
             "() => ({doc: document.documentElement.scrollWidth,"
             " win: window.innerWidth})")

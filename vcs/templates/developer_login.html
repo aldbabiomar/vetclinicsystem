@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Developer sign-in') }} — {{ clinic_name }}{% endblock %}
+{% block content %}{{ self.dev_login() }}{% endblock %}
+{% block auth_content %}<div class="auth-wrap">{{ self.dev_login() }}</div>{% endblock %}
+{% block dev_login %}
+<div class="auth-card">
+  <div class="brand brand-auth">
+    <span class="mark">{{ logo_mark() }}</span>
+    <span class="brand-name">{{ _('Developer sign-in') }}</span>
+  </div>
+  <p class="small muted">{{ _('Paste the Developer Pass your vendor signed for this installation. It opens the Developer area for a few hours.') }}</p>
+  <p class="small">{{ _('Installation ID') }}: <span class="u-mono">{{ install_id or '—' }}</span></p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field u-mb-2">
+      <label for="developer-1-dev_pass">{{ _('Developer Pass') }}</label>
+      <textarea id="developer-1-dev_pass" name="dev_pass" rows="5" required autocomplete="off" spellcheck="false"></textarea>
+    </div>
+    <button class="btn" type="submit">{{ _('Log In') }}</button>
+  </form>
+</div>
+{% endblock %}

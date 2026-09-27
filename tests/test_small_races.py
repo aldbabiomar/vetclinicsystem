@@ -65,7 +65,7 @@ def test_control_starting_an_audit_twice_in_a_row_reopens_the_same_draft(client,
 def test_the_login_rate_limiter_updates_its_record_under_a_lock(monkeypatch):
     """GUARD. The lock itself, recorded: every read-modify-write of the
     per-address record happens while it is held."""
-    from vcs.web.blueprints import main
+    from vcs.web import core as main   # the sign-in rate limiter lives in core (shared with /developer/login)
     held = []
 
     class Recording:
@@ -88,14 +88,14 @@ def test_the_login_rate_limiter_updates_its_record_under_a_lock(monkeypatch):
             super().__setitem__(k, v)
 
     monkeypatch.setattr(main, "_LOGIN_ATTEMPTS_BY_IP", Watched())
-    assert main._login_rate_limit_check("10.9.9.9") is True
+    assert main.login_rate_limit_check("10.9.9.9") is True
     assert held == ["enter"]
 
 
 def test_control_the_rate_limiter_still_limits():
-    from vcs.web.blueprints import main
+    from vcs.web import core as main   # the sign-in rate limiter lives in core (shared with /developer/login)
     ip = "10.9.9.10"
     main._LOGIN_ATTEMPTS_BY_IP.pop(ip, None)
-    results = [main._login_rate_limit_check(ip) for _ in range(main._LOGIN_RATE_LIMIT_MAX + 1)]
+    results = [main.login_rate_limit_check(ip) for _ in range(main._LOGIN_RATE_LIMIT_MAX + 1)]
     main._LOGIN_ATTEMPTS_BY_IP.pop(ip, None)
     assert results[:-1] == [True] * main._LOGIN_RATE_LIMIT_MAX and results[-1] is False

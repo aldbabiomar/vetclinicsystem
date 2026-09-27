@@ -2,7 +2,8 @@
 {% block title %}{{ _('Logins and Changes') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ _('Logins and Changes') }}</h1><p class="page-sub">{{ _('Pick a date to review who logged in and what was changed.') }}</p></div>
+  <div><h1>{{ _('Logins and Changes') }}</h1><p class="page-sub">{{ _('Pick a date to review who logged in and what was changed.') }}
+    <a href="{{ url_for('admin.admin_developer_audit') }}">{{ _('What your vendor did here') }}</a></p></div>
   <form method="get" style="display:flex; gap:10px; align-items:center;">
     <input type="date" name="date" value="{{ day }}" data-vzh="admin-logs-1">
     {% if day != today %}<a class="btn secondary" href="{{ url_for('admin.admin_logs') }}">{{ _('Clear') }}</a>{% endif %}

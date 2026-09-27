@@ -14,7 +14,7 @@ from vcs import auth, clock, money
 from vcs.config import BIND_PORT
 from vcs.domain import codes, dates, display, settings
 from vcs.errorlog import error_logger
-from vcs.web import brand, js_strings, nav, palettes
+from vcs.web import brand, devsession, js_strings, nav, palettes
 from vcs.web.core import (cached_dashboard_snapshot, csp_nonce, currency_label, display_date, display_number,
                           get_db, money_setting_label, to_arabic_indic_digits)
 
@@ -236,7 +236,7 @@ def inject_money_setting():
 def inject_nav():
     """The sidebar's groups and links this person can open (nav.py, audit
     P1). From the session's permissions -- no table read."""
-    return dict(nav_groups=nav.visible(session.get("permissions") or []))
+    return dict(nav_groups=nav.visible(session.get("permissions") or [], developer=devsession.current() is not None))
 
 
 def inject_js_strings():

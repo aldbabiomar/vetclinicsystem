@@ -9,7 +9,7 @@ Endpoint names carry the `admin.` prefix Flask gives every blueprint route:
 """
 
 from vcs import auth
-from vcs.domain import logs
+from vcs.domain import developer_audit, logs
 from flask_babel import gettext as _
 from flask import (
     Blueprint, abort, redirect, render_template, request, session, url_for
@@ -459,3 +459,12 @@ def admin_logs():
     changes = logs.changes_on_date(db, day)
     logins = logs.logins_on_date(db, day)
     return render_template("admin_logs.html", day=day, today=clock.today().isoformat(), changes=changes, logins=logins)
+
+
+@bp.route("/admin/developer-audit")
+@auth.permission_required("view_logins_changes")
+def admin_developer_audit():
+    """What the vendor did at this clinic, read-only (plan A10): the clinic
+    can see it and cannot delete it."""
+    return render_template("admin_developer_audit.html", rows=developer_audit.recent(get_db()),
+                           audit_labels=developer_audit.LABELS)

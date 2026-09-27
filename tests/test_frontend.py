@@ -49,6 +49,8 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_member_discount.html",
                         # Included inside the three edit forms (audit B4).
                         "_edit_conflict.html",
+                        # Included by the Developer Audit and the clinic's copy of it.
+                        "_developer_audit_table.html",
                         # Included at the top of 15 detail pages (audit P5).
                         "_back_link.html"}
 

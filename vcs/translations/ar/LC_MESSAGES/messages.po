@@ -8249,3 +8249,117 @@ msgid ""
 msgstr ""
 "وُقّع هذا المفتاح بمفتاح لا يعرفه هذا الإصدار من VetClinicSystem. اطلب "
 "مفتاحًا جديدًا من مزوّد البرنامج."
+
+#: vcs/templates/admin_developer_audit.html
+msgid "Back to Logins and Changes"
+msgstr "العودة إلى سجل الدخول والتغييرات"
+
+#: vcs/web/nav.py
+msgid "Developer"
+msgstr "المطوّر"
+
+#: vcs/web/nav.py vcs/templates/developer_layout.html
+msgid "Developer Area"
+msgstr "منطقة المطوّر"
+
+#: vcs/web/nav.py vcs/templates/developer_layout.html
+msgid "Developer Audit"
+msgstr "سجل المطوّر"
+
+#: vcs/templates/developer_login.html
+msgid "Developer Pass"
+msgstr "تصريح المطوّر"
+
+#: vcs/templates/developer_login.html
+msgid "Developer sign-in"
+msgstr "دخول المطوّر"
+
+#: vcs/domain/developer_audit.py
+msgid "Developer sign-in refused"
+msgstr "رُفض دخول المطوّر"
+
+#: vcs/templates/developer_audit.html
+msgid ""
+"Everything done in the Developer area at this clinic, and every license "
+"key entered here. The clinic cannot delete it, and the clinic can read it "
+"under Logins and Changes."
+msgstr ""
+"كل ما جرى في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص أُدخل هنا. لا "
+"تستطيع العيادة حذفه، ويمكنها قراءته في سجل الدخول والتغييرات."
+
+#: vcs/templates/admin_developer_audit.html
+msgid ""
+"Everything your vendor did in the Developer area at this clinic, and every "
+"license key entered here. Kept for good: nothing deletes it."
+msgstr ""
+"كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص "
+"أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه."
+
+#: vcs/templates/developer_login.html vcs/templates/developer_home.html
+msgid "Installation ID"
+msgstr "معرّف التثبيت"
+
+#: vcs/templates/_developer_audit_table.html
+msgid "Nothing recorded yet."
+msgstr "لم يُسجَّل شيء بعد."
+
+#: vcs/templates/_developer_audit_table.html
+msgid "Target"
+msgstr "الهدف"
+
+#: vcs/templates/_developer_audit_table.html
+msgid "Outcome"
+msgstr "النتيجة"
+
+#: vcs/templates/_developer_audit_table.html
+msgid "Network address"
+msgstr "عنوان الشبكة"
+
+#: vcs/templates/developer_home.html
+msgid "Pass valid until"
+msgstr "التصريح صالح حتى"
+
+#: vcs/templates/developer_login.html
+msgid ""
+"Paste the Developer Pass your vendor signed for this installation. It "
+"opens the Developer area for a few hours."
+msgstr ""
+"الصق تصريح المطوّر الذي وقّعه مزوّد البرنامج لهذا التثبيت. يفتح منطقة "
+"المطوّر لبضع ساعات."
+
+#: vcs/domain/developer_audit.py
+msgid "Refused"
+msgstr "مرفوض"
+
+#: vcs/templates/developer_layout.html
+msgid "Sign out of the Developer area"
+msgstr "الخروج من منطقة المطوّر"
+
+#: vcs/templates/developer_home.html
+msgid "Signed in as"
+msgstr "تم الدخول باسم"
+
+#: vcs/domain/developer_audit.py
+msgid "Signed in to the Developer area"
+msgstr "دخل إلى منطقة المطوّر"
+
+#: vcs/web/blueprints/developer.py
+msgid "Too many sign-in attempts from this computer. Wait a few minutes and try again."
+msgstr "محاولات دخول كثيرة من هذا الحاسوب. انتظر بضع دقائق ثم حاول مرة أخرى."
+
+#: vcs/templates/admin_developer_audit.html
+msgid "Vendor actions"
+msgstr "إجراءات مزوّد البرنامج"
+
+#: vcs/templates/admin_logs.html
+msgid "What your vendor did here"
+msgstr "ما فعله مزوّد البرنامج هنا"
+
+#: vcs/web/blueprints/developer.py
+msgid "You have signed out of the Developer area."
+msgstr "خرجت من منطقة المطوّر."
+
+#: vcs/templates/developer_layout.html
+#, python-format
+msgid "pass valid until %(time)s"
+msgstr "التصريح صالح حتى %(time)s"

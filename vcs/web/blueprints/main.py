@@ -4,8 +4,6 @@ Dashboard, /health (the updater's probe), /favicon.ico, and the poll behind
 the report pages' loading shells.
 """
 import json
-import threading
-import time
 import traceback
 import uuid
 
@@ -17,44 +15,9 @@ from vcs.domain import alerts, settings
 from vcs.errorlog import error_logger
 from vcs.web import brand, palettes
 from vcs.web.core import (PER_PAGE, VERSION, cached_dashboard_snapshot, flash, get_db, get_page, is_safe_local_path,
-                          lan_address, page_count, page_offset, shown)
+                          lan_address, login_rate_limit_check, page_count, page_offset, shown)
 
 bp = Blueprint("main", __name__)
-
-
-# Simple in-memory per-IP rate limit on login attempts — independent of
-# (and in addition to) auth.py's existing per-USERNAME lockout, which
-# doesn't slow down someone trying many different usernames from one
-# source. No new dependency: a small sliding window keyed by client IP,
-# reset lazily. This is intentionally generous (20 requests / 5 minutes)
-# since a busy front desk can generate real login traffic from behind a
-# single router's IP; it's meant to blunt automated spraying, not to
-# police normal multi-person use of one shared network address.
-_LOGIN_ATTEMPTS_BY_IP = {}
-_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 300
-_LOGIN_RATE_LIMIT_MAX = 20
-# Waitress serves from 8 threads, and they all update the dict above; the
-# cleanup loop could meet a key another thread had just deleted (KeyError,
-# a 500 on the login page) and two sign-ins could each read the list before
-# either wrote it back, losing one from the count (audit B20).
-_LOGIN_RATE_LIMIT_LOCK = threading.Lock()
-
-
-def _login_rate_limit_check(ip):
-    now = time.monotonic()
-    window_start = now - _LOGIN_RATE_LIMIT_WINDOW_SECONDS
-    with _LOGIN_RATE_LIMIT_LOCK:
-        attempts = [t for t in _LOGIN_ATTEMPTS_BY_IP.get(ip, []) if t > window_start]
-        attempts.append(now)
-        _LOGIN_ATTEMPTS_BY_IP[ip] = attempts
-        # Opportunistic cleanup so this dict doesn't grow unbounded over a
-        # long-running process — cheap, and only runs on the (low-traffic)
-        # login route.
-        if len(_LOGIN_ATTEMPTS_BY_IP) > 1000:
-            for k in list(_LOGIN_ATTEMPTS_BY_IP.keys()):
-                if not [t for t in _LOGIN_ATTEMPTS_BY_IP[k] if t > window_start]:
-                    del _LOGIN_ATTEMPTS_BY_IP[k]
-        return len(attempts) <= _LOGIN_RATE_LIMIT_MAX
 
 
 @bp.route("/jobs/status")
@@ -125,7 +88,7 @@ def login():
     if session.get("user_id"):
         return redirect(url_for("main.dashboard"))
     if request.method == "POST":
-        if not _login_rate_limit_check(request.remote_addr):
+        if not login_rate_limit_check(request.remote_addr):
             flash(_("Too many login attempts from this network. Please wait a few minutes and try again."), "error")
             return render_template("login.html")
         db = get_db()

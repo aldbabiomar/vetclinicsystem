@@ -228,6 +228,11 @@ def _warn_if_submission_will_be_lost():
 def require_login():
     if request.endpoint in OPEN_ENDPOINTS or request.endpoint is None:
         return
+    # The Developer area checks its own session (a Developer Pass), with or
+    # without a clinic sign-in -- the recovery tools exist for when nobody can
+    # sign in (plan A12). vcs/web/devsession.py.
+    if request.endpoint.startswith("developer."):
+        return
     if g.get("restore_passthrough"):
         # During a restore: the session alone, no table (see above).
         return None if session.get("user_id") else ("", 401)

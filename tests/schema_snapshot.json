@@ -1143,6 +1143,72 @@
    "idx_consshrinkage_item": "CREATE INDEX idx_consshrinkage_item ON public.consignment_shrinkage USING btree (item_id)"
   }
  },
+ "developer_audit": {
+  "columns": {
+   "action": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "actor": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "at": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "timestamp with time zone"
+   },
+   "detail": {
+    "default": "'{}'::jsonb",
+    "identity": null,
+    "null": false,
+    "type": "jsonb"
+   },
+   "id": {
+    "default": null,
+    "identity": "BY DEFAULT",
+    "null": false,
+    "type": "integer"
+   },
+   "outcome": {
+    "default": null,
+    "identity": null,
+    "null": false,
+    "type": "text"
+   },
+   "pass_id": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "remote_addr": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
+   "target": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   }
+  },
+  "constraints": {
+   "developer_audit_outcome_check": "CHECK ((outcome = ANY (ARRAY['ok'::text, 'refused'::text, 'failed'::text])))",
+   "developer_audit_pkey": "PRIMARY KEY (id)"
+  },
+  "indexes": {
+   "developer_audit_pkey": "CREATE UNIQUE INDEX developer_audit_pkey ON public.developer_audit USING btree (id)",
+   "idx_developer_audit_at": "CREATE INDEX idx_developer_audit_at ON public.developer_audit USING btree (at DESC)"
+  }
+ },
  "distributor_bill_payments": {
   "columns": {
    "amount": {

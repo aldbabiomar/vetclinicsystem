@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Vendor actions') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('Vendor actions') }}</h1>
+    <p class="page-sub">{{ _('Everything your vendor did in the Developer area at this clinic, and every license key entered here. Kept for good: nothing deletes it.') }}
+      <a href="{{ url_for('admin.admin_logs') }}">{{ _('Back to Logins and Changes') }}</a></p></div>
+</div>
+<div class="card">{% include "_developer_audit_table.html" %}</div>
+{% endblock %}

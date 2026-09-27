@@ -32,7 +32,9 @@ def test_a_settings_only_role_is_offered_only_settings(as_role):
 
 def test_control_the_admin_is_offered_every_link(client, flask_app):
     with flask_app.test_request_context():
-        every = [link.opens for group in nav.NAV for link in group.links]
+        # The Developer group is drawn for a developer session, not a
+        # permission (tests/test_developer_access.py).
+        every = [link.opens for group in nav.NAV if not group.developer_only for link in group.links]
     assert len(_sidebar(client)) == len(every) >= 30
 
 
@@ -42,7 +44,7 @@ def test_every_link_opens_for_someone_holding_just_what_it_requires(flask_app, a
     whose visibility and its page's gate disagree fails here."""
     with flask_app.test_request_context():
         needs = {}
-        for group in nav.NAV:
+        for group in (g for g in nav.NAV if not g.developer_only):
             for link in group.links:
                 any_of, all_of = nav.required(link)
                 assert any_of, f"{link.opens} has no permission_required() — the sidebar cannot gate it"

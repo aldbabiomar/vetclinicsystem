@@ -1,0 +1,7 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Developer Audit') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Developer Audit') }}{% endblock %}
+{% block dev_main %}
+<p class="small muted">{{ _('Everything done in the Developer area at this clinic, and every license key entered here. The clinic cannot delete it, and the clinic can read it under Logins and Changes.') }}</p>
+<div class="card">{% include "_developer_audit_table.html" %}</div>
+{% endblock %}

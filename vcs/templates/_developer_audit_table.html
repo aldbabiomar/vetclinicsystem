@@ -1,0 +1,24 @@
+{# The developer_audit rows (plan §7.3): the Developer area's list, and the
+   clinic's own copy on the audit-log page. #}
+<div class="table-wrap"><table>
+  <thead><tr>
+    <th scope="col">{{ _('Time') }}</th><th scope="col">{{ _('Who') }}</th><th scope="col">{{ _('Action') }}</th>
+    <th scope="col">{{ _('Target') }}</th><th scope="col">{{ _('Outcome') }}</th><th scope="col">{{ _('Details') }}</th>
+    <th scope="col">{{ _('Network address') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.at|localtime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td>{{ r.actor }}</td>
+      <td>{{ audit_labels.get(r.action, r.action)|tr }}</td>
+      <td>{{ r.target or '—' }}</td>
+      <td><span class="badge {{ 'ok' if r.outcome == 'ok' else ('warn' if r.outcome == 'refused' else 'danger') }}">{{ audit_labels.get(r.outcome, r.outcome)|tr }}</span></td>
+      <td class="small">{% for k, v in r.detail.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</td>
+      <td class="small">{{ r.remote_addr or '—' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty-note">{{ _('Nothing recorded yet.') }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>

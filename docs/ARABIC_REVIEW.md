@@ -496,3 +496,40 @@ throughout what the licensing work adds:
 | 9 | This key is for another installation (%(theirs)s). This installation's ID is %(ours)s. | هذا المفتاح لتثبيت آخر (%(theirs)s). معرّف هذا التثبيت هو %(ours)s. |
 | 10 | This key is missing information it needs. Ask your vendor for a new one. | ينقص هذا المفتاح معلومات يحتاجها. اطلب مفتاحًا جديدًا من مزوّد البرنامج. |
 | 11 | This key was signed by a key this version of VetClinicSystem does not know. Ask your vendor for a new one. | وُقّع هذا المفتاح بمفتاح لا يعرفه هذا الإصدار من VetClinicSystem. اطلب مفتاحًا جديدًا من مزوّد البرنامج. |
+
+## 24. The Developer area and the vendor's audit (25)
+
+The pages the vendor signs in to with a Developer Pass, and the clinic's
+read-only list of what the vendor did. Uses §23's terms (تصريح المطوّر,
+مزوّد البرنامج, مفتاح الترخيص) and adds:
+
+- **Developer Area** — منطقة المطوّر · **Developer Audit** — سجل المطوّر
+- **Installation ID** — معرّف التثبيت
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Developer | المطوّر |
+| 2 | Developer Area | منطقة المطوّر |
+| 3 | Developer Audit | سجل المطوّر |
+| 4 | Developer Pass | تصريح المطوّر |
+| 5 | Developer sign-in | دخول المطوّر |
+| 6 | Developer sign-in refused | رُفض دخول المطوّر |
+| 7 | Signed in to the Developer area | دخل إلى منطقة المطوّر |
+| 8 | Sign out of the Developer area | الخروج من منطقة المطوّر |
+| 9 | You have signed out of the Developer area. | خرجت من منطقة المطوّر. |
+| 10 | Paste the Developer Pass your vendor signed for this installation. It opens the Developer area for a few hours. | الصق تصريح المطوّر الذي وقّعه مزوّد البرنامج لهذا التثبيت. يفتح منطقة المطوّر لبضع ساعات. |
+| 11 | Installation ID | معرّف التثبيت |
+| 12 | Signed in as | تم الدخول باسم |
+| 13 | Pass valid until | التصريح صالح حتى |
+| 14 | pass valid until %(time)s | التصريح صالح حتى %(time)s |
+| 15 | Too many sign-in attempts from this computer. Wait a few minutes and try again. | محاولات دخول كثيرة من هذا الحاسوب. انتظر بضع دقائق ثم حاول مرة أخرى. |
+| 16 | Everything done in the Developer area at this clinic, and every license key entered here. The clinic cannot delete it, and the clinic can read it under Logins and Changes. | كل ما جرى في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص أُدخل هنا. لا تستطيع العيادة حذفه، ويمكنها قراءته في سجل الدخول والتغييرات. |
+| 17 | Vendor actions | إجراءات مزوّد البرنامج |
+| 18 | What your vendor did here | ما فعله مزوّد البرنامج هنا |
+| 19 | Everything your vendor did in the Developer area at this clinic, and every license key entered here. Kept for good: nothing deletes it. | كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه. |
+| 20 | Back to Logins and Changes | العودة إلى سجل الدخول والتغييرات |
+| 21 | Nothing recorded yet. | لم يُسجَّل شيء بعد. |
+| 22 | Target | الهدف |
+| 23 | Outcome | النتيجة |
+| 24 | Network address | عنوان الشبكة |
+| 25 | Refused | مرفوض |

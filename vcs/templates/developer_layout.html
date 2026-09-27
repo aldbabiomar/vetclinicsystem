@@ -1,0 +1,23 @@
+{# The Developer area's frame (plan §8). It works with or without a clinic
+   sign-in (A12): signed in, it sits in the clinic's shell; otherwise in a
+   bare page. Both draw the same `dev_page` block. #}
+{% extends "base.html" %}
+{% block content %}{{ self.dev_page() }}{% endblock %}
+{% block auth_content %}<div class="dev-shell">{{ self.dev_page() }}</div>{% endblock %}
+{% block dev_page %}
+<div class="page-head">
+  <div>
+    <h1>{% block dev_title %}{% endblock %}</h1>
+    <p class="page-sub">{{ _('Developer Area') }} · {{ developer.name }} · {{ _('pass valid until %(time)s', time=developer.expires_at|localtime) }}</p>
+  </div>
+  <form method="post" action="{{ url_for('developer.logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn secondary small" type="submit">{{ _('Sign out of the Developer area') }}</button>
+  </form>
+</div>
+<div class="filter-chips">
+  <a class="chip {{ 'active' if request.endpoint == 'developer.home' }}" href="{{ url_for('developer.home') }}">{{ _('Overview') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.audit' }}" href="{{ url_for('developer.audit') }}">{{ _('Developer Audit') }}</a>
+</div>
+{% block dev_main %}{% endblock %}
+{% endblock %}

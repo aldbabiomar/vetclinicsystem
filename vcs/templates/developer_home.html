@@ -1,0 +1,13 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Developer Area') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Overview') }}{% endblock %}
+{% block dev_main %}
+<div class="card">
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Installation ID') }}</div><div class="v u-mono">{{ install_id or '—' }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Signed in as') }}</div><div class="v">{{ developer.name }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Pass valid until') }}</div><div class="v">{{ developer.expires_at|localtime }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Version') }}</div><div class="v">{{ version }}</div></div>
+  </div>
+</div>
+{% endblock %}
