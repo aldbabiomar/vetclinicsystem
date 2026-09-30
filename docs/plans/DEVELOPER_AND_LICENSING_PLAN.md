@@ -1127,3 +1127,95 @@ result under each money setting.
 
   **Suite:** docs only — no database 765 passed (it checks every document the
   code cites exists); the database runs are phase 6's.
+- **2026-09-30 — Phase 8: verification, and the end-of-work report (§17a).**
+  - **A clinic's license, run out and renewed** (`scripts/simulation/license_day.py
+    iq|jo`, against the running apps): keys signed with each environment's
+    throwaway vendor key and entered on Settings → License — active; expiring
+    (the warning); grace (the date it turns read-only, and saving still
+    works); read-only, where the session already working keeps working and a
+    new sign-in is refused a new owner and a payment but keeps a note on an
+    admitted animal, runs Back Up Now and makes the data export; renewed,
+    where that read-only session saves again without signing out. No key and
+    no pass in the logs or the audit tables. **Every step behaved under IQ
+    and JO.**
+  - **A fresh native-mode install** (`scripts/simulation/native_install.py`):
+    `git archive HEAD` into a temporary folder; the role and database the
+    guide describes, on the throwaway server; that copy's `setup.py --db-mode
+    native` from an environment whose PATH held the PostgreSQL client tools
+    and nothing else. Setup finished (server checked, schema, first admin,
+    money setting, license), then the installed code took a backup, passed
+    the restore check (8 checks) and restored — no Docker anywhere. The role,
+    database and folder were removed.
+  - **Every guard re-proven** (`prove_guards.py --all`, JO, browser tier
+    included): 107 of 107. The first run proved 101: one anchor was stale
+    (phase 6 had rewritten that line of setup.py) and five browser controls
+    failed on a draft stock audit a failing test earlier in the run had left
+    for today, which the detail-page fixture's own draft then collided with.
+    The fixture's draft is now dated years back; the six were re-proven.
+  - **The secret scan** (§13): `tests/test_secrets.py` in-process, and the
+    license day against the running apps' logs and audit tables.
+
+  **Suite, final, from reset environments:** IQ **1780 passed, 0 skipped**;
+  JO **1780 passed, 0 skipped** (the browser tier's 41 tests among them); no
+  database 765 passed.
+
+  **End-of-work report (§17a).**
+
+  1. *What changed.* Signed license keys and Developer Passes, verified
+     offline against keys in the source (phase 1); the Developer area, its
+     session and the vendor's audit (2); the license's states, read-only from
+     the next sign-in, the License pages, setup requiring a key (3); the money
+     setting, palette, monitoring ping and update token moved to the vendor,
+     the repository ready to be private (4); System, the support bundle,
+     restoring administrator access, the full data export and the vendor
+     message (5); native PostgreSQL (6); the documentation (7).
+  2. *Modules.* New: `vcs/licensing/` (tokens, state, trusted_keys);
+     `vcs/web/` devsession, readonly, license_pages, vendor_settings,
+     update_jobs, export_jobs and `blueprints/developer.py`; `vcs/domain/`
+     developer_audit, vendor_message; `vcs/ops/` pgtools, redact, system_info,
+     support_bundle, data_export; `scripts/vendor/vcs_vendor.py`,
+     `scripts/test_launcher.py`, `scripts/simulation/license_day.py` and
+     `native_install.py`. Changed most: `setup.py`, `vcs/ops/{backup,
+     selfverify,selfcheck,updater}.py`, `vcs/auth.py`, the settings blueprint,
+     `hooks.py`, `nav.py`, `templating.py`, `base.html`, `settings.html`.
+  3. *Schema* (in `0001_baseline.sql`, before 1.0.0): the `developer_audit`
+     table; `self_check_log.disk_free_bytes`. New settings rows, no schema:
+     `license_max_seen_at`, `vendor_message_{text,level,expires_at,enabled}`.
+  4. *Environment variables.* New: `VETCLINICSYSTEM_INSTALL_ID` (setup writes
+     it), `VETCLINICSYSTEM_DB_MODE` (`docker` | `native`),
+     `VETCLINICSYSTEM_PG_BIN_DIR`. Removed: `GITHUB_TOKEN`.
+  5. *PostgreSQL.* 16 or newer, in both modes. Native: a role that owns the
+     database and has CREATEDB, nothing more; client tools at least the
+     server's version, found by `pgtools` (`docs/NATIVE_POSTGRESQL.md`).
+  6. *The license.* `tokens.verify()` checks the Ed25519 signature before
+     reading the payload, then kind, install and dates; `state.py` works the
+     state out at start-up, sign-in, key entry and on the scheduler's tick;
+     `readonly.py` is the one hook that refuses; `setup.ensure_license()`
+     will not finish without a key. `docs/decisions/0012-licensing.md`.
+  7. *Secrets.* The license key: `<data dir>/license/license.key`. The update
+     token: `<data dir>/github_token`, mode 0600. The ping URL: `settings`,
+     never logged or exported. A Developer Pass: verified and discarded
+     (only its ID is kept). A temporary admin password: shown once. None is
+     in the database's exports, the support bundle, the logs or the audit
+     (seam rule 15).
+  8. *Tests.* Above, per phase, and the final run.
+  9. **Manual steps for the owner, before 1.0.0:**
+     - make `aldbabiomar/vetclinicsystem` **private**;
+     - on the vendor's own machine, `python3 scripts/vendor/vcs_vendor.py
+       keygen`, keep the private key there (`DEVELOPER_GUIDE.md`), and put
+       the printed public key into `vcs/licensing/trusted_keys.py` — until a
+       release trusts a key, no install can finish setup;
+     - create a fine-grained, read-only GitHub token per clinic
+       (`DEVELOPER_GUIDE.md`);
+     - on a throwaway install, run one real update through a
+       private-repository token, end to end — the mocked tests cannot prove
+       the real download.
+
+  **Choices made in the building that the owner may want to look at:** a
+  password reset — the clinic admin's too, not only the vendor's — now clears
+  that user's sign-in lockout; the vendor's changes appear in the clinic's
+  change log as `dev:<name>`; the three newest data exports are kept on disk;
+  the vendor message has an on/off switch as well as the three settings §11.5
+  names; restoring access is offered for active system administrators only;
+  the database mode, version and tools are shown on System rather than
+  repeated on Configuration.

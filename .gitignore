@@ -64,3 +64,5 @@ vendor-keys/
 # A development checkout keeps its GitHub access token here (vcs/ops/updater.py).
 /github_token
 /github_token.tmp
+# Data exports made from a checkout without a data dir (vcs/ops/data_export.py)
+/exports/

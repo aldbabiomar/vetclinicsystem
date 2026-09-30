@@ -16,16 +16,18 @@ as the working directory.
 > Never write code that is "for IQ" or "for JO" — write it once, and let the
 > money setting's values (§3) make the difference.
 
-## 0. Status — the merge is done; licensing is IN PROGRESS
+## 0. Status — the merge and the licensing plan are done; 1.0.0 is next
 
 The code started (2026-09-25) as the predecessor **JO** app's tree, renamed,
 and was brought to the design in `docs/plans/UNIFIED_CODEBASE_PLAN.md` (done
 2026-09-27: its §12 is met; `docs/CODE_AUDIT_2026-09-25.md` tracks every audit
-finding to where it is fixed). Now running:
-`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` — signed licenses, a vendor-only
-Developer area, native PostgreSQL — phase by phase; **its progress log (§18)
-is the source of truth for what is done**. Check it before assuming a part of
-that plan is built.
+finding to where it is fixed). Then `docs/plans/DEVELOPER_AND_LICENSING_PLAN.md`
+— signed licenses, a vendor-only Developer area and its tools, native
+PostgreSQL — ran phase by phase (done 2026-09-30; its §18 log records each
+phase). **Before the first release** the owner has four manual steps (that
+log's last entry): make the repository private, generate the real vendor key
+into `trusted_keys.py`, create a token per clinic, and run one real update
+through a private-repository token.
 
 The project has **never been deployed**. There is no install to keep
 compatible with, so a schema or behaviour change needs no migration path —
@@ -332,5 +334,6 @@ rules, and the test that holds each; the history is in
 ## 7. Releases
 
 `docs/RELEASE_WORKFLOW.md`. The in-app updater depends on its exact
-tag/VERSION/CHANGELOG format. Nothing is released until the merge is complete
-and verified under both money settings.
+tag/VERSION/CHANGELOG format. Nothing is released until the owner's four
+manual licensing steps (§0) are done and the suite is green under both money
+settings; the owner decides when 1.0.0 ships.

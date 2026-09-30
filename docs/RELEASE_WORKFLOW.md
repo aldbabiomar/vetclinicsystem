@@ -12,9 +12,11 @@ If something the owner asks for in the moment conflicts with this process,
 flag the conflict and ask before deviating: a malformed release can silently
 break a clinic's ability to update.
 
-**Nothing is released until the licensing plan is complete and verified
-under both money settings** (`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §17;
-the IQ/JO merge before it is done). The first release is `1.0.0`.
+**Nothing is released until the owner's manual licensing steps are done**
+(the repository private, the real vendor key in `trusted_keys.py`, a token per
+clinic, one real update through a private-repository token —
+`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §18) and the suite is green under
+both money settings. The first release is `1.0.0`.
 
 ---
 

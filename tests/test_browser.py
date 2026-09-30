@@ -49,6 +49,8 @@ property worth keeping.
 Run with:
     APP_URL=http://127.0.0.1:5091 venv/bin/python -m pytest tests/test_browser.py -q
 """
+from datetime import timedelta
+
 from vcs import clock
 import os
 from urllib.parse import urlparse
@@ -287,10 +289,13 @@ def detail_pages(db):
     db.execute("INSERT INTO distributor_bill_payments (bill_id, amount, payment_date, method, notes, "
                "created_at) VALUES (%s,%s,%s,%s,%s,%s)",
                (b, "40", today, "Transfer", "Part payment against the monthly statement", clock.now()))
-    # A draft: only a draft's page carries the counting script.
+    # A draft: only a draft's page carries the counting script. Dated years
+    # back, on a day of its own: one draft per day is the rule, and a draft
+    # for today left by any other test would otherwise fail every page here.
+    draft_day = (clock.today() - timedelta(days=3000 + o % 3000)).isoformat()
     audit = db.execute("INSERT INTO audit_sessions (audit_date, performed_by, status, created_at) "
                        "VALUES (%s,%s,'Draft',%s) RETURNING id",
-                       (today, ADMIN_ID, clock.now())).fetchone()["id"]
+                       (draft_day, ADMIN_ID, clock.now())).fetchone()["id"]
     db.commit()
     yield [f"/owners/{o}", f"/owners/{o}/edit", f"/patients/{p}", f"/patients/{p}/edit",
            f"/patients/{p}/history", f"/visits/{v}", f"/visits/{v}/edit", f"/inpatient/{case}",

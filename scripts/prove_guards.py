@@ -394,7 +394,7 @@ MUTATIONS = [
              'PORT="${VETCLINICSYSTEM_PORT:-5050}"\nif false; then',
              ["tests/test_install_ports.py"], why="the launcher overrode .env with 5050"),
     Mutation("a new install counts other containers' ports", "setup.py",
-             "    claimed = docker_claimed_ports()\n", "    claimed = set()\n",
+             '    claimed = docker_claimed_ports() if mode == "docker" else set()\n', "    claimed = set()\n",
              ["tests/test_install_ports.py"], why="compose up failed: port is already allocated"),
     Mutation("docker publishes the port in .env", "setup.py",
              '    if not url:\n        from dotenv import dotenv_values\n',

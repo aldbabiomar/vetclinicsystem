@@ -20,7 +20,8 @@ citation stops resolving.
 | Document | What it is |
 |---|---|
 | `../CLAUDE.md` | Ground rules for working on this codebase. Read first. |
-| `plans/UNIFIED_CODEBASE_PLAN.md` | The plan for merging IQ and JO into this one system, with the decisions taken and progress. **In progress.** |
+| `plans/UNIFIED_CODEBASE_PLAN.md` | The plan for merging IQ and JO into this one system, with the decisions taken and progress. **Done** 2026-09-27 (its §12). |
+| `plans/DEVELOPER_AND_LICENSING_PLAN.md` | Signed license keys with read-only expiry, the vendor-only Developer area and its tools, the money setting and palette set by the vendor, a private update repository with a token per clinic, and native PostgreSQL. **Done** 2026-09-30, but for the owner's four manual steps in its §18 (the last entry). |
 | `CODE_AUDIT_2026-09-25.md` | The last audit of the two predecessor apps: bugs, parity gaps, design. Every finding is tracked to where it is fixed in the merged system. |
 | `RELEASE_WORKFLOW.md` | How to version, tag and publish a release that the in-app updater will accept. |
 | `NATIVE_POSTGRESQL.md` | Running on a PostgreSQL server installed on the clinic's computer instead of Docker: the role, the commands per platform, setup, starting at boot. |
@@ -36,12 +37,6 @@ citation stops resolving.
 | `features/CLEANUP_FEATURE_PLAN.md` | "Clean Up": a capped staff write-off applied at payment time. |
 | `features/MONITORING_FEATURE_PLAN.md` | The four monitoring layers: daily self-check, dashboard banner, heartbeat, restore verification. |
 | `features/REWARDS_CARD_PLAN.md` | The rewards card: a member percentage off the eligible lines of a bill. |
-
-## Plans — in progress
-
-| Document | What it is |
-|---|---|
-| `plans/DEVELOPER_AND_LICENSING_PLAN.md` | The Developer area, signed license keys with read-only expiry, developer-controlled money setting and palette, a private update repo with per-clinic tokens, and native PostgreSQL. Decisions taken 2026-09-25. **In progress** (before 1.0.0): its §18 log says which phases are done. |
 
 ## Plans — not executed
 
