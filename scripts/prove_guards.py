@@ -187,6 +187,11 @@ MUTATIONS = [
              "    if found:\n        install_id = found.group(1)\n",
              "    if False:\n        install_id = found.group(1)\n",
              ["tests/test_install_ports.py"], why="a new ID would invalidate the license"),
+    Mutation("a wrong passphrase is a plain message", "scripts/vendor/vcs_vendor.py",
+             "    except (ValueError, TypeError):\n        raise SystemExit(f\"That passphrase",
+             "    except ():\n        raise SystemExit(f\"That passphrase",
+             ["tests/test_licensing_tokens.py::test_a_wrong_passphrase_is_a_plain_message"],
+             why="it ended in a traceback: ValueError: Incorrect password, could not decrypt key"),
     # --- licensing: developer access (plan §7) ------------------------------
     Mutation("the system Admin cannot reach the Developer area", "vcs/web/devsession.py",
              "        if current() is None:\n",

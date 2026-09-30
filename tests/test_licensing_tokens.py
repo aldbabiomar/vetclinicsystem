@@ -262,6 +262,31 @@ def test_control_the_vendor_tool_writes_an_encrypted_key_outside_it(vendor, tmp_
     assert vendor.tool.public_bytes(loaded) == public
 
 
+@pytest.mark.parametrize("passphrase", ["not the passphrase", ""])
+def test_a_wrong_passphrase_is_a_plain_message(vendor, tmp_path, passphrase):
+    """A mistyped passphrase (or just Return) ends in one sentence, not a
+    traceback ending in `ValueError: Incorrect password`."""
+    vendor.tool.keygen(tmp_path / "signing.pem", "a long passphrase here")
+    with pytest.raises(SystemExit) as refused:
+        vendor.tool.load_key(tmp_path / "signing.pem", passphrase)
+    assert str(refused.value).startswith("That passphrase does not open the signing key at")
+
+
+def test_a_key_file_that_will_not_open_says_why(vendor, tmp_path):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    (tmp_path / "plain.pem").write_bytes(Ed25519PrivateKey.generate().private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    (tmp_path / "notes.txt").write_text("not a key at all")
+    for path, words in ((tmp_path / "missing.pem", "No signing key could be read at"),
+                        (tmp_path, "No signing key could be read at"),
+                        (tmp_path / "plain.pem", "is not encrypted"),
+                        (tmp_path / "notes.txt", "is not a signing key")):
+        with pytest.raises(SystemExit) as refused:
+            vendor.tool.load_key(path, "a long passphrase here")
+        assert words in str(refused.value), (path, str(refused.value))
+
+
 def test_the_vendor_tool_inspects_a_token(vendor):
     payload, verdict = vendor.tool.inspect(vendor.license())
     assert payload["kind"] == "license" and verdict.startswith("signature: valid")

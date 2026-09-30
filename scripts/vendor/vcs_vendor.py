@@ -102,9 +102,35 @@ def keygen(out, passphrase):
     return kid_for(public), public
 
 
+# PEM headers, each split in two so the scan for committed keys
+# (tests/test_licensing_tokens.py) does not take this file for one.
+_ENCRYPTED_PEM = b"-----BEGIN ENCRYPTED PRIVATE" b" KEY-----"
+_PLAIN_PEM = b"-----BEGIN PRIVATE" b" KEY-----"
+
+
 def load_key(path, passphrase):
-    return serialization.load_pem_private_key(Path(path).expanduser().read_bytes(),
-                                              password=passphrase.encode("utf-8"))
+    """The signing key at `path`, or a plain message saying why it will not
+    open -- never a Python traceback for a mistyped passphrase. Which message
+    is decided by what the file is, not by the wording of the library's
+    errors."""
+    path = Path(path).expanduser()
+    try:
+        data = path.read_bytes()
+    except OSError as e:
+        raise SystemExit(f"No signing key could be read at {path} ({e.strerror}). Check the --key path.")
+    if _ENCRYPTED_PEM not in data:
+        if _PLAIN_PEM in data:
+            raise SystemExit(f"The key at {path} is not encrypted, so keygen did not make it. "
+                             "Use the signing key keygen wrote.")
+        raise SystemExit(f"{path} is not a signing key. Check the --key path.")
+    try:
+        key = serialization.load_pem_private_key(data, password=passphrase.encode("utf-8") or None)
+    except (ValueError, TypeError):
+        raise SystemExit(f"That passphrase does not open the signing key at {path}. "
+                         "Run the command again and type it carefully; nothing shows while you type.")
+    if not isinstance(key, Ed25519PrivateKey):
+        raise SystemExit(f"The key at {path} is not an Ed25519 signing key, so keygen did not make it.")
+    return key
 
 
 def inspect(token):
