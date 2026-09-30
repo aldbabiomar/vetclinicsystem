@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Get started{% endblock %}
+{% block content %}
+<div class="head"><h1>Get started</h1>
+  <p class="sub">The console signs with the vendor signing key. Make it here the first time, or point at the one you already have.</p></div>
+<div class="grid2">
+  <form class="card stack" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="new">
+    <h2>Make the signing key</h2>
+    <p class="sub">Once, ever. It is encrypted with your passphrase and saved outside the code.</p>
+    <div class="field"><label for="new-path">Save it as</label><input type="text" id="new-path" name="path" value="{{ path }}"></div>
+    <div class="field"><label for="new-pass">Passphrase</label><input type="password" id="new-pass" name="passphrase" minlength="12" required autocomplete="new-password"><span class="hint">At least 12 characters. Four or five unrelated words work well.</span></div>
+    <div class="field"><label for="new-again">Passphrase again</label><input type="password" id="new-again" name="again" minlength="12" required autocomplete="new-password"></div>
+    <div><button type="submit">Make the key</button></div>
+  </form>
+  <form class="card stack" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="existing">
+    <h2>Use my existing key</h2>
+    <p class="sub">A <code>signing.pem</code> you made with the key tool, or a copy on a USB drive.</p>
+    <div class="field"><label for="old-path">Where it is</label><input type="text" id="old-path" name="path" value="{{ path }}"></div>
+    <div><button type="submit" class="secondary">Use this key</button></div>
+  </form>
+</div>
+{% endblock %}

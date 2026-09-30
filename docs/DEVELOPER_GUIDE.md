@@ -19,6 +19,41 @@ and a clock wound back is noticed; but nothing pretends that a machine's owner
 cannot change the machine. Stopping a clinic's **updates** is real: revoke its
 GitHub token.
 
+## The Vendor Console
+
+The easy way to do everything below: a small web app on **your** computer.
+
+```bash
+python scripts/vendor/console.py            # opens http://127.0.0.1:5099
+```
+
+Run it from the `vetclinicsystem` folder, in a Python environment with the
+app's requirements (`python3 -m venv .venv`, activate it, `pip install -r
+requirements.txt`). The first time, it makes the signing key
+(or takes the path of the one you have) and shows the line for
+`trusted_keys.py`. After that it asks for the passphrase, holds the unlocked
+key in memory only, and locks it after 30 idle minutes or on **Lock**.
+
+- **Clinics** lists every clinic with its license's state today: active,
+  expiring soon, in grace, read-only.
+- **New clinic** makes a clinic about to be installed: it chooses the
+  installation ID, signs the license and gives you one **setup code**.
+- **Clinic already installed** adds a clinic that has its own installation ID,
+  and signs its license.
+- A clinic's page signs a **renewal** (the date prefilled a year after the
+  current end) and a **Developer Pass**, and copies any license key again.
+
+Its records — clinics, the licenses issued, the passes' IDs — are a SQLite
+file beside the key, `~/vcs-vendor-keys/console.sqlite3`; back it up with the
+key. A clinic's update token and ping URL are never written there, only into
+its setup code, which is shown once.
+
+It is on this computer only: it listens on `127.0.0.1`, refuses a request for
+any other host name, and wants a CSRF token on every form, so a web page open
+in your browser cannot use it. Don't run it on a clinic's computer.
+
+The command-line tool below does the same work and remains the fallback.
+
 ## The signing key
 
 One Ed25519 key signs both licenses and Developer Passes. Make it once, on your
@@ -82,26 +117,31 @@ Audit records each key entered, accepted or refused.
 
 ## Installing a clinic, step by step
 
-1. **The computer.** Python 3 and either Docker Desktop (the default) or a
+1. **In the console:** *New clinic* — the name, IQ or JO, the palette, how long
+   the license runs, and the clinic's GitHub token (create it first, below) and
+   ping URL if it has one. You get **one setup code**. It carries the token, so
+   treat it as a secret: carry it on a USB stick or send it privately.
+2. **The computer.** Python 3 and either Docker Desktop (the default) or a
    PostgreSQL 16+ server with the role `docs/NATIVE_POSTGRESQL.md` describes.
-2. **The code.** The repository is private: download the latest release's
+3. **The code.** The repository is private: download the latest release's
    source archive from GitHub while signed in, and copy it to the clinic's
-   computer. From then on the install updates itself with its own token
-   (step 6).
-3. **Setup.** In that folder, `python3 setup.py --money-setting IQ` (or `JO`;
-   add `--db-mode native --database-url …` for native PostgreSQL). It prints
-   the **installation ID** and waits for the license key.
-4. **The license.** Sign one for that ID (above) and paste it into setup. Setup
-   then prints the first administrator's one-time password; give it to the
-   clinic, who must change it at the first sign-in.
-5. **Your pass.** Sign a Developer Pass for the same ID and open
-   `http://<the clinic's computer>:<port>/developer/`.
-6. **Updates.** Create the clinic's token (below), then **Updates → Replace the
-   access token → Save token → Test connection**.
-7. **The rest, as needed:** the palette (Configuration), the monitoring ping
-   (Monitoring), a message (Vendor Message). **System** should show the
-   database reachable and `pg_dump` / `pg_restore` found; **Run the self-check
-   now** confirms the backup folder once the clinic has chosen one.
+   computer. From then on the install updates itself with its own token.
+4. **Setup.** Double-click the Start file (or run `python3 setup.py`) and paste
+   the setup code when asked — or `python3 setup.py --setup-code '…'`; add
+   `--db-mode native --database-url …` for native PostgreSQL. Setup takes the
+   installation ID, money setting, license, palette, clinic name, ping URL and
+   token from the code, and prints the first administrator's one-time password;
+   give it to the clinic, who must change it at the first sign-in.
+5. **Check it.** In the console, sign a Developer Pass for the clinic and open
+   `http://<the clinic's computer>:<port>/developer/`. **System** should show
+   the database reachable and `pg_dump` / `pg_restore` found; **Updates →
+   Test connection** should reach the release; **Run the self-check now**
+   confirms the backup folder once the clinic has chosen one.
+
+A clinic set up **without** a setup code prints its own installation ID during
+setup and asks for a license key: add it in the console under *Clinic already
+installed*, sign, and paste the key into setup (or its Settings → License).
+Its token is set afterwards in Developer → Updates.
 
 ## A Developer Pass
 

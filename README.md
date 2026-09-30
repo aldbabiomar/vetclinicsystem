@@ -10,13 +10,24 @@
 A full clinic management system for veterinary clinics: patient records,
 visits, inpatient care, boarding, wellness & grooming tracking,
 appointments, a point of sale, inventory & ordering, distributor and
-consignment tracking, billing & refunds, a cash register, financial
-reporting, and business-intelligence dashboards — running entirely on one
-computer in the clinic, reachable from any device on the clinic's WiFi. It
-also updates itself in-app, straight from GitHub Releases, with an
-automatic pre-update backup and one-click rollback if anything goes wrong.
+consignment tracking, billing & refunds, a rewards card, a cash register,
+financial reporting, and business-intelligence dashboards — running entirely
+on one computer in the clinic, reachable from any device on the clinic's WiFi,
+in **English or Arabic** (a clinic setting). It updates itself in-app from the
+vendor's releases, with an automatic pre-update backup and one-click rollback,
+and watches its own health: a daily self-check, nightly backups that are
+test-restored every month, and an optional daily status ping to the vendor.
 
 Each clinic has its own install, its own database and its own license.
+
+## Status
+
+| | |
+|---|---|
+| **The app** | Built: the IQ and JO predecessor apps merged into this one system (2026-09-27), then licensing, the vendor's Developer area and native PostgreSQL (2026-09-30). The full test suite passes under both money settings. |
+| **Licensing** | Signed license keys, checked offline; read-only after the license and its grace period run out. The vendor issues licenses from the **Vendor Console** (below), and a new clinic is set up with one setup code. |
+| **First release** | `1.0.0` is **not published yet**. Before it: make the repository private, put the vendor's real signing key into the code, create a GitHub token per clinic, and run one real update through such a token (`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §18). |
+| **Arabic** | Complete, but written without a native speaker's review: `docs/ARABIC_REVIEW.md` lists every string for the clinic to confirm. |
 
 Everything lives in a **PostgreSQL** database — in Docker on the same
 computer, or a PostgreSQL server installed on it (native mode) — so multiple
@@ -26,10 +37,12 @@ vendor turns it on, a daily status ping.
 
 ## Installing (the vendor does this)
 
-A clinic is installed by its vendor, who brings the clinic's **money setting**
-(IQ or JO) and a **license key** signed for this computer. Setup prints this
-installation's ID, which the vendor signs the key for; setup does not finish
-without a valid key (there is no trial).
+A clinic is installed by its vendor. For a new clinic the vendor brings **one
+setup code** from the Vendor Console: it carries the clinic's license, money
+setting, color palette and name, and its update token. Setup asks for it and
+needs nothing else. Setup does not finish without a valid license (there is no
+trial); without a setup code it prints this installation's ID for the vendor to
+sign a license key for, and asks for that key.
 
 **One-time only:**
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free) and open it once so it finishes starting up — or, to run without Docker, a PostgreSQL 16+ server on this computer (`docs/NATIVE_POSTGRESQL.md`).
@@ -37,8 +50,8 @@ without a valid key (there is no trial).
    **Windows:** double-click `Start VetClinicSystem.bat`.
 
 That single script creates the Python environment, installs dependencies,
-starts PostgreSQL, sets up the database, and asks for the license key. Every
-run after that just starts the app and opens it in your browser.
+starts PostgreSQL, sets up the database, and asks for the setup code. Every run
+after that just starts the app and opens it in your browser.
 
 **Manual setup**, if you'd rather run it yourself:
 ```bash
@@ -46,7 +59,7 @@ cd vetclinicsystem
 python3 -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python3 setup.py --money-setting IQ --license-key '<the key>'   # Docker: starts PostgreSQL, builds the schema
+python3 setup.py --setup-code '<the setup code>'    # Docker: starts PostgreSQL, builds the schema
 python3 run.py
 ```
 
@@ -55,12 +68,14 @@ platform are in `docs/NATIVE_POSTGRESQL.md`):
 ```bash
 python3 setup.py --db-mode native \
     --database-url postgresql://vetclinicsystem:PASSWORD@127.0.0.1:5432/vetclinicsystem \
-    --money-setting JO --license-key '<the key>'
+    --setup-code '<the setup code>'
 ```
 
-Without `--money-setting`, the vendor chooses it later in the Developer area;
-until then billing, payments, the point of sale and the price list stay
-locked. It locks itself once the first price or amount is recorded.
+A clinic set up without a setup code takes `--money-setting IQ|JO` and
+`--license-key '<the key>'` instead. Without a money setting, the vendor
+chooses it later in the Developer area; until then billing, payments, the point
+of sale and the price list stay locked. It locks itself once the first price or
+amount is recorded.
 
 Open **http://127.0.0.1:5050** on the server machine — or the address setup
 printed, if 5050 was already taken on this computer: setup then gives the app
@@ -207,7 +222,14 @@ settlements when a distributor is paid out.
 checked off) or Manual (one lump amount, exported on PDF as a single
 "Veterinary Services" line) — your choice per visit or inpatient case.
 Payment status (Unpaid / Partially Paid / Fully Paid) is computed from
-actual payments recorded, not typed in by hand.
+actual payments recorded, not typed in by hand. Cash totals follow the money
+setting: exact to the fils under JO; under IQ, rounded to the 250-dinar note
+and never down to free. **Clean Up** lets staff write off a small leftover
+at payment time, capped per bill, and every bill's total is stored so the
+reports read the same figure the bill shows.
+
+**Rewards card** — a member percentage off the eligible lines of a bill, for
+owners holding a card, with its rate and term set in Settings.
 
 **Refunds** — separate retail (against a specific POS sale, restocking
 optional) and service (against a visit or inpatient case's payments) refund
@@ -236,14 +258,16 @@ month's first visit came back in each following month.
 every login attempt (who, when, IP, device/browser) and every data change
 (who, what record, old value → new value) on that day.
 
-**Settings** — clinic name and location; numeric thresholds (audit-overdue
-days, expiry-soon days, appointment slot length); nightly backup folder,
-time, and retention (with an in-app folder browser to pick or create the
-backup destination); starting the app automatically when this computer
-starts; and, on an install that's opted into the versioned-release layout,
-**in-app updates** — check for a new version, apply it (automatic
-pre-update backup, progress shown step by step), or roll back to the
-previous release with one click if something's wrong.
+**Settings** — clinic name and location; language (English or Arabic) and
+time zone; numeric thresholds (audit-overdue days, expiry-soon days,
+appointment slot length); the rewards card's rate and term; nightly backup
+folder, time, and retention (with an in-app folder browser to pick or create
+the backup destination), Back Up Now and restore; the daily self-check;
+starting the app automatically when this computer starts; **in-app updates**
+— check for a new version, apply it (automatic pre-update backup, progress
+shown step by step), or roll back to the previous release with one click;
+**License**, to enter a new key; and **Data Export**. The money setting and
+the color palette are shown but set by the vendor.
 
 ## Security & hardening
 
@@ -326,6 +350,21 @@ or a role — the clinic's administrator cannot reach it. Everything the vendor
 does there is listed under **Logins and Changes → Developer Audit**, which
 nothing deletes.
 
+## For the vendor
+
+- **The Vendor Console** (`python scripts/vendor/console.py`) runs on the
+  vendor's own computer only, at `http://127.0.0.1:5099`. It makes the signing
+  key the first time, then keeps the list of clinics and where each license
+  stands, makes a new clinic's setup code, signs renewals (prefilled a year on)
+  and Developer Passes. The key is unlocked with its passphrase and held only
+  in memory.
+- **The Developer area** of each clinic's app (`/developer/`, opened with a
+  Developer Pass): the license, system health, updates and the clinic's token,
+  a support bundle, restoring the administrator's access, the money setting and
+  palette, monitoring, a message to the clinic, and the data export.
+- `docs/DEVELOPER_GUIDE.md` covers both, the signing key's custody, and the
+  command-line tool (`scripts/vendor/vcs_vendor.py`) that does the same work.
+
 ## Running on multiple computers / higher traffic
 
 This runs comfortably for a single clinic's simultaneous staff on one
@@ -347,9 +386,12 @@ vcs/web/            the request layer: factory.py (create_app), hooks.py,
                     seam: get_db(), the parsers and validators, the MAX_*
                     bounds, the shared exception types), nav.py
 vcs/web/blueprints/ one per area: main, reports, settings, admin, clinical,
-                    sales, inventory, consignment
-vcs/ops/            backups, the updater, the scheduler, self-checks
+                    sales, inventory, consignment, developer
+vcs/licensing/      checking a signed license or Developer Pass; the license's state
+vcs/ops/            backups, the updater, the scheduler, self-checks, the one
+                    finder of the PostgreSQL tools, the support bundle, the export
 vcs/templates/, vcs/static/, vcs/translations/
+scripts/vendor/     the vendor's tools: vcs_vendor.py and the Vendor Console
 ```
 
 Three rules follow from that:

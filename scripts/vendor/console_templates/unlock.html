@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Unlock{% endblock %}
+{% block content %}
+<div class="head"><h1>Unlock the signing key</h1>
+  <p class="sub">The key stays in this program's memory until you press Lock, or after 30 minutes without use. The passphrase is never saved.</p></div>
+<form class="card stack" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <p class="mono">{{ path }}</p>
+  <div class="field"><label for="passphrase">Passphrase</label><input type="password" id="passphrase" name="passphrase" required autofocus autocomplete="current-password"></div>
+  <div class="row"><button type="submit">Unlock</button><a href="{{ url_for('start') }}">Use a different key</a></div>
+</form>
+{% endblock %}

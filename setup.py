@@ -2,6 +2,7 @@
 VetClinicSystem — one-command setup.
 Works the same way on macOS and Windows.
 
+    python3 setup.py --setup-code CODE     (a new clinic: the one code from the vendor's console)
     python3 setup.py [--money-setting IQ|JO] [--license-key KEY]
     python3 setup.py --db-mode native --database-url postgresql://ROLE:PASSWORD@HOST:PORT/DB ...
 
@@ -29,6 +30,8 @@ What it does, in order:
 
 Safe to re-run any time — every step skips itself if already done.
 """
+import base64
+import hashlib
 import json
 import os
 import re
@@ -166,6 +169,130 @@ def with_ports(content, db_port, app_port):
     return content if n else content.rstrip("\n") + f"\n{line}\n"
 
 
+# ---------------------------------------------------------------------------
+# The setup code (docs/plans/VENDOR_CONSOLE_PLAN.md V-2, V-3): a new clinic's
+# whole setup in one line, made by the vendor's console and read here. Made
+# and read in this file only, so the two cannot drift; setup reads it before
+# anything of vcs is imported, while .env does not exist yet.
+# ---------------------------------------------------------------------------
+SETUP_CODE_PREFIX = "VCSSETUP1"
+
+
+class BadSetupCode(ValueError):
+    """A code that cannot be used; str() is the sentence to print."""
+
+
+def _b64url(data):
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _unb64url(text):
+    return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+
+
+def make_setup_code(license_key, money_setting, palette=None, github_token=None, heartbeat_url=None):
+    """The signed license -- which names the installation and the clinic --
+    and what only the vendor sets. Not signed itself: whoever runs setup
+    controls that computer anyway. The checksum catches a damaged paste."""
+    body = {"v": 1, "license": license_key, "money_setting": money_setting}
+    for name, value in (("palette", palette), ("github_token", github_token), ("heartbeat_url", heartbeat_url)):
+        if value:
+            body[name] = value
+    data = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return f"{SETUP_CODE_PREFIX}.{_b64url(data)}.{hashlib.sha256(data).hexdigest()[:12]}"
+
+
+def parse_setup_code(text):
+    """The code's fields, with the installation ID and the clinic's name read
+    from its license. The license is verified later, by ensure_license()."""
+    parts = "".join((text or "").split()).split(".")
+    if len(parts) != 3 or parts[0] != SETUP_CODE_PREFIX:
+        raise BadSetupCode("This is not a VetClinicSystem setup code. Check that all of it was copied.")
+    try:
+        data = _unb64url(parts[1])
+    except ValueError:
+        data = b""
+    if hashlib.sha256(data).hexdigest()[:12] != parts[2]:
+        raise BadSetupCode("This setup code has been changed or damaged. Copy it again from what your vendor sent.")
+    try:
+        body = json.loads(data)
+        license_payload = json.loads(_unb64url(body["license"].split(".")[1]))
+        code = dict(body, install_id=license_payload["install_id"], clinic_name=license_payload["clinic_name"])
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+        raise BadSetupCode("This setup code is missing information it needs. Ask your vendor for a new one.")
+    if body.get("v") != 1 or not isinstance(code["money_setting"], str) or not isinstance(code["install_id"], str):
+        raise BadSetupCode("This setup code is missing information it needs. Ask your vendor for a new one.")
+    return code
+
+
+def read_setup_code():
+    """`--setup-code`, or asked for when a new install is set up by hand; None
+    without one. A damaged code stops setup before anything is written."""
+    text = _argument("--setup-code")
+    new_install = not os.path.exists(os.path.join(_env_dir(), ".env"))
+    if not text and new_install and sys.stdin.isatty() and not _argument("--license-key"):
+        step("Setup code")
+        text = input("  Paste the setup code from your vendor, or press Return to set up without one: ").strip()
+    if not text:
+        return None
+    try:
+        code = parse_setup_code(text)
+    except BadSetupCode as e:
+        print(f"  {e}")
+        sys.exit(1)
+    print(f"  Setup code for {code['clinic_name']} (installation {code['install_id']}).")
+    return code
+
+
+def ensure_setup_code_matches(code, install_id):
+    """A setup code names the installation it was made for; an install that
+    already has another ID (set up before) cannot take it."""
+    if code and install_id != code["install_id"]:
+        print(f"  This setup code is for installation {code['install_id']}, but this install is {install_id}. "
+              "A setup code is for a new install; for this one, ask your vendor for a license key.")
+        sys.exit(1)
+
+
+def apply_setup_code(code):
+    """What only the vendor sets, from the code: the palette, the clinic's
+    name (when none is set yet), the monitoring ping URL and the update token.
+    Written directly, as the money setting is -- at setup there is no request
+    and no clinic user. A secret is reported as saved, never printed."""
+    if not code:
+        return
+    step("Applying the setup code")
+    from vcs.db import pool as dbmod
+    from vcs.ops import updater
+    from vcs.web import palettes
+
+    def put(con, key, value):
+        con.execute("INSERT INTO settings (key, value) VALUES (%s, %s) "
+                    "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (key, value))
+    con = dbmod.connect()
+    try:
+        palette = code.get("palette")
+        if palette and palettes.is_palette(palette):
+            put(con, "theme_palette", palette)
+            print(f"  Color palette: {palette}.")
+        elif palette:
+            print(f"  Not a color palette: {palette!r}; the default stays.")
+        if not con.execute("SELECT 1 FROM settings WHERE key='clinic_name'").fetchone():
+            put(con, "clinic_name", code["clinic_name"])
+            print(f"  Clinic name: {code['clinic_name']}.")
+        url = code.get("heartbeat_url")
+        if url and url.lower().startswith("https://"):
+            put(con, "heartbeat_url", url)
+            print("  Monitoring ping URL saved.")
+        elif url:
+            print("  The monitoring ping URL does not start with https://, so it was not saved.")
+        con.commit()
+    finally:
+        con.close()
+    if code.get("github_token"):
+        updater.save_token(code["github_token"])
+        print("  Update access token saved.")
+
+
 DB_MODES = ("docker", "native")
 MIN_SERVER_VERSION = 160000          # PostgreSQL 16 (server_version_num)
 
@@ -223,7 +350,7 @@ def native_env(content, database_url, app_port):
     return content.rstrip("\n") + "\nVETCLINICSYSTEM_DB_MODE=native\n"
 
 
-def ensure_env_file(mode="docker"):
+def ensure_env_file(mode="docker", install_id=None):
     step("Checking configuration (.env)")
     env_path = os.path.join(_env_dir(), ".env")
     example_path = os.path.join(BASE_DIR, ".env.example")
@@ -244,13 +371,13 @@ def ensure_env_file(mode="docker"):
         _db_port, app_port = choose_ports("native")
         content = native_env(content, database_url, app_port)
         with open(env_path, "w") as f:
-            f.write(content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={uuid.uuid4()}\n")
+            f.write(content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={install_id or uuid.uuid4()}\n")
         print(f"  Created .env for native PostgreSQL with a fresh secret key. The app will be at "
               f"http://127.0.0.1:{app_port}.")
         return
     db_port, app_port = choose_ports()
     content = with_ports(content, db_port, app_port)
-    content = content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={uuid.uuid4()}\n"
+    content = content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={install_id or uuid.uuid4()}\n"
     with open(env_path, "w") as f:
         f.write(content)
     print(f"  Created .env with a fresh secret key. The app will be at http://127.0.0.1:{app_port}; "
@@ -472,12 +599,13 @@ def _argument(name):
     return None
 
 
-def ensure_money_setting():
-    """`--money-setting IQ|JO`: the vendor chooses it at setup, so the clinic
-    can record money from the first day (licensing plan §9.3). The same rule
-    as the Developer area's: it can change until money has been recorded.
-    Without the option, nothing is done; Developer -> Configuration sets it."""
-    code = _argument("--money-setting")
+def ensure_money_setting(from_setup_code=None):
+    """`--money-setting IQ|JO`, or the setup code's: the vendor chooses it at
+    setup, so the clinic can record money from the first day (licensing plan
+    §9.3). The same rule as the Developer area's: it can change until money
+    has been recorded. Without either, nothing is done; Developer ->
+    Configuration sets it."""
+    code = _argument("--money-setting") or from_setup_code
     if not code:
         return None
     step("Setting the money setting")
@@ -560,11 +688,12 @@ def ensure_dependencies():
 
 def main():
     ensure_dependencies()
+    code = read_setup_code()
     mode = db_mode()
     if mode == "docker":
         check_docker()
-    ensure_env_file(mode)
-    ensure_install_id()
+    ensure_env_file(mode, install_id=code and code["install_id"])
+    ensure_setup_code_matches(code, ensure_install_id())
     if mode == "docker":
         start_postgres()
     load_dotenv_now()
@@ -573,8 +702,9 @@ def main():
     check_server(mode)
     apply_schema()
     ensure_first_admin()
-    ensure_money_setting()
-    ensure_license()
+    ensure_money_setting(code and code["money_setting"])
+    ensure_license(code and code["license"])
+    apply_setup_code(code)
 
     # In-app updates (Settings -> Updates) are on by default for every new
     # install — this switches onto the versioned-release layout
@@ -829,6 +959,19 @@ def _copy_release_snapshot(dest):
     shutil.copytree(BASE_DIR, dest, ignore=_skip)
 
 
+def move_secrets_into(data_dir, base_dir=None):
+    """The license key and the update token stay with the install, in the data
+    folder: the app reads them there (vcs/licensing/state.py, updater
+    TOKEN_FILE), and a release copy must never carry them. A move keeps the
+    token's owner-only permissions."""
+    base_dir = base_dir or BASE_DIR
+    for name, is_there in (("license", os.path.isdir), ("github_token", os.path.isfile)):
+        src, dst = os.path.join(base_dir, name), os.path.join(data_dir, name)
+        if is_there(src) and not os.path.exists(dst):
+            shutil.move(src, dst)
+            print(f"  Moved {name} -> {dst}")
+
+
 def enable_updates(data_dir=None, releases_dir=None):
     step("Switching to the versioned-release layout")
     parent = os.path.dirname(BASE_DIR)
@@ -887,14 +1030,7 @@ def enable_updates(data_dir=None, releases_dir=None):
         for name in os.listdir(logs_src):
             shutil.move(os.path.join(logs_src, name), os.path.join(logs_dst, name))
 
-    # The license key stays with the install, in the data folder: the app
-    # reads <data dir>/license/ (vcs/licensing/state.py), and a release copy
-    # must never carry it.
-    license_src = os.path.join(BASE_DIR, "license")
-    license_dst = os.path.join(data_dir, "license")
-    if os.path.isdir(license_src) and not os.path.isdir(license_dst):
-        shutil.move(license_src, license_dst)
-        print(f"  Moved license/ -> {license_dst}")
+    move_secrets_into(data_dir)
 
     uploads_src = os.path.join(BASE_DIR, "uploads")
     uploads_dst = os.path.join(data_dir, "attachments", "uploads")

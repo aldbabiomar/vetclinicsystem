@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ clinic.name }}{% endblock %}
+{% block content %}
+<div class="head"><h1>{{ clinic.name }}</h1>
+  <p class="sub"><span class="mono">{{ clinic.install_id }}</span> · {{ clinic.money_setting or 'money setting chosen at the clinic' }} · {{ clinic.time_zone }}</p></div>
+
+<div class="card">
+  <h2>Licenses</h2>
+  {% if licenses %}
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">License</th><th scope="col">State</th><th scope="col">Runs through</th><th scope="col">Warning / grace</th><th scope="col">Key</th></tr></thead>
+    <tbody>
+    {% for l in licenses %}
+      <tr><td class="mono">{{ l.license_id }}</td>
+        <td>{% if loop.first %}<span class="chip {{ l.state }}">{{ states[l.state] }}</span>{% else %}<span class="chip none">Replaced</span>{% endif %}</td>
+        <td>{{ l.ends.strftime('%Y-%m-%d') }}</td><td>{{ l.warn_days }} / {{ l.grace_days }} days</td>
+        <td><pre class="cmdline" id="key-{{ l.id }}" hidden>{{ l.key_text }}</pre><button type="button" class="small secondary" data-copy="key-{{ l.id }}">Copy</button></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="sub">None yet.</p>{% endif %}
+</div>
+
+<div class="grid2">
+  <form class="card stack" method="post" action="{{ url_for('clinic_license', clinic_id=clinic.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2>Renew</h2>
+    <p class="sub">A new license for this installation. It replaces the current one the moment the clinic enters it, and ends read-only at once.</p>
+    <div class="fields">
+      <div class="field"><label for="renew-expires">Last day</label><input type="date" id="renew-expires" name="expires" value="{{ renew_to }}"><span class="hint">A year after the current end, or after today if that has passed.</span></div>
+      <div class="field"><label for="renew-warn">Warning (days)</label><input type="number" id="renew-warn" name="warn_days" min="0" value="{{ licenses[0].warn_days if licenses else 14 }}"></div>
+      <div class="field"><label for="renew-grace">Grace (days)</label><input type="number" id="renew-grace" name="grace_days" min="0" value="{{ licenses[0].grace_days if licenses else 14 }}"></div>
+    </div>
+    <div><button type="submit">Sign the renewal</button></div>
+  </form>
+
+  <form class="card stack" method="post" action="{{ url_for('clinic_pass', clinic_id=clinic.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2>Developer Pass</h2>
+    <p class="sub">Opens this clinic's Developer area for a few hours. Shown once; not kept here.</p>
+    <div class="fields">
+      <div class="field"><label for="developer">Your name</label><input type="text" id="developer" name="developer" required value="{{ developer }}"><span class="hint">The clinic sees it in its Developer Audit.</span></div>
+      <div class="field"><label for="hours">Hours</label><input type="number" id="hours" name="hours" min="1" max="12" step="1" value="8"></div>
+    </div>
+    <div><button type="submit">Sign a pass</button></div>
+  </form>
+</div>
+
+{% if clinic.made_with == 'setup code' %}
+<form class="card stack" method="post" action="{{ url_for('clinic_setup_code', clinic_id=clinic.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2>Setup code again</h2>
+  <p class="sub">If the first one was lost before the install. The secrets are not kept, so type them again.</p>
+  <div class="fields">
+    <div class="field"><label for="sc-token">GitHub update token</label><input type="password" id="sc-token" name="github_token" autocomplete="off"></div>
+    <div class="field"><label for="sc-ping">Monitoring ping URL</label><input type="url" id="sc-ping" name="heartbeat_url" autocomplete="off" placeholder="https://…"></div>
+  </div>
+  <div><button type="submit" class="secondary">Make the setup code</button></div>
+</form>
+{% endif %}
+
+{% if passes %}
+<div class="card">
+  <h2>Passes issued</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Pass</th><th scope="col">Developer</th><th scope="col">Issued (UTC)</th><th scope="col">Until (UTC)</th></tr></thead>
+    <tbody>{% for p in passes %}<tr><td class="mono">{{ p.pass_id }}</td><td>{{ p.developer }}</td><td>{{ p.issued_at[:16].replace('T', ' ') }}</td><td>{{ p.expires_at[:16].replace('T', ' ') }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

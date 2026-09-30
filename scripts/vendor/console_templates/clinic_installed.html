@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Clinic already installed{% endblock %}
+{% block content %}
+<div class="head"><h1>Clinic already installed</h1>
+  <p class="sub">For a clinic set up without a setup code: it has its own installation ID, shown by setup and on its Settings → License page.</p></div>
+<form class="card stack" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="fields">
+    <div class="field"><label for="name">Clinic's name</label><input type="text" id="name" name="name" required value="{{ form.get('name', '') }}"></div>
+    <div class="field"><label for="install_id">Installation ID</label><input type="text" id="install_id" name="install_id" required class="mono" spellcheck="false" placeholder="3f2a9c1e-7b4d-4e8a-9c21-5d6f0a8b7e13" value="{{ form.get('install_id', '') }}"></div>
+  </div>
+  {% include "_length.html" %}
+  <div><button type="submit">Sign the license</button></div>
+</form>
+{% endblock %}

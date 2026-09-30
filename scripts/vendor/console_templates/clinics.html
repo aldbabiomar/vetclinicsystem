@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Clinics{% endblock %}
+{% block content %}
+<div class="head"><h1>Clinics</h1><p class="sub">Every clinic you have licensed, and where its latest license stands today.</p></div>
+<div class="counts">
+  {% for key, label in states.items() %}<div class="count"><b>{{ counts[key] }}</b><span>{{ label }}</span></div>{% endfor %}
+</div>
+<div class="card">
+  {% if clinics %}
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Clinic</th><th scope="col">State</th><th scope="col">Runs through</th><th scope="col">Money</th><th scope="col">Installation ID</th></tr></thead>
+    <tbody>
+    {% for c in clinics %}
+      <tr><td><a href="{{ url_for('clinic', clinic_id=c.id) }}">{{ c.name }}</a></td>
+        <td>{% if c.state %}<span class="chip {{ c.state }}">{{ states[c.state] }}</span>{% else %}<span class="chip none">No license</span>{% endif %}</td>
+        <td>{{ c.ends.strftime('%Y-%m-%d') if c.ends else '—' }}</td>
+        <td>{{ c.money_setting or '—' }}</td>
+        <td class="mono">{{ c.install_id }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="sub">No clinics yet. A clinic about to be installed: <a href="{{ url_for('clinic_new') }}">New clinic</a>. One already running with its own installation ID: <a href="{{ url_for('clinic_installed') }}">Clinic already installed</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

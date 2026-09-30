@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}New clinic{% endblock %}
+{% block content %}
+<div class="head"><h1>New clinic</h1>
+  <p class="sub">For a clinic about to be installed. The console chooses its installation ID and signs its license now, and gives you one setup code. At the clinic, setup asks for the code and needs nothing else.</p></div>
+<form class="card stack" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="fields">
+    <div class="field"><label for="name">Clinic's name</label><input type="text" id="name" name="name" required value="{{ form.get('name', '') }}"><span class="hint">Shown on its License page, and used as its name in the app.</span></div>
+    <div class="field"><label for="money_setting">Money setting</label>
+      <select id="money_setting" name="money_setting" required>
+        <option value="">Choose…</option>
+        {% for code, label in money_settings %}<option value="{{ code }}" {{ 'selected' if form.get('money_setting') == code }}>{{ label }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label for="palette">Color palette</label>
+      <select id="palette" name="palette">
+        {% for key, label in palettes %}<option value="{{ key }}" {{ 'selected' if form.get('palette', palette_default) == key }}>{{ label }}</option>{% endfor %}
+      </select></div>
+  </div>
+  {% include "_length.html" %}
+  <fieldset>
+    <legend>Secrets, carried in the setup code</legend>
+    <div class="fields">
+      <div class="field"><label for="github_token">GitHub update token</label><input type="password" id="github_token" name="github_token" autocomplete="off" spellcheck="false"><span class="hint">This clinic's own read-only token. Optional: it can be set later in Developer → Updates.</span></div>
+      <div class="field"><label for="heartbeat_url">Monitoring ping URL</label><input type="url" id="heartbeat_url" name="heartbeat_url" autocomplete="off" spellcheck="false" placeholder="https://…" value="{{ form.get('heartbeat_url', '') }}"><span class="hint">Optional. https only.</span></div>
+    </div>
+    <p class="sub">Neither is saved here. They go into the setup code only, which you will see once.</p>
+  </fieldset>
+  <div><button type="submit">Make the setup code</button></div>
+</form>
+{% endblock %}

@@ -74,8 +74,10 @@ Paste the SQL above.
 ```bash
 python3 setup.py --db-mode native \
     --database-url postgresql://vetclinicsystem:the-password@127.0.0.1:5432/vetclinicsystem \
-    --money-setting IQ --license-key '<the key your vendor sent>'
+    --setup-code '<the setup code from the Vendor Console>'
 ```
+
+(Without a setup code: `--money-setting IQ --license-key '<the key>'` in its place.)
 
 Setup waits for the server (and says which host and port it is waiting for),
 checks its version and the role's `CREATEDB`, writes `.env` with

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Signing key{% endblock %}
+{% block content %}
+<div class="head"><h1>Signing key</h1><p class="sub mono">{{ path }}</p></div>
+{% if kid_trusted %}
+<div class="note ok"><b>The app's code trusts this key.</b><span>Every install from a release carrying it accepts your licenses.</span></div>
+{% endif %}
+<div class="card">
+  <h2>Its line for the code</h2>
+  <p class="sub">What <span class="mono">vcs/licensing/trusted_keys.py</span> needs in <span class="mono">TRUSTED_KEYS</span>. Public; safe to send.</p>
+  <div class="secret"><pre id="line">    "{{ kid }}": bytes.fromhex("{{ public }}"),</pre><button type="button" data-copy="line">Copy</button></div>
+</div>
+{% endblock %}

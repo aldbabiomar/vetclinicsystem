@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Key made{% endblock %}
+{% block content %}
+<div class="head"><h1>Your signing key is made</h1>
+  <p class="sub">Saved, encrypted, at <span class="mono">{{ path }}</span>. One step before clinics accept its licenses: the app's code must trust it.</p></div>
+<div class="card">
+  <h2>Add this line to the code</h2>
+  <p class="sub">In <span class="mono">vcs/licensing/trusted_keys.py</span>, between the braces of <span class="mono">TRUSTED_KEYS</span>, then ship it in a release (1.0.0 for the first key). The line is public: send it to whoever maintains the code any way you like.</p>
+  <div class="secret"><pre id="line">    "{{ kid }}": bytes.fromhex("{{ public }}"),</pre><button type="button" data-copy="line">Copy</button></div>
+</div>
+<div class="note info"><b>Now make the two backup copies</b><span>Copy <span class="mono">{{ path }}</span> onto two USB drives kept in different places, and write the passphrase somewhere apart from both.</span></div>
+<div><a class="btn" href="{{ url_for('unlock') }}">Unlock and start</a></div>
+{% endblock %}

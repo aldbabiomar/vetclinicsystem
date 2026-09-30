@@ -79,6 +79,8 @@ VetClinicSystem/                  ← repo root = this folder
 │   ├── prove_guards.py           ← re-proves every guard by putting its bug back (§5.2)
 │   ├── build_palettes.py         ← writes vcs/static/palettes.css from vcs/web/palettes.py
 │   ├── schema_snapshot.py, palette_design.py, make_app_icons.py
+│   ├── vendor/                   ← the vendor's tools, never run at a clinic: vcs_vendor.py
+│   │                               (command line) and console.py (the Vendor Console, 127.0.0.1)
 │   ├── simulation/               ← drives the running app as staff would: a day in the clinic
 │   │                               (day.py), hostile sweeps (edge_*.py), browser walks, the
 │   │                               localisation checkers, the seam audit

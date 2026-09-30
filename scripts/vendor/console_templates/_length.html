@@ -1,0 +1,16 @@
+{# How long a license runs, and its warning and grace. `form` holds what was
+   posted, so a refused form comes back as it was. #}
+<fieldset data-length>
+  <legend>How long</legend>
+  <div class="radios">
+    <label><input type="radio" name="length" value="days" {{ 'checked' if form.get('length', 'days') == 'days' }}> A number of days</label>
+    <label><input type="radio" name="length" value="date" {{ 'checked' if form.get('length') == 'date' }}> Until a date</label>
+  </div>
+  <div class="fields">
+    <div class="field" data-for="days"><label for="days">Days</label><input type="number" id="days" name="days" min="1" value="{{ form.get('days', '365') }}"><span class="hint">365 runs a year to the day.</span></div>
+    <div class="field" data-for="date"><label for="expires">Last day</label><input type="date" id="expires" name="expires" value="{{ form.get('expires', '') }}"><span class="hint">Valid through the end of that day at the clinic.</span></div>
+    <div class="field"><label for="warn_days">Warning (days before)</label><input type="number" id="warn_days" name="warn_days" min="0" value="{{ form.get('warn_days', '14') }}"></div>
+    <div class="field"><label for="grace_days">Grace (days after)</label><input type="number" id="grace_days" name="grace_days" min="0" value="{{ form.get('grace_days', '14') }}"></div>
+    <div class="field"><label for="time_zone">Clinic's time zone</label><input type="text" id="time_zone" name="time_zone" value="{{ form.get('time_zone', default_zone) }}"><span class="hint">Right for Iraq and Jordan; change only if the clinic's Time Zone setting differs.</span></div>
+  </div>
+</fieldset>

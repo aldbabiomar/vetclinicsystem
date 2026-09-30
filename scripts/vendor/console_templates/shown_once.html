@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ {'setup': 'Setup code', 'license': 'License key', 'pass': 'Developer Pass'}[kind] }}{% endblock %}
+{% block content %}
+{% if kind == 'setup' %}
+<div class="head"><h1>Setup code for {{ clinic.name }}</h1>
+  <p class="sub">Installation <span class="mono">{{ clinic.install_id }}</span>. Everything setup needs, in one line.</p></div>
+{% if has_secrets %}
+<div class="note warn"><b>This code is a secret: it carries the clinic's update token or monitoring ping URL.</b><span>It is shown only now. Carry it on a USB stick, or send it privately, never by chat. It is not saved here; you can make a new one from the clinic's page.</span></div>
+{% else %}
+<div class="note info"><b>No secrets in this code</b><span>It carries only the license and the clinic's settings, so it is safe to send any way you like. Set the update token later in the clinic's Developer → Updates.</span></div>
+{% endif %}
+<div class="secret"><pre id="code">{{ text }}</pre><button type="button" data-copy="code">Copy</button></div>
+<div class="card">
+  <h2>At the clinic</h2>
+  <ol class="steps">
+    <li>Start setup as usual: double-click the Start file, or run <span class="mono">python3 setup.py</span>.</li>
+    <li>When it asks for the setup code, paste this line.</li>
+    <li>Setup does the rest: the installation ID, money setting, license, palette and clinic name{{ ', and the secrets' if has_secrets }}.</li>
+  </ol>
+  <p class="sub">Or all in one command:</p>
+  <div class="cmdline">python3 setup.py --setup-code '…the code above…'</div>
+  <p class="sub">On a computer without Docker, add <span class="mono">--db-mode native --database-url …</span> (docs/NATIVE_POSTGRESQL.md).</p>
+</div>
+{% elif kind == 'license' %}
+<div class="head"><h1>License key for {{ clinic.name }}</h1>
+  <p class="sub">Installation <span class="mono">{{ clinic.install_id }}</span>. Send it any way you like; it works on that installation only.</p></div>
+<div class="secret"><pre id="code">{{ text }}</pre><button type="button" data-copy="code">Copy</button></div>
+<div class="card"><h2>At the clinic</h2>
+  <p>Settings → License: paste it into <i>License key</i>, then <b>Save license key</b>. It takes effect at once, for everyone. You can copy it again later from the clinic's page.</p></div>
+{% else %}
+<div class="head"><h1>Developer Pass for {{ clinic.name }}</h1>
+  <p class="sub">Valid until {{ until.strftime('%Y-%m-%d %H:%M') }} clinic time. Shown once and not kept here.</p></div>
+<div class="note warn"><b>Keep it to yourself.</b><span>Anyone holding it can open this clinic's Developer area until it runs out.</span></div>
+<div class="secret"><pre id="code">{{ text }}</pre><button type="button" data-copy="code">Copy</button></div>
+<div class="card"><p>Open the clinic's app at <span class="mono">/developer/login</span> and paste it there.</p></div>
+{% endif %}
+<div><a class="btn secondary" href="{{ url_for('clinic', clinic_id=clinic.id) }}">Go to {{ clinic.name }}</a></div>
+{% endblock %}

@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """
-A fresh install in native PostgreSQL mode, for real (licensing plan §16,
-phase 8; docs/NATIVE_POSTGRESQL.md):
+A fresh install in native PostgreSQL mode, from a setup code, for real
+(licensing plan §16 phase 8; VENDOR_CONSOLE_PLAN.md; docs/NATIVE_POSTGRESQL.md):
 
     /tmp/vcs_test_venv_jo/bin/python scripts/simulation/native_install.py
 
 1. On the throwaway test server (vcs_test_jo, port 55492 -- never another
    server on this machine) it makes the role and database the guide
    describes: a login role that owns its database and has CREATEDB.
-2. It exports HEAD into a temporary folder -- a clean copy, as a clinic would
-   receive it -- and runs that copy's setup.py with --db-mode native and
-   --no-enable-updates, from an environment whose PATH holds the PostgreSQL
-   client tools and nothing else. There is no docker to run: a Docker call
-   would stop setup with "No such file or directory".
-3. With the installed code, in that same environment: a backup, the restore
+2. It copies the working tree (tracked files, and new ones not ignored) into
+   a temporary folder -- a clean copy, as a clinic would receive it -- makes
+   a setup code as the Vendor Console does (a license for an installation ID
+   chosen in advance, the money setting, a palette, a stand-in update token
+   and ping URL), and runs that copy's `setup.py --setup-code … --db-mode
+   native --no-enable-updates` from an environment whose PATH holds the
+   PostgreSQL client tools and nothing else. There is no docker to run: a
+   Docker call would stop setup with "No such file or directory".
+3. It checks what setup applied: the code's installation ID in .env, the
+   palette, the clinic's name, the ping URL, the token file (owner-only).
+4. With the installed code, in that same environment: a backup, the restore
    check, and a restore.
-4. It removes the role, the database and the folder.
+5. It removes the role, the database and the folder.
 
 The one thing not the production path: the license key is signed with the
 test environment's throwaway vendor key, which the child process trusts
@@ -40,25 +45,18 @@ PYTHON = sys.executable
 
 CHILD = textwrap.dedent('''
     import os, sys
-    from datetime import datetime, timedelta, timezone
     sys.path.insert(0, os.getcwd())
     import setup
-    args = sys.argv[1:]
-    sys.argv = ["setup.py", *args]
-    mode = setup.db_mode()
-    setup.ensure_env_file(mode)
-    install_id = setup.ensure_install_id()
-    setup.load_dotenv_now()
-    from vcs.licensing import tokens                    # the first vcs import: config reads the new .env
-    kid, public = open(os.environ["DRILL_TRUSTED"]).read().split()
-    tokens.trust_for_tests(kid, bytes.fromhex(public))
-    sys.path.insert(0, os.path.join(os.getcwd(), "scripts", "vendor"))
-    import vcs_vendor
-    from cryptography.hazmat.primitives import serialization
-    key = serialization.load_pem_private_key(open(os.environ["DRILL_PRIVATE"], "rb").read(), password=None)
-    license_key = vcs_vendor.sign(key, vcs_vendor.license_payload(
-        key, install_id, "Native Drill Clinic", datetime.now(timezone.utc) + timedelta(days=365)))
-    sys.argv += ["--license-key", license_key]
+    sys.argv = ["setup.py", *sys.argv[1:]]
+    ensure_license = setup.ensure_license
+
+    def trusted_first(key=None):
+        # By now setup has written .env and imported vcs: trust the drill's key.
+        from vcs.licensing import tokens
+        kid, public = open(os.environ["DRILL_TRUSTED"]).read().split()
+        tokens.trust_for_tests(kid, bytes.fromhex(public))
+        return ensure_license(key)
+    setup.ensure_license = trusted_first
     setup.main()
 
     print("\\n== After setup, with the installed code")
@@ -85,6 +83,27 @@ CHILD = textwrap.dedent('''
 ''')
 
 
+TOKEN = "ghp_DRILL_not_a_real_token_for_the_setup_code"
+PING = "https://hc-ping.example/NATIVE-DRILL-PING"
+
+
+def setup_code():
+    """What the Vendor Console makes for a new clinic: an installation ID
+    chosen now, its license, and the clinic's settings and secrets."""
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    sys.path.insert(0, str(REPO))
+    sys.path.insert(0, str(REPO / "scripts" / "vendor"))
+    import setup
+    import vcs_vendor
+    from cryptography.hazmat.primitives import serialization
+    key = serialization.load_pem_private_key((TEST_VENDOR / "private.pem").read_bytes(), password=None)
+    install_id = str(uuid.uuid4())
+    license_key = vcs_vendor.sign(key, vcs_vendor.license_payload(
+        key, install_id, "Native Drill Clinic", datetime.now(timezone.utc) + timedelta(days=365)))
+    return setup.make_setup_code(license_key, "JO", "orchid", github_token=TOKEN, heartbeat_url=PING), install_id
+
+
 def main():
     role = "vcs_native_drill_" + secrets.token_hex(3)
     password = "Drill-" + secrets.token_hex(12)
@@ -95,8 +114,14 @@ def main():
         admin.execute(f'CREATE DATABASE "{role}" OWNER {role}')
         install = work / "vetclinicsystem"
         install.mkdir()
-        archive = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, check=True, capture_output=True).stdout
-        subprocess.run(["tar", "-x", "-C", str(install)], input=archive, check=True)
+        listed = subprocess.run(["git", "ls-files", "-z", "-c", "-o", "--exclude-standard"], cwd=REPO,
+                                check=True, capture_output=True).stdout.decode().split("\0")
+        for name in filter(None, listed):
+            source = REPO / name
+            if source.is_file():
+                (install / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, install / name)
+        code, install_id = setup_code()
         shim = work / "bin"
         shim.mkdir()
         tools = subprocess.run([PYTHON, "-c", "import sys; sys.path.insert(0, '.'); from vcs.ops import pgtools; "
@@ -107,16 +132,26 @@ def main():
             if source.exists():
                 (shim / name).symlink_to(source)
         env = {"PATH": str(shim), "HOME": str(work), "LANG": "C.UTF-8",
-               "DRILL_TRUSTED": str(TEST_VENDOR / "trusted.key"), "DRILL_PRIVATE": str(TEST_VENDOR / "private.pem")}
+               "DRILL_TRUSTED": str(TEST_VENDOR / "trusted.key")}
         url = f"postgresql://{role}:{password}@127.0.0.1:55492/{role}"
         print(f"== setup.py --db-mode native in {install} (PATH={shim}: {sorted(os.listdir(shim))})", flush=True)
-        run = subprocess.run([PYTHON, "-c", CHILD, "--db-mode", "native", "--database-url", url,
-                              "--money-setting", "JO", "--no-enable-updates"],
+        run = subprocess.run([PYTHON, "-c", CHILD, "--setup-code", code, "--db-mode", "native",
+                              "--database-url", url, "--no-enable-updates"],
                              cwd=install, env=env, stdin=subprocess.DEVNULL, text=True, capture_output=True)
         out = run.stdout + run.stderr
         print(textwrap.indent(out.replace(password, "[password]"), "  | "))
         env_file = (install / ".env").read_text() if (install / ".env").exists() else ""
+        with psycopg.connect(url) as con:
+            stored = dict(con.execute("SELECT key, value FROM settings WHERE key IN "
+                                      "('theme_palette', 'clinic_name', 'heartbeat_url', 'money_setting')").fetchall())
+        token_file = install / "github_token"
         checks = {
+            "the setup code's installation ID is in .env": f"VETCLINICSYSTEM_INSTALL_ID={install_id}" in env_file,
+            "the code's settings were applied": stored == {"theme_palette": "orchid", "clinic_name": "Native Drill Clinic",
+                                                           "heartbeat_url": PING, "money_setting": "JO"},
+            "the token is saved, owner-only": token_file.exists() and token_file.read_text().strip() == TOKEN
+            and (token_file.stat().st_mode & 0o777) == 0o600,
+            "no secret was printed": TOKEN not in out and PING not in out,
             "setup and the drill finished": run.returncode == 0 and "DRILL OK" in out,
             "no docker was needed": "docker" not in out.lower().replace("docker mode", ""),
             ".env says native": "VETCLINICSYSTEM_DB_MODE=native" in env_file,
