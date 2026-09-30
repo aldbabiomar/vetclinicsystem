@@ -575,3 +575,42 @@ def test_control_the_bill_input_pattern():
     for sql in ("UPDATE billing SET total=%s WHERE visit_id=%s", "UPDATE boarding_sessions SET billed_total=%s",
                 "UPDATE inpatient_cases SET dismissed=true", "INSERT INTO payments (amount) VALUES (%s)"):
         assert not BILL_INPUT_WRITE.search(sql), sql
+
+
+# ---------------------------------------------------------------------------
+# Rule 16 — only pgtools finds the PostgreSQL client tools (licensing plan §12.2)
+#
+# Backup, restore and the restore check each looked for pg_dump / pg_restore
+# with their own shutil.which(), each with its own Docker fallback: three
+# places for native mode to reach Docker from, and none checking the tool
+# against the server's version. One finder now (vcs/ops/pgtools.py); a local
+# tool is run by the path it returns, never by a bare name.
+# ---------------------------------------------------------------------------
+TOOL_LOOKUP = re.compile(r"""which\(\s*["'](?:pg_dump|pg_restore)["']""")
+BARE_TOOL_COMMAND = re.compile(r"""\[\s*["'](?:pg_dump|pg_restore)["']\s*,""")
+
+
+def test_only_pgtools_finds_the_postgresql_client_tools():
+    """GUARD."""
+    files = [*source_files.all_python(), source_files.ROOT / "setup.py"]
+    offenders, through_pgtools = [], 0
+    for path in files:
+        if path.name == "pgtools.py":
+            continue
+        src = path.read_text(encoding="utf-8")
+        through_pgtools += src.count("pgtools.choose(")
+        for n, line in enumerate(src.splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if TOOL_LOOKUP.search(code) or BARE_TOOL_COMMAND.search(code):
+                offenders.append(f"{path.name}:{n}: {line.strip()}")
+    assert len(files) >= 80 and through_pgtools >= 3, (len(files), through_pgtools)
+    assert not offenders, "the client tools found outside pgtools:\n  " + "\n  ".join(offenders)
+
+
+def test_control_the_tool_patterns():
+    for code in ('shutil.which("pg_dump")', "which('pg_restore')", 'cmd = ["pg_dump", "-w"]',
+                 "subprocess.run(['pg_restore', '--list', p])"):
+        assert TOOL_LOOKUP.search(code) or BARE_TOOL_COMMAND.search(code), code
+    for code in ('cmd = [tool.path, "-w"]', 'cmd = [tool.path, "exec", container, "pg_dump", "-w"]',
+                 'shutil.which("docker")', 'pgtools.choose("pg_dump", server)'):
+        assert not (TOOL_LOOKUP.search(code) or BARE_TOOL_COMMAND.search(code)), code

@@ -1065,3 +1065,42 @@ result under each money setting.
   **Suite:** IQ **1767 passed, 0 skipped**; JO **1767 passed, 0 skipped**;
   no database 763 passed (a test local named `settings` was renamed for
   `test_domain_imports` and re-run).
+- **2026-09-30 — Phase 6: native PostgreSQL.**
+  - **One finder** (`vcs/ops/pgtools.py`, §12.2): `VETCLINICSYSTEM_PG_BIN_DIR`
+    alone when set; otherwise PATH, then Homebrew `postgresql@N`,
+    Postgres.app, `C:\Program Files\PostgreSQL\N\bin`, `/usr/lib/postgresql/N/bin`,
+    newest first. A tool must be at least the server's major version. In
+    native mode local tools or an error that names the mode and the tool,
+    never Docker; in Docker mode local tools when usable, else `docker exec`.
+    Backup, restore and the restore check run tools by the path it returns;
+    Developer → System shows what each tool will be. Seam rule 16
+    (`test_seam_rules.py`): no `which("pg_dump")` and no bare tool command
+    outside it.
+  - **Setup** (§12.1): `--db-mode native --database-url …` (or the
+    environment, or the install's `.env`) writes `.env` with
+    `VETCLINICSYSTEM_DB_MODE=native`, the given `DATABASE_URL` and none of
+    the container's settings, chooses the app port without asking Docker,
+    waits for the server naming its host and port, and never runs Docker.
+    Both modes refuse a server older than 16; native mode warns about a role
+    without CREATEDB. Setup does not move an install between modes.
+  - **Privileges** (§12.3): `selfverify.can_create_databases`; the restore
+    check says so instead of failing generically, and the self-check reports
+    it as its own finding (`restore_no_privilege`, which stands in for
+    `restore_unverified`).
+  - **Docs:** `docs/NATIVE_POSTGRESQL.md` — the role and database, commands
+    for macOS, Windows and Linux, setup, starting at boot; `.env.example`,
+    `CLAUDE.md`, `SEAM_RULES.md`, `DEVELOPER_GUIDE.md`, setup's usage.
+  - **Tests** (§14.3, `tests/test_native_postgres.py`, 12): against the
+    throwaway container's port as if native, with a PATH of the client tools
+    alone and every subprocess recorded — setup's `.env` and database steps,
+    a backup, the restore check, and a real restore into a throwaway
+    database of its own; an empty bin dir names the tool and not Docker; a
+    bin dir is the only place looked; a pg_dump one version behind the
+    server is refused, one at its version used; Docker mode falls back and
+    native never does; a role made without CREATEDB, on the throwaway
+    server, gets the specific finding. **They ran** (Homebrew's client tools
+    16.15, server 16): nothing skipped in either run. Seven mutations, all
+    proven. Arabic: `ARABIC_REVIEW.md` §28 (2).
+
+  **Suite:** IQ **1780 passed, 0 skipped**; JO **1780 passed, 0 skipped**;
+  no database 765 passed.

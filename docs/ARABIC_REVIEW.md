@@ -728,3 +728,14 @@ export** — تصدير البيانات; **redaction** — الإخفاء; **ma
 | 92 | Writing the manifest | جارٍ كتابة قائمة المحتويات |
 | 93 | a credential: the monitoring ping address can be used to silence the alert | بيانات اعتماد: يمكن استخدام رابط المراقبة لإسكات التنبيه |
 | 94 | a credential: with the hash, a password can be guessed offline | بيانات اعتماد: باستخدام التجزئة يمكن تخمين كلمة المرور دون اتصال |
+
+## 28. Native PostgreSQL (2)
+
+The self-check's finding for a database role without CREATEDB, and how
+Developer -> System names a tool run inside the Docker container (licensing
+plan §12). **Role** — دور, as PostgreSQL's term; **container** — الحاوية.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | The database role cannot create databases (CREATEDB), so backups cannot be test-restored. Give the role CREATEDB, as the setup guide describes. | دور قاعدة البيانات لا يستطيع إنشاء قواعد بيانات (CREATEDB)، لذا لا يمكن اختبار استعادة النسخ الاحتياطية. امنح الدور صلاحية CREATEDB كما يشرح دليل الإعداد. |
+| 2 | in the container, through %(docker)s | داخل الحاوية، عبر %(docker)s |

@@ -8988,3 +8988,15 @@ msgstr "بيانات اعتماد: يمكن استخدام رابط المراق
 msgid "a credential: with the hash, a password can be guessed offline"
 msgstr "بيانات اعتماد: باستخدام التجزئة يمكن تخمين كلمة المرور دون اتصال"
 
+msgid ""
+"The database role cannot create databases (CREATEDB), so backups cannot "
+"be test-restored. Give the role CREATEDB, as the setup guide describes."
+msgstr ""
+"دور قاعدة البيانات لا يستطيع إنشاء قواعد بيانات (CREATEDB)، لذا لا يمكن "
+"اختبار استعادة النسخ الاحتياطية. امنح الدور صلاحية CREATEDB كما يشرح دليل"
+" الإعداد."
+
+#, python-format
+msgid "in the container, through %(docker)s"
+msgstr "داخل الحاوية، عبر %(docker)s"
+

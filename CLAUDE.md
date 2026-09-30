@@ -133,7 +133,8 @@ vcs/
 ├── licensing/       tokens.py (verify a signed key or pass), trusted_keys.py (the
 │                    vendor's public keys, in the source), state.py (the license
 │                    state, and where the key is kept)
-├── ops/             backup, updater, scheduler, selfcheck, heartbeat, autostart, …
+├── ops/             backup, updater, scheduler, selfcheck, heartbeat, autostart, …;
+│                    pgtools.py is the one finder of pg_dump / pg_restore (seam rule 16)
 └── templates/, static/, translations/
 ```
 

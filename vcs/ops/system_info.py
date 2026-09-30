@@ -38,8 +38,10 @@ def _database(db):
         _user, _password, name, host, port = backup._pg_conn_parts()
     except Exception:
         host = port = name = None
+    from vcs.ops import pgtools
+    server = int(version.split(".")[0]) if version and version.split(".")[0].isdigit() else None
     return {"reachable": reachable, "server_version": version, "mode": config.DB_MODE,
-            "host": host, "port": port, "name": name, "tools": backup.tool_paths()}
+            "host": host, "port": port, "name": name, "tools": pgtools.describe(server)}
 
 
 def _self_check(db):

@@ -42,13 +42,13 @@ added back, since the payable total is rounded before the Clean Up comes off.
 import json
 import os
 import secrets
-import shutil
 import subprocess
 from urllib.parse import quote
 
 import psycopg
 
 from vcs.ops import backup as backup_mod
+from vcs.ops import pgtools
 from vcs.domain import settings
 from vcs import clock, money
 RESTORE_TIMEOUT_SECONDS = 600
@@ -65,6 +65,19 @@ MONEY_EXPECTED_TYPE = "numeric"
 
 CORE_TABLES = ("users", "owners", "patients", "visits", "billing",
                "sales", "price_list", "inventory_list")
+
+
+def can_create_databases(db):
+    """The database role may CREATE DATABASE -- which this check needs, for
+    the throwaway it restores into (licensing plan §12.3: the app's role owns
+    its database and has CREATEDB, nothing more). True when it cannot be
+    asked: the attempt itself then reports what went wrong."""
+    try:
+        row = db.execute("SELECT rolcreatedb OR rolsuper AS ok FROM pg_roles WHERE rolname = current_user").fetchone()
+        return bool(row and row["ok"])
+    except Exception:
+        db.rollback()
+        return True
 
 
 def _check(name, ok, detail=""):
@@ -96,32 +109,29 @@ def _run_pg_restore_into(dbname, dump_path):
     """
     user, password, _appdb, host, port = backup_mod._pg_conn_parts()
     env = backup_mod._pg_env(password)
+    tool = pgtools.choose("pg_restore", pgtools.server_major())
 
-    if shutil.which("pg_restore"):
-        cmd = ["pg_restore", "-w", "-h", host, "-p", port, "-U", user,
+    if tool.kind == "local":
+        cmd = [tool.path, "-w", "-h", host, "-p", port, "-U", user,
                "-d", dbname, "--no-owner", "--no-privileges", dump_path]
         subprocess.run(cmd, check=True, env=env, capture_output=True, text=True,
                        timeout=RESTORE_TIMEOUT_SECONDS)
         return
 
-    container = os.environ.get("VETCLINICSYSTEM_PG_CONTAINER", "vetclinicsystem_postgres")
-    if shutil.which("docker"):
-        container_path = "/tmp/selfverify_" + os.path.basename(dump_path)
-        subprocess.run(["docker", "cp", dump_path, f"{container}:{container_path}"],
-                       check=True, capture_output=True, text=True,
+    container = backup_mod._container()
+    container_path = "/tmp/selfverify_" + os.path.basename(dump_path)
+    subprocess.run([tool.path, "cp", dump_path, f"{container}:{container_path}"],
+                   check=True, capture_output=True, text=True,
+                   timeout=RESTORE_TIMEOUT_SECONDS)
+    try:
+        cmd = [tool.path, "exec", "-e", "PGPASSWORD", container,
+               "pg_restore", "-w", "-U", user, "-d", dbname,
+               "--no-owner", "--no-privileges", container_path]
+        subprocess.run(cmd, check=True, env=env, capture_output=True, text=True,
                        timeout=RESTORE_TIMEOUT_SECONDS)
-        try:
-            cmd = ["docker", "exec", "-e", "PGPASSWORD", container,
-                   "pg_restore", "-w", "-U", user, "-d", dbname,
-                   "--no-owner", "--no-privileges", container_path]
-            subprocess.run(cmd, check=True, env=env, capture_output=True, text=True,
-                           timeout=RESTORE_TIMEOUT_SECONDS)
-        finally:
-            subprocess.run(["docker", "exec", container, "rm", "-f", container_path],
-                           capture_output=True, text=True)
-        return
-
-    raise RuntimeError("neither pg_restore nor docker is available")
+    finally:
+        subprocess.run([tool.path, "exec", container, "rm", "-f", container_path],
+                       capture_output=True, text=True)
 
 
 def _run_checks(con):
@@ -255,9 +265,13 @@ def verify_latest_backup(db):
     if not dump_path or not os.path.isfile(dump_path):
         return out("warn", "the newest successful backup is no longer on disk")
 
-    if not (shutil.which("pg_restore") or shutil.which("docker")):
-        return out("warn", "pg_restore is not available on this machine, so the "
-                           "backup could not be test-restored")
+    try:
+        pgtools.choose("pg_restore", pgtools.server_major(db))
+    except pgtools.ToolError as e:
+        return out("warn", f"the backup could not be test-restored: {e}")
+    if not can_create_databases(db):
+        return out("warn", "the database role cannot create databases (CREATEDB), so the backup "
+                           "could not be test-restored into a throwaway one")
 
     # Hex only, so the identifier can never need quoting or carry an injection.
     temp_db = "selfverify_" + secrets.token_hex(4)

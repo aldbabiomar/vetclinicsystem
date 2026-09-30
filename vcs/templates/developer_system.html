@@ -25,9 +25,13 @@
     <div class="detail-item"><div class="k">{{ _('PostgreSQL version') }}</div><div class="v u-mono">{{ database.server_version or '—' }}</div></div>
     <div class="detail-item"><div class="k">{{ _('Mode') }}</div><div class="v u-mono">{{ database.mode }}</div></div>
     <div class="detail-item"><div class="k">{{ _('Server') }}</div><div class="v u-mono">{{ database.host }}:{{ database.port }}/{{ database.name }}</div></div>
-    {% for tool, path in database.tools.items() %}
-    <div class="detail-item"><div class="k u-mono">{{ tool }}</div><div class="v u-mono">{{ path or _('Not found') }}</div></div>
+    {% for name in ('pg_dump', 'pg_restore') %}{% set t = database.tools[name] %}
+    <div class="detail-item"><div class="k u-mono">{{ name }}</div><div class="v u-mono">
+      {%- if t.kind == 'local' %}{{ t.path }}{% if t.version %} ({{ t.version }}){% endif %}
+      {%- elif t.kind == 'docker' %}{{ _('in the container, through %(docker)s', docker=t.path) }}
+      {%- else %}{{ t.error }}{% endif %}</div></div>
     {% endfor %}
+    {% if database.tools.bin_dir %}<div class="detail-item"><div class="k u-mono">VETCLINICSYSTEM_PG_BIN_DIR</div><div class="v u-mono">{{ database.tools.bin_dir }}</div></div>{% endif %}
   </div>
   {% endif %}
 </div>

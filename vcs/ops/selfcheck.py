@@ -327,6 +327,21 @@ def _check_restore_unverified(ctx):
     return None
 
 
+def _check_restore_privilege(ctx):
+    """The restore check restores into a throwaway database it creates, so
+    the role needs CREATEDB (licensing plan §12.3). Without it every monthly
+    check fails the same way; this says why, once, instead of a generic
+    verification failure -- most likely on a native PostgreSQL install whose
+    role was made without it."""
+    if ctx["can_create_databases"]:
+        return None
+    return _finding(
+        "restore_no_privilege", "warn",
+        N_("The database role cannot create databases (CREATEDB), so backups cannot be test-restored. "
+           "Give the role CREATEDB, as the setup guide describes."),
+    )
+
+
 def _check_backup_file_missing(ctx):
     """The newest successful backup must still exist on disk.
 
@@ -363,12 +378,14 @@ _CHECKS = (
     _check_schema_behind,
     _check_update_rolled_back,
     _check_restore_unverified,
+    _check_restore_privilege,
 )
 
 
 def _gather(db):
     """One pass over everything the checks read."""
     from vcs.ops import backup as backup_mod
+    from vcs.ops import selfverify
     recent = list(backup_mod.recent_backups(db, limit=20))
     last_success = db.execute(
         "SELECT * FROM backup_log WHERE status='success' ORDER BY id DESC LIMIT 1"
@@ -396,6 +413,7 @@ def _gather(db):
         ),
         "schema_pending": [name for _, name in schema.pending(db)],
         "last_verified_restore": settings.get_setting(db, "last_verified_restore"),
+        "can_create_databases": selfverify.can_create_databases(db),
         "disk_free_bytes": None,
     }
 
@@ -418,6 +436,10 @@ def _drop_duplicated_cause(findings):
     reports backup_dir_missing or backup_dir_unwritable but never both.
     """
     codes = {f["code"] for f in findings}
+    # A missing CREATEDB is why no backup can be test-restored: say that,
+    # not that verification failed.
+    if "restore_no_privilege" in codes:
+        findings = [f for f in findings if f["code"] != "restore_unverified"]
     if "backup_failing" not in codes:
         return findings
     if not codes & {"backup_dir_missing", "backup_dir_unwritable"}:

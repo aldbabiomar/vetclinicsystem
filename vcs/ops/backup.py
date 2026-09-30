@@ -15,7 +15,6 @@ import json
 import os
 
 from vcs.paths import ROOT
-import shutil
 import subprocess
 from urllib.parse import unquote, urlsplit
 import threading
@@ -23,6 +22,7 @@ import threading
 from vcs.domain import settings
 from vcs import clock
 from vcs.messages import Msg, N_
+from vcs.ops import pgtools
 
 FILENAME_PREFIX = "vetclinicsystem_backup_"
 FILENAME_SUFFIX = ".dump"
@@ -140,19 +140,19 @@ def _pg_env(password):
     return env
 
 
-def tool_paths():
-    """Where the tools this module runs are found: a local pg_dump and
-    pg_restore first, else `docker exec` into the database's container
-    (_run_pg_dump). For Developer -> System and the support bundle."""
-    return {name: shutil.which(name) for name in ("pg_dump", "pg_restore", "docker")}
+def _container():
+    return os.environ.get("VETCLINICSYSTEM_PG_CONTAINER", "vetclinicsystem_postgres")
 
 
 def _run_pg_dump(out_path):
     user, password, dbname, host, port = _pg_conn_parts()
     env = _pg_env(password)
+    # Local pg_dump at least the server's version; in docker mode, otherwise
+    # the container's own (pgtools.py). Native mode never reaches Docker.
+    tool = pgtools.choose("pg_dump", pgtools.server_major())
 
-    if shutil.which("pg_dump"):
-        cmd = ["pg_dump", "-w", "-h", host, "-p", port, "-U", user, "-F", "c", "-f", out_path, dbname]
+    if tool.kind == "local":
+        cmd = [tool.path, "-w", "-h", host, "-p", port, "-U", user, "-F", "c", "-f", out_path, dbname]
         subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
         # The dump contains full patient/owner PHI (names, phones,
         # addresses, medical history) and the configured backup folder is
@@ -163,23 +163,15 @@ def _run_pg_dump(out_path):
         os.chmod(out_path, 0o600)
         return
 
-    container = os.environ.get("VETCLINICSYSTEM_PG_CONTAINER", "vetclinicsystem_postgres")
-    if shutil.which("docker"):
-        # "-e PGPASSWORD" names the variable without a value on purpose:
-        # docker forwards it from this process's environment, so the secret
-        # never appears in the command line where `ps` would expose it to
-        # every other user on the machine.
-        cmd = ["docker", "exec", "-e", "PGPASSWORD", container,
-               "pg_dump", "-w", "-U", user, "-F", "c", dbname]
-        with open(out_path, "wb") as f:
-            subprocess.run(cmd, check=True, env=env, stdout=f, stderr=subprocess.PIPE)
-        os.chmod(out_path, 0o600)
-        return
-
-    raise RuntimeError(
-        "Could not find pg_dump locally or the 'docker' command — "
-        "install Docker Desktop (recommended) or the PostgreSQL client tools."
-    )
+    # "-e PGPASSWORD" names the variable without a value on purpose: docker
+    # forwards it from this process's environment, so the secret never
+    # appears in the command line where `ps` would expose it to every other
+    # user on the machine.
+    cmd = [tool.path, "exec", "-e", "PGPASSWORD", _container(),
+           "pg_dump", "-w", "-U", user, "-F", "c", dbname]
+    with open(out_path, "wb") as f:
+        subprocess.run(cmd, check=True, env=env, stdout=f, stderr=subprocess.PIPE)
+    os.chmod(out_path, 0o600)
 
 
 def resolve_restorable_backup(db, source_file):
@@ -303,10 +295,11 @@ def _run_pg_restore(dump_path, on_count=None):
     # statement due to lock timeout" error instead of hanging silently for
     # hours with nothing to show for it.
     env["PGOPTIONS"] = "-c lock_timeout=30000"
+    tool = pgtools.choose("pg_restore", pgtools.server_major())
 
-    if shutil.which("pg_restore"):
-        total = _pg_restore_toc_count(["pg_restore", "--list", dump_path])
-        cmd = ["pg_restore", "-w", "-h", host, "-p", port, "-U", user, "-d", dbname,
+    if tool.kind == "local":
+        total = _pg_restore_toc_count([tool.path, "--list", dump_path])
+        cmd = [tool.path, "-w", "-h", host, "-p", port, "-U", user, "-d", dbname,
                "--clean", "--if-exists", "--single-transaction", "--verbose", dump_path]
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
                                  stderr=subprocess.PIPE, text=True)
@@ -315,33 +308,26 @@ def _run_pg_restore(dump_path, on_count=None):
             raise subprocess.CalledProcessError(proc.returncode, cmd, output=None, stderr=stderr_text)
         return
 
-    container = os.environ.get("VETCLINICSYSTEM_PG_CONTAINER", "vetclinicsystem_postgres")
-    if shutil.which("docker"):
-        # docker exec can't read a file straight off the host, so the dump
-        # has to be copied into the container first.
-        container_path = "/tmp/" + os.path.basename(dump_path)
-        subprocess.run(["docker", "cp", dump_path, f"{container}:{container_path}"],
-                        check=True, capture_output=True, text=True)
-        try:
-            total = _pg_restore_toc_count(["docker", "exec", container, "pg_restore", "--list", container_path])
-            cmd = ["docker", "exec", "-e", "PGOPTIONS=-c lock_timeout=30000",
-                   "-e", "PGPASSWORD",  # value forwarded from env, not argv
-                   container, "pg_restore", "-w", "-U", user, "-d", dbname,
-                   "--clean", "--if-exists", "--single-transaction", "--verbose", container_path]
-            proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.PIPE, text=True)
-            stderr_text = _stream_restore_progress(proc, total, on_count)
-            if proc.returncode != 0:
-                raise subprocess.CalledProcessError(proc.returncode, cmd, output=None, stderr=stderr_text)
-        finally:
-            subprocess.run(["docker", "exec", container, "rm", "-f", container_path],
-                            capture_output=True, text=True)
-        return
-
-    raise RuntimeError(
-        "Could not find pg_restore locally or the 'docker' command — "
-        "install Docker Desktop (recommended) or the PostgreSQL client tools."
-    )
+    # docker exec can't read a file straight off the host, so the dump has
+    # to be copied into the container first.
+    container = _container()
+    container_path = "/tmp/" + os.path.basename(dump_path)
+    subprocess.run([tool.path, "cp", dump_path, f"{container}:{container_path}"],
+                   check=True, capture_output=True, text=True)
+    try:
+        total = _pg_restore_toc_count([tool.path, "exec", container, "pg_restore", "--list", container_path])
+        cmd = [tool.path, "exec", "-e", "PGOPTIONS=-c lock_timeout=30000",
+               "-e", "PGPASSWORD",  # value forwarded from env, not argv
+               container, "pg_restore", "-w", "-U", user, "-d", dbname,
+               "--clean", "--if-exists", "--single-transaction", "--verbose", container_path]
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE, text=True)
+        stderr_text = _stream_restore_progress(proc, total, on_count)
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd, output=None, stderr=stderr_text)
+    finally:
+        subprocess.run([tool.path, "exec", container, "rm", "-f", container_path],
+                       capture_output=True, text=True)
 
 
 def run_restore(get_fresh_db, dump_path, triggered_by=None, on_progress=None):

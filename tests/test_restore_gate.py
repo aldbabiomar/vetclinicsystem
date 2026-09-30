@@ -83,15 +83,17 @@ class _FakeProc:
 def test_pg_restore_runs_as_one_transaction(monkeypatch, local_tools):
     """GUARD. All of the restore or none of it — with the local client tools
     and through the Docker fallback alike."""
+    from vcs.ops import pgtools
     commands = []
-    monkeypatch.setattr(backup.shutil, "which",
-                        lambda name: f"/usr/bin/{name}" if (name == "pg_restore") == local_tools or name == "docker" else None)
+    monkeypatch.setattr(pgtools, "choose", lambda name, server=None: pgtools.Tool(
+        name, "local", f"/usr/bin/{name}") if local_tools else pgtools.Tool(name, "docker", "/usr/bin/docker"))
+    monkeypatch.setattr(pgtools, "server_major", lambda db=None: 16)
     monkeypatch.setattr(backup, "_pg_restore_toc_count", lambda cmd: 1)
     monkeypatch.setattr(backup, "_stream_restore_progress", lambda proc, total, on_count: "")
     monkeypatch.setattr(backup.subprocess, "Popen", lambda cmd, **k: commands.append(cmd) or _FakeProc())
     monkeypatch.setattr(backup.subprocess, "run", lambda *a, **k: None)
     backup._run_pg_restore("/tmp/x.dump")
-    restore_cmd = [c for c in commands if "pg_restore" in c]
+    restore_cmd = [c for c in commands if any(str(x).endswith("pg_restore") for x in c)]
     assert restore_cmd and "--single-transaction" in restore_cmd[0], commands
 
 

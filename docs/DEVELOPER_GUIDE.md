@@ -84,6 +84,13 @@ python3 scripts/vendor/vcs_vendor.py inspect '<key>'
 prints what the key says and whether this checkout's trusted keys accept its
 signature.
 
+## A clinic without Docker
+
+`docs/NATIVE_POSTGRESQL.md`: create the role (owner of the database, with
+CREATEDB, nothing more) and run setup with `--db-mode native --database-url …`.
+Backups, restores and the restore check then use the PostgreSQL client tools on
+the machine, never Docker; Developer → System shows which ones.
+
 ## Setup needs a license
 
 `setup.py` does not finish without a license key that verifies for the

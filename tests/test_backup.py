@@ -171,7 +171,8 @@ def test_pg_dump_is_never_left_able_to_prompt_for_a_password(db, backup_dir, cle
     monkeypatch.setattr(backup.subprocess, "run",
                         lambda cmd, *a, **kw: (seen.append(list(cmd)), real_run(cmd, *a, **kw))[1])
     backup.run_backup(db, dest_dir=backup_dir, retention=5, triggered_by="test")
-    dump_cmds = [c for c in seen if any("pg_dump" in str(x) for x in c)]
+    # (pgtools asking a tool its version cannot prompt: it never connects.)
+    dump_cmds = [c for c in seen if any("pg_dump" in str(x) for x in c) and "--version" not in c]
     assert dump_cmds, "no pg_dump invocation was captured"
     for cmd in dump_cmds:
         assert "-w" in cmd, f"pg_dump can still prompt for a password: {cmd}"

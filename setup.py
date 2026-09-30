@@ -2,23 +2,30 @@
 VetClinicSystem — one-command setup.
 Works the same way on macOS and Windows.
 
-    python3 setup.py
+    python3 setup.py [--money-setting IQ|JO] [--license-key KEY]
+    python3 setup.py --db-mode native --database-url postgresql://ROLE:PASSWORD@HOST:PORT/DB ...
 
 What it does, in order:
-  1. Checks Docker is installed and running (prints install instructions if not).
+  1. Checks Docker is installed and running (prints install instructions if
+     not) -- in Docker mode. Native mode (docs/NATIVE_POSTGRESQL.md) uses a
+     PostgreSQL server installed on this computer and never runs Docker.
   2. Creates .env from .env.example if you don't have one yet (with a fresh
      random SECRET_KEY), choosing the app's port and the database's host
      port: 5050 and 5432 unless another program or container already has
-     them, in which case the next free ones.
+     them, in which case the next free ones. In native mode DATABASE_URL is
+     the one given.
   3. Starts the PostgreSQL container (docker compose up -d) and waits for it
-     to be ready.
+     to be ready; in native mode, waits for the server to answer. Either way
+     it must be PostgreSQL 16 or newer.
   4. Creates the database schema if it isn't there yet, AND applies any
      columns/tables added since your database was first set up — this runs
      every time, so a schema update never requires remembering to run a
      separate migration script by hand.
   5. If no one can sign in yet, creates the first administrator with a
      one-time password and prints it.
-  6. Prints next steps.
+  6. The money setting (--money-setting) and the license key (--license-key,
+     or asked for): setup does not finish without a valid key.
+  7. Prints next steps.
 
 Safe to re-run any time — every step skips itself if already done.
 """
@@ -151,17 +158,46 @@ def with_ports(content, db_port, app_port):
     port inside DATABASE_URL (docker compose publishes whatever DATABASE_URL
     says -- _compose_env), and the app's port as an active
     VETCLINICSYSTEM_PORT line, which the app and every launcher read."""
-    content, n = re.subn(r"(DATABASE_URL=postgresql://[^@\s]+@127\.0\.0\.1:)\d+/", rf"\g<1>{db_port}/", content)
-    assert n == 1, "DATABASE_URL in .env.example is not the expected local URL"
+    if db_port is not None:
+        content, n = re.subn(r"(DATABASE_URL=postgresql://[^@\s]+@127\.0\.0\.1:)\d+/", rf"\g<1>{db_port}/", content)
+        assert n == 1, "DATABASE_URL in .env.example is not the expected local URL"
     line = f"VETCLINICSYSTEM_PORT={app_port}"
     content, n = re.subn(r"(?m)^#?VETCLINICSYSTEM_PORT=.*$", line, content)
     return content if n else content.rstrip("\n") + f"\n{line}\n"
 
 
-def choose_ports():
+DB_MODES = ("docker", "native")
+MIN_SERVER_VERSION = 160000          # PostgreSQL 16 (server_version_num)
+
+
+def db_mode():
+    """How this install's PostgreSQL runs (licensing plan A11): `--db-mode`,
+    else VETCLINICSYSTEM_DB_MODE from the environment or this install's .env,
+    else docker. Explicit, never detected: on a machine with two servers,
+    "whatever answers on the port" could be the wrong one."""
+    value = _argument("--db-mode") or os.environ.get("VETCLINICSYSTEM_DB_MODE")
+    env_path = os.path.join(_env_dir(), ".env")
+    stored = None
+    if os.path.exists(env_path):
+        from dotenv import dotenv_values
+        stored = dotenv_values(env_path).get("VETCLINICSYSTEM_DB_MODE") or "docker"
+    value = (value or stored or "docker").strip().lower()
+    if value not in DB_MODES:
+        print(f"  The database mode must be one of {', '.join(DB_MODES)}, not {value!r}.")
+        sys.exit(1)
+    if stored and value != stored.strip().lower():
+        print(f"  This install's database mode is {stored} (its .env); setup does not move an install "
+              f"from one mode to another. Leave --db-mode out, or set up a new install.")
+        sys.exit(1)
+    return value
+
+
+def choose_ports(mode="docker"):
     """(database host port, app port) for a new install. An explicit
-    POSTGRES_HOST_PORT / VETCLINICSYSTEM_PORT in the environment wins."""
-    claimed = docker_claimed_ports()
+    POSTGRES_HOST_PORT / VETCLINICSYSTEM_PORT in the environment wins. In
+    native mode there is no container to ask about its ports -- and no
+    docker command to ask with."""
+    claimed = docker_claimed_ports() if mode == "docker" else set()
     chosen = []
     for var, preferred, what in (("POSTGRES_HOST_PORT", DEFAULT_DB_PORT, "database"),
                                  ("VETCLINICSYSTEM_PORT", DEFAULT_APP_PORT, "app")):
@@ -177,7 +213,17 @@ def choose_ports():
     return tuple(chosen)
 
 
-def ensure_env_file():
+def native_env(content, database_url, app_port):
+    """.env.example's text for a native-mode install: the clinic's own
+    DATABASE_URL, the mode, and none of the container's settings."""
+    content, n = re.subn(r"(?m)^DATABASE_URL=.*$", lambda m: f"DATABASE_URL={database_url}", content)
+    assert n == 1, "no DATABASE_URL line in .env.example"
+    content = re.sub(r"(?m)^(POSTGRES_PASSWORD|VETCLINICSYSTEM_PG_CONTAINER)=.*\n", "", content)
+    content = with_ports(content, None, app_port)
+    return content.rstrip("\n") + "\nVETCLINICSYSTEM_DB_MODE=native\n"
+
+
+def ensure_env_file(mode="docker"):
     step("Checking configuration (.env)")
     env_path = os.path.join(_env_dir(), ".env")
     example_path = os.path.join(BASE_DIR, ".env.example")
@@ -187,6 +233,21 @@ def ensure_env_file():
     with open(example_path) as f:
         content = f.read()
     content = content.replace("change-me", secrets.token_hex(32))
+    if mode == "native":
+        database_url = _argument("--database-url") or os.environ.get("DATABASE_URL")
+        if not database_url:
+            print("  Native mode connects to a PostgreSQL server you run, so setup needs its address:\n"
+                  "    python3 setup.py --db-mode native --database-url "
+                  "postgresql://ROLE:PASSWORD@HOST:PORT/DATABASE\n"
+                  "  The role must own the database and have CREATEDB (docs/NATIVE_POSTGRESQL.md).")
+            sys.exit(1)
+        _db_port, app_port = choose_ports("native")
+        content = native_env(content, database_url, app_port)
+        with open(env_path, "w") as f:
+            f.write(content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={uuid.uuid4()}\n")
+        print(f"  Created .env for native PostgreSQL with a fresh secret key. The app will be at "
+              f"http://127.0.0.1:{app_port}.")
+        return
     db_port, app_port = choose_ports()
     content = with_ports(content, db_port, app_port)
     content = content.rstrip("\n") + f"\nVETCLINICSYSTEM_INSTALL_ID={uuid.uuid4()}\n"
@@ -259,6 +320,62 @@ def start_postgres():
         time.sleep(2)
     print("  PostgreSQL didn't become ready in time — check `docker compose logs db`.")
     sys.exit(1)
+
+
+def _where(url):
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url)
+        return f"{parts.hostname or '127.0.0.1'}:{parts.port or 5432}"
+    except ValueError:
+        return "the address in DATABASE_URL"
+
+
+def wait_for_database(timeout=60):
+    """Native mode: the server is the clinic's own, already running (or
+    starting at boot). Wait for DATABASE_URL to answer; never start or ask
+    Docker."""
+    step("Waiting for PostgreSQL")
+    import psycopg
+    url = os.environ.get("DATABASE_URL", "")
+    deadline = time.monotonic() + timeout
+    error = None
+    while time.monotonic() < deadline:
+        try:
+            with psycopg.connect(url, connect_timeout=5) as con:
+                con.execute("SELECT 1")
+            print(f"  PostgreSQL at {_where(url)} is accepting connections.")
+            return
+        except psycopg.OperationalError as e:
+            error = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+            time.sleep(2)
+    print(f"  PostgreSQL at {_where(url)} did not accept a connection within {timeout} seconds "
+          f"({error}).\n  Start its service, check DATABASE_URL in .env, then run setup again.")
+    sys.exit(1)
+
+
+def check_server(mode):
+    """PostgreSQL 16 or newer, in either mode; in native mode, a role that
+    can create databases, which the monthly restore check needs
+    (licensing plan §12.1, §12.3)."""
+    step("Checking the PostgreSQL server")
+    import psycopg
+    url = os.environ.get("DATABASE_URL", "")
+    with psycopg.connect(url, connect_timeout=10) as con:
+        version = int(con.execute("SHOW server_version_num").fetchone()[0])
+        can_create = con.execute("SELECT rolcreatedb OR rolsuper FROM pg_roles "
+                                 "WHERE rolname = current_user").fetchone()[0]
+    major = version // 10000
+    if version < MIN_SERVER_VERSION:
+        print(f"  The PostgreSQL server at {_where(url)} is version {major}; VetClinicSystem needs 16 or "
+              "newer. Upgrade the server, then run setup again.")
+        sys.exit(1)
+    print(f"  PostgreSQL {major} ({mode} mode).")
+    if mode == "native" and not can_create:
+        print("  !! The database role cannot create databases (CREATEDB). The app works, but the monthly\n"
+              "     check that a backup really restores needs to create a throwaway database, so it will\n"
+              "     report this until the role is given CREATEDB (docs/NATIVE_POSTGRESQL.md).")
+    return major
 
 
 def ensure_install_id():
@@ -443,11 +560,17 @@ def ensure_dependencies():
 
 def main():
     ensure_dependencies()
-    check_docker()
-    ensure_env_file()
+    mode = db_mode()
+    if mode == "docker":
+        check_docker()
+    ensure_env_file(mode)
     ensure_install_id()
-    start_postgres()
+    if mode == "docker":
+        start_postgres()
     load_dotenv_now()
+    if mode == "native":
+        wait_for_database()
+    check_server(mode)
     apply_schema()
     ensure_first_admin()
     ensure_money_setting()
