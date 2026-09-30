@@ -8,7 +8,7 @@ only verify -- and it never writes a key inside this repository.
 
     vcs_vendor.py keygen  --out ~/vcs-vendor-keys/signing.pem
     vcs_vendor.py license --key KEY --install-id ID --clinic-name NAME (--days N | --expires YYYY-MM-DD)
-                          [--grace-days 14] [--warn-days 14]
+                          [--grace-days 14] [--warn-days 14] [--time-zone Asia/Baghdad]
     vcs_vendor.py pass    --key KEY --install-id ID --developer NAME [--hours 8]
     vcs_vendor.py inspect TOKEN
 
@@ -21,10 +21,12 @@ import base64
 import getpass
 import hashlib
 import json
+import re
 import sys
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -33,6 +35,13 @@ REPO = Path(__file__).resolve().parents[2]
 PREFIX = "VCS1"
 DEFAULT_GRACE_DAYS = DEFAULT_WARN_DAYS = 14      # plan A1, as the owner confirmed
 DEFAULT_PASS_HOURS = 8
+# A license runs through the end of its last day in the clinic's time zone,
+# so the date the clinic's License page shows is the date the vendor gave.
+# Both money settings' zones, Asia/Baghdad (IQ) and Asia/Amman (JO), are
+# UTC+3 all year (a test holds that); --time-zone is for a clinic whose Time
+# Zone setting says otherwise.
+DEFAULT_TIME_ZONE = "Asia/Baghdad"
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _b64(data):
@@ -150,11 +159,35 @@ def inspect(token):
     return payload, verdict
 
 
-def _expiry(args):
-    if args.expires:
-        day = date.fromisoformat(args.expires)
-        return datetime.combine(day, time(23, 59, 59), tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) + timedelta(days=args.days)
+def _zone(name):
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise SystemExit(f"Not a time zone: {name!r}. Use a name like Asia/Baghdad or Asia/Amman.")
+
+
+def _expiry(args, now=None):
+    """The end of the license's last day, 23:59:59 in the clinic's time zone:
+    --expires names that day; --days counts it from today there. Checked
+    before the passphrase is asked for, so a typo costs nothing."""
+    zone = _zone(args.time_zone)
+    now = now or datetime.now(timezone.utc)
+    if args.expires is not None:
+        text = args.expires.strip()
+        try:
+            if not _ISO_DAY.fullmatch(text):        # fromisoformat also takes 20270930 and 2027-W39-4
+                raise ValueError
+            day = date.fromisoformat(text)
+        except ValueError:
+            raise SystemExit(f"Not a date: {args.expires!r}. Write it as YYYY-MM-DD, e.g. 2027-09-30.")
+    else:
+        if args.days < 1:
+            raise SystemExit("--days must be 1 or more.")
+        day = now.astimezone(zone).date() + timedelta(days=args.days)
+    end = datetime.combine(day, time(23, 59, 59), tzinfo=zone)
+    if end <= now:
+        raise SystemExit(f"{day.isoformat()} has already ended in {args.time_zone}. Choose a later date.")
+    return end
 
 
 def main(argv=None):
@@ -171,6 +204,7 @@ def main(argv=None):
     when.add_argument("--expires")
     lic.add_argument("--grace-days", type=int, default=DEFAULT_GRACE_DAYS)
     lic.add_argument("--warn-days", type=int, default=DEFAULT_WARN_DAYS)
+    lic.add_argument("--time-zone", default=DEFAULT_TIME_ZONE)
     ps = sub.add_parser("pass")
     ps.add_argument("--key", required=True)
     ps.add_argument("--install-id", required=True)
@@ -193,9 +227,13 @@ def main(argv=None):
         print(json.dumps(payload, indent=2, ensure_ascii=False) if payload else "not a token")
         print(verdict)
     else:
+        if args.cmd == "license":
+            expires = _expiry(args)
+            if args.grace_days < 0 or args.warn_days < 0:
+                raise SystemExit("--grace-days and --warn-days must be 0 or more.")
         key = load_key(args.key, getpass.getpass("Passphrase for the signing key: "))
         if args.cmd == "license":
-            payload = license_payload(key, args.install_id, args.clinic_name, _expiry(args),
+            payload = license_payload(key, args.install_id, args.clinic_name, expires,
                                       grace_days=args.grace_days, warn_days=args.warn_days)
         else:
             payload = pass_payload(key, args.install_id, args.developer, hours=args.hours)

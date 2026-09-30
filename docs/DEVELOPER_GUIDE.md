@@ -57,10 +57,19 @@ python3 scripts/vendor/vcs_vendor.py license --key ~/vcs-vendor-keys/signing.pem
     --install-id <ID> --clinic-name "Clinic name" --days 365
 ```
 
-`--expires YYYY-MM-DD` instead of `--days`. The warning period before expiry and
-the grace period after it are in the license: 14 days each unless you pass
-`--warn-days` / `--grace-days`. Send the printed key to the clinic however you
-like; spaces and line breaks added on the way (WhatsApp wraps it) are ignored.
+`--expires YYYY-MM-DD` instead of `--days`. Either way the license runs through
+the **end of its last day in the clinic's time zone** (23:59:59 there), so the
+clinic's License page shows the date you meant: `--expires 2027-09-30` is valid
+through 30 September; `--days 365` through the same date next year. The zone is
+`Asia/Baghdad` unless you pass `--time-zone` — Baghdad and Amman are both UTC+3
+all year, so it is right for IQ and JO clinics alike; pass the clinic's own zone
+only if its Time Zone setting is something else. The dates are checked before
+the passphrase is asked for.
+
+The warning period before expiry and the grace period after it are in the
+license: 14 days each unless you pass `--warn-days` / `--grace-days`. Send the
+printed key to the clinic however you like; spaces and line breaks added on the
+way (WhatsApp wraps it) are ignored.
 
 ## Renewing
 

@@ -287,6 +287,65 @@ def test_a_key_file_that_will_not_open_says_why(vendor, tmp_path):
         assert words in str(refused.value), (path, str(refused.value))
 
 
+def _end(vendor, now=None, **given):
+    import argparse
+    args = argparse.Namespace(**{"expires": None, "days": None,
+                                 "time_zone": vendor.tool.DEFAULT_TIME_ZONE, **given})
+    return vendor.tool._expiry(args, now)
+
+
+@pytest.mark.parametrize("code", ["IQ", "JO"])
+def test_a_license_ends_on_the_date_the_vendor_gave_at_the_clinic(vendor, code):
+    """GUARD. The end date was 23:59:59 UTC, so --expires 2027-09-30 showed as
+    2027-10-01 on a clinic's License page in Iraq and Jordan (UTC+3). It is
+    the last second of that day in the clinic's zone -- each money setting's
+    zone, with the default --time-zone."""
+    from zoneinfo import ZoneInfo
+    from vcs import money
+    zone = ZoneInfo(money.SETTINGS[code].timezone)
+    now = datetime(2026, 10, 1, 21, 30, tzinfo=timezone.utc)          # 00:30 on 2 October at the clinic
+    for end in (_end(vendor, now, expires="2027-09-30"), _end(vendor, now, days=363)):
+        local = end.astimezone(zone)
+        assert (local.date().isoformat(), local.time().isoformat()) == ("2027-09-30", "23:59:59"), end
+        payload = vendor.tool.license_payload(vendor.key, "x", "x", end)
+        shown = datetime.fromisoformat(payload["expires_at"]).astimezone(zone)
+        assert shown.date().isoformat() == "2027-09-30"
+
+
+def test_control_another_time_zone_moves_the_end_with_it(vendor):
+    from zoneinfo import ZoneInfo
+    end = _end(vendor, expires="2099-01-31", time_zone="Europe/London")
+    assert end.astimezone(ZoneInfo("Europe/London")).isoformat() == "2099-01-31T23:59:59+00:00"
+
+
+@pytest.mark.parametrize("given, words", [
+    ({"expires": "30/09/2027"}, "Not a date"),
+    ({"expires": "20270930"}, "Not a date"),
+    ({"expires": "2027-W39-4"}, "Not a date"),
+    ({"expires": "2027-02-30"}, "Not a date"),
+    ({"expires": "2020-01-01"}, "has already ended"),
+    ({"days": 0}, "--days must be 1 or more"),
+    ({"expires": "2099-01-01", "time_zone": "Mars/Olympus"}, "Not a time zone"),
+])
+def test_a_mistyped_end_date_is_a_plain_message(vendor, given, words):
+    with pytest.raises(SystemExit) as refused:
+        _end(vendor, **given)
+    assert words in str(refused.value)
+
+
+def test_the_end_date_is_checked_before_the_passphrase_is_asked(vendor, monkeypatch):
+    """A typo in the date should not cost the vendor a passphrase."""
+    import getpass
+
+    def asked(prompt=""):
+        raise AssertionError("the passphrase was asked for before the date was checked")
+    monkeypatch.setattr(getpass, "getpass", asked)
+    with pytest.raises(SystemExit) as refused:
+        vendor.tool.main(["license", "--key", "unused.pem", "--install-id", "x", "--clinic-name", "x",
+                          "--expires", "30/09/2027"])
+    assert "Not a date" in str(refused.value)
+
+
 def test_the_vendor_tool_inspects_a_token(vendor):
     payload, verdict = vendor.tool.inspect(vendor.license())
     assert payload["kind"] == "license" and verdict.startswith("signature: valid")
