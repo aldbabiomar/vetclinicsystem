@@ -1,0 +1,41 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Configuration') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Configuration') }}{% endblock %}
+{% block dev_main %}
+<div class="card">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label for="devconfig-1-money_setting">{{ _('Money Setting') }}</label>
+        <select id="devconfig-1-money_setting" name="money_setting" {{ 'disabled' if money_setting and money_locked }}>
+          {% if not money_setting %}<option value="" selected>{{ _('— Choose IQ or JO —') }}</option>{% endif %}
+          {% for m in money_settings %}<option value="{{ m.code }}" {{ 'selected' if money_setting and money_setting.code == m.code }}>{{ money_setting_label(m.code) }}</option>{% endfor %}
+        </select>
+        {% if money_setting and money_locked %}
+        <span class="small muted">{{ _('Locked: money has been recorded in %(currency)s, so the setting can no longer change.', currency=money_setting.currency) }}</span>
+        {% else %}
+        <span class="small muted">{{ _('IQ: whole dinars, cash rounded to the 250-dinar note, +964 phone numbers. JO: three decimals, exact to the fils, +962 phone numbers.') }}</span>
+        {% endif %}
+      </div>
+      <div class="field"><label for="devconfig-2-theme_palette">{{ _('Color Palette') }}</label>
+        <select id="devconfig-2-theme_palette" name="theme_palette">
+          {% for key, label in palette_choices() %}
+          <option value="{{ key }}" {{ 'selected' if current_palette(settings.theme_palette) == key }}>{{ label|tr }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">{{ _('Save Configuration') }}</button></div>
+  </form>
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Clinic Settings') }}</div>
+  <p class="small muted">{{ _('The clinic changes these in Settings.') }}</p>
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Language') }}</div><div class="v">{{ 'العربية' if settings.language == 'ar' else 'English' }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Time Zone') }}</div><div class="v">{{ settings.time_zone or _('Automatic') }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Installation ID') }}</div><div class="v u-mono">{{ install_id or '—' }}</div></div>
+  </div>
+</div>
+{% endblock %}

@@ -19,12 +19,7 @@
 
 {% if not money_setting %}
 <div class="notice-banner" role="note">
-  {% if has_permission('manage_settings') %}
-  {{ _('Choose the clinic\'s money setting (IQ or JO) before recording any price or amount.') }}
-  <a href="{{ url_for('settings.settings_page') }}#money-setting">{{ _('Open Settings →') }}</a>
-  {% else %}
-  {{ _('Billing, payments and prices are not available yet: an admin needs to choose the clinic\'s money setting in Settings first.') }}
-  {% endif %}
+  {{ _("Setup isn't finished: your vendor needs to choose the money setting. Billing, payments, the point of sale and the price list stay locked until then.") }}
 </div>
 {% endif %}
 

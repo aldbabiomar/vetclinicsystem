@@ -237,6 +237,19 @@ def vendor():
                                  license=license, dev_pass=dev_pass)
 
 
+@pytest.fixture
+def developer(flask_app, vendor, monkeypatch):
+    """A browser signed in to the Developer area with a valid pass, and to
+    nothing else. Its sign-in counts against a limiter of its own: the
+    limiter is shared with the clinic's sign-in, and the suite signs in often
+    from one address."""
+    from vcs.web import core
+    monkeypatch.setattr(core, "_LOGIN_ATTEMPTS_BY_IP", {})
+    c = flask_app.test_client()
+    assert c.post("/developer/login", data={"dev_pass": vendor.dev_pass()}).status_code == 302
+    return c
+
+
 @pytest.fixture(scope="session", autouse=True)
 def clinic_license(vendor, tmp_path_factory):
     """The in-process clinic's license (licensing plan §14.4): one year, in a

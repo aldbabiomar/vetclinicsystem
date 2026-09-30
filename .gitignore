@@ -61,3 +61,6 @@ scripts/findings_*.json
 vendor-keys/
 # A development checkout keeps its license key here (vcs/licensing/state.py).
 /license/
+# A development checkout keeps its GitHub access token here (vcs/ops/updater.py).
+/github_token
+/github_token.tmp

@@ -1,11 +1,12 @@
 # VetClinicSystem — clinic management system
 
-> **Merge in progress.** This repository is the single VetClinicSystem that
-> replaces the two predecessor apps, VetClinicSystem IQ and VetClinicSystem JO.
-> It has one **money setting** — IQ (Iraqi dinar) or JO (Jordanian dinar) —
-> chosen in Settings. The text below still describes the JO predecessor in
-> places and is rewritten as the merge completes; see
-> `docs/plans/UNIFIED_CODEBASE_PLAN.md`.
+> This repository is the single VetClinicSystem that replaced the two
+> predecessor apps, VetClinicSystem IQ and VetClinicSystem JO. It has one
+> **money setting** — IQ (Iraqi dinar) or JO (Jordanian dinar) — chosen by the
+> vendor at setup (`--money-setting`) or in the Developer area. The text below
+> still describes the JO predecessor in places; it is rewritten when the
+> licensing plan's documentation phase runs
+> (`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §15).
 
 
 A full clinic management system for veterinary clinics: patient records,

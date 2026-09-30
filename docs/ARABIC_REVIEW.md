@@ -574,3 +574,51 @@ confirm: **read-only** — للقراءة فقط; **grace period** — فترة 
 | 30 | This computer's clock is behind the time the app last saw. Correct the date and time, then sign in again. | ساعة هذا الحاسوب متأخرة عن آخر وقت سجّله البرنامج. صحّح التاريخ والوقت، ثم سجّل الدخول مرة أخرى. |
 | 31 | This installation has no license key. Ask your vendor for one, then enter it on the License page. | لا يوجد مفتاح ترخيص لهذا التثبيت. اطلب واحدًا من مزوّد البرنامج، ثم أدخله في صفحة الترخيص. |
 | 32 | Warning, then grace | التنبيه، ثم فترة السماح |
+
+## 26. What the vendor sets: Configuration, Monitoring, Updates (37)
+
+The Developer area's Configuration, Monitoring and Updates pages, and what
+the clinic sees in their place (licensing plan §9-§10). New terms to confirm:
+**configuration** — التهيئة (الإعداد is already *setup*); **access token** —
+رمز الوصول (from the update messages); **ping** — نبضة (from the old
+monitoring text); **repository** — المستودع.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Access token | رمز الوصول |
+| 2 | Access token saved. | تم حفظ رمز الوصول. |
+| 3 | Automatic | تلقائي |
+| 4 | Color palette changed | تغيّرت لوحة الألوان |
+| 5 | Configuration | التهيئة |
+| 6 | Configuration change refused | رُفض تغيير في التهيئة |
+| 7 | Configuration saved. | تم حفظ التهيئة. |
+| 8 | Connected: the latest release is %(tag)s. | تم الاتصال: أحدث إصدار هو %(tag)s. |
+| 9 | GitHub answered “not found or no access”: the repository has no published release, its name is wrong, or this install's access token cannot see it. | ردّ GitHub بـ «غير موجود أو لا توجد صلاحية وصول»: إما أنه لا يوجد في المستودع إصدار منشور، أو أن اسمه غير صحيح، أو أن رمز الوصول الخاص بهذا التثبيت لا يستطيع رؤيته. |
+| 10 | Money setting changed | تغيّر إعداد العملة |
+| 11 | Monitoring | المراقبة |
+| 12 | Monitoring ping changed | تغيّر رابط المراقبة |
+| 13 | Monitoring saved. | تم حفظ إعدادات المراقبة. |
+| 14 | Must start with https://. Treat it like a password: anyone who has it can send a fake ping and stop a real alert. | يجب أن يبدأ بـ https://. تعامل معه ككلمة مرور: من يملكه يستطيع إرسال نبضة مزيّفة وإيقاف تنبيه حقيقي. |
+| 15 | New ping URL | رابط المراقبة الجديد |
+| 16 | No access token is set for updates on this install, so updates are off. Your vendor sets one in the Developer area. | لا يوجد رمز وصول للتحديثات على هذا التثبيت، لذا التحديثات متوقفة. يعيّن مزوّد البرنامج رمزًا من منطقة المطوّر. |
+| 17 | Not set | غير محدد |
+| 18 | Nothing was saved: the money setting, the color palette and the monitoring ping are set by your vendor. | لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة يحددها مزوّد البرنامج. |
+| 19 | Paste the token first. | الصق الرمز أولًا. |
+| 20 | Recent update history | أحدث سجلات التحديث |
+| 21 | Remove token | إزالة الرمز |
+| 22 | Replace the access token | استبدال رمز الوصول |
+| 23 | Repository | المستودع |
+| 24 | Rollback started | بدأ التراجع |
+| 25 | Save Configuration | حفظ التهيئة |
+| 26 | Save token | حفظ الرمز |
+| 27 | Set by your vendor, who can change it until the first price or amount is recorded; then it locks. | يحدده مزوّد البرنامج، ويمكنه تغييره حتى يُسجَّل أول سعر أو مبلغ؛ بعدها يُقفل. |
+| 28 | Set by your vendor. | يحدده مزوّد البرنامج. |
+| 29 | Setup isn't finished: your vendor needs to choose the money setting. Billing, payments, the point of sale and the price list stay locked until then. | لم يكتمل الإعداد: يجب على مزوّد البرنامج اختيار إعداد العملة. تبقى الفوترة والدفعات ونقطة البيع وقائمة الأسعار مقفلة حتى ذلك الحين. |
+| 30 | Test connection | اختبار الاتصال |
+| 31 | The access token is removed; updates are off until a new one is set. | أُزيل رمز الوصول؛ التحديثات متوقفة حتى يُعيَّن رمز جديد. |
+| 32 | The clinic changes these in Settings. | تغيّر العيادة هذه من الإعدادات. |
+| 33 | This clinic's own read-only token for the repository. Revoking it on GitHub stops only this clinic's updates. | رمز خاص بهذه العيادة لقراءة المستودع فقط. إلغاؤه على GitHub يوقف تحديثات هذه العيادة وحدها. |
+| 34 | Turn monitoring off | إيقاف المراقبة |
+| 35 | Update access token changed | تغيّر رمز الوصول للتحديثات |
+| 36 | Update started | بدأ التحديث |
+| 37 | When set, this clinic sends a short daily status ping — counts and statuses only, never patient, owner or staff details, and never any amounts. If this machine stops sending, the monitoring service tells you. | عند ضبطه، ترسل هذه العيادة نبضة حالة يومية قصيرة — أعدادًا وحالات فقط، دون أي تفاصيل عن الحيوانات أو المالكين أو الموظفين، ودون أي مبالغ. وإن توقف هذا الجهاز عن الإرسال، تُبلغك خدمة المراقبة. |

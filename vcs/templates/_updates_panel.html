@@ -1,0 +1,152 @@
+{# The Updates controls (check, apply, roll back), shared by Settings and the
+   Developer area (licensing plan L-8, §8): the same markup and script, each
+   page passing its own routes as `upd` = {status, check, apply, rollback, job}. #}
+<div class="section-title">{{ _('Updates') }}</div>
+<div id="updatesConfigured" style="display:none;">
+  <div class="detail-item"><div class="k">{{ _('Current Version') }}</div><div class="v" id="updCurrentVersion">{{ _('VetClinicSystem v%(app_version)s', app_version=app_version) }}</div></div>
+  <div class="u-row-center-mt">
+    <button class="btn secondary" type="button" id="updCheckBtn" data-vzh="updates-1">{{ _('Check for Updates') }}</button>
+    <span id="updCheckStatus" class="small muted"></span>
+  </div>
+  <div id="updAvailablePanel" style="display:none; margin-top:14px; padding:14px; border:1px solid var(--line-soft); border-radius:10px;">
+    <div class="u-strong u-mb-2">{{ _('Version') }} <span id="updLatestTag"></span> {{ _('is available') }}</div>
+    <pre id="updChangelogBody" class="small preserve-lines"></pre>
+    <div class="u-row">
+      <button class="btn" type="button" id="updApplyBtn" data-vzh="updates-2">{{ _('Update Now') }}</button>
+      <button class="btn secondary" type="button" data-vzh="updates-3">{{ _('Not Now') }}</button>
+    </div>
+  </div>
+  <div id="updateProgress" class="vz-progress-panel" style="display:none; margin-top:12px;"></div>
+  <div class="u-mt-6">
+    <button class="btn secondary" type="button" id="updRollbackBtn" data-vzh="updates-4">{{ _('Rollback to Previous Version') }}</button>
+  </div>
+</div>
+<div id="updatesNotConfigured" class="small muted" style="display:none;">
+  {{ _('Automatic updates aren\'t set up on this install yet. An administrator can enable them by running') }}
+  <code>{{ _('python3 setup.py --enable-updates') }}</code> {{ _('on the computer running VetClinicSystem.') }}
+</div>
+<script nonce="{{ csp_nonce }}">
+async function loadUpdatesStatus() {
+  // /status, not /check — this runs on every Settings page load, and /check
+  // spends one of the 60 unauthenticated GitHub calls this network gets per
+  // hour. Nothing drawn below needs GitHub. See COMPARISON.md §46.
+  try {
+    const res = await fetch({{ upd.status|tojson }});
+    const data = await res.json();
+    document.getElementById('updatesConfigured').style.display = data.configured ? '' : 'none';
+    document.getElementById('updatesNotConfigured').style.display = data.configured ? 'none' : '';
+    if (data.configured && data.current_version) {
+      document.getElementById('updCurrentVersion').textContent = 'VetClinicSystem v' + data.current_version;
+    }
+  } catch (err) { /* leave both panels hidden on load failure */ }
+}
+loadUpdatesStatus();
+
+async function checkForUpdates() {
+  const btn = document.getElementById('updCheckBtn');
+  const statusEl = document.getElementById('updCheckStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Checking…';
+  try {
+    const res = await fetch({{ upd.check|tojson }});
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = data.error; return; }
+    if (data.available) {
+      statusEl.textContent = '';
+      document.getElementById('updLatestTag').textContent = data.latest_tag;
+      document.getElementById('updChangelogBody').textContent = data.latest_body || '';
+      document.getElementById('updAvailablePanel').style.display = '';
+    } else {
+      statusEl.textContent = {{ _('You\'re on the latest version.')|tojson }};
+      document.getElementById('updAvailablePanel').style.display = 'none';
+    }
+  } catch (err) {
+    statusEl.textContent = {{ _('Couldn\'t check for updates.')|tojson }};
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function waitForRestart(successMessage) {
+  const panel = document.getElementById('updateProgress');
+  panel.style.display = 'block';
+  window.VZProgress.render(panel, { status: 'running',
+    steps: [{{ _('Restarting VetClinicSystem')|tojson }}], current: 0,
+    message: {{ _('The app is restarting — this page will reconnect automatically.')|tojson }} });
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch('{{ url_for('main.health') }}', { cache: 'no-store' });
+      if (res.ok) {
+        clearInterval(poll);
+        window.VZToast.show(successMessage || {{ _('Done — reloading.')|tojson }}, 'success');
+        setTimeout(() => window.location.reload(), 800);
+      }
+    } catch (err) { /* still restarting — keep polling */ }
+    if (attempts > 60) {  // ~2 minutes
+      clearInterval(poll);
+      window.VZProgress.render(panel, { status: 'error',
+        steps: [{{ _('Restarting VetClinicSystem')|tojson }}], current: 0,
+        message: {{ _('Taking longer than expected to come back — check with whoever manages this computer.')|tojson }} });
+    }
+  }, 2000);
+}
+
+function runUpdateJob(startUrl, actionLabel, failedMessage) {
+  // VZProgress, like the Backup and Restore handlers on Settings — it
+  // draws the step label, the bar and the elapsed time. This path used to
+  // poll by hand and write plain text into the panel, which made the longest
+  // job in the app the one with the least feedback.
+  const panel = document.getElementById('updateProgress');
+  panel.style.display = 'block';
+  fetch(startUrl, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok || !data.job_id) {
+        const msg = data.error || {{ _('{job} failed to start.')|tojson }}.replace('{job}', actionLabel);
+        window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: msg });
+        window.VZToast.show(msg, 'error');
+        return;
+      }
+      window.VZProgress.poll(data.job_id, {{ upd.job|tojson }}, {}, {
+        onUpdate: (d) => window.VZProgress.render(panel, d),
+        onDone: (d) => {
+          if (d.ok) {
+            waitForRestart(d.message);
+          } else {
+            window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: d.message });
+            window.VZToast.show(d.message || failedMessage, 'error');
+          }
+        },
+        onError: (d) => {
+          window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: d.message });
+          window.VZToast.show(d.message || failedMessage, 'error');
+        },
+      });
+    })
+    .catch(() => { panel.textContent = {{ _('{job} failed to start.')|tojson }}.replace('{job}', actionLabel); });
+}
+
+async function applyUpdate() {
+  const ok = await window.VZDialog.confirm({{ _('This will restart VetClinicSystem for everyone for about 30 seconds. A backup will be taken first. Continue?')|tojson }});
+  if (!ok) return;
+  runUpdateJob({{ upd.apply|tojson }},
+              {{ _('Update')|tojson }}, {{ _('Update failed.')|tojson }});
+}
+
+async function rollbackUpdate() {
+  const ok = await window.VZDialog.confirm({{ _('This will roll back to the previous version and restart VetClinicSystem for everyone for about 30 seconds. Continue?')|tojson }});
+  if (!ok) return;
+  runUpdateJob({{ upd.rollback|tojson }},
+              {{ _('Rollback')|tojson }}, {{ _('Rollback failed.')|tojson }});
+}
+
+VZ.bind('updates-1', 'click', function (event) { checkForUpdates(); });
+VZ.bind('updates-2', 'click', function (event) { applyUpdate(); });
+VZ.bind('updates-3', 'click', function (event) { document.getElementById('updAvailablePanel').style.display='none'; });
+VZ.bind('updates-4', 'click', function (event) { rollbackUpdate(); });
+</script>

@@ -144,10 +144,16 @@ def test_every_cause_produces_a_DIFFERENT_sentence():
 # alternative is a browser.
 
 SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
+# The Updates controls live in one partial, shared by Settings and the
+# Developer area; each page hands it its own routes as `upd`.
+PANEL_HTML = source_files.TEMPLATES_DIR / "_updates_panel.html"
+PAGES_AND_ROUTES = [(SETTINGS_HTML, "settings.settings_updates_status", "settings.settings_updates_check"),
+                    (source_files.TEMPLATES_DIR / "developer_updates.html",
+                     "developer.updates_status", "developer.updates_check")]
 
 
 def _js_function_body(name):
-    src = SETTINGS_HTML.read_text(encoding="utf-8")
+    src = PANEL_HTML.read_text(encoding="utf-8")
     start = src.index(f"async function {name}(")
     # to the closing brace of the function, found by the next line that is a
     # bare "}" at column 0 -- these are top-level functions in a <script>.
@@ -155,35 +161,23 @@ def _js_function_body(name):
     return src[start:end]
 
 
-def _calls_route(body, path, endpoint):
-    """True if this JS body targets that route, written either way.
-
-    URLs in the templates moved from string literals to url_for() (see
-    test_frontend.py's hardcoded-URL guard), so the source now reads
-    `{{ url_for('settings.settings_updates_status') }}` where it used to read
-    "/settings/updates/status". Both spellings mean the same request; matching
-    either keeps this guard about WHICH ROUTE IS CALLED rather than about how
-    the URL happens to be spelled. The rendered page still contains the literal
-    path, which is what the browser tier sees.
-    """
-    return path in body or endpoint in body
-
-
 def test_the_settings_page_asks_the_local_route_on_load():
     body = _js_function_body("loadUpdatesStatus")
-    assert _calls_route(body, "/settings/updates/status", "settings_updates_status"), (
-        "the page-load handler must call the local-only status route")
-    assert not _calls_route(body, "/settings/updates/check", "settings_updates_check"), (
+    assert "upd.status" in body, "the page-load handler must call the local-only status route"
+    assert "upd.check" not in body, (
         "the page-load handler is calling GitHub again — every Settings visit "
         "spends one of the 60 requests this network gets per hour")
+    for page, status_route, check_route in PAGES_AND_ROUTES:
+        src = page.read_text(encoding="utf-8")
+        assert f'"status": url_for(\'{status_route}\')' in src, f"{page.name} does not hand the panel its status route"
+        assert f'"check": url_for(\'{check_route}\')' in src, f"{page.name} does not hand the panel its check route"
 
 
 def test_the_check_button_still_asks_the_route_that_calls_github():
     """The control. Without it, deleting the GitHub call altogether would pass
     the test above while quietly removing the feature."""
     body = _js_function_body("checkForUpdates")
-    assert _calls_route(body, "/settings/updates/check", "settings_updates_check"), (
-        "the Check for Updates button must still perform a real check")
+    assert "upd.check" in body, "the Check for Updates button must still perform a real check"
 
 
 # ---------------------------------------------------------------------------

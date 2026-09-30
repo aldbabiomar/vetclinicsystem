@@ -20,35 +20,27 @@
         <option value="ar" {{ 'selected' if settings.language == 'ar' }}>العربية</option>
       </select>
     </div>
-    <div class="field"><label for="settings-3c-theme_palette">{{ _('Color Palette') }}</label>
-      <select id="settings-3c-theme_palette" name="theme_palette">
-        {% for key, label in palette_choices() %}
-        <option value="{{ key }}" {{ 'selected' if current_palette(settings.theme_palette) == key }}>{{ _(label) }}</option>
-        {% endfor %}
-      </select>
-      <div class="small muted">{{ _('Light or dark is each person\'s own choice: the moon button in the sidebar.') }}</div>
+    <div class="field"><span class="field-label">{{ _('Color Palette') }}</span>
+      <div class="v">{% for key, label in palette_choices() if key == current_palette(settings.theme_palette) %}{{ label|tr }}{% endfor %}</div>
+      <div class="small muted">{{ _('Set by your vendor.') }} {{ _('Light or dark is each person\'s own choice: the moon button in the sidebar.') }}</div>
     </div>
   </div>
 
   <div class="section-title" id="money-setting">{{ _('Money Setting') }}</div>
   {% if not money_setting %}
-  <div class="notice-banner" role="note">{{ _('Choose the money setting before recording any price or amount. Billing, payments, the point of sale and the price list stay locked until it is set.') }}</div>
-  {% endif %}
+  <div class="notice-banner" role="note">{{ _("Setup isn't finished: your vendor needs to choose the money setting. Billing, payments, the point of sale and the price list stay locked until then.") }}</div>
+  {% else %}
   <div class="form-grid">
-    <div class="field"><label for="settings-money_setting">{{ _('Money Setting') }}</label>
-      <select id="settings-money_setting" name="money_setting" {{ 'disabled' if money_setting and money_locked }}>
-        {% if not money_setting %}<option value="" selected>{{ _('— Choose IQ or JO —') }}</option>{% endif %}
-        {% for m in money_settings %}<option value="{{ m.code }}" {{ 'selected' if money_setting and money_setting.code == m.code }}>{{ money_setting_label(m.code) }}</option>{% endfor %}
-      </select>
-      {% if money_setting and money_locked %}
+    <div class="field"><span class="field-label">{{ _('Money Setting') }}</span>
+      <div class="v">{{ money_setting_label(money_setting.code) }}</div>
+      {% if money_locked %}
       <span class="small muted">{{ _('Locked: money has been recorded in %(currency)s, so the setting can no longer change.', currency=money_setting.currency) }}</span>
-      {% elif money_setting %}
-      <span class="small muted">{{ _('Can be changed until the first price or amount is recorded; then it locks.') }}</span>
       {% else %}
-      <span class="small muted">{{ _('IQ: whole dinars, cash rounded to the 250-dinar note, +964 phone numbers. JO: three decimals, exact to the fils, +962 phone numbers.') }}</span>
+      <span class="small muted">{{ _('Set by your vendor, who can change it until the first price or amount is recorded; then it locks.') }}</span>
       {% endif %}
     </div>
   </div>
+  {% endif %}
 
   <div class="section-title" id="time-zone">{{ _('Time Zone') }}</div>
   <div class="form-grid">
@@ -121,28 +113,6 @@
         {{ _('Run the daily health check and show its warnings') }}
       </label>
     </div>
-  </div>
-
-  <div class="section-title">{{ _('Remote Monitoring (optional)') }}</div>
-  <p class="small muted u-mt-tight">
-    {{ _('Off unless you fill this in. When set, this clinic sends a short daily status ping — counts and statuses only, never patient, owner or staff details, and never any amounts. The point is the %(missing)s ping: if this machine stops sending, whoever maintains the system gets told, which is the one thing the app cannot report while it is switched off.', missing=('<em>%s</em>'|safe) % _('missing')) }}
-  </p>
-  <div class="form-grid">
-    <div class="field full">
-      <label for="settings-12-heartbeat_url">{{ _('Monitoring Ping URL') }}</label>
-      <input id="settings-12-heartbeat_url" name="heartbeat_url" type="url" placeholder="{{ _('https://… (leave blank to disable)') }}"
-             value="{{ settings.heartbeat_url or '' }}" autocomplete="off" spellcheck="false">
-      <p class="small muted u-stack-2">
-        {{ _('Must start with %(scheme)s. Use a different URL for each clinic, so an alert can say which one went quiet. %(warning)s — anyone who has it can send a fake ping and stop a real alert from ever reaching you.', scheme='<code>https://</code>'|safe, warning=('<strong>%s</strong>'|safe) % _('Treat it like a password')) }}
-      </p>
-    </div>
-    {% if settings.heartbeat_install_id %}
-    <div class="field full">
-      <span class="field-label">{{ _('This Install\'s ID') }}</span>
-      <div class="small code-box">{{ settings.heartbeat_install_id }}</div>
-      <p class="small muted u-stack-2">{{ _('Included in every ping so one monitoring account can watch several clinics.') }}</p>
-    </div>
-    {% endif %}
   </div>
 
   <div class="settings-save-bar">
@@ -237,30 +207,11 @@
 
 <div class="card">
 <div class="settings-card-head"><h2>{{ _('Updates') }}</h2><span class="settings-tag now">{{ _('Runs when you click') }}</span></div>
-<div class="section-title">{{ _('Updates') }}</div>
-<div id="updatesConfigured" style="display:none;">
-  <div class="detail-item"><div class="k">{{ _('Current Version') }}</div><div class="v" id="updCurrentVersion">{{ _('VetClinicSystem v%(app_version)s', app_version=app_version) }}</div></div>
-  <div class="u-row-center-mt">
-    <button class="btn secondary" type="button" id="updCheckBtn" data-vzh="settings-3">{{ _('Check for Updates') }}</button>
-    <span id="updCheckStatus" class="small muted"></span>
-  </div>
-  <div id="updAvailablePanel" style="display:none; margin-top:14px; padding:14px; border:1px solid var(--line-soft); border-radius:10px;">
-    <div class="u-strong u-mb-2">{{ _('Version') }} <span id="updLatestTag"></span> {{ _('is available') }}</div>
-    <pre id="updChangelogBody" class="small preserve-lines"></pre>
-    <div class="u-row">
-      <button class="btn" type="button" id="updApplyBtn" data-vzh="settings-4">{{ _('Update Now') }}</button>
-      <button class="btn secondary" type="button" data-vzh="settings-5">{{ _('Not Now') }}</button>
-    </div>
-  </div>
-  <div id="updateProgress" class="vz-progress-panel" style="display:none; margin-top:12px;"></div>
-  <div class="u-mt-6">
-    <button class="btn secondary" type="button" id="updRollbackBtn" data-vzh="settings-6">{{ _('Rollback to Previous Version') }}</button>
-  </div>
-</div>
-<div id="updatesNotConfigured" class="small muted" style="display:none;">
-  {{ _('Automatic updates aren\'t set up on this install yet. An administrator can enable them by running') }}
-  <code>{{ _('python3 setup.py --enable-updates') }}</code> {{ _('on the computer running VetClinicSystem.') }}
-</div>
+{% with upd = {"status": url_for('settings.settings_updates_status'),
+                "check": url_for('settings.settings_updates_check'),
+                "apply": url_for('settings.settings_updates_apply'),
+                "rollback": url_for('settings.settings_updates_rollback'),
+                "job": url_for('settings.settings_job_status')} %}{% include "_updates_panel.html" %}{% endwith %}
 
 </div>
 
@@ -301,125 +252,6 @@
 </div>
 
 <script nonce="{{ csp_nonce }}">
-async function loadUpdatesStatus() {
-  // /status, not /check — this runs on every Settings page load, and /check
-  // spends one of the 60 unauthenticated GitHub calls this network gets per
-  // hour. Nothing drawn below needs GitHub. See COMPARISON.md §46.
-  try {
-    const res = await fetch('{{ url_for('settings.settings_updates_status') }}');
-    const data = await res.json();
-    document.getElementById('updatesConfigured').style.display = data.configured ? '' : 'none';
-    document.getElementById('updatesNotConfigured').style.display = data.configured ? 'none' : '';
-    if (data.configured && data.current_version) {
-      document.getElementById('updCurrentVersion').textContent = 'VetClinicSystem v' + data.current_version;
-    }
-  } catch (err) { /* leave both panels hidden on load failure */ }
-}
-loadUpdatesStatus();
-
-async function checkForUpdates() {
-  const btn = document.getElementById('updCheckBtn');
-  const statusEl = document.getElementById('updCheckStatus');
-  btn.disabled = true;
-  statusEl.textContent = 'Checking…';
-  try {
-    const res = await fetch('{{ url_for('settings.settings_updates_check') }}');
-    const data = await res.json();
-    if (data.error) { statusEl.textContent = data.error; return; }
-    if (data.available) {
-      statusEl.textContent = '';
-      document.getElementById('updLatestTag').textContent = data.latest_tag;
-      document.getElementById('updChangelogBody').textContent = data.latest_body || '';
-      document.getElementById('updAvailablePanel').style.display = '';
-    } else {
-      statusEl.textContent = {{ _('You\'re on the latest version.')|tojson }};
-      document.getElementById('updAvailablePanel').style.display = 'none';
-    }
-  } catch (err) {
-    statusEl.textContent = {{ _('Couldn\'t check for updates.')|tojson }};
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function waitForRestart(successMessage) {
-  const panel = document.getElementById('updateProgress');
-  panel.style.display = 'block';
-  window.VZProgress.render(panel, { status: 'running',
-    steps: [{{ _('Restarting VetClinicSystem')|tojson }}], current: 0,
-    message: {{ _('The app is restarting — this page will reconnect automatically.')|tojson }} });
-  let attempts = 0;
-  const poll = setInterval(async () => {
-    attempts++;
-    try {
-      const res = await fetch('{{ url_for('main.health') }}', { cache: 'no-store' });
-      if (res.ok) {
-        clearInterval(poll);
-        window.VZToast.show(successMessage || {{ _('Done — reloading.')|tojson }}, 'success');
-        setTimeout(() => window.location.reload(), 800);
-      }
-    } catch (err) { /* still restarting — keep polling */ }
-    if (attempts > 60) {  // ~2 minutes
-      clearInterval(poll);
-      window.VZProgress.render(panel, { status: 'error',
-        steps: [{{ _('Restarting VetClinicSystem')|tojson }}], current: 0,
-        message: {{ _('Taking longer than expected to come back — check with whoever manages this computer.')|tojson }} });
-    }
-  }, 2000);
-}
-
-function runUpdateJob(startUrl, actionLabel, failedMessage) {
-  // VZProgress, like this page's own Backup and Restore handlers below — it
-  // draws the step label, the bar and the elapsed time. This path used to
-  // poll by hand and write plain text into the panel, which made the longest
-  // job in the app the one with the least feedback.
-  const panel = document.getElementById('updateProgress');
-  panel.style.display = 'block';
-  fetch(startUrl, {
-    method: 'POST',
-    headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
-  })
-    .then(res => res.json().then(data => ({ ok: res.ok, data })))
-    .then(({ ok, data }) => {
-      if (!ok || !data.job_id) {
-        const msg = data.error || {{ _('{job} failed to start.')|tojson }}.replace('{job}', actionLabel);
-        window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: msg });
-        window.VZToast.show(msg, 'error');
-        return;
-      }
-      window.VZProgress.poll(data.job_id, '{{ url_for('settings.settings_job_status') }}', {}, {
-        onUpdate: (d) => window.VZProgress.render(panel, d),
-        onDone: (d) => {
-          if (d.ok) {
-            waitForRestart(d.message);
-          } else {
-            window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: d.message });
-            window.VZToast.show(d.message || failedMessage, 'error');
-          }
-        },
-        onError: (d) => {
-          window.VZProgress.render(panel, { status: 'error', steps: [actionLabel], current: 0, message: d.message });
-          window.VZToast.show(d.message || failedMessage, 'error');
-        },
-      });
-    })
-    .catch(() => { panel.textContent = {{ _('{job} failed to start.')|tojson }}.replace('{job}', actionLabel); });
-}
-
-async function applyUpdate() {
-  const ok = await window.VZDialog.confirm({{ _('This will restart VetClinicSystem for everyone for about 30 seconds. A backup will be taken first. Continue?')|tojson }});
-  if (!ok) return;
-  runUpdateJob('{{ url_for('settings.settings_updates_apply') }}',
-              {{ _('Update')|tojson }}, {{ _('Update failed.')|tojson }});
-}
-
-async function rollbackUpdate() {
-  const ok = await window.VZDialog.confirm({{ _('This will roll back to the previous version and restart VetClinicSystem for everyone for about 30 seconds. Continue?')|tojson }});
-  if (!ok) return;
-  runUpdateJob('{{ url_for('settings.settings_updates_rollback') }}',
-              {{ _('Rollback')|tojson }}, {{ _('Rollback failed.')|tojson }});
-}
-
 // --------------------------------------------------------------------
 // Restore Now: kicks off a background job on the server (a full database
 // restore can take a while) and polls for progress instead of blocking
@@ -691,10 +523,6 @@ function folderBrowserSelectFile(fullPath) {
 <script nonce="{{ csp_nonce }}">
 VZ.bind('settings-1', 'click', function (event) { openFolderBrowser('backupDirInput', {filePicker:false}); });
 VZ.bind('settings-2', 'click', function (event) { openFolderBrowser('restoreFileInput', {filePicker:true, ext:'.dump'}); });
-VZ.bind('settings-3', 'click', function (event) { checkForUpdates(); });
-VZ.bind('settings-4', 'click', function (event) { applyUpdate(); });
-VZ.bind('settings-5', 'click', function (event) { document.getElementById('updAvailablePanel').style.display='none'; });
-VZ.bind('settings-6', 'click', function (event) { rollbackUpdate(); });
 VZ.bind('settings-7', 'change', function (event) { document.getElementById('autostartForm').requestSubmit(); });
 VZ.bind('settings-8', 'click', function (event) { folderBrowserNewFolder(); });
 VZ.bind('settings-9', 'click', function (event) { window.VZSpring.present(document.getElementById('folderBrowserModal'), false, {}); });

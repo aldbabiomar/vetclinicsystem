@@ -18,3 +18,8 @@ def int_setting(db, key, default):
         return int(get_setting(db, key, default))
     except (TypeError, ValueError):
         return int(default)
+
+
+def get_all(db):
+    """Every stored setting, as {key: value}."""
+    return {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM settings").fetchall()}

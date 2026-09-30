@@ -957,3 +957,55 @@ result under each money setting.
   **Suite:** IQ **1722 passed, 0 skipped**; JO **1722 passed, 0 skipped**
   (two registry expectations — the new partials, and the settings role's
   new License link — fixed and re-run in both); no database 763 passed.
+- **2026-09-30 — Phase 4: what the vendor sets moves to the Developer area.**
+  - **The gate (§9.1):** `money_setting`, `theme_palette` and
+    `heartbeat_url` are gated `developer` in `SETTING_FIELD_PERMISSION`.
+    `developer` is not a permission, so `POST /settings` refuses those keys
+    from everyone, the system Admin included, and saves nothing else in that
+    submission. Their save rules — the money setting's lock, the palette
+    registry, the ping URL's https and its secrecy — moved out of the
+    Settings route into `vcs/web/vendor_settings.py`, which only the
+    Developer area calls.
+  - **Developer → Configuration:** the money setting (locked for the vendor
+    too, once money is recorded; a change reschedules the clinic's jobs) and
+    the palette; the clinic's own settings shown read-only. **Developer →
+    Monitoring:** the ping URL, masked, and the install's ID. **Developer →
+    Updates:** the token (masked to its last four characters; Replace,
+    Remove, Test connection) and the same check / update / roll back panel
+    as Settings → Updates — one partial (`_updates_panel.html`) and one
+    module (`vcs/web/update_jobs.py`) behind both, so the two cannot drift.
+    Each change is in the Developer Audit; a secret as `set` / `not set`.
+  - **Settings (§9.2–§9.3):** the palette and the money setting are shown
+    read-only, "set by your vendor"; Remote Monitoring is gone. Before the
+    money setting is chosen, staff are told the vendor has to finish setup
+    and are sent to the Dashboard, not to Settings. `setup.py
+    --money-setting IQ|JO` chooses it at install time.
+  - **The token (§10):** `GITHUB_TOKEN` is gone from `.env`; the token is
+    `<data dir>/github_token`, written atomically with mode 0600, read at
+    every call, git-ignored and left out of release copies. A 404 says "not
+    found or no access"; with no token, updates say so instead of calling
+    GitHub. No weekend setting exists to leave in Settings (§9.2's row).
+  - **Docs:** `CLAUDE.md` records L-1–L-3 (the decision table, the status,
+    the layout, the test environment's license); `RELEASE_WORKFLOW.md` (a
+    private repository, a token per clinic, revoking it, what a clinic
+    sees, rotating the signing key in a release); `DEVELOPER_GUIDE.md` (what
+    only the vendor sets; issuing and revoking a clinic's token).
+  - **Tests:** `tests/test_vendor_settings.py` (18) — the gate on each key
+    and its control, the lock for the vendor, https, the secrecy of the ping
+    URL in both logs, the token read per call, 0600, masked, never in a
+    message or the audit, the no-token message, Test connection, `setup
+    --money-setting`. The palette and heartbeat tests save through the
+    Developer area; a shared `developer` fixture in `conftest`; the
+    progress-panel and updater tests read the shared partial; the
+    request-layer scans (`source_files.WEB_APP`) now include the modules the
+    blueprints share. Nine mutations (one moved), all proven; the two whose
+    control first failed read every row ever written, and now read only
+    their own. Arabic: `ARABIC_REVIEW.md` §26 (37 strings).
+  - **The environment:** `isolated_test_env.sh venv iq|jo` rebuilds only the
+    venv — macOS prunes `/tmp` files nobody opened for three days, and on
+    2026-09-30 it took both venvs' `pyvenv.cfg`.
+
+  **Suite:** IQ **1739 passed, 0 skipped**; JO **1739 passed, 0 skipped**
+  (the first full run found the updater-route tests' configured install
+  had no token, so the new refusal answered before GitHub was asked; the
+  fixture now saves one, and both were re-run); no database 763 passed.

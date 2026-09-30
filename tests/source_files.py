@@ -18,7 +18,12 @@ WEB = PKG / "web"
 BLUEPRINTS = sorted(p for p in (WEB / "blueprints").glob("*.py") if p.name != "__init__.py")
 # The request layer beside the blueprints: what runs around every request,
 # the error handlers, and what every template can use.
-WEB_APP = [WEB / "hooks.py", WEB / "errors.py", WEB / "templating.py", WEB / "factory.py"]
+WEB_APP = [WEB / "hooks.py", WEB / "errors.py", WEB / "templating.py", WEB / "factory.py",
+           # Request handling that two blueprints share (the clinic's pages and
+           # the Developer area's): read-only mode, the License pages, the
+           # Updates jobs, what only the vendor sets, the developer session.
+           WEB / "readonly.py", WEB / "license_pages.py", WEB / "update_jobs.py",
+           WEB / "vendor_settings.py", WEB / "devsession.py"]
 TEMPLATES_DIR = PKG / "templates"
 STATIC_DIR = PKG / "static"
 TRANSLATIONS_DIR = PKG / "translations"

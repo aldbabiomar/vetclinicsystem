@@ -40,8 +40,12 @@ from vcs.messages import Msg, N_
 DATA_DIR = os.environ.get("VETCLINICSYSTEM_DATA_DIR")
 RELEASES_DIR = os.environ.get("VETCLINICSYSTEM_RELEASES_DIR")
 GITHUB_REPO = os.environ.get("GITHUB_REPO")
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 BASE_DIR = ROOT
+# The clinic's own read-only GitHub token (licensing plan L-1, A5): a file in
+# the data folder, readable only by the app's user -- never the database or
+# .env, so it does not travel in a backup or an export, and the vendor sets
+# it in the Developer area without a text editor.
+TOKEN_FILE = "github_token"
 
 KEEP_RELEASES = 2  # the new one + the one it replaced
 
@@ -129,10 +133,49 @@ def list_releases():
     return sorted(names, key=_release_sort_key, reverse=True)
 
 
+def _token_path():
+    return os.path.join(DATA_DIR or BASE_DIR, TOKEN_FILE)
+
+
+def read_token():
+    """The access token, read at every call: a token replaced in the
+    Developer area is the next request's token, with no restart."""
+    try:
+        with open(_token_path(), encoding="utf-8") as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def save_token(value):
+    """Written atomically, and created readable only by this user."""
+    path = _token_path()
+    tmp = f"{path}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(value.strip() + "\n")
+    os.replace(tmp, path)
+    os.chmod(path, 0o600)
+
+
+def remove_token():
+    try:
+        os.remove(_token_path())
+    except FileNotFoundError:
+        pass
+
+
+def masked_token():
+    """What a page may show of the token: its last four characters."""
+    token = read_token()
+    return f"…{token[-4:]}" if token else None
+
+
 def _api_headers():
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    token = read_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 
@@ -207,8 +250,11 @@ def describe_check_failure(exc):
                 return Msg(N_("GitHub rejected the access token for this install — it may "
                               "have expired or been revoked."))
             if status == 404:
-                return Msg(N_("GitHub has no published release to compare against, or the "
-                              "configured repository name is wrong."))
+                # GitHub answers 404, not 403, for a private repository the
+                # token cannot see -- so this is "not found or no access".
+                return Msg(N_("GitHub answered \u201cnot found or no access\u201d: the repository has no "
+                              "published release, its name is wrong, or this install's access token "
+                              "cannot see it."))
             if status:
                 return Msg(N_("GitHub returned an error (HTTP %(status)s) when asked for the latest release."),
                            status=status)
@@ -217,6 +263,17 @@ def describe_check_failure(exc):
     except Exception:
         pass
     return Msg(N_("Couldn't check for updates — GitHub could not be reached."))
+
+
+def check_connection():
+    """(True, message) when GitHub answers with the latest release, else
+    (False, the same sentence a failed update check gives). Never raises,
+    and never shows the token."""
+    try:
+        latest = check_latest_release()
+    except Exception as exc:
+        return False, describe_check_failure(exc)
+    return True, Msg(N_("Connected: the latest release is %(tag)s."), tag=latest.get("tag_name") or "?")
 
 
 def _reset_time(headers):

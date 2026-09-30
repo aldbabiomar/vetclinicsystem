@@ -527,10 +527,9 @@ def requires_money_setting(view):
     """Gate for every route that records or shows money.
 
     Until an admin chooses IQ or JO in Settings, money cannot be recorded —
-    it would have no currency. A request that needs it is sent to Settings
-    (anyone who can change it) or back to the dashboard (everyone else) with
-    a message saying why, instead of reaching money.require() and failing
-    deeper down."""
+    it would have no currency. A request that needs it is sent back to the
+    dashboard with a message saying why, instead of reaching money.require()
+    and failing deeper down."""
     from functools import wraps
 
     @wraps(view)
@@ -545,13 +544,11 @@ def money_setting_prompt():
     """The response for a money screen opened before the money setting is
     chosen. Shared by requires_money_setting and the error handler (vcs/web/errors.py) for
     money.MoneySettingNotChosen, so both say the same thing."""
-    from flask import redirect, session
-    if "manage_settings" in (session.get("permissions") or []):
-        flash(_("Choose the clinic's money setting (IQ or JO) first — nothing with a price or "
-                "an amount can be recorded until it is set."), "error")
-        return redirect(url_for("settings.settings_page") + "#money-setting")
-    flash(_("Billing, payments and prices aren't available yet: an admin needs to choose the "
-            "clinic's money setting in Settings first."), "error")
+    from flask import redirect
+    # The vendor chooses it, in the Developer area (licensing plan L-3,
+    # §9.3): no one at the clinic is sent to Settings for it.
+    flash(_("Setup isn't finished: your vendor needs to choose the money setting. Billing, payments, "
+            "the point of sale and the price list stay locked until then."), "error")
     return redirect(url_for("main.dashboard"))
 
 

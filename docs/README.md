@@ -23,7 +23,7 @@ citation stops resolving.
 | `plans/UNIFIED_CODEBASE_PLAN.md` | The plan for merging IQ and JO into this one system, with the decisions taken and progress. **In progress.** |
 | `CODE_AUDIT_2026-09-25.md` | The last audit of the two predecessor apps: bugs, parity gaps, design. Every finding is tracked to where it is fixed in the merged system. |
 | `RELEASE_WORKFLOW.md` | How to version, tag and publish a release that the in-app updater will accept. |
-| `DEVELOPER_GUIDE.md` | For the vendor: the signing key and its custody, issuing a license and a Developer Pass, checking a key. |
+| `DEVELOPER_GUIDE.md` | For the vendor: the signing key and its custody, issuing a license and a Developer Pass, checking a key, what only the vendor sets, and each clinic's update token. |
 | `ARABIC_REVIEW.md` | Arabic written during the merge without clinic review — English and Arabic side by side, for a native speaker to confirm. Delete rows as they are confirmed. |
 | `decisions/` | Why the code is the way it is — one engineering decision per file, each with the test that holds it. |
 | `SEAM_RULES.md` | Rules that must hold on every sibling code path (the four payment surfaces, the date filters, …), the register of every time one did not, and the checklist for adding a rule. |
@@ -36,11 +36,16 @@ citation stops resolving.
 | `features/MONITORING_FEATURE_PLAN.md` | The four monitoring layers: daily self-check, dashboard banner, heartbeat, restore verification. |
 | `features/REWARDS_CARD_PLAN.md` | The rewards card: a member percentage off the eligible lines of a bill. |
 
+## Plans — in progress
+
+| Document | What it is |
+|---|---|
+| `plans/DEVELOPER_AND_LICENSING_PLAN.md` | The Developer area, signed license keys with read-only expiry, developer-controlled money setting and palette, a private update repo with per-clinic tokens, and native PostgreSQL. Decisions taken 2026-09-25. **In progress** (before 1.0.0): its §18 log says which phases are done. |
+
 ## Plans — not executed
 
 | Document | What it is |
 |---|---|
-| `plans/DEVELOPER_AND_LICENSING_PLAN.md` | The Developer area, signed license keys with read-only expiry, developer-controlled money setting and palette, a private update repo with per-clinic tokens, and native PostgreSQL. Decisions taken 2026-09-25. **Starts after the merge, before 1.0.0.** |
 | `plans/HOSTING_MIGRATION_PLAN.md` | Draft: moving an install off the clinic PC onto a VPS. Written for the predecessor apps; re-check before use. |
 | `plans/CLINIC_PC_TUNNEL_PLAN.md` | Draft: a Cloudflare-tunnel alternative to the above. Same caveat. |
 

@@ -12,9 +12,9 @@ If something the owner asks for in the moment conflicts with this process,
 flag the conflict and ask before deviating: a malformed release can silently
 break a clinic's ability to update.
 
-**Nothing is released until the IQ/JO merge is complete and verified under
-both money settings** (`docs/plans/UNIFIED_CODEBASE_PLAN.md` §12). The first
-release is `1.0.0`.
+**Nothing is released until the licensing plan is complete and verified
+under both money settings** (`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §17;
+the IQ/JO merge before it is done). The first release is `1.0.0`.
 
 ---
 
@@ -22,8 +22,14 @@ release is `1.0.0`.
 
 | | |
 |---|---|
-| Repo | `aldbabiomar/vetclinicsystem` (public) |
+| Repo | `aldbabiomar/vetclinicsystem` (**private**, licensing plan L-1) |
 | `.env` / `.env.example` `GITHUB_REPO` | `aldbabiomar/vetclinicsystem` |
+| Access | one fine-grained, read-only token per clinic, set in its Developer → Updates (`docs/DEVELOPER_GUIDE.md`) |
+
+Because the repository is private, a clinic downloads a release only with its
+own token. That is the lever for a clinic that stops paying: revoke its token
+and its updates stop, while the version it runs keeps running. A release never
+needs a token of its own; tokens live only in each install's data folder.
 
 One repository, one `VERSION`, one `CHANGELOG.md`, one release stream — for
 every clinic, whichever money setting (IQ or JO) it runs. A release must work
@@ -181,6 +187,8 @@ On a clinic machine, after `python3 setup.py --enable-updates`:
 ```
 vetclinicsystem-data/          never touched by updates
   .env                         DATABASE_URL, SECRET_KEY, GITHUB_REPO, …
+  github_token                 this clinic's read-only token (mode 0600); never in .env
+  license/license.key          the clinic's license key
   logs/, uploads/, backups/
   active_release.txt           e.g. "app_v1.0.0"
 vetclinicsystem-releases/
@@ -191,7 +199,8 @@ vetclinicsystem-releases/
 Environment: `VETCLINICSYSTEM_DATA_DIR`, `VETCLINICSYSTEM_RELEASES_DIR`, set by
 the launcher that `setup.py` writes into the data directory.
 
-`updater.py`: asks `GET /repos/{GITHUB_REPO}/releases/latest`; backs up the
+`updater.py`: asks `GET /repos/{GITHUB_REPO}/releases/latest`, with the token
+from `github_token` read at every call; backs up the
 database (`backup.py`); downloads the tarball into a new release folder
 (extracted with `filter="data"`); validates it (`VERSION` matches the tag,
 `run.py` and the schema files are there); builds that release's own venv and
@@ -201,8 +210,18 @@ If the health check fails it flips back and restarts the previous release —
 the pre-update backup means nothing is lost either way. Only the last two
 releases are kept on disk.
 
-Settings → Updates is admin-triggered only, never automatic, and shows the
-release body (the CHANGELOG entry) before the admin confirms.
+Settings → Updates (and the same panel in Developer → Updates) is triggered
+by a person only, never automatic, and shows the release body (the CHANGELOG
+entry) before they confirm. With no token it says so rather than failing
+quietly; a 401 says the token was rejected; a 404 says "not found or no
+access", because that is how GitHub answers a token that cannot see a private
+repository.
+
+**A release that rotates the vendor's signing key** adds the new public key to
+`vcs/licensing/trusted_keys.py` next to the old one. Licenses signed with the
+new key work only on installs that have updated to it, so issue them after
+the clinics have; remove the old key in a later release
+(`docs/DEVELOPER_GUIDE.md`, "Rotation").
 
 ---
 

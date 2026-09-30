@@ -240,7 +240,7 @@ def test_a_connection_error_does_not_raise_and_never_leaks_the_url(hb, monkeypat
     assert "hc-ping.example" not in msg
 
 
-def test_saving_the_url_does_not_write_it_to_the_audit_log(hb, db, client):
+def test_saving_the_url_does_not_write_it_to_the_audit_log(hb, db, developer):
     """The credential must not escape through Settings either.
 
     The other tests here guard heartbeat.send()'s return value. Saving the
@@ -256,8 +256,9 @@ def test_saving_the_url_does_not_write_it_to_the_audit_log(hb, db, client):
     db.execute("DELETE FROM audit_log WHERE field='heartbeat_url'")
     db.commit()
 
-    resp = client.post("/settings", data={"heartbeat_url": marker},
-                       follow_redirects=True)
+    # Set by the vendor, in the Developer area, since licensing plan §9.2.
+    resp = developer.post("/developer/monitoring", data={"heartbeat_url": marker},
+                          follow_redirects=True)
     assert resp.status_code == 200
 
     stored = db.execute(

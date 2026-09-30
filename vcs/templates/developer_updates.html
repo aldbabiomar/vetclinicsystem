@@ -1,0 +1,39 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Updates') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Updates') }}{% endblock %}
+{% block dev_main %}
+<div class="card">
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Repository') }}</div><div class="v u-mono">{{ repository or '—' }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Access token') }}</div><div class="v u-mono">{{ token or _('Not set') }}</div></div>
+  </div>
+  <form method="post" action="{{ url_for('developer.updates_token') }}" class="u-mt-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field u-mb-2">
+      <label for="devupd-1-token">{{ _('Replace the access token') }}</label>
+      <input id="devupd-1-token" name="token" type="password" autocomplete="off" spellcheck="false">
+      <span class="small muted">{{ _('This clinic\'s own read-only token for the repository. Revoking it on GitHub stops only this clinic\'s updates.') }}</span>
+    </div>
+    <div class="u-row">
+      <button class="btn" type="submit">{{ _('Save token') }}</button>
+      {% if token %}<button class="btn secondary" type="submit" name="remove" value="1">{{ _('Remove token') }}</button>{% endif %}
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('developer.updates_test') }}" class="u-mt-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn secondary" type="submit">{{ _('Test connection') }}</button>
+  </form>
+</div>
+
+<div class="card u-mt-7">
+{% with upd = {"status": url_for('developer.updates_status'), "check": url_for('developer.updates_check'),
+               "apply": url_for('developer.updates_apply'), "rollback": url_for('developer.updates_rollback'),
+               "job": url_for('developer.job_status')} %}{% include "_updates_panel.html" %}{% endwith %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Recent update history') }}</div>
+  {% if history %}<pre class="small preserve-lines">{% for line in history %}{{ line }}
+{% endfor %}</pre>{% else %}<p class="small muted">{{ _('Nothing recorded yet.') }}</p>{% endif %}
+</div>
+{% endblock %}

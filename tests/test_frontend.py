@@ -53,6 +53,8 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_developer_audit_table.html",
                         # The license panel (two License pages) and banner (base.html).
                         "_license_panel.html", "_license_banner.html",
+                        # The updates panel: Settings -> Updates and Developer -> Updates.
+                        "_updates_panel.html",
                         # Included at the top of 15 detail pages (audit P5).
                         "_back_link.html"}
 

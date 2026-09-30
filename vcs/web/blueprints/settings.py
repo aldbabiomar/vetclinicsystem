@@ -29,8 +29,8 @@ from vcs import jobs
 from vcs.domain import appointments, logs, members, settings
 from vcs import clock
 from vcs import money
-from vcs.web import license_pages, palettes
-from vcs.web.core import flash, display_number, list_join, shown, money_setting_label, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
+from vcs.web import license_pages, update_jobs, vendor_settings
+from vcs.web.core import flash, display_number, list_join, shown, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
 
@@ -170,6 +170,10 @@ SETTING_FIELD_PERMISSION = {
     "backup_time": "manage_maintenance",
     "backup_retention": "manage_maintenance",
     "log_retention_days": "manage_maintenance",
+    # Set by the vendor, in the Developer area (licensing plan L-2, L-3):
+    # `developer` is a gate, not a permission, so no one -- the system Admin
+    # included -- can save these here (vcs/web/vendor_settings.py).
+    **{key: vendor_settings.DEVELOPER for key in vendor_settings.KEYS},
 }
 
 
@@ -201,17 +205,14 @@ def settings_page():
         # in the template is not a permission.
         denied = [k for k, perm in SETTING_FIELD_PERMISSION.items()
                   if k in request.form and not auth.has_permission(perm)]
+        if any(SETTING_FIELD_PERMISSION[k] == vendor_settings.DEVELOPER for k in denied):
+            flash(_("Nothing was saved: the money setting, the color palette and the monitoring ping "
+                    "are set by your vendor."), "error")
+            return redirect(url_for("settings.settings_page"))
         if denied:
             flash(_("Nothing was saved: your role can't change the backup and log-retention settings."), "error")
             return redirect(url_for("settings.settings_page"))
         # (field, min, max) — keeps schedule generation and alert windows sane.
-        # Settings whose VALUE must never be written to the audit log. The
-        # fact that they changed is the auditable part.
-        SECRET_SETTING_KEYS = {"heartbeat_url"}
-
-        def _secret_state(v):
-            return "set" if (v or "").strip() else "not set"
-
         NUMERIC_RANGES = {
             "audit_overdue_days": (1, 3650),
             "expiry_soon_days": (1, 3650),
@@ -267,13 +268,6 @@ def settings_page():
         if lang_val is not None and lang_val not in SUPPORTED_LANGUAGES:
             flash(_("Not a valid language."), "error")
             return redirect(url_for("settings.settings_page"))
-        # The palette key lands in <html data-palette>; only the registry's
-        # keys have CSS behind them (vcs/web/palettes.py).
-        palette_val = request.form.get("theme_palette")
-        if palette_val is not None and not palettes.is_palette(palette_val):
-            flash(_("Not a valid color palette."), "error")
-            return redirect(url_for("settings.settings_page"))
-
         TIME_FIELDS = ["appt_start_time", "appt_end_time", "backup_time"]
         for key in TIME_FIELDS:
             val = request.form.get(key)
@@ -301,27 +295,6 @@ def settings_page():
                 flash(_("Member discount must be between 0%% and %(max)s%%.", max=members.MEMBER_RATE_MAX), "error")
                 return redirect(url_for("settings.settings_page"))
 
-        # The money setting (IQ / JO). Changeable only while no money has been
-        # recorded — after that, switching would reinterpret every stored
-        # amount in another currency (money.MONEY_TABLES lists what counts).
-        # Enforced here, not just by disabling the dropdown, so a stale page
-        # or a crafted POST cannot switch it either.
-        money_val = request.form.get("money_setting")
-        money_change = None
-        if money_val is not None and money_val.strip() != "":
-            money_val = money_val.strip().upper()
-            if money_val not in money.SETTINGS:
-                flash(_("Not a valid money setting."), "error")
-                return redirect(url_for("settings.settings_page"))
-            current_code = money.current().code if money.current() else None
-            if money_val != current_code:
-                if current_code is not None and money.is_locked(db):
-                    flash(_("The money setting can't be changed once money has been recorded — "
-                            "every stored amount is in %(currency)s.",
-                            currency=money.current().currency), "error")
-                    return redirect(url_for("settings.settings_page"))
-                money_change = (current_code, money_val)
-
         # The Time Zone (clock.py): an IANA name, or blank for automatic
         # (the money setting's zone, else this computer's). Blank DELETES the
         # key rather than storing "", so "automatic" has one representation.
@@ -342,15 +315,6 @@ def settings_page():
             flash(_("Day Ends At must be after Day Starts At."), "error")
             return redirect(url_for("settings.settings_page"))
 
-        # The heartbeat URL is a credential — for a healthchecks.io-style
-        # receiver, anyone holding it can send a fake ping and so SUPPRESS a
-        # real alert. Plain http would put it in the clear on the clinic LAN,
-        # so it is https or nothing. Empty is valid and means "disabled",
-        # which is the default.
-        hb_url = request.form.get("heartbeat_url")
-        if hb_url is not None and hb_url.strip() and not hb_url.strip().lower().startswith("https://"):
-            flash(_("The monitoring ping URL must start with https://"), "error")
-            return redirect(url_for("settings.settings_page"))
         # Snapshot before the change — appt_start_time/appt_end_time/
         # appt_slot_minutes feed generate_slots(), which day_grid() (and
         # appointments.orphaned_appointments()) key every appointment's slot_label
@@ -361,8 +325,8 @@ def settings_page():
         orphaned_before = len(appointments.orphaned_appointments(db))
         for key in ["clinic_name", "clinic_location", "audit_overdue_days", "expiry_soon_days", "opening_date",
                     "appt_start_time", "appt_end_time", "appt_slot_minutes",
-                    "backup_dir", "backup_time", "backup_retention", "language", "theme_palette",
-                    "selfcheck_backup_max_age_days", "heartbeat_url", "log_retention_days",
+                    "backup_dir", "backup_time", "backup_retention", "language",
+                    "selfcheck_backup_max_age_days", "log_retention_days",
                     # The rewards-card rate and term. Validated above since the
                     # rewards card shipped, but missing from this list in the
                     # predecessor JO app — so saving Settings never stored
@@ -376,17 +340,7 @@ def settings_page():
                     (key, val),
                 )
                 if old != val:
-                    # heartbeat_url is a credential: anyone holding it can send
-                    # a fake ping and suppress the alert that fires when this
-                    # machine goes dark. log_change writes values into
-                    # audit_log, which is readable by view_logins_changes — a
-                    # broader permission than manage_settings — and appears in
-                    # audit exports. Record THAT it changed, never the value.
-                    if key in SECRET_SETTING_KEYS:
-                        auth.log_change(db, "settings", key, "update",
-                                        {key: (_secret_state(old), _secret_state(val))})
-                    else:
-                        auth.log_change(db, "settings", key, "update", {key: (old, val)})
+                    auth.log_change(db, "settings", key, "update", {key: (old, val)})
         # selfcheck_enabled is a checkbox, and an unchecked box submits
         # nothing at all — so it cannot go through the loop above, where a
         # missing key means "left alone". It would switch on and never off.
@@ -403,13 +357,6 @@ def settings_page():
             if old != val:
                 auth.log_change(db, "settings", "selfcheck_enabled", "update",
                                 {"selfcheck_enabled": (old, val)})
-        if money_change:
-            db.execute(
-                "INSERT INTO settings (key,value) VALUES (%s,%s) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (money.SETTING_KEY, money_change[1]),
-            )
-            auth.log_change(db, "settings", money.SETTING_KEY, "update",
-                            {money.SETTING_KEY: money_change})
         if tz_change:
             if tz_change[1]:
                 db.execute("INSERT INTO settings (key,value) VALUES (%s,%s) "
@@ -419,10 +366,7 @@ def settings_page():
                 db.execute("DELETE FROM settings WHERE key=%s", (clock.SETTING_KEY,))
             auth.log_change(db, "settings", clock.SETTING_KEY, "update", {clock.SETTING_KEY: tz_change})
         db.commit()
-        if money_change:
-            flash(_("Money setting saved: %(name)s. It locks itself once the first price or amount is recorded.",
-                    name=money_setting_label(money_change[1])), "success")
-        if request.form.get("backup_time") or tz_change or money_change:
+        if request.form.get("backup_time") or tz_change:
             # A new zone (chosen, or arriving with a money setting while on
             # automatic) moves the nightly jobs to the clinic's 02:00.
             from vcs.ops import scheduler
@@ -545,34 +489,14 @@ def settings_restore_now():
 def settings_job_status():
     """Polled by the progress panel on the Updates section, and by Backup
     Now / Restore Now."""
-    job_id = request.args.get("job_id", "")
-    kind = request.args.get("kind", "")
-    state = jobs.status(job_id)
-    if state is None:
-        return jsonify({"status": "not_found"}), 404
-    payload = {
-        "status": state["status"],
-        # Step labels and the result are translated HERE, for the person
-        # looking: the job ran in a thread with no request, and its messages
-        # are messages.Msg (audit F1).
-        "steps": [shown(step) for step in state["steps"]],
-        "current": state["current"],
-        "fraction": state.get("fraction"),
-        "started_at": state["started_at"],
-    }
-    if state["status"] == "done":
-        result = state.get("result") or {}
-        payload["ok"] = result.get("ok")
-        payload["message"] = shown(result.get("message"))
-        if kind == "restore" and result.get("ok"):
-            # The restore just replaced every row in the database,
-            # including `users` — force a fresh login on this browser
-            # rather than leaving a session tied to data that may no
-            # longer match what's actually there now.
-            session.clear()
-    elif state["status"] == "error":
-        payload["message"] = state.get("error")
-    return jsonify(payload)
+    payload, status = update_jobs.job_status(request.args.get("job_id", ""))
+    if (request.args.get("kind") == "restore" and payload.get("status") == "done"
+            and payload.get("ok")):
+        # The restore just replaced every row in the database, including
+        # `users` -- force a fresh login on this browser rather than leaving
+        # a session tied to data that may no longer match what is there now.
+        session.clear()
+    return jsonify(payload), status
 
 
 @bp.route("/settings/autostart", methods=["POST"])
@@ -604,75 +528,26 @@ def settings_updates_status():
     something only GitHub can answer, that is a sign the answer belongs
     behind the button instead.
     """
-    from vcs.ops import updater
-    configured = updater.is_configured()
-    return jsonify({
-        "configured": configured,
-        "current_version": updater.current_version() if configured else VERSION,
-    })
+    payload, status = update_jobs.status()
+    return jsonify(payload), status
 
 
 @bp.route("/settings/updates/check")
 @auth.permission_required("manage_maintenance")
 def settings_updates_check():
-    from vcs.ops import updater
-    if not updater.is_configured():
-        return jsonify({"configured": False, "current_version": VERSION})
-    try:
-        available, latest = updater.is_update_available()
-    except Exception as exc:
-        return jsonify({"configured": True, "current_version": updater.current_version(),
-                         "error": shown(updater.describe_check_failure(exc))}), 502
-    return jsonify({
-        "configured": True,
-        "current_version": updater.current_version(),
-        "available": available,
-        "latest_tag": latest.get("tag_name"),
-        "latest_body": latest.get("body"),
-    })
+    payload, status = update_jobs.check()
+    return jsonify(payload), status
 
 
 @bp.route("/settings/updates/apply", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_updates_apply():
-    from vcs.ops import updater
-    if not updater.is_configured():
-        return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
-    try:
-        available, latest = updater.is_update_available()
-    except Exception as exc:
-        return jsonify({"error": shown(updater.describe_check_failure(exc))}), 502
-    if not available:
-        return jsonify({"error": _("Already on the latest version.")}), 400
-    tag_name, tarball_url = latest.get("tag_name"), latest.get("tarball_url")
-
-    def task(update):
-        ok, message = updater.apply_update(tag_name, tarball_url, on_progress=update)
-        return {"ok": ok, "message": message}
-
-    job_id = jobs.start(
-        [_("Backing up database"), _("Downloading release"), _("Validating release"),
-         _("Applying database changes"), _("Verifying the new version"),
-         _("Switching to the new version")],
-        task,
-    )
-    return jsonify({"job_id": job_id})
+    payload, status = update_jobs.start_apply()
+    return jsonify(payload), status
 
 
 @bp.route("/settings/updates/rollback", methods=["POST"])
 @auth.permission_required("manage_maintenance")
 def settings_updates_rollback():
-    from vcs.ops import updater
-    if not updater.is_configured():
-        return jsonify({"error": _("Updates aren't set up on this install yet.")}), 400
-    candidates = [n for n in updater.list_releases() if n != updater.active_release_name()]
-    if not candidates:
-        return jsonify({"error": _("No previous release available to roll back to.")}), 400
-
-    def task(update):
-        update(0)
-        ok, message = updater.rollback_to_previous()
-        return {"ok": ok, "message": message}
-
-    job_id = jobs.start([_("Rolling back")], task)
-    return jsonify({"job_id": job_id})
+    payload, status = update_jobs.start_rollback()
+    return jsonify(payload), status

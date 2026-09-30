@@ -102,6 +102,9 @@ NAV = (
     Group("developer", N_("Developer"), developer_only=True, links=(
         Link(N_("Developer Area"), "developer.home"),
         Link(N_("License"), "developer.license"),
+        Link(N_("Configuration"), "developer.configuration"),
+        Link(N_("Updates"), "developer.updates"),
+        Link(N_("Monitoring"), "developer.monitoring"),
         Link(N_("Developer Audit"), "developer.audit"),
     )),
 )

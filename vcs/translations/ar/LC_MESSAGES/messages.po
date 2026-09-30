@@ -8493,3 +8493,152 @@ msgstr ""
 msgid "Warning, then grace"
 msgstr "التنبيه، ثم فترة السماح"
 
+msgid "Access token"
+msgstr "رمز الوصول"
+
+msgid "Access token saved."
+msgstr "تم حفظ رمز الوصول."
+
+msgid "Automatic"
+msgstr "تلقائي"
+
+msgid "Color palette changed"
+msgstr "تغيّرت لوحة الألوان"
+
+msgid "Configuration"
+msgstr "التهيئة"
+
+msgid "Configuration change refused"
+msgstr "رُفض تغيير في التهيئة"
+
+msgid "Configuration saved."
+msgstr "تم حفظ التهيئة."
+
+#, python-format
+msgid "Connected: the latest release is %(tag)s."
+msgstr "تم الاتصال: أحدث إصدار هو %(tag)s."
+
+msgid ""
+"GitHub answered “not found or no access”: the repository has no published"
+" release, its name is wrong, or this install's access token cannot see "
+"it."
+msgstr ""
+"ردّ GitHub بـ «غير موجود أو لا توجد صلاحية وصول»: إما أنه لا يوجد في "
+"المستودع إصدار منشور، أو أن اسمه غير صحيح، أو أن رمز الوصول الخاص بهذا "
+"التثبيت لا يستطيع رؤيته."
+
+msgid "Money setting changed"
+msgstr "تغيّر إعداد العملة"
+
+msgid "Monitoring"
+msgstr "المراقبة"
+
+msgid "Monitoring ping changed"
+msgstr "تغيّر رابط المراقبة"
+
+msgid "Monitoring saved."
+msgstr "تم حفظ إعدادات المراقبة."
+
+msgid ""
+"Must start with https://. Treat it like a password: anyone who has it can"
+" send a fake ping and stop a real alert."
+msgstr ""
+"يجب أن يبدأ بـ https://. تعامل معه ككلمة مرور: من يملكه يستطيع إرسال نبضة"
+" مزيّفة وإيقاف تنبيه حقيقي."
+
+msgid "New ping URL"
+msgstr "رابط المراقبة الجديد"
+
+msgid ""
+"No access token is set for updates on this install, so updates are off. "
+"Your vendor sets one in the Developer area."
+msgstr ""
+"لا يوجد رمز وصول للتحديثات على هذا التثبيت، لذا التحديثات متوقفة. يعيّن "
+"مزوّد البرنامج رمزًا من منطقة المطوّر."
+
+msgid "Not set"
+msgstr "غير محدد"
+
+msgid ""
+"Nothing was saved: the money setting, the color palette and the "
+"monitoring ping are set by your vendor."
+msgstr ""
+"لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة يحددها مزوّد "
+"البرنامج."
+
+msgid "Paste the token first."
+msgstr "الصق الرمز أولًا."
+
+msgid "Recent update history"
+msgstr "أحدث سجلات التحديث"
+
+msgid "Remove token"
+msgstr "إزالة الرمز"
+
+msgid "Replace the access token"
+msgstr "استبدال رمز الوصول"
+
+msgid "Repository"
+msgstr "المستودع"
+
+msgid "Rollback started"
+msgstr "بدأ التراجع"
+
+msgid "Save Configuration"
+msgstr "حفظ التهيئة"
+
+msgid "Save token"
+msgstr "حفظ الرمز"
+
+msgid ""
+"Set by your vendor, who can change it until the first price or amount is "
+"recorded; then it locks."
+msgstr ""
+"يحدده مزوّد البرنامج، ويمكنه تغييره حتى يُسجَّل أول سعر أو مبلغ؛ بعدها "
+"يُقفل."
+
+msgid "Set by your vendor."
+msgstr "يحدده مزوّد البرنامج."
+
+msgid ""
+"Setup isn't finished: your vendor needs to choose the money setting. "
+"Billing, payments, the point of sale and the price list stay locked until"
+" then."
+msgstr ""
+"لم يكتمل الإعداد: يجب على مزوّد البرنامج اختيار إعداد العملة. تبقى "
+"الفوترة والدفعات ونقطة البيع وقائمة الأسعار مقفلة حتى ذلك الحين."
+
+msgid "Test connection"
+msgstr "اختبار الاتصال"
+
+msgid "The access token is removed; updates are off until a new one is set."
+msgstr "أُزيل رمز الوصول؛ التحديثات متوقفة حتى يُعيَّن رمز جديد."
+
+msgid "The clinic changes these in Settings."
+msgstr "تغيّر العيادة هذه من الإعدادات."
+
+msgid ""
+"This clinic's own read-only token for the repository. Revoking it on "
+"GitHub stops only this clinic's updates."
+msgstr ""
+"رمز خاص بهذه العيادة لقراءة المستودع فقط. إلغاؤه على GitHub يوقف تحديثات "
+"هذه العيادة وحدها."
+
+msgid "Turn monitoring off"
+msgstr "إيقاف المراقبة"
+
+msgid "Update access token changed"
+msgstr "تغيّر رمز الوصول للتحديثات"
+
+msgid "Update started"
+msgstr "بدأ التحديث"
+
+msgid ""
+"When set, this clinic sends a short daily status ping — counts and "
+"statuses only, never patient, owner or staff details, and never any "
+"amounts. If this machine stops sending, the monitoring service tells you."
+msgstr ""
+"عند ضبطه، ترسل هذه العيادة نبضة حالة يومية قصيرة — أعدادًا وحالات فقط، "
+"دون أي تفاصيل عن الحيوانات أو المالكين أو الموظفين، ودون أي مبالغ. وإن "
+"توقف هذا الجهاز عن الإرسال، تُبلغك خدمة المراقبة."
+

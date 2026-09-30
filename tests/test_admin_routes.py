@@ -76,6 +76,9 @@ def updates_configured(monkeypatch, tmp_path):
     monkeypatch.setattr(updater, "DATA_DIR", str(data_dir))
     monkeypatch.setattr(updater, "RELEASES_DIR", str(releases_dir))
     monkeypatch.setattr(updater, "GITHUB_REPO", "aldbabiomar/example")
+    # The repository is private (licensing plan L-1): without a token a check
+    # is refused before GitHub is asked, so a configured install has one.
+    updater.save_token("ghp_test_token_for_the_fixture")
     assert updater.is_configured(), "the fixture must produce a configured install"
     return updater
 

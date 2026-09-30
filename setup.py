@@ -355,6 +355,39 @@ def _argument(name):
     return None
 
 
+def ensure_money_setting():
+    """`--money-setting IQ|JO`: the vendor chooses it at setup, so the clinic
+    can record money from the first day (licensing plan §9.3). The same rule
+    as the Developer area's: it can change until money has been recorded.
+    Without the option, nothing is done; Developer -> Configuration sets it."""
+    code = _argument("--money-setting")
+    if not code:
+        return None
+    step("Setting the money setting")
+    from vcs import money
+    from vcs.db import pool as dbmod
+    code = code.strip().upper()
+    if code not in money.SETTINGS:
+        print(f"  Not a money setting: {code!r}. Use one of {', '.join(money.SETTINGS)}.")
+        sys.exit(1)
+    con = dbmod.connect()
+    try:
+        current = money.load(con)
+        if current and current.code == code:
+            print(f"  Already {code}.")
+            return code
+        if current and money.is_locked(con):
+            print(f"  The money setting is {current.code} and money has been recorded in it, so it cannot change.")
+            sys.exit(1)
+        con.execute("INSERT INTO settings (key, value) VALUES (%s, %s) "
+                    "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (money.SETTING_KEY, code))
+        con.commit()
+    finally:
+        con.close()
+    print(f"  Money setting: {code}.")
+    return code
+
+
 def ensure_license(key=None):
     """Setup does not finish without a license key that verifies for this
     installation (licensing plan L-7). There is no trial. A key already stored
@@ -417,6 +450,7 @@ def main():
     load_dotenv_now()
     apply_schema()
     ensure_first_admin()
+    ensure_money_setting()
     ensure_license()
 
     # In-app updates (Settings -> Updates) are on by default for every new
@@ -655,7 +689,7 @@ def _copy_release_snapshot(dest):
     belongs to a specific machine/install rather than the versioned app
     itself (venv, .git, __pycache__, and anything already destined for
     vetclinicsystem-data/)."""
-    exclude = {"venv", ".git", "__pycache__", "logs", ".env", "license", "vetclinicsystem-data",
+    exclude = {"venv", ".git", "__pycache__", "logs", ".env", "license", "github_token", "vetclinicsystem-data",
                "vetclinicsystem-releases"}
 
     def _skip(src, names):

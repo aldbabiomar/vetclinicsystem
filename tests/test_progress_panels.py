@@ -22,31 +22,36 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
+# The Updates panel, included by Settings and by Developer -> Updates.
+UPDATES_PANEL = source_files.TEMPLATES_DIR / "_updates_panel.html"
+# Every page that runs a job, and the partial they share.
+JOB_PAGES = (SETTINGS_HTML, UPDATES_PANEL, source_files.TEMPLATES_DIR / "developer_updates.html")
 
 
 def _job_status_pollers():
     """Places that poll the job-status endpoint by hand rather than using
     VZProgress.poll."""
-    src = SETTINGS_HTML.read_text(encoding="utf-8")
     offenders = []
-    for m in re.finditer(r"setInterval\(", src):
-        window = src[m.start():m.start() + 900]
-        if "job-status" in window or "job_id=" in window:
-            offenders.append(src[:m.start()].count("\n") + 1)
+    for page in JOB_PAGES:
+        src = page.read_text(encoding="utf-8")
+        for m in re.finditer(r"setInterval\(", src):
+            window = src[m.start():m.start() + 900]
+            if "job-status" in window or "job_id=" in window:
+                offenders.append(f"{page.name}:{src[:m.start()].count(chr(10)) + 1}")
     return offenders
 
 
 def test_no_job_polls_status_by_hand():
     lines = _job_status_pollers()
     assert not lines, (
-        "settings.html polls the job-status endpoint with its own setInterval "
-        f"at line(s) {lines}. Use window.VZProgress.poll/render instead — it is "
-        "already used by the other jobs on this page, and it is what draws the "
+        "A page polls the job-status endpoint with its own setInterval "
+        f"at {lines}. Use window.VZProgress.poll/render instead — it is "
+        "already used by the other jobs, and it is what draws the "
         "bar and the elapsed time.")
 
 
 def test_the_update_panel_uses_the_progress_component():
-    src = SETTINGS_HTML.read_text(encoding="utf-8")
+    src = UPDATES_PANEL.read_text(encoding="utf-8")
     m = re.search(r"function runUpdateJob\(.*?\n\}", src, re.S)
     assert m, "runUpdateJob is gone — if the update flow moved, point this test at it"
     body = m.group(0)
@@ -59,7 +64,7 @@ def test_the_panel_is_styled_as_a_progress_panel():
     """`.vz-progress-panel` is what gives the rendered bar its frame. With the
     old text-only class the markup renders unstyled rather than visibly
     broken, which is exactly the kind of thing nobody reports."""
-    src = SETTINGS_HTML.read_text(encoding="utf-8")
+    src = UPDATES_PANEL.read_text(encoding="utf-8")
     m = re.search(r'<div id="updateProgress"[^>]*>', src)
     assert m, "the update progress panel is missing"
     assert "vz-progress-panel" in m.group(0), (
@@ -87,7 +92,8 @@ def test_job_step_labels_are_translated():
 def test_control_the_scanners_read_real_code():
     """Floors. Each of the checks above passes hardest when it matches
     nothing at all."""
-    src = SETTINGS_HTML.read_text(encoding="utf-8")
+    src = SETTINGS_HTML.read_text(encoding="utf-8") + UPDATES_PANEL.read_text(encoding="utf-8")
+    assert '{% include "_updates_panel.html" %}' in SETTINGS_HTML.read_text(encoding="utf-8")
     assert src.count("VZProgress.poll") >= 3, (
         "fewer VZProgress users than this page has jobs — the scanner is "
         "probably looking at the wrong file")

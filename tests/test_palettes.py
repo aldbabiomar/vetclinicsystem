@@ -151,14 +151,15 @@ def palette_left_as_found(db):
     db.commit()
 
 
-def _save(client, **fields):
-    return client.post("/settings", data=fields, follow_redirects=True)
+def _save(developer, **fields):
+    """The vendor chooses the palette, in the Developer area (L-2)."""
+    return developer.post("/developer/configuration", data=fields, follow_redirects=True)
 
 
 @needs_db
-def test_a_chosen_palette_is_saved_and_drawn(client, db, palette_left_as_found):
+def test_a_chosen_palette_is_saved_and_drawn(client, developer, db, palette_left_as_found):
     """CONTROL: a registry key saves, and every page carries it."""
-    _save(client, theme_palette="sage")
+    _save(developer, theme_palette="sage")
     assert db.execute("SELECT value FROM settings WHERE key='theme_palette'").fetchone()["value"] == "sage"
     html = client.get("/").get_data(as_text=True)
     assert 'data-palette="sage"' in html
@@ -166,25 +167,25 @@ def test_a_chosen_palette_is_saved_and_drawn(client, db, palette_left_as_found):
 
 
 @needs_db
-def test_a_palette_that_is_not_in_the_registry_is_refused(client, db, palette_left_as_found):
+def test_a_palette_that_is_not_in_the_registry_is_refused(developer, db, palette_left_as_found):
     """GUARD. The value goes into an HTML attribute and only registry keys
     have CSS behind them."""
-    _save(client, theme_palette="sage")
-    resp = _save(client, theme_palette='x" onload="alert(1)')
+    _save(developer, theme_palette="sage")
+    resp = _save(developer, theme_palette='x" onload="alert(1)')
     assert "Not a valid color palette." in resp.get_data(as_text=True)
     assert db.execute("SELECT value FROM settings WHERE key='theme_palette'").fetchone()["value"] == "sage"
 
 
 @needs_db
-def test_the_settings_page_offers_every_palette(client):
-    html = client.get("/settings").get_data(as_text=True)
+def test_the_configuration_page_offers_every_palette(developer):
+    html = developer.get("/developer/configuration").get_data(as_text=True)
     for key in P.PALETTES:
         assert f'<option value="{key}"' in html
 
 
 @needs_db
-def test_the_favicon_is_the_mark_in_the_palettes_accent(client, db, palette_left_as_found):
-    _save(client, theme_palette="orchid")
+def test_the_favicon_is_the_mark_in_the_palettes_accent(client, developer, db, palette_left_as_found):
+    _save(developer, theme_palette="orchid")
     resp = client.get("/favicon.svg")
     assert resp.status_code == 200 and resp.mimetype == "image/svg+xml"
     assert f'color="{P.PALETTES["orchid"].light["primary"]}"' in resp.get_data(as_text=True)

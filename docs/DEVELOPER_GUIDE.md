@@ -112,3 +112,57 @@ Payments do not. Entering a new key unlocks every session at once.
 The clinic enters a key on **Settings → License**; you can do the same in the
 Developer area. Every key entered, accepted or refused, is in the Developer
 Audit, which the clinic can read and nothing deletes.
+
+## What only you set: Configuration, Monitoring, Updates
+
+Three things are yours, not the clinic's. The clinic's Settings page shows them
+without a way to change them, and its POST refuses them from anyone, the
+clinic's system Admin included (`vcs/web/vendor_settings.py`). You set them in
+the Developer area, and each change is in the Developer Audit:
+
+- **Configuration** — the **money setting** (IQ or JO) and the **color
+  palette**. The money setting can be changed only until the first price or
+  amount is recorded; after that it is locked for you too, because every stored
+  amount is in its currency. Until it is chosen, the clinic's billing,
+  payments, point of sale and price list stay locked and staff are told the
+  vendor has to finish setup. `setup.py --money-setting IQ|JO` chooses it at
+  install time, so a new clinic is ready in one step.
+- **Monitoring** — the daily status ping's URL (https only). It is a
+  credential: anyone who has it can send a fake ping and silence the alert
+  that fires when the clinic's machine goes dark. So neither the clinic's
+  change log nor the Developer Audit records it, only that it was set or
+  cleared, and the page shows it masked. Use a different URL for each clinic.
+- **Updates** — the clinic's **GitHub access token**, and the same
+  check / update / roll back controls the clinic has on Settings → Updates.
+
+## The update token, one per clinic
+
+The repository is private, so each install needs a token to download a
+release. Give every clinic **its own** token; then stopping one clinic's
+updates is revoking one token, and nothing else changes.
+
+1. On GitHub: *Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens → Generate new token*. Resource owner: the account that
+   owns `aldbabiomar/vetclinicsystem`; *Only select repositories*: that one
+   repository; permissions: **Contents: Read-only** and nothing else. Name it
+   after the clinic. Pick an expiry you will remember to renew — or none, if
+   you would rather revoke it by hand.
+2. In the clinic's Developer area: **Updates → Replace the access token**,
+   paste, **Save token**, then **Test connection**. It should say
+   *Connected: the latest release is v…*.
+
+The token is kept in the data folder, in a file only the app's user can read
+(`github_token`, mode 0600), read at every call — a replaced token works at
+once, with no restart. It is never in `.env`, a log, an error message, a job
+result or the audit; the page shows its last four characters.
+
+**Revoking.** Delete the clinic's token on GitHub (same page as step 1). The
+clinic keeps running the version it has; only updates stop.
+
+**What the clinic sees when its token stops working:**
+
+| Cause | Message on Updates |
+|---|---|
+| No token set (or you removed it) | "No access token is set for updates on this install, so updates are off. Your vendor sets one in the Developer area." |
+| Token revoked or expired | "GitHub rejected the access token for this install — it may have expired or been revoked." |
+| Token cannot see the repository | "GitHub answered “not found or no access”: …" — GitHub answers 404, not 403, for a private repository a token cannot see |

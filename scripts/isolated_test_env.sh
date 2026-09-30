@@ -9,6 +9,7 @@
 #   scripts/isolated_test_env.sh status iq|jo   # check what's running
 #   scripts/isolated_test_env.sh restart iq|jo  # reload the app after a code or catalogue change
 #   scripts/isolated_test_env.sh reset   iq|jo  # fresh database (migrations changed in place), app restarted
+#   scripts/isolated_test_env.sh venv    iq|jo  # rebuild the venv only (macOS prunes /tmp after 3 idle days)
 #
 # The second argument is the MONEY SETTING the throwaway clinic runs under —
 # iq (whole dinars, 250-note cash rounding) or jo (3-decimal dinars). It is the
@@ -38,7 +39,7 @@ MONEY="${2:-}"
 ACTION="${1:-}"
 
 if [[ "$MONEY" != "iq" && "$MONEY" != "jo" ]]; then
-  echo "Usage: $0 {up|down|status|restart|reset} {iq|jo}" >&2
+  echo "Usage: $0 {up|down|status|restart|reset|venv} {iq|jo}" >&2
   exit 1
 fi
 APP="$MONEY"   # kept as the name the functions below print
@@ -332,13 +333,14 @@ reset() {
   echo "  Reset: fresh ${DB_NAME}, app on http://127.0.0.1:${APP_PORT} (pid $(port_listener_pid))"
 }
 
-up() {
-  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
-  docker run -d --name "$CONTAINER" \
-    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
-    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
-  sleep 4
-
+# The environment's Python: the app's requirements, and the test-only tools.
+# Also run on its own by `venv`: macOS deletes files under /tmp that nobody has
+# opened for three days, and after a pause that prunes the venv -- pyvenv.cfg
+# among them, so its python quietly becomes Homebrew's and `-m pytest` fails
+# with "No module named pytest" (found 2026-09-30). The container, the database
+# and the data dir survive; only the venv needs making again.
+make_venv() {
+  rm -rf "$VENV_DIR"
   echo "== Setting up Python venv =="
   python3 -m venv "$VENV_DIR"
   "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
@@ -363,6 +365,16 @@ up() {
   "$VENV_DIR/bin/playwright" install --with-deps chromium >/dev/null 2>&1 \
     || "$VENV_DIR/bin/playwright" install chromium >/dev/null 2>&1 \
     || echo "   !! playwright browser install failed -- the browser tier will be DORMANT."
+}
+
+up() {
+  echo "== Starting isolated Postgres ($CONTAINER, port $DB_PORT) =="
+  docker run -d --name "$CONTAINER" \
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB="$DB_NAME" \
+    -p "127.0.0.1:${DB_PORT}:5432" postgres:16-alpine >/dev/null
+  sleep 4
+
+  make_venv
 
   seed_db
 
@@ -421,5 +433,6 @@ case "$ACTION" in
   status) status ;;
   restart) restart ;;
   reset) reset ;;
-  *) echo "Usage: $0 {up|down|status|restart|reset} {iq|jo}" >&2; exit 1 ;;
+  venv) make_venv; echo "  Venv rebuilt: $VENV_DIR. Restart the app to run on it (restart $APP)." ;;
+  *) echo "Usage: $0 {up|down|status|restart|reset|venv} {iq|jo}" >&2; exit 1 ;;
 esac

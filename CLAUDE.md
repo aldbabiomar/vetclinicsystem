@@ -10,19 +10,22 @@ as the working directory.
 > **There is no IQ app and no JO app any more.** There is one system with a
 > **money setting**: **IQ** (Iraqi dinar — whole dinars, cash rounded to the
 > 250-dinar note) or **JO** (Jordanian dinar — three decimals, exact to the
-> fils). An admin picks it in Settings before any money is recorded; it locks
-> itself after the first money is recorded. The phone format follows it.
+> fils). The vendor picks it — in the Developer area, or with
+> `setup.py --money-setting` — before any money is recorded; it locks itself
+> after the first money is recorded. The phone format follows it.
 > Never write code that is "for IQ" or "for JO" — write it once, and let the
 > money setting's values (§3) make the difference.
 
-## 0. Status — the merge is IN PROGRESS
+## 0. Status — the merge is done; licensing is IN PROGRESS
 
-The code started (2026-09-25) as the predecessor **JO** app's tree, renamed.
-It is being brought to the design in `docs/plans/UNIFIED_CODEBASE_PLAN.md`,
-phase by phase; **that file's progress log is the source of truth for what is
-done**, and `docs/CODE_AUDIT_2026-09-25.md` tracks every audit finding to where
-it is fixed. Until the merge is complete, some things described below as the
-design are not built yet — check the plan's log before assuming.
+The code started (2026-09-25) as the predecessor **JO** app's tree, renamed,
+and was brought to the design in `docs/plans/UNIFIED_CODEBASE_PLAN.md` (done
+2026-09-27: its §12 is met; `docs/CODE_AUDIT_2026-09-25.md` tracks every audit
+finding to where it is fixed). Now running:
+`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` — signed licenses, a vendor-only
+Developer area, native PostgreSQL — phase by phase; **its progress log (§18)
+is the source of truth for what is done**. Check it before assuming a part of
+that plan is built.
 
 The project has **never been deployed**. There is no install to keep
 compatible with, so a schema or behaviour change needs no migration path —
@@ -35,24 +38,25 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 
 | Decision | Choice |
 |---|---|
-| Money setting | Settings dropdown **IQ / JO**; locks after the first money is recorded; also sets phone format |
-| Before it is chosen | Money screens stay locked until an admin chooses; phone fields accept only full international numbers |
+| Money setting | **IQ / JO**, chosen by the vendor in Developer → Configuration or `setup.py --money-setting` (L-3); Settings shows it read-only; locks after the first money is recorded; also sets phone format |
+| Before it is chosen | Money screens stay locked, and staff are told the vendor has to finish setup; phone fields accept only full international numbers |
 | Record IDs | Numeric database IDs; staff see generated codes like `V-00123` |
 | P&L | Computed live from stored bill totals; no summary table, no Rebuild button |
 | Logo | A new neutral SVG mark — shield + paw (D-18) — tinted by the palette; the dog illustrations stay on error pages |
-| Palettes | 15: IQ's Vetzone and ChamPet, JO's crimson/navy, plus 12 new calm palettes, each light + dark, WCAG AA checked; the default is **Slate** (D-17) |
+| Palettes | 15: IQ's Vetzone and ChamPet, JO's crimson/navy, plus 12 new calm palettes, each light + dark, WCAG AA checked; the default is **Slate** (D-17); chosen by the vendor in Developer → Configuration (L-2) |
 | Docs | Everything lives in this repo; the IQ/JO-era documents are in `docs/archive/` |
-| Repo | Public (the in-app updater downloads releases without credentials) |
+| Repo | **Private** (L-1): each clinic's updater reads releases with its own read-only GitHub token, set in Developer → Updates and kept in a file in the data folder; revoking it stops that clinic's updates. Making the repo private is the owner's step at the end of the licensing plan (§17a) |
 | First release | `1.0.0` |
 | Time zone | A **Time Zone** setting; "Automatic" follows the money setting's zone. Every clock read goes through `clock.py` — never `datetime.now()` / `date.today()` (a test scans for them) |
 | Code layout | **Full restructure** into the `vcs/` package the plan's §3.1 describes (decided 2026-09-25); until it lands, the flat layout in §2 below is current |
 | Wellness reminders | Most urgent first on the Dashboard and the Wellness page; "due" ends when "missed" begins (14 days); a newer entry for the same pet and type replaces the old one |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
+| Licensing | L-1–L-10 in the licensing plan §1.1: Ed25519-signed license keys and Developer Passes, verified offline against keys in the source; read-only after expiry and grace, from the next sign-in; payments refused and inpatient notes allowed while read-only |
 
-**Next, after the merge:** `docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` (licensing, a vendor-only
-Developer area, native PostgreSQL). Its decisions L-1–L-3 will override three rows above: the repo
-becomes private with a token per clinic, and the palette and the money setting move to the Developer
-area. Until that plan runs, build them as the table says.
+The **Developer area** (`/developer/…`) is the vendor's: it opens only with a
+Developer Pass signed for this install, never with a role or a permission —
+the clinic's system Admin cannot reach it or save what it sets
+(`vcs/web/vendor_settings.py`, `tests/test_vendor_settings.py`).
 
 **If something comes up that needs a decision, ask the owner with options.**
 They asked for that explicitly.
@@ -78,7 +82,9 @@ VetClinicSystem/                  ← repo root = this folder
 │   │                               localisation checkers, the seam audit
 │   └── archive/                  ← the predecessor apps' one-off scripts, kept for the record
 ├── docs/                         ← see docs/README.md for the index
-│   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log
+│   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log (done)
+│   ├── plans/DEVELOPER_AND_LICENSING_PLAN.md  ← licensing + Developer area; progress log §18
+│   ├── DEVELOPER_GUIDE.md        ← for the vendor: keys, licenses, passes, tokens
 │   ├── CODE_AUDIT_2026-09-25.md          ← findings, tracked to their fixes
 │   ├── RELEASE_WORKFLOW.md, SEAM_RULES.md
 │   ├── decisions/                ← why the code is the way it is; each names the test that holds it
@@ -118,8 +124,15 @@ vcs/
 │   │                (parse_money, clean_date, normalize_phone, Bad*, MAX_*),
 │   │                pagination, flash
 │   ├── nav.py       the sidebar registry
+│   ├── readonly.py  the license's read-only rule: one hook, one allowlist
+│   ├── devsession.py, vendor_settings.py, license_pages.py, update_jobs.py
+│   │                the Developer area's session; what only the vendor sets;
+│   │                the two License pages; the two Updates panels
 │   └── blueprints/  main (login, dashboard, /health), reports, settings, admin,
-│                    clinical, sales, inventory, consignment
+│                    clinical, sales, inventory, consignment, developer
+├── licensing/       tokens.py (verify a signed key or pass), trusted_keys.py (the
+│                    vendor's public keys, in the source), state.py (the license
+│                    state, and where the key is kept)
 ├── ops/             backup, updater, scheduler, selfcheck, heartbeat, autostart, …
 └── templates/, static/, translations/
 ```
@@ -188,12 +201,18 @@ Every tolerance goes through the money setting.
 
 ## 4. Isolated test environment — the only place to run the app
 
-`scripts/isolated_test_env.sh {up|down|status} {iq|jo}` builds a throwaway
+`scripts/isolated_test_env.sh {up|down|status|restart|reset|venv} {iq|jo}` builds a throwaway
 Postgres container (`vcs_test_iq` / `vcs_test_jo`), a venv
 (`/tmp/vcs_test_venv_<m>`) and a running app (**5091** for iq, **5092** for jo;
 DB ports 55491 / 55492) with admin `admin` / `Admin12345!` and one Retail item,
 "Test Retail Item". The second argument is the **money setting** of the
 throwaway clinic — same code, different setting, and both can run at once.
+It is licensed like a clinic: a throwaway vendor key trusted only by
+`scripts/test_launcher.py`, a one-year license, and an 8-hour Developer Pass
+in `<data dir>/test-vendor/dev_pass.txt` (the tests mint their own, from the
+`vendor` fixture). `venv` rebuilds only the venv: macOS prunes `/tmp` files
+nobody opened for three days, and a pruned venv fails with "No module named
+pytest".
 `down` refuses while the app's PID is alive or anything holds its port.
 
 - **Kill by PORT, never by command pattern.** The app is launched with `exec`,

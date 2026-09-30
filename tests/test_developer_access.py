@@ -63,7 +63,10 @@ def test_control_a_valid_pass_opens_every_developer_page(flask_app, vendor):
     c = flask_app.test_client()
     assert _sign_in(c, vendor.dev_pass()).status_code == 302
     for page in _developer_pages(flask_app):
-        assert c.get(page).status_code == 200, page
+        # In: not sent to sign in. (/developer/job-status answers 404 JSON
+        # without a job id; every page answers 200.)
+        r = c.get(page)
+        assert r.status_code != 302 and r.status_code < 500, (page, r.status_code)
 
 
 def test_a_signed_in_admin_with_a_pass_gets_in_too(client, vendor):
