@@ -1,12 +1,10 @@
 # VetClinicSystem — clinic management system
 
-> This repository is the single VetClinicSystem that replaced the two
-> predecessor apps, VetClinicSystem IQ and VetClinicSystem JO. It has one
-> **money setting** — IQ (Iraqi dinar) or JO (Jordanian dinar) — chosen by the
-> vendor at setup (`--money-setting`) or in the Developer area. The text below
-> still describes the JO predecessor in places; it is rewritten when the
-> licensing plan's documentation phase runs
-> (`docs/plans/DEVELOPER_AND_LICENSING_PLAN.md` §15).
+> One system, for any clinic, with one **money setting** — IQ (Iraqi dinar:
+> whole dinars, cash rounded to the 250-dinar note) or JO (Jordanian dinar:
+> three decimals, exact to the fils) — chosen by the vendor when the clinic is
+> installed. It replaced the two predecessor apps, VetClinicSystem IQ and
+> VetClinicSystem JO.
 
 
 A full clinic management system for veterinary clinics: patient records,
@@ -18,28 +16,29 @@ computer in the clinic, reachable from any device on the clinic's WiFi. It
 also updates itself in-app, straight from GitHub Releases, with an
 automatic pre-update backup and one-click rollback if anything goes wrong.
 
-The same codebase deploys independently per clinic (each with its own
-database and its own clinic name set in Settings).
+Each clinic has its own install, its own database and its own license.
 
-Everything lives in a **PostgreSQL** database (running in Docker on the same
-computer) so multiple staff can safely use the app at the same time — no
-more "database is locked" errors, and the database itself no longer needs a
-manual copy for a backup (see **Nightly Backups** below). No internet
-connection or cloud account is required to run it day to day — Docker just
-needs to be installed once, and internet is only needed for the optional
-in-app update check.
+Everything lives in a **PostgreSQL** database — in Docker on the same
+computer, or a PostgreSQL server installed on it (native mode) — so multiple
+staff can safely use the app at the same time. No internet connection or cloud
+account is needed day to day; internet is used only for updates and, if the
+vendor turns it on, a daily status ping.
 
-## Quick start (macOS or Windows)
+## Installing (the vendor does this)
+
+A clinic is installed by its vendor, who brings the clinic's **money setting**
+(IQ or JO) and a **license key** signed for this computer. Setup prints this
+installation's ID, which the vendor signs the key for; setup does not finish
+without a valid key (there is no trial).
 
 **One-time only:**
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free) and open it once so it finishes starting up.
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free) and open it once so it finishes starting up — or, to run without Docker, a PostgreSQL 16+ server on this computer (`docs/NATIVE_POSTGRESQL.md`).
 2. **macOS:** double-click `Start VetClinicSystem.command` (first time, macOS will refuse to open it — right-click → **Open** → **Open** again; you only need to do this once).
    **Windows:** double-click `Start VetClinicSystem.bat`.
 
 That single script creates the Python environment, installs dependencies,
-starts PostgreSQL, and sets up the database, seeding it with the clinic's
-data on first run. Every run after that just starts the app and opens it
-in your browser.
+starts PostgreSQL, sets up the database, and asks for the license key. Every
+run after that just starts the app and opens it in your browser.
 
 **Manual setup**, if you'd rather run it yourself:
 ```bash
@@ -47,14 +46,26 @@ cd vetclinicsystem
 python3 -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python3 setup.py              # starts Postgres in Docker, builds the schema, loads data
+python3 setup.py --money-setting IQ --license-key '<the key>'   # Docker: starts PostgreSQL, builds the schema
 python3 run.py
 ```
 
+Native PostgreSQL instead of Docker (the role and the commands for each
+platform are in `docs/NATIVE_POSTGRESQL.md`):
+```bash
+python3 setup.py --db-mode native \
+    --database-url postgresql://vetclinicsystem:PASSWORD@127.0.0.1:5432/vetclinicsystem \
+    --money-setting JO --license-key '<the key>'
+```
+
+Without `--money-setting`, the vendor chooses it later in the Developer area;
+until then billing, payments, the point of sale and the price list stay
+locked. It locks itself once the first price or amount is recorded.
+
 Open **http://127.0.0.1:5050** on the server machine — or the address setup
 printed, if 5050 was already taken on this computer: setup then gives the app
-the next free port (and the database likewise, from 5432) and writes both into
-`.env`, which the launchers and the Desktop shortcut read.
+the next free port (and, in Docker mode, the database likewise, from 5432) and
+writes both into `.env`, which the launchers and the Desktop shortcut read.
 
 ## Using it from other devices on the clinic network
 
@@ -96,7 +107,7 @@ The three built-in roles seed with sensible defaults:
 | Discount cap on any bill | 25% | 15% | 10% |
 | Price List, Refunds, Cash Register (view/edit) | ✔ | — | — |
 | Financial Reports, Insights & Retention | ✔ | — | — |
-| Settings, self-update | ✔ | — | — |
+| Settings, backups, data export, updates | ✔ | — | — |
 | User & Role management | ✔ | — | — |
 | Logins and Changes (audit trail) | ✔ | — | — |
 | Consignment settlements | ✔ | — | — |
@@ -280,13 +291,40 @@ pg_restore --clean --if-exists -d "$DATABASE_URL" path/to/vetclinicsystem_backup
 
 ## Staying up to date
 
-Once an install is set up for it (`python3 setup.py --enable-updates`), the
-**Settings** page can check for, apply, and roll back updates without ever
-touching a terminal. Applying an update automatically backs up the database
-first, downloads and validates the new release, applies any additive
-database changes, and switches over — with the previous release kept
-around so a one-click rollback is always available if something looks
-wrong afterward.
+**Settings → Updates** checks for, applies and rolls back updates without a
+terminal (setup puts every new install on the versioned-release layout this
+needs). Applying an update backs up the database first, downloads and
+validates the new release, applies its database changes, and switches over —
+with the previous release kept so a one-click rollback is always there.
+
+The releases are in a private repository: each clinic reads them with its own
+read-only access token, which the vendor sets in the Developer area. With no
+token, Updates says so; a revoked one stops that clinic's updates and nothing
+else.
+
+## The license
+
+The vendor's license key says how long this install is licensed for. Before
+it runs out, whoever can change Settings sees a warning (14 days ahead, unless
+the key says otherwise); after it runs out there is a grace period (14 days),
+with a banner for everyone. Then the system becomes **read-only** — from the
+next sign-in, never in the middle of someone's work:
+
+- every record can still be viewed, searched, printed and exported; backups,
+  restores and updates still run; users can still be managed and passwords
+  changed; notes can still be added on animals already admitted;
+- nothing else can be saved, payments included.
+
+A new key, entered on **Settings → License**, ends read-only at once for
+everyone. The key is kept in the data folder (`license/license.key`), not in
+the database, so restoring an older backup never brings back an older license,
+and backups and exports never carry it.
+
+**The Developer area** (`/developer/`) is the vendor's: it opens with a
+Developer Pass signed for this install for a few hours, never with a password
+or a role — the clinic's administrator cannot reach it. Everything the vendor
+does there is listed under **Logins and Changes → Developer Audit**, which
+nothing deletes.
 
 ## Running on multiple computers / higher traffic
 
@@ -360,9 +398,9 @@ the class raises specificity without tying the utility to where it is used.
 
 ## Running the tests
 
-The money math — totals, discounts, write-offs, and the Decimal
-discipline that keeps the JOD exact to the fils — is the part of this app
-most worth checking on every change, and the part where a mistake is
+The money math — totals, discounts, write-offs, cash rounding, and the
+Decimal discipline that keeps every amount exact under both money settings —
+is the part of this app most worth checking on every change, and the part where a mistake is
 least visible: a wrong colour is obvious, a wrong total is a bill someone
 already paid. `tests/test_money.py` covers it.
 
@@ -382,9 +420,8 @@ the only way to know it works on a phone.
 
 ### The three tiers
 
-There are 679 tests in 37 files, and they are not all the same kind. Each
-tier **skips cleanly** when what it needs is absent, so the plain command below
-always works:
+The tests are not all the same kind. Each tier **skips cleanly** when what it
+needs is absent, so the plain command below always works:
 
 ```
 venv/bin/python -m pip install pytest
@@ -415,13 +452,17 @@ TEST_DATABASE_URL=postgresql://postgres:test@localhost:55491/vetclinicsystem \
 
 `TEST_DATABASE_URL` is deliberately a different variable from `DATABASE_URL`
 so that an exported shell variable can never point these tests, which write
-and delete rows, at a live install. If you have the shared workspace folder,
-`scripts/isolated_test_env.sh up jo` builds that database and a venv with
-pytest and Playwright already in it.
+and delete rows, at a live install. `scripts/isolated_test_env.sh up iq` (and
+`up jo`) builds that database, a venv with pytest and Playwright in it, and a
+running app licensed with a throwaway key.
 
-Two tests are gated on the clock and skip between 00:00 and about 01:05 —
-they need today's 00:30 backup slot to have passed. A midnight run reporting
-`9 skipped` is that, not a broken tier.
+**Run it under both money settings** — the `iq` and `jo` environments — before
+calling a change done. An unmarked test follows the run's setting;
+`@pytest.mark.money("IQ")` pins one (`CLAUDE.md` §5).
+
+The scheduler's catch-up tests are gated on the clock and skip between 00:00
+and about 01:05 — they need today's 00:30 backup slot to have passed. Skips in
+`test_scheduler_catchup.py` in a run started then are that, not a broken tier.
 
 If something fails,
 **read what it says before changing it**: several of these tests exist
@@ -430,11 +471,11 @@ leftover balance are the clearest example — a threshold carried over
 unchanged from the IQD original once marked bills with up to 500 fils
 still owing as "Fully Paid", quietly hiding real uncollected money.
 
-**A warning if you also work on VetClinicSystem IQ:** the two apps'
-`test_money.py` files make deliberately *opposite* assertions, because
-the IQD is rounded to a 250 note and has an anti-"looks free" floor.
-Never copy one over the other. See `COMPARISON.md` §1.1 in the shared
-workspace folder.
+The two money settings make deliberately *different* assertions about the
+same bill: IQ rounds cash to the 250-dinar note and never lets a real bill
+round down to free; JO is exact to the fils. They are one set of functions
+with different values (`docs/decisions/0001-money-is-one-policy.md`), and the
+tests say which setting they expect.
 
 ## Running the browser checks (optional)
 
@@ -468,8 +509,15 @@ tests run by default. Takes about two minutes.
 
 ## Your data
 
-Everything lives in PostgreSQL (inside the `vetclinicsystem_pgdata` Docker volume) —
-see **Nightly Backups** above for how it's backed up automatically.
-Uploaded X-rays/bloodwork still live in the `uploads/` folder alongside the
-app — that folder isn't part of the database backup, so also back it up
-separately (e.g. include it in whatever backs up the rest of this computer).
+Everything lives in PostgreSQL (in Docker mode, inside the
+`vetclinicsystem_pgdata` Docker volume) — see **Nightly Backups** above for how
+it's backed up automatically. Uploaded X-rays and bloodwork live on disk in the
+data folder (`attachments/uploads/`), which the database backup does not
+include, so back that folder up too (e.g. with whatever backs up the rest of
+this computer).
+
+**Settings → Data Export** makes the clinic's own copy of everything it has
+recorded — every table as a spreadsheet file (CSV), every attachment, the
+database structure and a list of what is inside — at any time, read-only
+included. It is for reading the records and taking them elsewhere; a backup
+remains the exact copy to restore from.

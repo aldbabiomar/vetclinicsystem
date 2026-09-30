@@ -27,6 +27,7 @@ it** — a decision nothing checks is a decision the next change undoes.
 | [0009](0009-a-guard-is-proven.md) | A guard test is proven by reintroducing its bug | `scripts/prove_guards.py --all` |
 | [0010](0010-palettes-are-data.md) | Palettes are data, generated to CSS, and held to AA by a test | `test_palettes.py`, the browser tier |
 | [0011](0011-localization-rules.md) | What the Arabic setting needs from the code: stored English, shown translated; everything read goes through the catalogue | `test_catalogue.py`, `test_enum_labels.py`, `test_localization.py`, the browser tier in Arabic |
+| [0012](0012-licensing.md) | Licenses and Developer Passes are signed tokens; trust is a constant in the source; read-only begins at a sign-in | `test_licensing_tokens.py`, `test_license.py`, `test_developer_access.py`, `test_vendor_settings.py`, `test_secrets.py` |
 
 New record: the next number, a short imperative title, and the four
 headings the others use.

@@ -1104,3 +1104,26 @@ result under each money setting.
 
   **Suite:** IQ **1780 passed, 0 skipped**; JO **1780 passed, 0 skipped**;
   no database 765 passed.
+- **2026-09-30 — Phase 7: documentation (§15).**
+  - `README.md`: installing is the vendor's (the installation ID, the license
+    key, `--money-setting`, Docker or native PostgreSQL); a section on the
+    license — the warning, grace, read-only from the next sign-in and what
+    still works, renewal, where the key lives, the Developer area and its
+    audit; updates from a private repository with a token per clinic; the
+    data export beside backups; the tests section rewritten for one system
+    under two money settings (the predecessor-app warnings and stale counts
+    are gone).
+  - `docs/decisions/0012-licensing.md`: the token design, the trust rule, the
+    states, read-only at a sign-in, the vendor's gate, the honest limit
+    (§2), the costs, and the tests that hold each rule.
+  - `docs/DEVELOPER_GUIDE.md`: renewing, and installing a clinic step by step
+    (with the rest written in phases 1-6: keys and rotation, licenses,
+    passes, the token per clinic and revoking it, the tools).
+  - Already done in their phases: `RELEASE_WORKFLOW.md` (phase 4),
+    `SEAM_RULES.md` rules 13-16, `CLAUDE.md` (L-1-L-3, the layout, the test
+    environment's license), `NATIVE_POSTGRESQL.md` (phase 6),
+    `ARABIC_REVIEW.md` §23-§28. `docs/README.md` moves this plan to done
+    after phase 8.
+
+  **Suite:** docs only — no database 765 passed (it checks every document the
+  code cites exists); the database runs are phase 6's.

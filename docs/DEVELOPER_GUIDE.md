@@ -62,6 +62,38 @@ the grace period after it are in the license: 14 days each unless you pass
 `--warn-days` / `--grace-days`. Send the printed key to the clinic however you
 like; spaces and line breaks added on the way (WhatsApp wraps it) are ignored.
 
+## Renewing
+
+Sign a new license for the same installation ID, with the new end date, and
+send it. The clinic enters it on **Settings → License** (or you do, in
+**Developer → License**). It replaces the old key and takes effect at once, for
+every session: a read-only install becomes writable without anyone signing
+out. It can be entered any time before the old one runs out; the Developer
+Audit records each key entered, accepted or refused.
+
+## Installing a clinic, step by step
+
+1. **The computer.** Python 3 and either Docker Desktop (the default) or a
+   PostgreSQL 16+ server with the role `docs/NATIVE_POSTGRESQL.md` describes.
+2. **The code.** The repository is private: download the latest release's
+   source archive from GitHub while signed in, and copy it to the clinic's
+   computer. From then on the install updates itself with its own token
+   (step 6).
+3. **Setup.** In that folder, `python3 setup.py --money-setting IQ` (or `JO`;
+   add `--db-mode native --database-url …` for native PostgreSQL). It prints
+   the **installation ID** and waits for the license key.
+4. **The license.** Sign one for that ID (above) and paste it into setup. Setup
+   then prints the first administrator's one-time password; give it to the
+   clinic, who must change it at the first sign-in.
+5. **Your pass.** Sign a Developer Pass for the same ID and open
+   `http://<the clinic's computer>:<port>/developer/`.
+6. **Updates.** Create the clinic's token (below), then **Updates → Replace the
+   access token → Save token → Test connection**.
+7. **The rest, as needed:** the palette (Configuration), the monitoring ping
+   (Monitoring), a message (Vendor Message). **System** should show the
+   database reachable and `pg_dump` / `pg_restore` found; **Run the self-check
+   now** confirms the backup folder once the clinic has chosen one.
+
 ## A Developer Pass
 
 Signed for one install, for a few hours (8 by default, 12 at most whatever it
