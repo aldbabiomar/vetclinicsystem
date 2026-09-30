@@ -2813,6 +2813,12 @@
  },
  "self_check_log": {
   "columns": {
+   "disk_free_bytes": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "bigint"
+   },
    "findings": {
     "default": null,
     "identity": null,

@@ -24,7 +24,7 @@ WRITES = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 ALLOWED = frozenset({
     "main.login", "main.change_password",
     "settings.settings_license",
-    "settings.settings_backup_now", "settings.settings_restore_now",
+    "settings.settings_backup_now", "settings.settings_restore_now", "settings.settings_data_export_start",
     "settings.settings_updates_apply", "settings.settings_updates_rollback",
     "admin.admin_user_new", "admin.admin_user_toggle", "admin.admin_user_reset_password",
     "admin.admin_user_role",

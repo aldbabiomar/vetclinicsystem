@@ -29,7 +29,7 @@ from vcs import jobs
 from vcs.domain import appointments, logs, members, settings
 from vcs import clock
 from vcs import money
-from vcs.web import license_pages, update_jobs, vendor_settings
+from vcs.web import export_jobs, license_pages, update_jobs, vendor_settings
 from vcs.web.core import flash, display_number, list_join, shown, parse_percent, BadNumber, DATA_DIR as _data_dir, VERSION, get_db, lan_address
 
 bp = Blueprint("settings", __name__)
@@ -206,8 +206,8 @@ def settings_page():
         denied = [k for k, perm in SETTING_FIELD_PERMISSION.items()
                   if k in request.form and not auth.has_permission(perm)]
         if any(SETTING_FIELD_PERMISSION[k] == vendor_settings.DEVELOPER for k in denied):
-            flash(_("Nothing was saved: the money setting, the color palette and the monitoring ping "
-                    "are set by your vendor."), "error")
+            flash(_("Nothing was saved: the money setting, the color palette, the monitoring ping "
+                    "and the vendor's message are set by your vendor."), "error")
             return redirect(url_for("settings.settings_page"))
         if denied:
             flash(_("Nothing was saved: your role can't change the backup and log-retention settings."), "error")
@@ -482,6 +482,36 @@ def settings_restore_now():
         task,
     )
     return jsonify({"job_id": job_id})
+
+
+# ---------------------------------------------------------------------------
+# Data Export (licensing plan §11.4): the clinic's own copy of everything it
+# recorded, in files any spreadsheet opens. manage_maintenance, like backups
+# (A8); allowed in read-only mode (A7).
+# ---------------------------------------------------------------------------
+@bp.route("/settings/data-export")
+@auth.permission_required("manage_maintenance")
+def settings_data_export():
+    from vcs.ops import data_export
+    return render_template(
+        "data_export.html", exports=data_export.list_exports(), exclusions=data_export.exclusions(),
+        exp={"start": url_for("settings.settings_data_export_start"),
+             "job": url_for("settings.settings_job_status"),
+             "download": url_for("settings.settings_data_export_download", name="NAME")})
+
+
+@bp.route("/settings/data-export/start", methods=["POST"])
+@auth.permission_required("manage_maintenance")
+def settings_data_export_start():
+    from vcs.domain import developer_audit
+    payload, status = export_jobs.start(actor=developer_audit.user_actor(auth.current_user(get_db())["username"]))
+    return jsonify(payload), status
+
+
+@bp.route("/settings/data-export/<name>")
+@auth.permission_required("manage_maintenance")
+def settings_data_export_download(name):
+    return export_jobs.download(name)
 
 
 @bp.route("/settings/job-status")

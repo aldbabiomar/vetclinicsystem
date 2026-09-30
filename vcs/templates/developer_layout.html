@@ -18,9 +18,13 @@
 <div class="filter-chips">
   <a class="chip {{ 'active' if request.endpoint == 'developer.home' }}" href="{{ url_for('developer.home') }}">{{ _('Overview') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.license' }}" href="{{ url_for('developer.license') }}">{{ _('License') }}</a>
-  <a class="chip {{ 'active' if request.endpoint == 'developer.configuration' }}" href="{{ url_for('developer.configuration') }}">{{ _('Configuration') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.system' }}" href="{{ url_for('developer.system') }}">{{ _('System') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.updates' }}" href="{{ url_for('developer.updates') }}">{{ _('Updates') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.support' }}" href="{{ url_for('developer.support') }}">{{ _('Support') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.configuration' }}" href="{{ url_for('developer.configuration') }}">{{ _('Configuration') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.monitoring' }}" href="{{ url_for('developer.monitoring') }}">{{ _('Monitoring') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.vendor_message' }}" href="{{ url_for('developer.vendor_message') }}">{{ _('Vendor Message') }}</a>
+  <a class="chip {{ 'active' if request.endpoint == 'developer.data_export' }}" href="{{ url_for('developer.data_export') }}">{{ _('Data Export') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.audit' }}" href="{{ url_for('developer.audit') }}">{{ _('Developer Audit') }}</a>
 </div>
 {% block dev_main %}{% endblock %}

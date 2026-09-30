@@ -33,7 +33,8 @@ def _setting(db, key):
 
 @pytest.fixture
 def left_as_found(db):
-    keys = ("theme_palette", "heartbeat_url", money.SETTING_KEY)
+    keys = ("theme_palette", "heartbeat_url", money.SETTING_KEY, "vendor_message_text", "vendor_message_level",
+            "vendor_message_expires_at", "vendor_message_enabled")
     saved = {k: _setting(db, k) for k in keys}
     yield
     for key, value in saved.items():
@@ -50,16 +51,31 @@ def left_as_found(db):
 # The gate
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("key, value", [("theme_palette", "orchid"),
-                                        ("heartbeat_url", "https://hc-ping.example/gate-test"),
-                                        (money.SETTING_KEY, "IQ")])
-def test_the_system_admin_cannot_set_a_vendor_setting(client, db, left_as_found, key, value):
-    """GUARD (§9.1). Removing the field from the template is not enough --
-    that is audit S1 exactly."""
-    before = _setting(db, key)
-    page = client.post("/settings", data={key: value}, follow_redirects=True).get_data(as_text=True)
-    assert _setting(db, key) == before
-    assert "are set by your vendor" in page
+# A value each vendor setting's own rules would accept, so a refusal is the
+# gate's and not the value's.
+ACCEPTABLE = {"theme_palette": "orchid", "heartbeat_url": "https://hc-ping.example/gate-test",
+              money.SETTING_KEY: "IQ", "vendor_message_text": "Gate test", "vendor_message_level": "warning",
+              "vendor_message_expires_at": "2099-01-01", "vendor_message_enabled": "1"}
+
+
+def _developer_gated_keys():
+    from vcs.web import vendor_settings
+    from vcs.web.blueprints.settings import SETTING_FIELD_PERMISSION
+    return [k for k, gate in SETTING_FIELD_PERMISSION.items() if gate == vendor_settings.DEVELOPER]
+
+
+def test_the_system_admin_cannot_set_any_vendor_setting(client, db, left_as_found):
+    """GUARD (§9.1; seam rule 14, licensing plan §14.2). Every key the
+    registry gates `developer`, found there rather than listed here, is
+    refused from the clinic's system Admin, who holds every permission.
+    Removing a field from the template is not enough -- that is audit S1."""
+    keys = _developer_gated_keys()
+    assert len(keys) >= 7, f"only {keys} are gated -- the registry has lost the vendor's settings"
+    for key in keys:
+        before = _setting(db, key)
+        page = client.post("/settings", data={key: ACCEPTABLE[key]}, follow_redirects=True).get_data(as_text=True)
+        assert _setting(db, key) == before, key
+        assert "are set by your vendor" in page, key
 
 
 def test_control_the_developer_sets_the_palette(developer, db, left_as_found):

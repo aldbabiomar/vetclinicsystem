@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Data Export') }} — {{ clinic_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _('Data Export') }}</h1>
+  <p class="page-sub">{{ _('The clinic\'s own copy of everything it has recorded. It can be made at any time, also while the system is read-only.') }}</p></div></div>
+<div class="card">{% include "_data_export_panel.html" %}</div>
+{% endblock %}

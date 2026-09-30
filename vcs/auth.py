@@ -133,6 +133,37 @@ def password_error(password, username=None):
     return None
 
 
+def reset_password(db, user_id, new_password):
+    """Set a password for someone else -- a clinic admin's reset, or the
+    vendor's recovery of the admin account (licensing plan §11.3). One path,
+    so the two cannot drift: they must choose their own at their next
+    sign-in, and stamping password_changed_at ends every session they have
+    elsewhere now (require_login()), not when a cookie happens to expire --
+    the point of a reset is usually a suspected compromise. It also ends
+    their sign-in lockout, which counts only failures made after it
+    (login_lock_status()): those were guesses at the password this replaces.
+    The caller has checked it against password_error(). The whole instant,
+    not the second: a failed guess earlier in the same second is still a
+    guess at the old password."""
+    db.execute("UPDATE users SET password_hash=%s, must_change_password=true, password_changed_at=%s "
+               "WHERE id=%s", (hash_password(new_password), clock.now(), user_id))
+
+
+# Letters and digits that cannot be misread for each other when read out or
+# copied by hand: no 0/O, 1/l/I.
+_TEMP_ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def temporary_password(username=None):
+    """A strong one-time password, in groups of four so it can be read out:
+    about 95 bits, and it passes password_error() like any other."""
+    import secrets
+    while True:
+        raw = "-".join("".join(secrets.choice(_TEMP_ALPHABET) for _ in range(4)) for _ in range(4))
+        if password_error(raw, username) is None:
+            return raw
+
+
 def hash_password(raw):
     return generate_password_hash(raw)
 
@@ -413,11 +444,16 @@ def login_lock_status(db, username):
     if not username:
         return False, None, None
     lookback_cutoff = (clock.now() - timedelta(hours=LOCKOUT_LOOKBACK_HOURS)).isoformat(timespec="seconds")
-    last_success = db.execute(
-        "SELECT MAX(timestamp) AS t FROM login_log WHERE username=%s AND success=1 AND timestamp >= %s",
-        (username, lookback_cutoff),
+    # Counting starts at the latest of: the lookback window, the last
+    # successful sign-in, and the last time the password was set (a reset
+    # clears the lockout -- reset_password()). GREATEST skips a NULL.
+    since = db.execute(
+        "SELECT GREATEST("
+        "  (SELECT MAX(timestamp) FROM login_log WHERE username=%s AND success=1),"
+        "  (SELECT password_changed_at FROM users WHERE username=%s),"
+        "  %s::timestamptz) AS t",
+        (username, username, lookback_cutoff),
     ).fetchone()["t"]
-    since = last_success or lookback_cutoff
     rows = db.execute(
         "SELECT timestamp FROM login_log WHERE username=%s AND success=0 AND timestamp > %s ORDER BY timestamp",
         (username, since),
@@ -517,7 +553,7 @@ def _as_text(v):
     return str(v)
 
 
-def log_change(db, table_name, record_id, action, changes=None, at=None):
+def log_change(db, table_name, record_id, action, changes=None, at=None, actor=None):
     """
     action: 'create' / 'update' / 'delete'
     changes: dict of {field: (old_value, new_value)} — only used for 'update'.
@@ -526,6 +562,8 @@ def log_change(db, table_name, record_id, action, changes=None, at=None):
     row's updated_at -- the edit-conflict panel lists "changes after the
     version you loaded" by comparing the two, so they must be equal, not a
     few microseconds apart (routes/clinical.py edit_conflict). Defaults to now.
+    actor: who, when it is not the signed-in clinic user -- the vendor in
+    the Developer area ("dev:<name>"), who may have no clinic sign-in at all.
 
     Deliberately does NOT commit. This write must land in the same
     transaction as the mutation it's describing, so the caller commits
@@ -533,8 +571,7 @@ def log_change(db, table_name, record_id, action, changes=None, at=None):
     both back together). A route that calls this must therefore always
     reach its own db.commit() afterward.
     """
-    uid = session.get("user_id")
-    uname = session.get("username", "system")
+    uid, uname = (None, actor) if actor else (session.get("user_id"), session.get("username", "system"))
     ts = at if at is not None else clock.now()
     # audit_log.record_id is TEXT: it names rows in many tables, numbered or not.
     record_id = None if record_id is None else str(record_id)

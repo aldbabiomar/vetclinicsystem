@@ -1,0 +1,40 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Vendor Message') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Vendor Message') }}{% endblock %}
+{% block dev_main %}
+<div class="card">
+  <p class="small">{{ _('A short message shown at the top of every page at this clinic, labelled as coming from you. Plain text only; write it in the clinic\'s language.') }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field u-mb-2">
+      <label for="devmsg-1-text">{{ _('Message') }}</label>
+      <textarea id="devmsg-1-text" name="text" rows="4" maxlength="{{ max_length }}">{{ message.text }}</textarea>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label for="devmsg-2-level">{{ _('Kind') }}</label>
+        <select id="devmsg-2-level" name="level">
+          <option value="info" {{ 'selected' if message.level == 'info' }}>{{ _('Information') }}</option>
+          <option value="warning" {{ 'selected' if message.level == 'warning' }}>{{ _('Warning') }}</option>
+        </select>
+      </div>
+      <div class="field"><label for="devmsg-3-expires_at">{{ _('Last day to show it') }}</label>
+        <input id="devmsg-3-expires_at" name="expires_at" type="date" value="{{ message.expires_at }}">
+        <span class="small muted">{{ _('Leave empty to show it until you turn it off.') }}</span>
+      </div>
+    </div>
+    <label class="small u-row-center u-weight-normal">
+      <input type="checkbox" name="enabled" value="1" {{ 'checked' if message.enabled }}> {{ _('Show it') }}
+    </label>
+    <div class="form-actions u-row">
+      <button class="btn" type="submit">{{ _('Save') }}</button>
+      {% if message.text %}<button class="btn secondary" type="submit" name="clear" value="1">{{ _('Clear the message') }}</button>{% endif %}
+    </div>
+  </form>
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('What the clinic sees now') }}</div>
+  {% if showing %}{% with vendor_message = showing %}{% include "_vendor_message.html" %}{% endwith %}
+  {% else %}<p class="small muted">{{ _('Nothing: the message is off, empty or past its last day.') }}</p>{% endif %}
+</div>
+{% endblock %}

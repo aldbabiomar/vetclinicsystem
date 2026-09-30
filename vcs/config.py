@@ -54,6 +54,11 @@ BIND_PORT = int(os.environ.get("VETCLINICSYSTEM_PORT", "5050"))
 # signed for it (vcs/licensing). Not heartbeat_install_id, which is a
 # different, older identifier for the monitoring ping.
 INSTALL_ID = os.environ.get("VETCLINICSYSTEM_INSTALL_ID", "").strip()
+# How PostgreSQL runs for this install: "docker" (the compose container) or
+# "native" (a server installed on the machine). Explicit, never detected:
+# with two servers on one machine, "whatever answers" could be the wrong one
+# (licensing plan A11).
+DB_MODE = (os.environ.get("VETCLINICSYSTEM_DB_MODE") or "docker").strip().lower()
 BEHIND_TLS_PROXY = os.environ.get("BEHIND_TLS_PROXY") == "1"
 
 # A login session's server-enforced expiry. session.permanent is set at a

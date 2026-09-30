@@ -1,0 +1,76 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('System') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('System') }}{% endblock %}
+{% block dev_main %}
+{% macro moment(v) %}{{ v|localtime if v else '—' }}{% endmacro %}
+{% macro status(v) %}{{ (status_labels.get(v) or v)|tr }}{% endmacro %}
+{% set app, database, check, backups, schema = info.app, info.database, info.self_check, info.backups, info.schema %}
+<div class="card">
+  <div class="section-title u-mt-0">{{ _('Application') }}</div>
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Version') }}</div><div class="v u-mono">{{ app.version }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Running for') }}</div><div class="v">{{ _('%(d)s d %(h)s h %(m)s min', d=app.uptime_seconds // 86400, h=app.uptime_seconds % 86400 // 3600, m=app.uptime_seconds % 3600 // 60) }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Installation ID') }}</div><div class="v u-mono">{{ app.install_id or '—' }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Layout') }}</div><div class="v u-mono">{{ app.layout }}</div></div>
+    <div class="detail-item"><div class="k">Python</div><div class="v u-mono">{{ app.python }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Operating system') }}</div><div class="v u-mono">{{ app.os }}</div></div>
+  </div>
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Database') }}</div>
+  {% if database.unavailable %}<p class="small">{{ _('Could not be read: %(error)s', error=database.unavailable) }}</p>{% else %}
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Reachable') }}</div><div class="v">{{ _('Yes') if database.reachable else _('No') }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('PostgreSQL version') }}</div><div class="v u-mono">{{ database.server_version or '—' }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Mode') }}</div><div class="v u-mono">{{ database.mode }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Server') }}</div><div class="v u-mono">{{ database.host }}:{{ database.port }}/{{ database.name }}</div></div>
+    {% for tool, path in database.tools.items() %}
+    <div class="detail-item"><div class="k u-mono">{{ tool }}</div><div class="v u-mono">{{ path or _('Not found') }}</div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Daily self-check') }}</div>
+  {% if check and not check.unavailable %}
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Result') }}</div><div class="v">{{ status(check.status) }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Ran at') }}</div><div class="v">{{ moment(check.ran_at) }}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Free space on the backup volume') }}</div><div class="v">{% if check.disk_free_bytes is not none %}{{ (check.disk_free_bytes / 1024 ** 3)|round(1) }} GB{% else %}—{% endif %}</div></div>
+  </div>
+  {% if check.findings %}<ul class="small">{% for f in check.findings %}<li>{{ f|finding }}</li>{% endfor %}</ul>{% endif %}
+  {% else %}<p class="small muted">{{ _('It has not run yet.') }}</p>{% endif %}
+  <form method="post" action="{{ url_for('developer.system_self_check') }}" class="u-mt-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn secondary" type="submit">{{ _('Run the self-check now') }}</button>
+  </form>
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Backups and restores') }}</div>
+  {% if backups.unavailable %}<p class="small">{{ _('Could not be read: %(error)s', error=backups.unavailable) }}</p>{% else %}
+  <div class="detail-grid">
+    <div class="detail-item"><div class="k">{{ _('Last backup') }}</div><div class="v">{% if backups.last %}{{ status(backups.last.status) }} · {{ moment(backups.last.started_at) }}{% else %}—{% endif %}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Last successful backup') }}</div><div class="v">{% if backups.last_success %}{{ moment(backups.last_success.finished_at) }} · <span class="u-mono">{{ backups.last_success.file }}</span>{% else %}—{% endif %}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Last restore check') }}</div><div class="v">{% if info.restore_verification %}{{ status(info.restore_verification.result) }} · {{ moment(info.restore_verification.at) }}{% else %}—{% endif %}</div></div>
+    <div class="detail-item"><div class="k">{{ _('Restores') }}</div><div class="v">{% for r in backups.recent_restores %}{{ status(r.status) }} · {{ moment(r.started_at) }}{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</div></div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Database changes') }}</div>
+  {% if schema.unavailable %}<p class="small">{{ _('Could not be read: %(error)s', error=schema.unavailable) }}</p>{% else %}
+  <p class="small">{{ _('%(n)s applied.', n=schema.applied|length) }}
+    {% if schema.pending %}<strong>{{ _('Missing: %(files)s', files=schema.pending|join(', ')) }}</strong>{% else %}{{ _('None missing.') }}{% endif %}</p>
+  {% endif %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Error log') }}</div>
+  <p class="small muted">{{ _('The last %(n)s lines, with secrets, contact details and quoted values removed.', n=error_lines) }}</p>
+  {% if errors.strip() %}<pre class="small preserve-lines">{{ errors }}</pre>{% else %}<p class="small muted">{{ _('Nothing recorded yet.') }}</p>{% endif %}
+</div>
+{% endblock %}

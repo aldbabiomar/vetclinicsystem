@@ -166,3 +166,34 @@ clinic keeps running the version it has; only updates stop.
 | No token set (or you removed it) | "No access token is set for updates on this install, so updates are off. Your vendor sets one in the Developer area." |
 | Token revoked or expired | "GitHub rejected the access token for this install — it may have expired or been revoked." |
 | Token cannot see the repository | "GitHub answered “not found or no access”: …" — GitHub answers 404, not 403, for a private repository a token cannot see |
+
+## Your tools at a clinic
+
+- **System** shows what the app already knows about itself: version and
+  uptime, the database (reachable, its PostgreSQL version, how it runs, where
+  `pg_dump` and `pg_restore` were found), the latest daily self-check with its
+  findings and the free space it read, the last backup, restore and restore
+  check, the database changes applied and any missing, and the last lines of
+  the error log with secrets, contact details and quoted values removed. **Run
+  the self-check now** runs and records the same check the scheduler does.
+- **Support → Download a support bundle** gives you a ZIP to diagnose from
+  without a remote session: the facts above, the clinic's non-sensitive
+  settings (a fixed list — a setting added later is left out until someone
+  adds it to `support_bundle.ALLOWED_SETTINGS`), the license's state, and the
+  last 500 lines of the error and update logs, redacted. No clinic records,
+  no secrets; its README says so and says the clinic may read it first.
+- **Support → Restore administrator access** is for when nobody at the clinic
+  can sign in as an administrator. It gives one active system administrator a
+  temporary password, shown to you once and stored nowhere: they must choose
+  their own at their next sign-in, any session they have ends, and their
+  sign-in lockout is cleared. The clinic's change log records it under your
+  name, and so does the Developer Audit.
+- **Vendor Message** puts a short plain-text message at the top of every page,
+  labelled "Message from your vendor": information or warning, with an
+  optional last day. Turning it off keeps the text; clearing removes it.
+- **Data Export** makes the clinic's full export — every table as CSV, every
+  attachment, the schema and a manifest — exactly as Settings → Data Export
+  does for the clinic's own administrators, also while read-only. The three
+  newest are kept in `<data dir>/exports/`.
+
+Everything here is recorded in the Developer Audit, which the clinic can read.

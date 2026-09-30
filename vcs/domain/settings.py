@@ -2,6 +2,12 @@
 The clinic's settings table: one row per key, read with a default.
 """
 
+# Settings whose value is a credential: the monitoring ping URL -- anyone
+# holding it can send a fake ping and silence the alert that fires when the
+# clinic's machine goes dark. The change log records only that one changed,
+# the data export and the support bundle leave them out, and the redactor
+# removes their values (licensing plan §13).
+SECRET_KEYS = frozenset({"heartbeat_url"})
 
 
 def get_setting(db, key, default=None):

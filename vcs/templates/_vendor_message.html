@@ -1,0 +1,10 @@
+{# The vendor's message (licensing plan §11.5, A13): plain text, escaped like
+   any other text, labelled so it cannot be taken for the clinic's own. A
+   notice-banner, not a flash: it stays until the vendor turns it off or its
+   last day passes. #}
+{% if vendor_message %}
+<div class="notice-banner vendor-message {{ vendor_message.level }}" role="note">
+  <div class="vendor-message-label">{{ _('Message from your vendor') }}</div>
+  <div class="preserve-lines">{{ vendor_message.text }}</div>
+</div>
+{% endif %}

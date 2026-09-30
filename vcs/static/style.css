@@ -775,6 +775,18 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
   background: var(--danger-tint); color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 32%, transparent);
 }
+/* The vendor's message (licensing plan §11.5): set apart from the clinic's
+   own notices by its accent edge and its label. */
+.notice-banner.vendor-message {
+  border-inline-start: 4px solid var(--primary);
+  background: var(--primary-tint); color: var(--ink);
+}
+.notice-banner.vendor-message.warning {
+  border-inline-start-color: var(--warn);
+  background: var(--warn-tint); color: var(--warn-ink);
+}
+.vendor-message-label { font-weight: 700; font-size: 12px; margin-bottom: 4px; color: var(--primary-dark); }
+.vendor-message.warning .vendor-message-label { color: inherit; }
 .selfcheck-banner.fail {
   background: var(--danger-tint); color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 32%, transparent);

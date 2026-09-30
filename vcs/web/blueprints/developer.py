@@ -7,15 +7,17 @@ without a clinic sign-in (A12), in its own layout.
 Sections land with the plan's phases; each page listed here does something
 real.
 """
+import io
 import os
 
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, jsonify, make_response, redirect, render_template, request, send_file, url_for
 from flask_babel import gettext as _
 
-from vcs import clock, config, money
-from vcs.domain import developer_audit, settings
+from vcs import auth, clock, config, money
+from vcs.domain import developer_audit, settings, vendor_message
 from vcs.licensing import tokens
-from vcs.web import devsession, license_pages, update_jobs, vendor_settings
+from vcs.messages import Msg, N_
+from vcs.web import devsession, export_jobs, license_pages, update_jobs, vendor_settings
 from vcs.web.core import (VERSION, flash, get_db, is_safe_local_path, login_rate_limit_check, money_setting_label,
                           shown)
 
@@ -82,6 +84,12 @@ def audit():
                            rows=developer_audit.recent(get_db()), audit_labels=developer_audit.LABELS)
 
 
+def _actor():
+    """How the vendor is named in both logs: the Developer Audit and the
+    clinic's own change log (plan §7.3)."""
+    return developer_audit.developer_actor(devsession.current()["name"])
+
+
 def _audit(action, *, target=None, outcome="ok", detail=None):
     dev = devsession.current()
     developer_audit.record(get_db(), action, actor=developer_audit.developer_actor(dev["name"]),
@@ -98,9 +106,9 @@ def configuration():
     db = get_db()
     if request.method == "POST":
         try:
-            money_change = (vendor_settings.save_money_setting(db, request.form["money_setting"])
+            money_change = (vendor_settings.save_money_setting(db, request.form["money_setting"], actor=_actor())
                             if request.form.get("money_setting") else None)
-            palette_change = (vendor_settings.save_palette(db, request.form["theme_palette"])
+            palette_change = (vendor_settings.save_palette(db, request.form["theme_palette"], actor=_actor())
                               if request.form.get("theme_palette") else None)
         except vendor_settings.Refused as e:
             db.rollback()
@@ -144,7 +152,7 @@ def monitoring():
     if request.method == "POST":
         value = "" if request.form.get("remove") else request.form.get("heartbeat_url", "")
         try:
-            change = vendor_settings.save_heartbeat_url(db, value)
+            change = vendor_settings.save_heartbeat_url(db, value, actor=_actor())
         except vendor_settings.Refused as e:
             flash(str(e), "error")
             return redirect(url_for("developer.monitoring"))
@@ -253,3 +261,157 @@ def updates_rollback():
 def job_status():
     payload, status = update_jobs.job_status(request.args.get("job_id", ""))
     return jsonify(payload), status
+
+
+# ---------------------------------------------------------------------------
+# System: what the app already knows about its health (§11.1)
+# ---------------------------------------------------------------------------
+ERROR_LOG_LINES = 60
+SELF_CHECK_STATUS = {"ok": N_("All clear"), "warn": N_("Warnings"), "fail": N_("Problems found")}
+# The logs' own words for how something went, as the System page says them.
+STATUS_LABELS = {**SELF_CHECK_STATUS, "success": N_("Succeeded"), "failed": N_("Failed"),
+                 "running": N_("Running"), "pass": N_("Passed")}
+
+
+@bp.route("/developer/system")
+@devsession.required
+def system():
+    from vcs.ops import redact, system_info
+    db = get_db()
+    errors = redact.log(redact.tail(system_info.error_log_path(), ERROR_LOG_LINES), redact.known_secrets(db))
+    return render_template("developer_system.html", developer=devsession.current(), info=system_info.gather(db),
+                           errors=errors, error_lines=ERROR_LOG_LINES, status_labels=STATUS_LABELS)
+
+
+@bp.route("/developer/system/self-check", methods=["POST"])
+@devsession.required
+def system_self_check():
+    """The daily self-check, now: the same run and the same record as the
+    scheduler's."""
+    from vcs.ops import selfcheck
+    db = get_db()
+    result = selfcheck.run_self_check(db)
+    selfcheck.record(db, result)
+    _audit("selfcheck.run", detail={"status": result["status"]})
+    db.commit()
+    flash(_("Self-check finished: %(status)s.", status=shown(Msg(SELF_CHECK_STATUS[result["status"]]))),
+          "success" if result["status"] == "ok" else "error")
+    return redirect(url_for("developer.system"))
+
+
+# ---------------------------------------------------------------------------
+# Support: the support bundle (§11.2) and restoring administrator access (§11.3)
+# ---------------------------------------------------------------------------
+def _system_admins(db):
+    return db.execute(
+        "SELECT u.id, u.username, u.full_name, u.active, u.must_change_password FROM users u "
+        "JOIN roles r ON r.id = u.role_id WHERE r.is_system ORDER BY u.username").fetchall()
+
+
+@bp.route("/developer/support")
+@devsession.required
+def support():
+    return render_template("developer_support.html", developer=devsession.current(),
+                           admins=_system_admins(get_db()))
+
+
+@bp.route("/developer/support/bundle", methods=["POST"])
+@devsession.required
+def support_bundle():
+    from vcs.ops import support_bundle as bundle
+    db = get_db()
+    data, name = bundle.build(db), bundle.filename()
+    _audit("support_bundle.generated", target=name, detail={"bytes": len(data)})
+    db.commit()
+    response = send_file(io.BytesIO(data), mimetype="application/zip", as_attachment=True, download_name=name)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.route("/developer/support/recover", methods=["POST"])
+@devsession.required
+def support_recover():
+    """A new temporary password for one of the clinic's system administrators
+    (§11.3), through the clinic's own reset path: they must change it at
+    their next sign-in, their other sessions end, and their sign-in lockout
+    is cleared. The password is on this response and nowhere else -- not a
+    flash (which would put it in the session cookie), not a log, not the
+    audit."""
+    db = get_db()
+    try:
+        user_id = int(request.form.get("user_id", ""))
+    except ValueError:
+        abort(400)
+    target = next((u for u in _system_admins(db) if u["id"] == user_id), None)
+    if target is None or not target["active"]:
+        _audit("admin.recovered", target=str(user_id), outcome="refused")
+        db.commit()
+        flash(_("Only an active system administrator's access can be restored here."), "error")
+        return redirect(url_for("developer.support"))
+    password = auth.temporary_password(target["username"])
+    auth.reset_password(db, user_id, password)
+    auth.log_change(db, "users", user_id, "update", {"password": ("(hidden)", "(reset by vendor)")}, actor=_actor())
+    _audit("admin.recovered", target=str(user_id), detail={"username": target["username"]})
+    db.commit()
+    response = make_response(render_template("developer_recovered.html", developer=devsession.current(),
+                                             user=target, password=password))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Vendor message (§11.5, A13)
+# ---------------------------------------------------------------------------
+@bp.route("/developer/vendor-message", methods=["GET", "POST"], endpoint="vendor_message")
+@devsession.required
+def vendor_message_page():
+    db = get_db()
+    if request.method == "POST":
+        if request.form.get("clear"):
+            if vendor_settings.clear_vendor_message(db):
+                _audit("vendor_message.cleared")
+            db.commit()
+            flash(_("The message is cleared."), "success")
+            return redirect(url_for("developer.vendor_message"))
+        try:
+            change = vendor_settings.save_vendor_message(
+                db, request.form.get("text"), request.form.get("level", "info"),
+                request.form.get("expires_at"), bool(request.form.get("enabled")))
+        except vendor_settings.Refused as e:
+            flash(str(e), "error")
+            return redirect(url_for("developer.vendor_message"))
+        if change:
+            _audit("vendor_message.changed", detail=change)
+        db.commit()
+        flash(_("The message is saved."), "success")
+        return redirect(url_for("developer.vendor_message"))
+    return render_template("developer_vendor_message.html", developer=devsession.current(),
+                           message=vendor_message.stored(db), showing=vendor_message.current(db),
+                           levels=vendor_message.LEVELS, max_length=vendor_message.MAX_LENGTH)
+
+
+# ---------------------------------------------------------------------------
+# Data export (§11.4): the same as Settings -> Data Export
+# ---------------------------------------------------------------------------
+@bp.route("/developer/data-export")
+@devsession.required
+def data_export():
+    from vcs.ops import data_export as export
+    return render_template(
+        "developer_data_export.html", developer=devsession.current(), exports=export.list_exports(),
+        exclusions=export.exclusions(),
+        exp={"start": url_for("developer.data_export_start"), "job": url_for("developer.job_status"),
+             "download": url_for("developer.data_export_download", name="NAME")})
+
+
+@bp.route("/developer/data-export/start", methods=["POST"])
+@devsession.required
+def data_export_start():
+    payload, status = export_jobs.start(actor=_actor(), pass_id=devsession.current()["pass_id"])
+    return jsonify(payload), status
+
+
+@bp.route("/developer/data-export/<name>")
+@devsession.required
+def data_export_download(name):
+    return export_jobs.download(name)

@@ -1163,7 +1163,10 @@ CREATE TABLE self_check_log (
     ran_at TIMESTAMPTZ NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('ok','warn','fail')),
     findings TEXT,
-    reported_at TIMESTAMPTZ
+    reported_at TIMESTAMPTZ,
+    -- Free space on the backup volume, as the disk check read it: shown on
+    -- Developer -> System rather than probing the disk a second time.
+    disk_free_bytes BIGINT
 );
 CREATE INDEX idx_selfcheck_ran ON self_check_log(ran_at DESC);
 

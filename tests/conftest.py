@@ -266,6 +266,29 @@ def clinic_license(vendor, tmp_path_factory):
     mp.undo()
 
 
+@pytest.fixture
+def set_license(clinic_license, vendor):
+    """set_license(expires_in_days, grace=14, warn=14): a key expiring that
+    far from now (negative: already expired), stored and cached. The clinic's
+    one-year key is put back afterwards."""
+    from datetime import datetime, timedelta, timezone
+    from vcs.licensing import state
+    now = datetime.now(timezone.utc)
+    key_file = clinic_license / "license.key"
+    original = key_file.read_text()
+
+    def _set(expires_in_days, grace=14, warn=14):
+        payload = vendor.tool.license_payload(
+            vendor.key, vendor.install_id, "Test Clinic", now + timedelta(days=expires_in_days),
+            issued_at=now - timedelta(days=400), grace_days=grace, warn_days=warn)
+        key_file.write_text(vendor.tool.sign(vendor.key, payload) + "\n")
+        return state.refresh()
+
+    yield _set
+    key_file.write_text(original)
+    state.refresh()
+
+
 def pytest_report_header(config):
     return f"money setting for unmarked tests: {run_money_code()}"
 

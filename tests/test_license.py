@@ -31,26 +31,6 @@ def _own_sign_in_limit(monkeypatch):
     monkeypatch.setattr(core, "_LOGIN_ATTEMPTS_BY_IP", {})
 
 
-@pytest.fixture
-def set_license(clinic_license, vendor):
-    """set_license(expires_in_days, grace=14, warn=14): a key expiring that
-    far from now (negative: already expired), stored and cached. The clinic's
-    one-year key is put back afterwards."""
-    key_file = clinic_license / "license.key"
-    original = key_file.read_text()
-
-    def _set(expires_in_days, grace=14, warn=14):
-        payload = vendor.tool.license_payload(
-            vendor.key, vendor.install_id, "Test Clinic", NOW + timedelta(days=expires_in_days),
-            issued_at=NOW - timedelta(days=400), grace_days=grace, warn_days=warn)
-        key_file.write_text(vendor.tool.sign(vendor.key, payload) + "\n")
-        return state.refresh()
-
-    yield _set
-    key_file.write_text(original)
-    state.refresh()
-
-
 def _signed_in(flask_app):
     c = flask_app.test_client()
     assert c.post("/login", data={"username": "admin", "password": PASSWORD}).status_code == 302

@@ -250,6 +250,16 @@ def inject_license():
         return dict(license_status=None)
 
 
+def inject_vendor_message():
+    """The vendor's message for the banner (licensing plan §11.5), or None."""
+    from vcs.domain import vendor_message
+    try:
+        return dict(vendor_message=vendor_message.current(get_db()))
+    except Exception:
+        error_logger.error("The vendor message could not be read for a page:\n" + traceback.format_exc())
+        return dict(vendor_message=None)
+
+
 def inject_js_strings():
     """The static scripts' sentences, in the clinic's language, for base.html
     to hand them as window.VZ_I18N (audit F2; js_strings.py)."""
@@ -325,6 +335,7 @@ def register(app):
     app.context_processor(inject_csp_nonce)
     app.context_processor(inject_globals)
     app.context_processor(inject_license)
+    app.context_processor(inject_vendor_message)
     app.add_template_filter(shown, "shown")
     Babel(app, locale_selector=_select_locale)
     # Flask-Babel 4.x does not register get_locale() as a Jinja global on its own,

@@ -622,3 +622,109 @@ monitoring text); **repository** — المستودع.
 | 35 | Update access token changed | تغيّر رمز الوصول للتحديثات |
 | 36 | Update started | بدأ التحديث |
 | 37 | When set, this clinic sends a short daily status ping — counts and statuses only, never patient, owner or staff details, and never any amounts. If this machine stops sending, the monitoring service tells you. | عند ضبطه، ترسل هذه العيادة نبضة حالة يومية قصيرة — أعدادًا وحالات فقط، دون أي تفاصيل عن الحيوانات أو المالكين أو الموظفين، ودون أي مبالغ. وإن توقف هذا الجهاز عن الإرسال، تُبلغك خدمة المراقبة. |
+
+## 27. The vendor's tools: System, Support, Vendor Message, Data Export (94)
+
+Developer -> System, Support, Vendor Message and Data Export, and the clinic's
+Settings -> Data Export and the banner "Message from your vendor" (licensing
+plan §11). New terms to confirm: **self-check** — فحص السلامة (from the
+existing "daily health check"); **support bundle** — حزمة الدعم; **data
+export** — تصدير البيانات; **redaction** — الإخفاء; **manifest** — قائمة
+المحتويات; **vendor** — مزوّد البرنامج, shortened to المزوّد in labels.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | %(d)s d %(h)s h %(m)s min | %(d)s يوم %(h)s ساعة %(m)s دقيقة |
+| 2 | %(n)s applied. | طُبّق %(n)s. |
+| 3 | A ZIP of what this install knows about its own health: versions, the database and its tools, the clinic's non-sensitive settings, the license's state, the latest self-check, backup and restore history, and the last lines of the error and update logs. No clinic records and no secrets; the logs are passed through redaction first. The clinic may read it before it is sent. | ملف ZIP بما يعرفه هذا التثبيت عن سلامته: الإصدارات، وقاعدة البيانات وأدواتها، وإعدادات العيادة غير الحساسة، وحالة الترخيص، وآخر فحص سلامة، وسجل النسخ الاحتياطي والاستعادة، وآخر أسطر سجلَّي الأخطاء والتحديثات. لا يحتوي على سجلات العيادة ولا على أي بيانات سرية؛ وتُمرَّر السجلات عبر الإخفاء أولًا. يمكن للعيادة قراءته قبل إرساله. |
+| 4 | A short message shown at the top of every page at this clinic, labelled as coming from you. Plain text only; write it in the clinic's language. | رسالة قصيرة تظهر أعلى كل صفحة في هذه العيادة، مع توضيح أنها منك. نص عادي فقط؛ اكتبها بلغة العيادة. |
+| 5 | Adding the attachments | جارٍ إضافة المرفقات |
+| 6 | Administrator access restored | استُعيد دخول المدير |
+| 7 | All clear | لا توجد مشكلات |
+| 8 | Application | التطبيق |
+| 9 | Back to Support | العودة إلى الدعم |
+| 10 | Backups and restores | النسخ الاحتياطي والاستعادة |
+| 11 | Checks | الفحوصات |
+| 12 | Clear the message | مسح الرسالة |
+| 13 | Could not be read: %(error)s | تعذّرت القراءة: %(error)s |
+| 14 | Daily self-check | فحص السلامة اليومي |
+| 15 | Data Export | تصدير البيانات |
+| 16 | Data export | تصدير البيانات |
+| 17 | Data export made | أُنشئ تصدير للبيانات |
+| 18 | Database | قاعدة البيانات |
+| 19 | Database changes | تغييرات قاعدة البيانات |
+| 20 | Download | تنزيل |
+| 21 | Download a support bundle | تنزيل حزمة الدعم |
+| 22 | Error log | سجل الأخطاء |
+| 23 | Everything the clinic has recorded, in one ZIP: every table as a spreadsheet file (CSV), every uploaded attachment, the database structure and a list of what is inside. It is for reading the records and taking them elsewhere; a backup is still the copy to restore from. | كل ما سجّلته العيادة في ملف ZIP واحد: كل جدول كملف جدول بيانات (CSV)، وكل مرفق مرفوع، وبنية قاعدة البيانات، وقائمة بمحتوياته. هو لقراءة السجلات ونقلها إلى مكان آخر؛ أما الاستعادة فتكون من النسخة الاحتياطية. |
+| 24 | For when nobody at the clinic can sign in as an administrator. Gives the account a temporary password, shown to you once: they must choose a new one at their next sign-in, any session they have ends, and their sign-in lockout is cleared. The clinic sees it in its own change log and in the Developer Audit. | لحالة لا يستطيع فيها أحد في العيادة الدخول كمدير. يمنح الحساب كلمة مرور مؤقتة تظهر لك مرة واحدة: يجب على صاحبه اختيار كلمة جديدة عند دخوله التالي، وتنتهي أي جلسة مفتوحة له، ويُرفع عنه قفل الدخول. ترى العيادة ذلك في سجل التغييرات لديها وفي سجل المطوّر. |
+| 25 | Free space on the backup volume | المساحة الحرة في قرص النسخ الاحتياطي |
+| 26 | Give %(name)s a temporary password now? Their current password stops working. | منح %(name)s كلمة مرور مؤقتة الآن؟ ستتوقف كلمة المرور الحالية عن العمل. |
+| 27 | Information | معلومة |
+| 28 | It has not run yet. | لم يُشغَّل بعد. |
+| 29 | It is shown only here, once: it is not saved, logged or sent anywhere. Give it to %(name)s; at their next sign-in they must choose their own. | تظهر هنا فقط، مرة واحدة: لا تُحفظ ولا تُسجَّل ولا تُرسل إلى أي مكان. أعطها إلى %(name)s؛ وعند دخوله التالي يجب أن يختار كلمة مرور خاصة به. |
+| 30 | Kind | النوع |
+| 31 | Last backup | آخر نسخة احتياطية |
+| 32 | Last day to show it | آخر يوم لعرضها |
+| 33 | Last restore check | آخر تحقق من الاستعادة |
+| 34 | Last successful backup | آخر نسخة احتياطية ناجحة |
+| 35 | Layout | نمط التثبيت |
+| 36 | Leave empty to show it until you turn it off. | اتركه فارغًا لتبقى ظاهرة حتى توقفها. |
+| 37 | Left out, and why | ما استُبعد، ولماذا |
+| 38 | Make an export | إنشاء تصدير |
+| 39 | Message from your vendor | رسالة من مزوّد البرنامج |
+| 40 | Missing: %(files)s | الناقص: %(files)s |
+| 41 | Mode | الوضع |
+| 42 | No export has been made yet. | لم يُنشأ أي تصدير بعد. |
+| 43 | No system administrator account exists. | لا يوجد حساب مدير للنظام. |
+| 44 | None missing. | لا شيء ناقص. |
+| 45 | Not a valid date. | تاريخ غير صالح. |
+| 46 | Not a valid message level. | نوع الرسالة غير صالح. |
+| 47 | Not found | غير موجود |
+| 48 | Nothing was saved: the money setting, the color palette, the monitoring ping and the vendor's message are set by your vendor. | لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة ورسالة المزوّد يحددها مزوّد البرنامج. |
+| 49 | Nothing: the message is off, empty or past its last day. | لا شيء: الرسالة متوقفة أو فارغة أو تجاوزت آخر يوم لها. |
+| 50 | Only an active system administrator's access can be restored here. | لا يمكن هنا استعادة الدخول إلا لمدير نظام نشط. |
+| 51 | Operating system | نظام التشغيل |
+| 52 | Passed | نجح |
+| 53 | PostgreSQL version | إصدار PostgreSQL |
+| 54 | Problems found | وُجدت مشكلات |
+| 55 | Ran at | وقت التشغيل |
+| 56 | Reachable | متاحة |
+| 57 | Reading the tables | جارٍ قراءة الجداول |
+| 58 | Ready to download | جاهز للتنزيل |
+| 59 | Restore access | استعادة الدخول |
+| 60 | Restore administrator access | استعادة دخول المدير |
+| 61 | Restores | عمليات الاستعادة |
+| 62 | Run the self-check now | تشغيل فحص السلامة الآن |
+| 63 | Running for | مدة التشغيل |
+| 64 | Self-check finished: %(status)s. | انتهى فحص السلامة: %(status)s. |
+| 65 | Self-check run | شُغّل فحص السلامة |
+| 66 | Server | الخادم |
+| 67 | Show it | عرضها |
+| 68 | Succeeded | نجحت |
+| 69 | Support | الدعم |
+| 70 | Support bundle | حزمة الدعم |
+| 71 | Support bundle made | أُنشئت حزمة دعم |
+| 72 | System | النظام |
+| 73 | The clinic's own copy of everything it has recorded. It can be made at any time, also while the system is read-only. | نسخة العيادة الخاصة من كل ما سجّلته. يمكن إنشاؤها في أي وقت، حتى عندما يكون النظام للقراءة فقط. |
+| 74 | The export could not be made. The error log has the details. | تعذّر إنشاء التصدير. التفاصيل في سجل الأخطاء. |
+| 75 | The export could not be started. | تعذّر بدء التصدير. |
+| 76 | The export is ready: %(name)s. | التصدير جاهز: %(name)s. |
+| 77 | The last %(n)s lines, with secrets, contact details and quoted values removed. | آخر %(n)s سطرًا، بعد إزالة البيانات السرية وبيانات الاتصال والقيم المقتبسة. |
+| 78 | The license key and the update access token are not kept in the database, so they are never exported. | مفتاح الترخيص ورمز الوصول للتحديثات لا يُحفظان في قاعدة البيانات، لذا لا يُصدَّران أبدًا. |
+| 79 | The message is cleared. | مُسحت الرسالة. |
+| 80 | The message is longer than %(n)s characters. | الرسالة أطول من %(n)s حرف. |
+| 81 | The message is saved. | حُفظت الرسالة. |
+| 82 | The temporary password for %(name)s: | كلمة المرور المؤقتة لـ %(name)s: |
+| 83 | The three newest are kept; making another removes the oldest. | تُحفظ أحدث ثلاثة؛ وإنشاء تصدير جديد يحذف أقدمها. |
+| 84 | Turned off | متوقف |
+| 85 | Vendor Message | رسالة المزوّد |
+| 86 | Vendor message changed | تغيّرت رسالة المزوّد |
+| 87 | Vendor message cleared | مُسحت رسالة المزوّد |
+| 88 | Warning | تحذير |
+| 89 | Warnings | تحذيرات |
+| 90 | What the clinic sees now | ما تراه العيادة الآن |
+| 91 | Write the message before turning it on. | اكتب الرسالة قبل تشغيلها. |
+| 92 | Writing the manifest | جارٍ كتابة قائمة المحتويات |
+| 93 | a credential: the monitoring ping address can be used to silence the alert | بيانات اعتماد: يمكن استخدام رابط المراقبة لإسكات التنبيه |
+| 94 | a credential: with the hash, a password can be guessed offline | بيانات اعتماد: باستخدام التجزئة يمكن تخمين كلمة المرور دون اتصال |

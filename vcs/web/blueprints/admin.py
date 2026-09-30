@@ -426,13 +426,9 @@ def admin_user_reset_password(user_id):
     if pw_error:
         flash(pw_error, "error")
         return redirect(url_for("admin.admin_users"))
-    # Also stamps password_changed_at so this reset immediately invalidates
-    # any of this user's existing sessions elsewhere (see require_login())
-    # — the whole point of an admin resetting a password (e.g. a suspected
-    # compromised account) is that it takes effect now, not up to 12 hours
-    # from now once that session's cookie happens to expire on its own.
-    db.execute("UPDATE users SET password_hash=%s, must_change_password=true, password_changed_at=%s WHERE id=%s",
-               (auth.hash_password(new_pw), clock.now().isoformat(timespec="seconds"), user_id))
+    # Ends their other sessions now and asks for a new password at the next
+    # sign-in (auth.reset_password, shared with the vendor's recovery).
+    auth.reset_password(db, user_id, new_pw)
     auth.log_change(db, "users", user_id, "update", {"password": ("(hidden)", "(reset by admin)")})
     db.commit()
     flash(_("Password reset. The user will be asked to set a new one on next login."), "success")

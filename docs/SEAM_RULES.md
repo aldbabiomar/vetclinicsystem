@@ -105,8 +105,9 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 ## 3. What is enforced automatically
 
-`tests/test_seam_rules.py`, and rule 13 in `tests/test_license.py` (it needs a
-signed-in client). **Thirteen** rules, each one derived from a defect above,
+`tests/test_seam_rules.py`; rules 13-15, which need a running app and signed-in
+clients, in `tests/test_license.py`, `tests/test_vendor_settings.py` and
+`tests/test_secrets.py`. **Fifteen** rules, each one derived from a defect above,
 from `CODE_AUDIT_2026-09-25.md` or from the licensing plan, rather than invented:
 
 | Rule | Asserts | From |
@@ -124,6 +125,8 @@ from `CODE_AUDIT_2026-09-25.md` or from the licensing plan, rather than invented
 | 11 | who is a vet is decided in one place, `appointments.vet_users()` | audit P19 |
 | 12 | every function writing a bill's lines, manual amount, discount or Clean Up calls `billing.bill_changed()`, which stores the new total the reports read | audit D2, B2 |
 | 13 | every endpoint that writes (POST/PUT/PATCH/DELETE) is on the read-only allowlist (`vcs/web/readonly.py`) or refused while the license is read-only — a walk of the live `url_map`, with a floor | licensing plan §6.4 |
+| 14 | every settings key the registry gates `developer` (found in `SETTING_FIELD_PERMISSION`, not listed) is refused by `POST /settings` from the system Admin, with a value its own rules would accept | licensing plan §9.1, audit S1 |
+| 15 | no secret the licensing plan's §13 lists — license key, Developer Pass, update token, ping URL, temporary admin password, database password, `SECRET_KEY` — appears in the logs, either audit table, the sign-in log, a job result, the support bundle, the data export, the Developer pages or the session, after the actions that touch each; with controls that each action's trace is where the scan reads | licensing plan §13 |
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already

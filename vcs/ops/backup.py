@@ -140,6 +140,13 @@ def _pg_env(password):
     return env
 
 
+def tool_paths():
+    """Where the tools this module runs are found: a local pg_dump and
+    pg_restore first, else `docker exec` into the database's container
+    (_run_pg_dump). For Developer -> System and the support bundle."""
+    return {name: shutil.which(name) for name in ("pg_dump", "pg_restore", "docker")}
+
+
 def _run_pg_dump(out_path):
     user, password, dbname, host, port = _pg_conn_parts()
     env = _pg_env(password)

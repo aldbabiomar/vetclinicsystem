@@ -8642,3 +8642,349 @@ msgstr ""
 "دون أي تفاصيل عن الحيوانات أو المالكين أو الموظفين، ودون أي مبالغ. وإن "
 "توقف هذا الجهاز عن الإرسال، تُبلغك خدمة المراقبة."
 
+#, python-format
+msgid "%(d)s d %(h)s h %(m)s min"
+msgstr "%(d)s يوم %(h)s ساعة %(m)s دقيقة"
+
+#, python-format
+msgid "%(n)s applied."
+msgstr "طُبّق %(n)s."
+
+msgid ""
+"A ZIP of what this install knows about its own health: versions, the "
+"database and its tools, the clinic's non-sensitive settings, the "
+"license's state, the latest self-check, backup and restore history, and "
+"the last lines of the error and update logs. No clinic records and no "
+"secrets; the logs are passed through redaction first. The clinic may read"
+" it before it is sent."
+msgstr ""
+"ملف ZIP بما يعرفه هذا التثبيت عن سلامته: الإصدارات، وقاعدة البيانات "
+"وأدواتها، وإعدادات العيادة غير الحساسة، وحالة الترخيص، وآخر فحص سلامة، "
+"وسجل النسخ الاحتياطي والاستعادة، وآخر أسطر سجلَّي الأخطاء والتحديثات. لا "
+"يحتوي على سجلات العيادة ولا على أي بيانات سرية؛ وتُمرَّر السجلات عبر "
+"الإخفاء أولًا. يمكن للعيادة قراءته قبل إرساله."
+
+msgid ""
+"A short message shown at the top of every page at this clinic, labelled "
+"as coming from you. Plain text only; write it in the clinic's language."
+msgstr ""
+"رسالة قصيرة تظهر أعلى كل صفحة في هذه العيادة، مع توضيح أنها منك. نص عادي "
+"فقط؛ اكتبها بلغة العيادة."
+
+msgid "Adding the attachments"
+msgstr "جارٍ إضافة المرفقات"
+
+msgid "Administrator access restored"
+msgstr "استُعيد دخول المدير"
+
+msgid "All clear"
+msgstr "لا توجد مشكلات"
+
+msgid "Application"
+msgstr "التطبيق"
+
+msgid "Back to Support"
+msgstr "العودة إلى الدعم"
+
+msgid "Backups and restores"
+msgstr "النسخ الاحتياطي والاستعادة"
+
+msgid "Checks"
+msgstr "الفحوصات"
+
+msgid "Clear the message"
+msgstr "مسح الرسالة"
+
+#, python-format
+msgid "Could not be read: %(error)s"
+msgstr "تعذّرت القراءة: %(error)s"
+
+msgid "Daily self-check"
+msgstr "فحص السلامة اليومي"
+
+msgid "Data Export"
+msgstr "تصدير البيانات"
+
+msgid "Data export"
+msgstr "تصدير البيانات"
+
+msgid "Data export made"
+msgstr "أُنشئ تصدير للبيانات"
+
+msgid "Database"
+msgstr "قاعدة البيانات"
+
+msgid "Database changes"
+msgstr "تغييرات قاعدة البيانات"
+
+msgid "Download"
+msgstr "تنزيل"
+
+msgid "Download a support bundle"
+msgstr "تنزيل حزمة الدعم"
+
+msgid "Error log"
+msgstr "سجل الأخطاء"
+
+msgid ""
+"Everything the clinic has recorded, in one ZIP: every table as a "
+"spreadsheet file (CSV), every uploaded attachment, the database structure"
+" and a list of what is inside. It is for reading the records and taking "
+"them elsewhere; a backup is still the copy to restore from."
+msgstr ""
+"كل ما سجّلته العيادة في ملف ZIP واحد: كل جدول كملف جدول بيانات (CSV)، وكل"
+" مرفق مرفوع، وبنية قاعدة البيانات، وقائمة بمحتوياته. هو لقراءة السجلات "
+"ونقلها إلى مكان آخر؛ أما الاستعادة فتكون من النسخة الاحتياطية."
+
+msgid ""
+"For when nobody at the clinic can sign in as an administrator. Gives the "
+"account a temporary password, shown to you once: they must choose a new "
+"one at their next sign-in, any session they have ends, and their sign-in "
+"lockout is cleared. The clinic sees it in its own change log and in the "
+"Developer Audit."
+msgstr ""
+"لحالة لا يستطيع فيها أحد في العيادة الدخول كمدير. يمنح الحساب كلمة مرور "
+"مؤقتة تظهر لك مرة واحدة: يجب على صاحبه اختيار كلمة جديدة عند دخوله "
+"التالي، وتنتهي أي جلسة مفتوحة له، ويُرفع عنه قفل الدخول. ترى العيادة ذلك "
+"في سجل التغييرات لديها وفي سجل المطوّر."
+
+msgid "Free space on the backup volume"
+msgstr "المساحة الحرة في قرص النسخ الاحتياطي"
+
+#, python-format
+msgid ""
+"Give %(name)s a temporary password now? Their current password stops "
+"working."
+msgstr "منح %(name)s كلمة مرور مؤقتة الآن؟ ستتوقف كلمة المرور الحالية عن العمل."
+
+msgid "Information"
+msgstr "معلومة"
+
+msgid "It has not run yet."
+msgstr "لم يُشغَّل بعد."
+
+#, python-format
+msgid ""
+"It is shown only here, once: it is not saved, logged or sent anywhere. "
+"Give it to %(name)s; at their next sign-in they must choose their own."
+msgstr ""
+"تظهر هنا فقط، مرة واحدة: لا تُحفظ ولا تُسجَّل ولا تُرسل إلى أي مكان. "
+"أعطها إلى %(name)s؛ وعند دخوله التالي يجب أن يختار كلمة مرور خاصة به."
+
+msgid "Kind"
+msgstr "النوع"
+
+msgid "Last backup"
+msgstr "آخر نسخة احتياطية"
+
+msgid "Last day to show it"
+msgstr "آخر يوم لعرضها"
+
+msgid "Last restore check"
+msgstr "آخر تحقق من الاستعادة"
+
+msgid "Last successful backup"
+msgstr "آخر نسخة احتياطية ناجحة"
+
+msgid "Layout"
+msgstr "نمط التثبيت"
+
+msgid "Leave empty to show it until you turn it off."
+msgstr "اتركه فارغًا لتبقى ظاهرة حتى توقفها."
+
+msgid "Left out, and why"
+msgstr "ما استُبعد، ولماذا"
+
+msgid "Make an export"
+msgstr "إنشاء تصدير"
+
+msgid "Message from your vendor"
+msgstr "رسالة من مزوّد البرنامج"
+
+#, python-format
+msgid "Missing: %(files)s"
+msgstr "الناقص: %(files)s"
+
+msgid "Mode"
+msgstr "الوضع"
+
+msgid "No export has been made yet."
+msgstr "لم يُنشأ أي تصدير بعد."
+
+msgid "No system administrator account exists."
+msgstr "لا يوجد حساب مدير للنظام."
+
+msgid "None missing."
+msgstr "لا شيء ناقص."
+
+msgid "Not a valid date."
+msgstr "تاريخ غير صالح."
+
+msgid "Not a valid message level."
+msgstr "نوع الرسالة غير صالح."
+
+msgid "Not found"
+msgstr "غير موجود"
+
+msgid ""
+"Nothing was saved: the money setting, the color palette, the monitoring "
+"ping and the vendor's message are set by your vendor."
+msgstr ""
+"لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة ورسالة المزوّد "
+"يحددها مزوّد البرنامج."
+
+msgid "Nothing: the message is off, empty or past its last day."
+msgstr "لا شيء: الرسالة متوقفة أو فارغة أو تجاوزت آخر يوم لها."
+
+msgid "Only an active system administrator's access can be restored here."
+msgstr "لا يمكن هنا استعادة الدخول إلا لمدير نظام نشط."
+
+msgid "Operating system"
+msgstr "نظام التشغيل"
+
+msgid "Passed"
+msgstr "نجح"
+
+msgid "PostgreSQL version"
+msgstr "إصدار PostgreSQL"
+
+msgid "Problems found"
+msgstr "وُجدت مشكلات"
+
+msgid "Ran at"
+msgstr "وقت التشغيل"
+
+msgid "Reachable"
+msgstr "متاحة"
+
+msgid "Reading the tables"
+msgstr "جارٍ قراءة الجداول"
+
+msgid "Ready to download"
+msgstr "جاهز للتنزيل"
+
+msgid "Restore access"
+msgstr "استعادة الدخول"
+
+msgid "Restore administrator access"
+msgstr "استعادة دخول المدير"
+
+msgid "Restores"
+msgstr "عمليات الاستعادة"
+
+msgid "Run the self-check now"
+msgstr "تشغيل فحص السلامة الآن"
+
+msgid "Running for"
+msgstr "مدة التشغيل"
+
+#, python-format
+msgid "Self-check finished: %(status)s."
+msgstr "انتهى فحص السلامة: %(status)s."
+
+msgid "Self-check run"
+msgstr "شُغّل فحص السلامة"
+
+msgid "Server"
+msgstr "الخادم"
+
+msgid "Show it"
+msgstr "عرضها"
+
+msgid "Succeeded"
+msgstr "نجحت"
+
+msgid "Support"
+msgstr "الدعم"
+
+msgid "Support bundle"
+msgstr "حزمة الدعم"
+
+msgid "Support bundle made"
+msgstr "أُنشئت حزمة دعم"
+
+msgid "System"
+msgstr "النظام"
+
+msgid ""
+"The clinic's own copy of everything it has recorded. It can be made at "
+"any time, also while the system is read-only."
+msgstr ""
+"نسخة العيادة الخاصة من كل ما سجّلته. يمكن إنشاؤها في أي وقت، حتى عندما "
+"يكون النظام للقراءة فقط."
+
+msgid "The export could not be made. The error log has the details."
+msgstr "تعذّر إنشاء التصدير. التفاصيل في سجل الأخطاء."
+
+msgid "The export could not be started."
+msgstr "تعذّر بدء التصدير."
+
+#, python-format
+msgid "The export is ready: %(name)s."
+msgstr "التصدير جاهز: %(name)s."
+
+#, python-format
+msgid ""
+"The last %(n)s lines, with secrets, contact details and quoted values "
+"removed."
+msgstr ""
+"آخر %(n)s سطرًا، بعد إزالة البيانات السرية وبيانات الاتصال والقيم "
+"المقتبسة."
+
+msgid ""
+"The license key and the update access token are not kept in the database,"
+" so they are never exported."
+msgstr ""
+"مفتاح الترخيص ورمز الوصول للتحديثات لا يُحفظان في قاعدة البيانات، لذا لا "
+"يُصدَّران أبدًا."
+
+msgid "The message is cleared."
+msgstr "مُسحت الرسالة."
+
+#, python-format
+msgid "The message is longer than %(n)s characters."
+msgstr "الرسالة أطول من %(n)s حرف."
+
+msgid "The message is saved."
+msgstr "حُفظت الرسالة."
+
+#, python-format
+msgid "The temporary password for %(name)s:"
+msgstr "كلمة المرور المؤقتة لـ %(name)s:"
+
+msgid "The three newest are kept; making another removes the oldest."
+msgstr "تُحفظ أحدث ثلاثة؛ وإنشاء تصدير جديد يحذف أقدمها."
+
+msgid "Turned off"
+msgstr "متوقف"
+
+msgid "Vendor Message"
+msgstr "رسالة المزوّد"
+
+msgid "Vendor message changed"
+msgstr "تغيّرت رسالة المزوّد"
+
+msgid "Vendor message cleared"
+msgstr "مُسحت رسالة المزوّد"
+
+msgid "Warning"
+msgstr "تحذير"
+
+msgid "Warnings"
+msgstr "تحذيرات"
+
+msgid "What the clinic sees now"
+msgstr "ما تراه العيادة الآن"
+
+msgid "Write the message before turning it on."
+msgstr "اكتب الرسالة قبل تشغيلها."
+
+msgid "Writing the manifest"
+msgstr "جارٍ كتابة قائمة المحتويات"
+
+msgid "a credential: the monitoring ping address can be used to silence the alert"
+msgstr "بيانات اعتماد: يمكن استخدام رابط المراقبة لإسكات التنبيه"
+
+msgid "a credential: with the hash, a password can be guessed offline"
+msgstr "بيانات اعتماد: باستخدام التجزئة يمكن تخمين كلمة المرور دون اتصال"
+

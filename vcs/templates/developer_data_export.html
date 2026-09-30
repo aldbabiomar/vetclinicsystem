@@ -1,0 +1,6 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Data Export') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Data Export') }}{% endblock %}
+{% block dev_main %}
+<div class="card">{% include "_data_export_panel.html" %}</div>
+{% endblock %}

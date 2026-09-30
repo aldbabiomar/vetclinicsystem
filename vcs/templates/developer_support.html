@@ -1,0 +1,49 @@
+{% extends "developer_layout.html" %}
+{% block title %}{{ _('Support') }} — {{ clinic_name }}{% endblock %}
+{% block dev_title %}{{ _('Support') }}{% endblock %}
+{% block dev_main %}
+<div class="card">
+  <div class="section-title u-mt-0">{{ _('Support bundle') }}</div>
+  <p class="small">{{ _('A ZIP of what this install knows about its own health: versions, the database and its tools, the clinic\'s non-sensitive settings, the license\'s state, the latest self-check, backup and restore history, and the last lines of the error and update logs. No clinic records and no secrets; the logs are passed through redaction first. The clinic may read it before it is sent.') }}</p>
+  <form method="post" action="{{ url_for('developer.support_bundle') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">{{ _('Download a support bundle') }}</button>
+  </form>
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Restore administrator access') }}</div>
+  <p class="small">{{ _('For when nobody at the clinic can sign in as an administrator. Gives the account a temporary password, shown to you once: they must choose a new one at their next sign-in, any session they have ends, and their sign-in lockout is cleared. The clinic sees it in its own change log and in the Developer Audit.') }}</p>
+  {% if admins %}
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">{{ _('Username') }}</th><th scope="col">{{ _('Name') }}</th><th scope="col"></th></tr></thead>
+    <tbody>
+    {% for u in admins %}
+      <tr><td class="u-mono">{{ u.username }}</td><td>{{ u.full_name }}</td>
+        <td>{% if u.active %}
+          <form method="post" action="{{ url_for('developer.support_recover') }}" data-confirm="{{ _('Give %(name)s a temporary password now? Their current password stops working.', name=u.username) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" value="{{ u.id }}">
+            <button class="btn secondary small" type="submit">{{ _('Restore access') }}</button>
+          </form>
+        {% else %}<span class="small muted">{{ _('Turned off') }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="small muted">{{ _('No system administrator account exists.') }}</p>{% endif %}
+</div>
+
+<div class="card u-mt-7">
+  <div class="section-title u-mt-0">{{ _('Checks') }}</div>
+  <div class="u-row">
+    <form method="post" action="{{ url_for('developer.system_self_check') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn secondary" type="submit">{{ _('Run the self-check now') }}</button>
+    </form>
+    <form method="post" action="{{ url_for('developer.updates_test') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn secondary" type="submit">{{ _('Test connection') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

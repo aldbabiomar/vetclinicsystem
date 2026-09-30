@@ -55,6 +55,9 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_license_panel.html", "_license_banner.html",
                         # The updates panel: Settings -> Updates and Developer -> Updates.
                         "_updates_panel.html",
+                        # The data export (Settings and Developer), and the
+                        # vendor's message (base.html, and its preview).
+                        "_data_export_panel.html", "_vendor_message.html",
                         # Included at the top of 15 detail pages (audit P5).
                         "_back_link.html"}
 

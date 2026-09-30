@@ -500,8 +500,8 @@ def record(db, result):
     Never raises — a monitoring feature must not be able to break the app."""
     try:
         db.execute(
-            "INSERT INTO self_check_log (ran_at, status, findings) VALUES (%s,%s,%s)",
-            (result["ran_at"], result["status"], json.dumps(result["findings"])),
+            "INSERT INTO self_check_log (ran_at, status, findings, disk_free_bytes) VALUES (%s,%s,%s,%s)",
+            (result["ran_at"], result["status"], json.dumps(result["findings"]), result.get("disk_free_bytes")),
         )
         db.execute(
             "DELETE FROM self_check_log WHERE id NOT IN ("

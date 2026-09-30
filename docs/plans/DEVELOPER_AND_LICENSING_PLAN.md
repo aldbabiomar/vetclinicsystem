@@ -1009,3 +1009,59 @@ result under each money setting.
   (the first full run found the updater-route tests' configured install
   had no token, so the new refusal answered before GitHub was asked; the
   fixture now saves one, and both were re-run); no database 763 passed.
+- **2026-09-30 — Phase 5: the vendor's tools.**
+  - **System (§11.1)** — `vcs/ops/system_info.py` gathers what the app
+    already records: version, uptime, the database (reachable, version,
+    mode, where the tools were found), the latest self-check, backups,
+    restores and the restore check, migrations applied and missing. The
+    self-check now stores the free space its disk check read
+    (`self_check_log.disk_free_bytes`, in the baseline), so nothing probes
+    the disk twice. The error-log tail on the page is redacted. **Run the
+    self-check now** is the scheduler's own run and record.
+    `VETCLINICSYSTEM_DB_MODE` (A11) is read into `config.DB_MODE`, default
+    `docker`; phase 6 gives it meaning.
+  - **Support bundle (§11.2)** — `vcs/ops/support_bundle.py`: settings by an
+    allowlist, the license's state (never the key), system facts, and 500
+    lines of each log. `vcs/ops/redact.py` removes this install's secrets by
+    value, token shapes, credentials in URLs, e-mail addresses and phone-like
+    digit runs from every file; on a log's message lines, quoted values and
+    PostgreSQL's DETAIL values too. JSON files are redacted value by value,
+    so they stay JSON.
+  - **Restore administrator access (§11.3)** — Developer → Support, for an
+    active system administrator only. One reset path for the clinic's admin
+    reset and the vendor's (`auth.reset_password`); it now stamps the whole
+    instant, and `login_lock_status` counts only failures after the last
+    password change, so a reset clears a lockout (for the clinic's own
+    admin reset as well). The password is on the response alone (`no-store`,
+    never a flash); `log_change` names the vendor (`dev:<name>`, a new
+    `actor` argument — the vendor's money-setting, palette and ping changes
+    use it too).
+  - **Data export (§11.4)** — `vcs/ops/data_export.py`: every live table as
+    UTF-8 CSV with a BOM, in one read-only snapshot; attachments at their
+    recorded paths; `schema.sql`; `manifest.json` with row counts and
+    SHA-256s; a README. Exclusions are a registry with reasons
+    (`users.password_hash`; `settings` rows in `settings.SECRET_KEYS`, which
+    replaces the old `SECRET_SETTING_KEYS`). Settings → Data Export
+    (`manage_maintenance`, in the sidebar) and Developer → Data Export share
+    one job (`vcs/web/export_jobs.py`) and one panel; the start is on the
+    read-only allowlist; the three newest exports are kept; a download is
+    only a file named like an export. Each is in the Developer Audit.
+  - **Vendor message (§11.5)** — four `developer`-gated settings; a labelled,
+    escaped banner in `base.html`, information or warning, hidden when off
+    or past its last day; set, turned off and cleared in the Developer
+    area, each audited.
+  - **Seam rules 14 and 15** (`SEAM_RULES.md` §3): every `developer`-gated
+    key, discovered in the registry, is refused by `POST /settings`
+    (`tests/test_vendor_settings.py`); no §13 secret appears in any §13
+    output after the actions that touch it, with controls that each action's
+    trace is where the scan reads (`tests/test_secrets.py`).
+  - **Tests:** `tests/test_developer_tools.py` (28) and `tests/test_secrets.py`
+    (2); the gate test now finds its keys in the registry (seven); `set_license` moved into `conftest`. Sixteen mutations, all proven
+    (one first aimed at a flash, which the same page consumes, was re-aimed
+    at the audit). Widening the request-layer scan caught
+    `date.fromisoformat` in the vendor-message check; it uses
+    `core.strict_date`. Arabic: `ARABIC_REVIEW.md` §27 (94 strings).
+
+  **Suite:** IQ **1767 passed, 0 skipped**; JO **1767 passed, 0 skipped**;
+  no database 763 passed (a test local named `settings` was renamed for
+  `test_domain_imports` and re-run).
