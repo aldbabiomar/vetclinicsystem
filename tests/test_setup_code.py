@@ -6,7 +6,6 @@ palette, and the update token and ping URL when the vendor includes them.
 """
 import os
 import select
-import signal
 import stat
 import sys
 import time
@@ -158,9 +157,12 @@ def _pasted_at_the_prompt(typed, wait=20):
     a writer that does not read its echo fills the pipe and waits for ever on
     a reader that is waiting on it."""
     import pty
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execv(sys.executable, [sys.executable, "-c", PASTER.format(root=str(source_files.ROOT))])
+    import subprocess
+    fd, terminal = pty.openpty()
+    # Popen, not pty.fork(): forking a test process that has threads can deadlock the child.
+    child = subprocess.Popen([sys.executable, "-c", PASTER.format(root=str(source_files.ROOT))],
+                             stdin=terminal, stdout=terminal, stderr=terminal, start_new_session=True)
+    os.close(terminal)
     os.set_blocking(fd, False)
     out, pending = b"", b""
 
@@ -193,11 +195,8 @@ def _pasted_at_the_prompt(typed, wait=20):
         run_until(b"ARRIVED never-a-match", 0.5)          # the rest of that line
         return int(out.rsplit(b"ARRIVED ", 1)[1].split()[0])
     finally:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        os.waitpid(pid, 0)
+        child.kill()
+        child.wait()
         os.close(fd)
 
 

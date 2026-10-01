@@ -15,7 +15,7 @@
       <input id="devmon-1-heartbeat_url" name="heartbeat_url" type="url" placeholder="{{ _('https://… (leave blank to disable)') }}" autocomplete="off" spellcheck="false">
       <span class="small muted">{{ _('Must start with https://. Treat it like a password: anyone who has it can send a fake ping and stop a real alert.') }}</span>
     </div>
-    <div class="u-row">
+    <div class="form-actions">
       <button class="btn" type="submit">{{ _('Save') }}</button>
       {% if ping_url %}<button class="btn secondary" type="submit" name="remove" value="1">{{ _('Turn monitoring off') }}</button>{% endif %}
     </div>

@@ -27,5 +27,6 @@
   <a class="chip {{ 'active' if request.endpoint == 'developer.data_export' }}" href="{{ url_for('developer.data_export') }}">{{ _('Data Export') }}</a>
   <a class="chip {{ 'active' if request.endpoint == 'developer.audit' }}" href="{{ url_for('developer.audit') }}">{{ _('Developer Audit') }}</a>
 </div>
-{% block dev_main %}{% endblock %}
+{# .dev-area: a section's buttons sit in its far bottom corner (style.css). #}
+<div class="dev-area">{% block dev_main %}{% endblock %}</div>
 {% endblock %}

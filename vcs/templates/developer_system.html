@@ -46,9 +46,9 @@
   </div>
   {% if check.findings %}<ul class="small">{% for f in check.findings %}<li>{{ f|finding }}</li>{% endfor %}</ul>{% endif %}
   {% else %}<p class="small muted">{{ _('It has not run yet.') }}</p>{% endif %}
-  <form method="post" action="{{ url_for('developer.system_self_check') }}" class="u-mt-6">
+  <form method="post" action="{{ url_for('developer.system_self_check') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn secondary" type="submit">{{ _('Run the self-check now') }}</button>
+    <div class="form-actions"><button class="btn secondary" type="submit">{{ _('Run the self-check now') }}</button></div>
   </form>
 </div>
 

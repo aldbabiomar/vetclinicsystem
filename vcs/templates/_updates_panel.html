@@ -4,21 +4,20 @@
 <div class="section-title">{{ _('Updates') }}</div>
 <div id="updatesConfigured" style="display:none;">
   <div class="detail-item"><div class="k">{{ _('Current Version') }}</div><div class="v" id="updCurrentVersion">{{ _('VetClinicSystem v%(app_version)s', app_version=app_version) }}</div></div>
-  <div class="u-row-center-mt">
-    <button class="btn secondary" type="button" id="updCheckBtn" data-vzh="updates-1">{{ _('Check for Updates') }}</button>
-    <span id="updCheckStatus" class="small muted"></span>
-  </div>
   <div id="updAvailablePanel" style="display:none; margin-top:14px; padding:14px; border:1px solid var(--line-soft); border-radius:10px;">
     <div class="u-strong u-mb-2">{{ _('Version') }} <span id="updLatestTag"></span> {{ _('is available') }}</div>
     <pre id="updChangelogBody" class="small preserve-lines"></pre>
-    <div class="u-row">
+    <div class="form-actions">
       <button class="btn" type="button" id="updApplyBtn" data-vzh="updates-2">{{ _('Update Now') }}</button>
       <button class="btn secondary" type="button" data-vzh="updates-3">{{ _('Not Now') }}</button>
     </div>
   </div>
   <div id="updateProgress" class="vz-progress-panel" style="display:none; margin-top:12px;"></div>
-  <div class="u-mt-6">
+  {# One row for the section's own buttons; the check's result is beside them. #}
+  <div class="form-actions">
+    <button class="btn secondary" type="button" id="updCheckBtn" data-vzh="updates-1">{{ _('Check for Updates') }}</button>
     <button class="btn secondary" type="button" id="updRollbackBtn" data-vzh="updates-4">{{ _('Rollback to Previous Version') }}</button>
+    <span id="updCheckStatus" class="small muted"></span>
   </div>
 </div>
 <div id="updatesNotConfigured" class="small muted" style="display:none;">

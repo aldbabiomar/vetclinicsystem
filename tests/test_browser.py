@@ -407,6 +407,33 @@ def test_no_interactive_element_is_rendered_invisible(signed_in):
     assert not offenders, "collapsed control(s):\n  " + "\n  ".join(offenders)
 
 
+def test_a_pages_tabs_look_like_the_filter_chips(signed_in):
+    """GUARD. Users & Roles, an inpatient case and the appointment days had an
+    underlined strip, the one control in the app that was not a rounded chip.
+    The filters on Patients are the reference: a tab is drawn the same, chosen
+    or not."""
+    page = signed_in["laptop"]
+    look = """(selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return [cs.borderTopLeftRadius, cs.borderBottomWidth, cs.borderTopWidth, cs.paddingLeft, cs.paddingTop,
+                cs.fontSize, cs.backgroundColor, cs.color];
+    }"""
+    _visit(page, "/patients")
+    chip = {"chosen": page.evaluate(look, ".filter-chips .chip.active"),
+            "other": page.evaluate(look, ".filter-chips .chip:not(.active)")}
+    assert chip["chosen"] and chip["other"] and chip["chosen"][6] != chip["other"][6], chip
+    seen = 0
+    for path in ("/admin/users", "/appointments"):
+        _visit(page, path)
+        for state, selector in (("chosen", ".tabs a.active"), ("other", ".tabs a:not(.active)")):
+            tab = page.evaluate(look, selector)
+            assert tab == chip[state], f"{path}: a {state} tab {tab} is not drawn as a {state} chip {chip[state]}"
+            seen += 1
+    assert seen == 4
+
+
 @pytest.mark.parametrize("viewport", ["phone", "tablet"])
 def test_touch_targets_are_big_enough_on_touch_screens(signed_in, viewport):
     """44px is the accessibility floor. A control smaller than that is

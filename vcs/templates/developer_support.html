@@ -7,7 +7,7 @@
   <p class="small">{{ _('A ZIP of what this install knows about its own health: versions, the database and its tools, the clinic\'s non-sensitive settings, the license\'s state, the latest self-check, backup and restore history, and the last lines of the error and update logs. No clinic records and no secrets; the logs are passed through redaction first. The clinic may read it before it is sent.') }}</p>
   <form method="post" action="{{ url_for('developer.support_bundle') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn" type="submit">{{ _('Download a support bundle') }}</button>
+    <div class="form-actions"><button class="btn" type="submit">{{ _('Download a support bundle') }}</button></div>
   </form>
 </div>
 
@@ -20,7 +20,7 @@
     <tbody>
     {% for u in admins %}
       <tr><td class="u-mono">{{ u.username }}</td><td>{{ u.full_name }}</td>
-        <td>{% if u.active %}
+        <td class="cell-actions">{% if u.active %}
           <form method="post" action="{{ url_for('developer.support_recover') }}" data-confirm="{{ _('Give %(name)s a temporary password now? Their current password stops working.', name=u.username) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="user_id" value="{{ u.id }}">
@@ -33,9 +33,10 @@
   {% else %}<p class="small muted">{{ _('No system administrator account exists.') }}</p>{% endif %}
 </div>
 
+{# The owner asked for this section's two buttons to stay where they are. #}
 <div class="card u-mt-7">
   <div class="section-title u-mt-0">{{ _('Checks') }}</div>
-  <div class="u-row">
+  <div class="u-row" data-keeps-its-place>
     <form method="post" action="{{ url_for('developer.system_self_check') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn secondary" type="submit">{{ _('Run the self-check now') }}</button>

@@ -316,6 +316,17 @@ textarea { resize: vertical; min-height: 72px; }
    all of them is not what was asked for. justify-content follows the writing
    direction, so this is the left corner in Arabic. */
 .form-actions.form-actions-end { justify-content: flex-end; }
+/* The Developer area: a section's buttons sit together, in one row, in its
+   far bottom corner (the right in English, the left in Arabic). Scoped to
+   .dev-area because the License, Updates and Data Export panels are also the
+   clinic's own Settings pages, whose buttons stay where they were. Text that
+   reports on a button (the result of an update check) keeps to the near
+   side of the row; a button in a table sits at the far end of its row. */
+.dev-area .form-actions { justify-content: flex-end; flex-wrap: wrap; align-items: center; }
+.dev-area .form-actions > .small { order: -1; margin-inline-end: auto; }
+/* Anywhere: the text beside a row's buttons sits on their middle line. */
+.form-actions > .small { align-self: center; }
+.dev-area td.cell-actions { text-align: end; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; flex-direction: row; }
 .checkbox-row input { width: auto; }
 
@@ -334,12 +345,11 @@ textarea { resize: vertical; min-height: 72px; }
    saved audit looked identical to a failed one and staff re-ran it. */
 .flash.warning { background: var(--warn-tint); color: var(--warn-ink); }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
-.tabs a { padding: 9px 14px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); border-bottom: 2px solid transparent; white-space: nowrap; }
-.tabs a.active { color: var(--primary); border-bottom-color: var(--primary); opacity: 1; }
-.tabs a:hover { text-decoration: none; color: var(--primary); }
-
-.filter-chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+/* A page's tabs (Users & Roles, an inpatient case, the appointment days) and
+   a list's filters are one control: rounded chips, the chosen one filled.
+   .tabs used to be an underlined strip, the one place the app looked
+   different; its links take the .chip rules below. */
+.filter-chips, .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
 /* A primary action sharing the filter row sits in the far corner.
    margin-inline-start so it lands correctly under RTL; flex-wrap above means
    it drops to its own line on a phone rather than squashing the chips. */
@@ -356,13 +366,14 @@ textarea { resize: vertical; min-height: 72px; }
 .bill-form { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; margin: 8px 0; }
 .bill-form > .field { flex: 1 1 140px; min-width: 0; }
 .bill-form.bill-pay { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
-.chip {
+.chip, .tabs a {
   padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
   font-size: 12.5px; font-weight: 600; color: var(--ink-soft); background: var(--paper);
   transition: background 0.15s ease;
 }
-.chip:hover { text-decoration: none; background: var(--muted-tint); opacity: 1; }
-.chip.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.tabs a { white-space: nowrap; }
+.chip:hover, .tabs a:hover { text-decoration: none; background: var(--muted-tint); opacity: 1; }
+.chip.active, .tabs a.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 
 .section-title {
   font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.9px;
@@ -539,7 +550,7 @@ textarea { resize: vertical; min-height: 72px; }
   .hamburger-btn { width: 44px; height: 44px; }
   .sidebar-close-btn { min-height: 44px; min-width: 44px; }
   .theme-toggle-btn { width: 44px; height: 44px; }
-  .chip { display: inline-flex; align-items: center; min-height: 44px; }
+  .chip, .tabs a { display: inline-flex; align-items: center; min-height: 44px; }
   input:not([type="checkbox"]):not([type="radio"]), select { min-height: 44px; }
 }
 

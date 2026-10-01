@@ -6,6 +6,6 @@
   <p>{{ _('The temporary password for %(name)s:', name=user.username) }}</p>
   <div class="code-box u-mono">{{ password }}</div>
   <p class="small u-mt-6">{{ _('It is shown only here, once: it is not saved, logged or sent anywhere. Give it to %(name)s; at their next sign-in they must choose their own.', name=user.full_name or user.username) }}</p>
-  <a class="btn secondary" href="{{ url_for('developer.support') }}">{{ _('Back to Support') }}</a>
+  <div class="form-actions"><a class="btn secondary" href="{{ url_for('developer.support') }}">{{ _('Back to Support') }}</a></div>
 </div>
 {% endblock %}

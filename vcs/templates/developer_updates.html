@@ -7,6 +7,11 @@
     <div class="detail-item"><div class="k">{{ _('Repository') }}</div><div class="v u-mono">{{ repository or '—' }}</div></div>
     <div class="detail-item"><div class="k">{{ _('Access token') }}</div><div class="v u-mono">{{ token or _('Not set') }}</div></div>
   </div>
+  {# Test connection is this form's; its button sits in the row below, beside
+     the token form's own, and names this form with `form=`. #}
+  <form method="post" action="{{ url_for('developer.updates_test') }}" id="devupd-2-test">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
   <form method="post" action="{{ url_for('developer.updates_token') }}" class="u-mt-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="field u-mb-2">
@@ -14,14 +19,11 @@
       <input id="devupd-1-token" name="token" type="password" autocomplete="off" spellcheck="false">
       <span class="small muted">{{ _('This clinic\'s own read-only token for the repository. Revoking it on GitHub stops only this clinic\'s updates.') }}</span>
     </div>
-    <div class="u-row">
+    <div class="form-actions">
       <button class="btn" type="submit">{{ _('Save token') }}</button>
       {% if token %}<button class="btn secondary" type="submit" name="remove" value="1">{{ _('Remove token') }}</button>{% endif %}
+      <button class="btn secondary" type="submit" form="devupd-2-test">{{ _('Test connection') }}</button>
     </div>
-  </form>
-  <form method="post" action="{{ url_for('developer.updates_test') }}" class="u-mt-6">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn secondary" type="submit">{{ _('Test connection') }}</button>
   </form>
 </div>
 

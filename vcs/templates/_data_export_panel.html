@@ -3,7 +3,7 @@
    passing its routes as `exp` = {start, job, download}; `download` names the
    file NAME. #}
 <p>{{ _('Everything the clinic has recorded, in one ZIP: every table as a spreadsheet file (CSV), every uploaded attachment, the database structure and a list of what is inside. It is for reading the records and taking them elsewhere; a backup is still the copy to restore from.') }}</p>
-<div class="u-row-center-mt">
+<div class="form-actions">
   <button class="btn" type="button" id="exportStartBtn" data-vzh="dataexport-1">{{ _('Make an export') }}</button>
 </div>
 <div id="exportProgress" class="vz-progress-panel" style="display:none;"></div>
@@ -15,7 +15,7 @@
   <tbody>
   {% for e in exports %}
     <tr><td class="u-mono">{{ e.name }}</td><td>{{ (e.size_bytes / 1024 / 1024)|round(1) }} MB</td>
-      <td><a class="btn secondary small" href="{{ exp.download|replace('NAME', e.name) }}">{{ _('Download') }}</a></td></tr>
+      <td class="cell-actions"><a class="btn secondary small" href="{{ exp.download|replace('NAME', e.name) }}">{{ _('Download') }}</a></td></tr>
   {% endfor %}
   </tbody>
 </table></div>

@@ -53,6 +53,7 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Code layout | **Full restructure** into the `vcs/` package the plan's §3.1 describes (decided 2026-09-25); until it lands, the flat layout in §2 below is current |
 | Wellness reminders | Most urgent first on the Dashboard and the Wellness page; "due" ends when "missed" begins (14 days); a newer entry for the same pet and type replaces the old one |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
+| Buttons and tabs | In the Developer area a section's buttons sit together in one row in its far bottom corner (`.dev-area .form-actions`), except Support → Checks, which keeps its place; the clinic's own Settings pages are not changed. A page's tabs (`.tabs`) are rounded chips like the list filters, everywhere (decided 2026-10-01; `tests/test_developer_layout.py`, and `test_a_pages_tabs_look_like_the_filter_chips` in `tests/test_browser.py`) |
 | Licensing | L-1–L-10 in the licensing plan §1.1: Ed25519-signed license keys and Developer Passes, verified offline against keys in the source; read-only after expiry and grace, from the next sign-in; payments refused and inpatient notes allowed while read-only |
 
 The **Developer area** (`/developer/…`) is the vendor's: it opens only with a

@@ -25,7 +25,7 @@
     <label class="small u-row-center u-weight-normal">
       <input type="checkbox" name="enabled" value="1" {{ 'checked' if message.enabled }}> {{ _('Show it') }}
     </label>
-    <div class="form-actions u-row">
+    <div class="form-actions">
       <button class="btn" type="submit">{{ _('Save') }}</button>
       {% if message.text %}<button class="btn secondary" type="submit" name="clear" value="1">{{ _('Clear the message') }}</button>{% endif %}
     </div>
