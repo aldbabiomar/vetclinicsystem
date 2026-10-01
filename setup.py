@@ -225,6 +225,38 @@ def parse_setup_code(text):
     return code
 
 
+def ask(prompt):
+    """input(), for a line as long as a setup code. A terminal's own line
+    editing takes 1,024 characters on macOS (4,096 on Linux) and drops what
+    comes after, Return included -- and a setup code with an update token and
+    a ping URL is longer than that, so setup sat at its prompt and never got
+    the code. With readline loaded, input() reads through it, key by key, at
+    any length. Windows has no readline module; input() is used as it is."""
+    try:
+        import readline  # noqa: F401 -- loading it is the effect
+    except ImportError:
+        pass
+    return input(prompt)
+
+
+def paste_setup_code():
+    """The setup code as pasted at the prompt. A mail or chat app can break
+    the one long line into several, and a terminal hands those over one at a
+    time: keep reading until what has arrived is a whole code, or an empty
+    line says there is no more."""
+    text = ask("  Paste the setup code from your vendor, or press Return to set up without one: ").strip()
+    while text:
+        try:
+            parse_setup_code(text)
+            break
+        except BadSetupCode:
+            more = ask("  That is not a whole setup code yet. Paste the rest, or press Return to stop: ").strip()
+            if not more:
+                break
+            text += more
+    return text
+
+
 def read_setup_code():
     """`--setup-code`, or asked for when a new install is set up by hand; None
     without one. A damaged code stops setup before anything is written."""
@@ -232,7 +264,7 @@ def read_setup_code():
     new_install = not os.path.exists(os.path.join(_env_dir(), ".env"))
     if not text and new_install and sys.stdin.isatty() and not _argument("--license-key"):
         step("Setup code")
-        text = input("  Paste the setup code from your vendor, or press Return to set up without one: ").strip()
+        text = paste_setup_code()
     if not text:
         return None
     try:
@@ -647,7 +679,7 @@ def ensure_license(key=None):
     key = key or _argument("--license-key")
     if not key and sys.stdin.isatty():
         print(f"  This installation's ID is {config.INSTALL_ID}. Your vendor signs the license for it.")
-        key = input("  Paste the license key: ")
+        key = ask("  Paste the license key: ")
     if not key:
         print(f"  No license key. Ask your vendor for one for installation {config.INSTALL_ID}, "
               "then run setup again with --license-key.")

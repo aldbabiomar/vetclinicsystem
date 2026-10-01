@@ -5,8 +5,11 @@ which names the installation and the clinic -- the money setting, the
 palette, and the update token and ping URL when the vendor includes them.
 """
 import os
+import select
+import signal
 import stat
 import sys
+import time
 
 import pytest
 
@@ -135,3 +138,99 @@ def test_a_secret_from_the_code_is_never_printed(code, db, tmp_path, monkeypatch
         if saved:
             db.execute("INSERT INTO settings (key, value) VALUES ('heartbeat_url', %s)", (saved["value"],))
         db.commit()
+
+
+# --- pasted at setup's prompt, on a real terminal -----------------------------
+
+at_a_terminal = pytest.mark.skipif(sys.platform == "win32", reason="the test types through a pty, which Windows lacks")
+PROMPT = b"Paste the setup code"
+PASTER = ("import sys; sys.path.insert(0, {root!r}); import setup\n"
+          "text = setup.paste_setup_code()\n"
+          "print('ARRIVED', len(''.join(text.split())), flush=True)\n")
+
+
+def _pasted_at_the_prompt(typed, wait=20):
+    """Run setup's prompt on a terminal of its own, type `typed` at it, and
+    return how many characters of a setup code it got -- None if it never
+    answered, which is what a terminal that stopped taking input looks like.
+
+    The typing and the reading take turns: the terminal echoes every key, and
+    a writer that does not read its echo fills the pipe and waits for ever on
+    a reader that is waiting on it."""
+    import pty
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execv(sys.executable, [sys.executable, "-c", PASTER.format(root=str(source_files.ROOT))])
+    os.set_blocking(fd, False)
+    out, pending = b"", b""
+
+    def run_until(marker, seconds):
+        nonlocal out, pending
+        end = time.monotonic() + seconds
+        while marker not in out and time.monotonic() < end:
+            readable, writable, _ = select.select([fd], [fd] if pending else [], [], 0.2)
+            if readable:
+                try:
+                    chunk = os.read(fd, 65536)
+                except BlockingIOError:
+                    chunk = None
+                except OSError:
+                    break
+                if chunk == b"":
+                    break
+                out += chunk or b""
+            if writable and pending:
+                try:
+                    pending = pending[os.write(fd, pending[:128]):]
+                except BlockingIOError:
+                    pass
+        return marker in out
+    try:
+        assert run_until(PROMPT, 20), f"setup never showed its prompt: {out[-300:]!r}"
+        pending = typed.encode()
+        if not run_until(b"ARRIVED ", wait):
+            return None
+        run_until(b"ARRIVED never-a-match", 0.5)          # the rest of that line
+        return int(out.rsplit(b"ARRIVED ", 1)[1].split()[0])
+    finally:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        os.waitpid(pid, 0)
+        os.close(fd)
+
+
+@at_a_terminal
+def test_a_setup_code_longer_than_a_terminal_line_can_be_pasted(vendor):
+    """GUARD. A terminal's own line editing stops at 1,024 characters on macOS
+    and 4,096 on Linux, and drops the rest with the Return: a code carrying an
+    update token and a ping URL passed the first, and setup never got it."""
+    license_key = vendor.license(install="5b8c1f0e-2d4a-4c6b-9e1f-7a3d5c9b2e40", clinic_name="Nour Clinic")
+    long_code = setup.make_setup_code(license_key, "IQ", "orchid", github_token="not_a_real_token_" + "x" * 3200,
+                                      heartbeat_url=PING)
+    assert len(long_code) > 4096, "the code must be longer than either terminal's line"
+    assert _pasted_at_the_prompt(long_code + "\n", wait=8) == len(long_code)
+
+
+@at_a_terminal
+def test_a_setup_code_pasted_at_the_prompt_arrives(code):
+    """CONTROL for the two beside it: an ordinary code, on one line."""
+    assert len(code) < 1024
+    assert _pasted_at_the_prompt(code + "\n") == len(code)
+
+
+@at_a_terminal
+def test_a_setup_code_pasted_in_pieces_is_put_back_together(code):
+    """GUARD. A mail or chat app breaks the long line; a terminal hands the
+    pieces over one at a time, and the first alone is not a setup code."""
+    pieces = [code[i:i + 60] for i in range(0, len(code), 60)]
+    assert len(pieces) > 5
+    assert _pasted_at_the_prompt("\n".join(pieces) + "\n") == len(code)
+
+
+@at_a_terminal
+def test_a_paste_that_is_not_a_setup_code_stops_at_an_empty_line():
+    """CONTROL: the prompt does not wait for ever for a code that never
+    becomes whole; Return ends it, and setup then refuses what it was given."""
+    assert _pasted_at_the_prompt("not a setup code\n\n") == len("notasetupcode")

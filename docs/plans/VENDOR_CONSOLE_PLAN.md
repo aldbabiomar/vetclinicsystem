@@ -112,3 +112,24 @@ by any web page the vendor has open:
 
   **Suite:** no database 814 passed (the console and its tests need none; no
   application code changed).
+- **2026-10-01 — found while preparing a manual test, and fixed: setup could
+  not take a long setup code at its prompt.**
+  - A setup code with an update token and a ping URL is about 1,040
+    characters. A terminal's own line editing takes 1,024 on macOS (4,096 on
+    Linux) and drops the rest, the Return included, so setup sat at "Paste the
+    setup code" and never got it. The drills had passed the code with
+    `--setup-code`, where the shell reads it. `setup.ask()` now loads
+    `readline` before `input()`, which reads key by key at any length; the
+    license key prompt uses it too. Not checked on Windows, which has no
+    `readline` module — there the prompt is unchanged.
+  - A code that a mail or chat app has broken into lines arrives at the
+    prompt a line at a time, and the first alone is not a code:
+    `paste_setup_code()` keeps reading until what has arrived is whole, or an
+    empty line ends it.
+  - Tests type at a real terminal (a pty) — a 5,000-character code, a code in
+    60-character pieces, and controls for an ordinary code and for text that
+    never becomes one; both guards are in `prove_guards.py` and proven.
+
+  **Suite:** no database 818 passed (only setup's two prompts changed, which a
+  test run without a terminal never reaches; the database tiers were not
+  re-run).
