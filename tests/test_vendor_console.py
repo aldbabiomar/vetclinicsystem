@@ -152,6 +152,35 @@ def test_it_listens_on_the_loopback_address_only(home, monkeypatch):
     assert seen["host"] == "127.0.0.1"
 
 
+def test_a_stale_form_is_refused_with_a_page_that_says_so(home):
+    """A tab left open across a restart posts a token the new console never
+    issued: refused (400), in words, not a bare "Bad Request"."""
+    c = home.app.test_client()
+    resp = c.post("/unlock", data={"passphrase": PASSPHRASE})
+    assert resp.status_code == 400 and "nothing changed" in resp.get_data(as_text=True)
+    assert home.app.key_state["key"] is None
+
+
+def test_a_port_in_use_is_a_plain_message(home, monkeypatch):
+    import errno
+    import waitress
+
+    def taken(app, **kw):
+        raise OSError(errno.EADDRINUSE, "Address already in use")
+    monkeypatch.setattr(waitress, "serve", taken)
+    with pytest.raises(SystemExit) as stopped:
+        console.serve(home.app, port=5099, open_browser=False)
+    assert "Port 5099 is already in use" in str(stopped.value) and "--port 5100" in str(stopped.value)
+
+
+def test_a_hidden_field_is_really_hidden():
+    """The script shows either Days or Last day by setting `hidden`. A field's
+    own `display: grid` beat the browser's rule for [hidden], so both showed."""
+    static = source_files.ROOT / "scripts" / "vendor" / "console_static"
+    assert ".hidden = " in (static / "console.js").read_text()
+    assert re.search(r"\[hidden\]\s*\{\s*display:\s*none\s*!important", (static / "console.css").read_text())
+
+
 def test_its_records_live_outside_the_code():
     with pytest.raises(SystemExit):
         console.create_console(source_files.ROOT / "console-data")

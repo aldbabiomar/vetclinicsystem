@@ -97,3 +97,18 @@ by any web page the vendor has open:
 
   **Suite:** IQ **1828 passed, 0 skipped**; JO **1828 passed, 0 skipped**; no
   database 811 passed.
+- **2026-10-01 — found while writing its manual, and fixed.**
+  - On *New clinic* and *Clinic already installed*, both the days and the
+    last-day fields showed: the script sets `hidden`, and a field's own
+    `display: grid` beat the browser's rule for it. `[hidden]` now wins; a
+    test holds the pair.
+  - A field beside one with a hint was stretched to its height, and a short
+    card's text floated; grid items now align to the start.
+  - A second start ended in a traceback ("Address already in use"): it now
+    says the port is in use, where the running console is, and `--port`.
+  - A form left open across a restart got a bare "400 Bad Request": it is
+    still refused (400), on a page that says nothing was done and why.
+  - The start line is flushed, so it shows when output is redirected.
+
+  **Suite:** no database 814 passed (the console and its tests need none; no
+  application code changed).

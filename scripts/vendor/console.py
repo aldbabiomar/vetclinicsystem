@@ -19,6 +19,7 @@ rebinding), wants a CSRF token on every form, and holds the key only while
 unlocked: in memory, until Lock or 30 idle minutes.
 """
 import argparse
+import errno
 import os
 import secrets
 import sqlite3
@@ -37,7 +38,7 @@ sys.path.insert(0, str(REPO))
 
 import vcs_vendor  # noqa: E402
 from flask import Flask, abort, flash, g, redirect, render_template, request, url_for  # noqa: E402
-from flask_wtf.csrf import CSRFProtect  # noqa: E402
+from flask_wtf.csrf import CSRFError, CSRFProtect  # noqa: E402
 
 DEFAULT_DATA_DIR = "~/vcs-vendor-keys"
 DEFAULT_PORT = 5099
@@ -181,6 +182,14 @@ def create_console(data_dir=DEFAULT_DATA_DIR, idle_minutes=IDLE_MINUTES):
         resp.headers["X-Frame-Options"] = "DENY"
         resp.headers["Referrer-Policy"] = "no-referrer"
         return resp
+
+    @app.errorhandler(CSRFError)
+    def form_refused(_error):
+        """A form without this session's token: one left open from before the
+        console was last started (its tokens end with it), or one posted from
+        another page. Refused either way; said plainly rather than as a bare
+        "Bad Request"."""
+        return render_template("refused.html"), 400
 
     def needs_key(view):
         def wrapper(*a, **kw):
@@ -472,12 +481,18 @@ def serve(app, port=DEFAULT_PORT, open_browser=True):
     """On this computer only: the loopback address is not an option."""
     from waitress import serve as waitress_serve
     url = f"http://127.0.0.1:{port}/"
-    print(f"Vendor Console: {url}  (Ctrl+C to stop)")
+    print(f"Vendor Console: {url}  (Ctrl+C to stop)", flush=True)
     if open_browser:
         import threading
         import webbrowser
         threading.Timer(1.0, webbrowser.open, (url,)).start()
-    waitress_serve(app, host="127.0.0.1", port=port, threads=4)
+    try:
+        waitress_serve(app, host="127.0.0.1", port=port, threads=4)
+    except OSError as e:
+        if e.errno != errno.EADDRINUSE:
+            raise
+        raise SystemExit(f"Port {port} is already in use. The console may already be running: {url}\n"
+                         f"To start it on another port: --port {port + 1}")
 
 
 def main(argv=None):

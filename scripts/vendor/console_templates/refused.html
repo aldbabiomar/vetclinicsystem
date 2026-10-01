@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Not done{% endblock %}
+{% block content %}
+<div class="head"><h1>That was not done</h1>
+  <p class="sub">The form you sent was from before the console was last started, so it was refused and nothing changed. Open the page again and repeat it.</p></div>
+<div><a class="btn" href="{{ url_for('clinics') }}">Back to the console</a></div>
+{% endblock %}
