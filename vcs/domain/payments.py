@@ -43,7 +43,7 @@ class BillNotFound(PaymentRefused):
 @dataclass(frozen=True)
 class Recorded:
     payment_id: int
-    warn_cash_note: bool        # the amount cannot be handed over exactly in cash notes
+    warn_cash_note: bool        # paid in Cash, and not an amount that notes add up to
 
 
 @dataclass(frozen=True)
@@ -207,4 +207,7 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
     if cleanup_amount > 0 or discount != summary["discount_percent"]:
         billing.bill_changed(db, kind, bill_id)
 
-    return Recorded(payment_id=payment_id, warn_cash_note=not money.is_cash_payable(amount))
+    # 12. Only cash is handed over in notes (P-6): a Card or Transfer payment of
+    #     an odd amount leaves the drawer as it was.
+    return Recorded(payment_id=payment_id,
+                    warn_cash_note=method == "Cash" and not money.is_cash_payable(amount))

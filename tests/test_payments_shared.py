@@ -57,14 +57,6 @@ RECORDED = "Payment recorded."
 NOTE_WARNING = "isn't a multiple of"
 MEMBER_RATE = "This bill carries a rewards-card discount."
 
-# ---------------------------------------------------------------------------
-# ABOUT TO CHANGE (plan §2.2, phase 3). Where the three kinds disagree today,
-# these record what each does now, so the move into one function (phase 2)
-# can be shown to change nothing. Phase 3 makes each one rule and flips it.
-# ---------------------------------------------------------------------------
-# P-6: which methods warn that an amount cannot be paid in 250-dinar notes.
-WARNS_ABOUT_NOTES = ("Cash", "Card", "Transfer")
-
 
 @dataclass
 class Bill:
@@ -451,15 +443,22 @@ def _warned_about_notes(resp):
 
 
 @pytest.mark.money("IQ")
-@pytest.mark.parametrize("method", METHODS)
-def test_an_amount_that_is_not_in_notes_warns(client, db, bill, method):
-    """1,100 dinars cannot be handed over in 250-dinar notes. The payment is
-    recorded as typed either way; the warning is about counting the drawer.
-
-    ABOUT TO CHANGE (P-6): it fires for every method today."""
+@pytest.mark.parametrize("method", ["Card", "Transfer"])
+def test_a_card_or_transfer_payment_does_not_warn_about_notes(client, db, bill, method):
+    """GUARD (P-6). 1,100 dinars cannot be handed over in 250-dinar notes --
+    but nothing is handed over. The warning is about counting the drawer, and
+    until 2026-10-02 it fired for every method."""
     resp = pay(client, bill, amount="1100", method=method)
     assert [r["amount"] for r in bill.payments(db)] == [D("1100")]
-    assert _warned_about_notes(resp) == (method in WARNS_ABOUT_NOTES)
+    assert flashes(resp) == [("success", RECORDED)]
+
+
+@pytest.mark.money("IQ")
+def test_control_a_cash_payment_that_is_not_in_notes_warns(client, db, bill):
+    """The payment is recorded as typed either way."""
+    resp = pay(client, bill, amount="1100", method="Cash")
+    assert [r["amount"] for r in bill.payments(db)] == [D("1100")]
+    assert _warned_about_notes(resp) and flashes(resp)[0] == ("success", RECORDED)
 
 
 @pytest.mark.money("IQ")
