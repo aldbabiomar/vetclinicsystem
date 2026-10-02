@@ -16,6 +16,7 @@ from vcs.domain import appointments, billing, clinical, codes, members, payments
 import os
 from vcs.web import pdf_export
 import re
+import uuid
 
 from flask_babel import gettext as _, lazy_gettext as _l
 from flask import (
@@ -888,6 +889,14 @@ def visits_list():
                             page=page, total_pages=page_count(total), total_count=total)
 
 
+def _new_payment_token():
+    """A one-time token for a page's payment form (P-3), new at every render.
+    A double-clicked button posts the form twice with the same token, and
+    payments.record_payment() records it once. A form shown again after a
+    refusal keeps the token it was posted with (_payment_refused_context)."""
+    return uuid.uuid4().hex
+
+
 def _visit_detail_context(db, visit_id):
     visit = db.execute(
         "SELECT v.*, p.animal_name, p.id as patient_id, o.name as owner_name, o.phone as owner_phone FROM visits v "
@@ -901,7 +910,7 @@ def _visit_detail_context(db, visit_id):
     files = attach_mod.list_attachments(db, "visit", visit_id)
     cap = auth.discount_cap_for()
     return dict(visit=visit, billing=billing_row, summary=summary, payments=payment_rows, files=files,
-                discount_cap=cap)
+                discount_cap=cap, payment_token=_new_payment_token())
 
 
 @bp.route("/visits/<int:visit_id>")
@@ -1349,9 +1358,22 @@ def rewards_remove_discount(surface, bill_id):
     return back
 
 
+def _payment_refused_context(ctx, f):
+    """A page's context for showing its payment form again after a refusal:
+    what was typed, and the token it was posted with -- the page drew a new
+    one, and the corrected form must still be the same form."""
+    return {**ctx, "form": f, "payment_token": f.get("idempotency_key") or ctx["payment_token"]}
+
+
 def _flash_payment_recorded(done, amount):
-    """What a payment route says once payments.record_payment() has recorded
-    it: the same on a visit, an inpatient case and a boarding stay."""
+    """What a payment route says once payments.record_payment() has answered:
+    the same on a visit, an inpatient case and a boarding stay."""
+    if done.duplicate:
+        # A warning, not a success: nothing was written this time. After a
+        # double click that is the point; after the Back button, someone
+        # meaning to take a second payment needs to see that it was not.
+        flash(_("That payment was already recorded."), "warning")
+        return
     flash(_("Payment recorded."), "success")
     if done.warn_cash_note:
         flash_cash_denomination_warning(amount)
@@ -1370,7 +1392,7 @@ def visit_payment_add(visit_id):
             flash(_("Visit not found."), "error")
             return redirect(url_for("clinical.visits_list"))
         flash(message, "error")
-        return render_template("visit_detail.html", **ctx, form=f, payment_error=True)
+        return render_template("visit_detail.html", **_payment_refused_context(ctx, f), payment_error=True)
 
     try:
         amount = parse_money(f.get("amount"), required=True)
@@ -1387,7 +1409,7 @@ def visit_payment_add(visit_id):
     try:
         done = payments.record_payment(
             db, "visit", visit_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"))
+            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"))
     except payments.BillNotFound as e:
         flash(e.message, "error")
         return redirect(url_for("clinical.visits_list"))
@@ -1627,7 +1649,7 @@ def _boarding_page_context(show_all):
         r["incident_count"] = incidents_by_id.get(r["id"], 0)
     return dict(sessions=rows, show_all=show_all, today=clock.today().isoformat(),
                 page=page, total_pages=page_count(total), total_count=total,
-                discount_cap=auth.discount_cap_for())
+                discount_cap=auth.discount_cap_for(), payment_token=_new_payment_token())
 
 
 @bp.route("/boarding")
@@ -1852,8 +1874,8 @@ def boarding_payment(boarding_id):
             flash(_("Boarding session not found."), "error")
             return redirect(url_for("clinical.boarding_page"))
         flash(message, "error")
-        return render_template("boarding.html", **_boarding_page_context(False),
-                               form=f, payment_error_id=boarding_id)
+        return render_template("boarding.html", **_payment_refused_context(_boarding_page_context(False), f),
+                               payment_error_id=boarding_id)
 
     try:
         amount = parse_money(f.get("amount"), required=True)
@@ -1879,7 +1901,7 @@ def boarding_payment(boarding_id):
     try:
         done = payments.record_payment(
             db, "boarding", boarding_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"),
+            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"),
             staff_discount=staff_discount, discount_cap=auth.discount_cap_for())
     except payments.BillNotFound as e:
         flash(e.message, "error")
@@ -2017,7 +2039,7 @@ def _inpatient_detail_context(db, case_id):
     cap = auth.discount_cap_for()
     return dict(case=case, updates=updates, recent_updates=updates[:3],
                 contacts=contacts, recent_contacts=contacts[:3], billing=bill, payments=payment_rows,
-                vets=vet_users(db), files=files, discount_cap=cap)
+                vets=vet_users(db), files=files, discount_cap=cap, payment_token=_new_payment_token())
 
 
 @bp.route("/inpatient/<int:case_id>")
@@ -2344,7 +2366,7 @@ def inpatient_payment_add(case_id):
             flash(_("Inpatient case not found."), "error")
             return redirect(url_for("clinical.inpatient_list"))
         flash(message, "error")
-        return render_template("inpatient_detail.html", **ctx, form=f, payment_error=True)
+        return render_template("inpatient_detail.html", **_payment_refused_context(ctx, f), payment_error=True)
 
     try:
         amount = parse_money(f.get("amount"), required=True)
@@ -2361,7 +2383,7 @@ def inpatient_payment_add(case_id):
     try:
         done = payments.record_payment(
             db, "inpatient", case_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"))
+            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"))
     except payments.BillNotFound as e:
         flash(e.message, "error")
         return redirect(url_for("clinical.inpatient_list"))

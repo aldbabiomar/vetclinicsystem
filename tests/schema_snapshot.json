@@ -2143,6 +2143,12 @@
     "null": false,
     "type": "integer"
    },
+   "idempotency_key": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "text"
+   },
    "inpatient_case_id": {
     "default": null,
     "identity": null,
@@ -2188,6 +2194,7 @@
    "idx_payments_boarding": "CREATE INDEX idx_payments_boarding ON public.payments USING btree (boarding_id)",
    "idx_payments_case": "CREATE INDEX idx_payments_case ON public.payments USING btree (inpatient_case_id)",
    "idx_payments_date": "CREATE INDEX idx_payments_date ON public.payments USING btree (date)",
+   "idx_payments_idempotency_key": "CREATE UNIQUE INDEX idx_payments_idempotency_key ON public.payments USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL)",
    "idx_payments_visit": "CREATE INDEX idx_payments_visit ON public.payments USING btree (visit_id)",
    "payments_pkey": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)"
   }

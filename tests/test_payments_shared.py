@@ -22,12 +22,14 @@ behaviour and are marked.
 """
 import html
 import re
+import uuid
 from dataclasses import dataclass
 from decimal import Decimal as D
 
 import pytest
 
 from vcs import clock, money
+from vcs.db import pool as dbmod
 from vcs.domain import billing
 from vcs.domain import payments as rules     # `payments` is Bill's own word, for its rows
 from conftest import ADMIN_ID, amount, needs_db, new_id
@@ -40,14 +42,16 @@ METHODS = ("Cash", "Card", "Transfer")
 
 # What differs per kind, and nothing else does.
 FACTS = {
-    "visit": dict(url="/visits/{}/payment", column="visit_id", summary=billing.visit_billing_summary,
+    "visit": dict(url="/visits/{}/payment", page="/visits/{}", column="visit_id",
+                  summary=billing.visit_billing_summary,
                   table="billing", key="visit_id", stored_total="total",
                   not_found="Visit not found.", noun="visit"),
-    "inpatient": dict(url="/inpatient/{}/payment", column="inpatient_case_id",
+    "inpatient": dict(url="/inpatient/{}/payment", page="/inpatient/{}", column="inpatient_case_id",
                       summary=billing.inpatient_billing_summary,
                       table="inpatient_cases", key="id", stored_total="total",
                       not_found="Inpatient case not found.", noun="case"),
-    "boarding": dict(url="/boarding/{}/payment", column="boarding_id", summary=billing.boarding_billing_summary,
+    "boarding": dict(url="/boarding/{}/payment", page="/boarding", column="boarding_id",
+                     summary=billing.boarding_billing_summary,
                      table="boarding_sessions", key="id", stored_total="billed_total",
                      not_found="Boarding session not found.", noun="stay"),
 }
@@ -55,6 +59,7 @@ FACTS = {
 VALID_NUMBER = "Payment amount must be a valid number."
 GREATER_THAN_0 = "Payment amount must be greater than 0."
 RECORDED = "Payment recorded."
+ALREADY_RECORDED = "That payment was already recorded."
 NOTE_WARNING = "isn't a multiple of"
 MEMBER_RATE = "This bill carries a rewards-card discount."
 
@@ -72,6 +77,11 @@ class Bill:
     @property
     def url(self):
         return self.facts["url"].format(self.id)
+
+    @property
+    def page(self):
+        """The page its payment form is on."""
+        return self.facts["page"].format(self.id)
 
     def payments(self, db):
         return db.execute(f"SELECT * FROM payments WHERE {self.facts['column']}=%s ORDER BY id",
@@ -601,6 +611,133 @@ def test_a_visit_or_inpatient_payment_takes_no_discount(client, db, which):
         assert made.summary(db)["total"] == made.total
     finally:
         next(gen, None)
+
+
+# ---------------------------------------------------------------------------
+# P-3 — a form posted twice (a double-clicked button)
+#
+# Two layers: record_payment() looks the form's token up after locking the
+# bill, and a unique index stands behind it. With the index in place and the
+# lookup removed these tests still fail, but as a 500 -- for the wrong
+# reason. scripts/prove_guards.py therefore takes BOTH away (CLAUDE.md §5.3):
+# it removes the lookup and flips the constant below, which makes the
+# fixture drop the index for the test. Leave it True.
+# ---------------------------------------------------------------------------
+TOKEN_INDEX_IN_PLACE = True
+TOKEN_INDEX = ("CREATE UNIQUE INDEX idx_payments_idempotency_key ON payments(idempotency_key) "
+               "WHERE idempotency_key IS NOT NULL")
+TOKEN_FIELD = re.compile(r'name="idempotency_key" value="([0-9a-f]{32})"')
+
+
+@pytest.fixture
+def token_index(db):
+    """Named BEFORE `bill` by the tests that use it, so that it is put back
+    after the bill's payments are gone."""
+    if TOKEN_INDEX_IN_PLACE:
+        yield
+        return
+    db.execute("DROP INDEX IF EXISTS idx_payments_idempotency_key")
+    db.commit()
+    yield
+    db.rollback()
+    db.execute(TOKEN_INDEX)
+    db.commit()
+
+
+def test_a_form_posted_twice_records_one_payment(client, db, token_index, bill):
+    """GUARD (P-3). The same form, token and all, arrives twice. The second
+    writes nothing -- not the payment, and not its Clean Up again -- and says
+    so (A5)."""
+    form = dict(amount=amount("10.000"), cleanup_amount=step(), method="Cash", idempotency_key=uuid.uuid4().hex)
+    first, second = pay(client, bill, **form), pay(client, bill, **form)
+    assert flashes(first) == [("success", RECORDED)]
+    assert flashes(second) == [("warning", ALREADY_RECORDED)]
+    assert [r["amount"] for r in bill.payments(db)] == [amount("10.000")]
+    assert bill.stored(db)["cleanup_amount"] == step(), "the repeat wrote its Clean Up again"
+    assert bill.log_rows(db, "cleanup_amount") == 1
+
+
+def test_control_a_new_form_records_another_payment(client, db, bill):
+    """Each page render has its own token; and a request without one -- which
+    is every other test in this suite -- is always a new payment."""
+    for token in (uuid.uuid4().hex, uuid.uuid4().hex, None, None, ""):
+        resp = pay(client, bill, amount=amount("10.000"), method="Cash", idempotency_key=token)
+        assert flashes(resp) == [("success", RECORDED)]
+    assert len(bill.payments(db)) == 5
+
+
+def test_two_identical_submissions_at_once_record_one_payment(flask_app, db, token_index, bill, own_sign_in_limit):
+    """GUARD (P-3). The double click as it really arrives: two requests in
+    flight together. The second waits at the bill's lock, then finds the
+    first one's payment."""
+    form = {"amount": str(amount("10.000")), "method": "Cash", "idempotency_key": uuid.uuid4().hex}
+
+    def one(_i):
+        return _fresh_client(flask_app).post(bill.url, data=form).status_code
+
+    results, raised = _run_together(one, 2)
+    assert not any(raised), f"a payment thread raised: {[e for e in raised if e]}"
+    assert results == [302, 302], "each is answered with the bill's page, not an error"
+    assert len(bill.payments(db)) == 1
+
+
+def test_the_database_refuses_a_second_payment_with_one_token(db, bill):
+    """GUARD. The second layer on its own: whatever the application does,
+    one token is one payment."""
+    insert = (f"INSERT INTO payments ({bill.facts['column']}, amount, method, date, idempotency_key) "
+              "VALUES (%s,%s,%s,%s,%s)")
+    row = (bill.id, amount("1.000"), "Cash", clock.today(), f"direct-{uuid.uuid4().hex}")
+    db.execute(insert, row)
+    with pytest.raises(dbmod.IntegrityError):
+        db.execute(insert, row)
+    db.rollback()
+    # CONTROL: a payment without a token never collides with another.
+    for _ in range(2):
+        db.execute(insert, (*row[:4], None))
+    db.commit()
+    assert len(bill.payments(db)) == 2
+
+
+def test_a_refused_form_is_recorded_once_corrected(client, db, bill):
+    """CONTROL. A token is spent by a payment, not by an attempt: the form
+    shown again after a refusal carries the same token, and must still work."""
+    token = uuid.uuid4().hex
+    refused = pay(client, bill, amount="abc", method="Cash", idempotency_key=token)
+    assert errors(refused) == [VALID_NUMBER]
+    corrected = pay(client, bill, amount=amount("10.000"), method="Cash", idempotency_key=token)
+    assert flashes(corrected) == [("success", RECORDED)]
+    assert len(bill.payments(db)) == 1
+
+
+def test_the_form_carries_a_new_token_each_time_and_keeps_it_when_refused(client, db, bill):
+    """GUARD. Without a token in the form there is nothing to recognise a
+    repeat by; with one that changed when a refused form was shown again, the
+    double click on the corrected form would not be recognised either."""
+    def token(resp):
+        found = TOKEN_FIELD.findall(resp.get_data(as_text=True))
+        assert len(found) == 1, f"expected one payment form token on the page, found {found}"
+        return found[0]
+
+    first, second = token(client.get(bill.page)), token(client.get(bill.page))
+    assert first != second, "the page gave out the same token twice"
+    refused = client.post(bill.url, data={"amount": "abc", "method": "Cash", "idempotency_key": first})
+    assert refused.status_code == 200 and token(refused) == first
+
+
+def test_one_token_posted_for_two_stays_is_two_payments(client, db, stay):
+    """GUARD. The boarding list has ONE payment form for every stay on the
+    page, so one page's token can arrive for two different stays (pay one,
+    go Back, pay the next). They are two payments."""
+    other_gen = bill.__wrapped__("boarding", client, db)
+    other = next(other_gen)
+    try:
+        token = uuid.uuid4().hex
+        for one in (stay, other):
+            resp = pay(client, one, amount=amount("10.000"), method="Cash", idempotency_key=token)
+            assert flashes(resp) == [("success", RECORDED)]
+        assert len(stay.payments(db)) == len(other.payments(db)) == 1
+    finally:
+        next(other_gen, None)
 
 
 # ---------------------------------------------------------------------------

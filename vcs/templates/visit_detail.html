@@ -137,6 +137,7 @@
 
       <form method="post" action="{{ url_for('clinical.visit_payment_add', visit_id=visit.id) }}" class="bill-form bill-pay">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="idempotency_key" value="{{ payment_token }}">
         <div class="field"><label for="visitdetail-5-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="visitdetail-5-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
         <div class="field"><label for="visitdetail-6-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="visitdetail-6-cleanup_amount" type="number" step="{{ money_step() }}" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error else '0' }}"></div>
         <div class="field"><label for="visitdetail-7-method">{{ _('Method') }}</label>

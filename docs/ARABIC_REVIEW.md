@@ -762,3 +762,14 @@ as elsewhere.
 | 1 | This computer's clock is behind the latest time the app has seen (%(seen)s). If the clock is wrong, correct the date and time, then sign in again. If the clock is right now, it was ahead earlier: ask your vendor for a new license key and enter it on the License page. | ساعة هذا الحاسوب متأخرة عن آخر وقت سجّله البرنامج (%(seen)s). إذا كانت الساعة غير صحيحة، صحّح التاريخ والوقت ثم سجّل الدخول مرة أخرى. وإذا كانت صحيحة الآن، فقد كانت متقدّمة في وقت سابق: اطلب مفتاح ترخيص جديدًا من مزوّد البرنامج وأدخله في صفحة الترخيص. |
 | 2 | The computer's clock was accepted: the app had recorded a later time (%(seen)s), from when the clock was ahead. | تم اعتماد ساعة الحاسوب: كان البرنامج قد سجّل وقتًا لاحقًا (%(seen)s) حين كانت الساعة متقدّمة. |
 | 3 | Computer clock accepted | اعتُمدت ساعة الحاسوب |
+
+## 31. Bill payments (1)
+
+Payments on a visit, an inpatient case and a boarding stay
+(`plans/PAYMENT_CENTRALIZATION_PLAN.md`, 2026-10-02). **Payment** — الدفعة,
+as in the reviewed "تم تسجيل الدفعة."
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | That payment was already recorded. | تم تسجيل هذه الدفعة بالفعل. |
+

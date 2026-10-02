@@ -48,6 +48,7 @@ class BillNotFound(PaymentRefused):
 class Recorded:
     payment_id: int
     warn_cash_note: bool        # paid in Cash, and not an amount that notes add up to
+    duplicate: bool = False     # this form was already recorded: nothing was written
 
 
 @dataclass(frozen=True)
@@ -133,8 +134,21 @@ def cash_tendered(method, received, due):
 # ---------------------------------------------------------------------------
 # The one writer of payments
 # ---------------------------------------------------------------------------
+TOKEN_LENGTH = 64       # a form's token is 32 characters; this bounds a crafted one
+
+
+def stored_token(kind, bill_id, token):
+    """A payment form's one-time token as it is stored, or None without one.
+
+    Stored with its bill: the boarding list draws one payment form for every
+    stay on the page, so the same token can honestly arrive for two stays,
+    and a repeat is the same form posted again for the SAME bill."""
+    token = (token or "").strip()[:TOKEN_LENGTH]
+    return f"{kind}:{bill_id}:{token}" if token else None
+
+
 def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount=0, notes=None,
-                   staff_discount=None, discount_cap=None):
+                   idempotency_key=None, staff_discount=None, discount_cap=None):
     """Record a payment of `amount` by `method` against a bill, with the
     Clean Up and (on boarding) the staff discount that arrive with it.
 
@@ -142,7 +156,10 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
     case or the stay. Amounts are Decimals the route parsed; `method` is one
     the route cleaned. `staff_discount` is None unless this submission sets
     the discount -- only boarding's form does (P-2) -- and then
-    `discount_cap` is the signed-in user's cap.
+    `discount_cap` is the signed-in user's cap. `idempotency_key` is the
+    one-time token the form was drawn with: a submission whose token is
+    already on a payment of this bill is a repeat (a double-clicked button),
+    and comes back as Recorded(duplicate=True) with nothing written.
 
     Raises BillNotFound or PaymentRefused; returns Recorded. Does not commit.
     Every check comes before the first write.
@@ -156,6 +173,15 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
     #    takes a payment back, so an overpayment could only be refunded around.
     if not db.execute(f"SELECT id FROM {spec.table} WHERE id=%s FOR UPDATE", (bill_id,)).fetchone():
         raise BillNotFound(Msg(spec.not_found))
+
+    # 2. A repeat? Asked after the lock, so that of two identical submissions
+    #    in flight the second waits for the first and then finds its payment.
+    #    idx_payments_idempotency_key is what holds if this is ever lost.
+    token = stored_token(kind, bill_id, idempotency_key)
+    if token:
+        repeat = db.execute("SELECT id FROM payments WHERE idempotency_key=%s", (token,)).fetchone()
+        if repeat:
+            return Recorded(payment_id=repeat["id"], warn_cash_note=False, duplicate=True)
 
     # 3. Amount.
     if amount is None or amount <= 0:
@@ -214,9 +240,9 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
 
     # 10. Write. A payment is dated the day it is taken (audit B16).
     payment_id = db.execute(
-        f"INSERT INTO payments ({spec.column}, amount, method, date, user_id, notes) "
-        "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-        (bill_id, amount, method, clock.today().isoformat(), user_id, notes)).fetchone()["id"]
+        f"INSERT INTO payments ({spec.column}, amount, method, date, user_id, notes, idempotency_key) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (bill_id, amount, method, clock.today().isoformat(), user_id, notes, token)).fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")
     if discount != summary["discount_percent"]:
         db.execute(f"UPDATE {spec.bill_table} SET discount_percent = %s, discount_applied_by = %s "

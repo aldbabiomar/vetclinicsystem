@@ -1449,6 +1449,10 @@ msgstr "يجب أن تكون قيمة الإعفاء عن الفئات القل�
 msgid "Payment recorded."
 msgstr "تم تسجيل الدفعة."
 
+#: vcs/web/blueprints/clinical.py
+msgid "That payment was already recorded."
+msgstr "تم تسجيل هذه الدفعة بالفعل."
+
 #: vcs/web/blueprints/clinical.py:1432 vcs/web/blueprints/clinical.py:2496
 msgid "No file selected."
 msgstr "لم يتم اختيار أي ملف."

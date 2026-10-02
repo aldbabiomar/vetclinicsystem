@@ -617,3 +617,47 @@ Proven: `pos_checkout` given its own Clean Up check again (rule 18 and
 
 Suite on reset databases: **1993 passed, 0 skipped** under IQ and under JO.
 
+### 2026-10-02 — phase 5: double-click protection (P-3)
+
+**Schema** (baseline in place; no `1.0.0` tag): `payments.idempotency_key
+TEXT` and the partial unique index `idx_payments_idempotency_key`, as on
+`sales`. `scripts/schema_snapshot.py --write` reported exactly those two
+changes.
+
+Each page render gives its payment form a new token (`_new_payment_token()`
+in the three context builders); the three forms post it as
+`idempotency_key`; a form shown again after a refusal keeps the token it
+was posted with (`_payment_refused_context()`), as `pos_checkout`'s
+redisplay does. `record_payment()` looks the token up as step 2, after the
+lock, and answers a repeat with `Recorded(duplicate=True)` and no write.
+The routes then say "That payment was already recorded." (A5).
+
+Three choices the plan left open:
+
+- **The token is stored with its bill** (`kind:id:token`,
+  `payments.stored_token()`). The boarding list has one payment form for
+  every stay on the page, so one page's token can honestly arrive for two
+  stays (pay one, press Back, pay the next); stored bare, the second would
+  have been answered "already recorded" and not taken.
+  `test_one_token_posted_for_two_stays_is_two_payments`.
+- **A5's message is flashed as a warning**, not a success: nothing was
+  written. After a double click that is the point; someone who pressed
+  Back meaning to take a second instalment needs to notice.
+- **A token is cut at 64 characters** (a form's is 32), so a crafted one
+  cannot be too long for the index.
+
+A request without a token is always a new payment, which is what every
+earlier test posts.
+
+Proven (5 of 5): the lookup **and** the index both gone — the mutation
+removes the lookup and flips `TOKEN_INDEX_IN_PLACE` in the test file, whose
+fixture then drops the index for the test and puts it back — fails the
+sequential and the two-at-once tests on all three kinds, by recording two
+payments; the lookup alone gone fails them as a 500; the index out of the
+baseline fails `test_migrations.py`; a refused form given a new token; the
+token stored without its bill.
+
+One new Arabic string, in `ARABIC_REVIEW.md` §31.
+
+Suite on reset databases: **2012 passed, 0 skipped** under IQ and under JO.
+
