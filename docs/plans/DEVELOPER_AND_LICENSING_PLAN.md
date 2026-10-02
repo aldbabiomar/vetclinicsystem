@@ -54,7 +54,7 @@ order, before touching anything:
 | **L-5** | **Clinic admins can enter a license key and run the full data export.** Both work outside the Developer area. A key cannot be forged, so letting the clinic paste one is safe, and an expired clinic can still take its own data. Every other Developer section is developer-only. |
 | **L-6** | **Developer access is a signed, time-limited Developer Pass**, never a password. The owner's brother (the vendor) signs a pass for **one** install with his vendor tool; it is valid for a few hours. Nothing secret is stored at the clinic. |
 | **L-7** | **Setup requires a valid license key.** `setup.py` refuses to finish without one. There is no trial state. |
-| **L-8** | **Clinics can still check, apply and roll back updates** themselves (`manage_maintenance`, as today). Only the update *configuration* — the GitHub token — is developer-only. |
+| **L-8** | **Clinics can still check, apply and roll back updates** themselves (`manage_maintenance`, as today). Only the update *configuration* — the GitHub token — is developer-only. **Reversed by the owner on 2026-10-02:** updates are the vendor's alone — the Updates card and its four routes are gone from the clinic's Settings; Developer → Updates is the only place to check, apply or roll back. |
 | **L-9** | **Expiry never locks the records away.** Warnings before expiry, then a grace period, then **read-only mode**: view, search, print and export stay available, backups keep running, and the switch to read-only happens at a sign-in, never mid-task. (From the original request, §9.) |
 | **L-10** | **Rejected — do not build** (§1.2). |
 
@@ -1219,3 +1219,28 @@ result under each money setting.
   names; restoring access is offered for active system administrators only;
   the database mode, version and tools are shown on System rather than
   repeated on Configuration.
+
+- **2026-10-02 — after the owner's manual test: L-8 reversed, and two matters of looks.**
+  - **Updates are the vendor's alone (L-8 reversed).** The Updates card is
+    gone from the clinic's Settings page, with its four routes
+    (`settings_updates_status/check/apply/rollback`) and their two entries in
+    the read-only allowlist; Developer → Updates is the only place to check
+    for, apply or roll back an update, so every update needs a Developer Pass
+    for that clinic. `manage_maintenance` is now "Manage Backups & Startup".
+    The tests of the update routes moved to the Developer area's;
+    `test_the_clinics_settings_page_has_no_update_controls` and
+    `test_the_clinics_update_routes_are_gone` hold the removal.
+  - **A filled button is the palette's main colour.** There is no red
+    (`.btn.danger`) or green (`.btn.ok`) button any more — Restore Now, Delete,
+    Disable, the × on a bill line, a dialog's Confirm and the WhatsApp links
+    were 27 buttons painted outside the palette. What marks a destructive
+    action is its confirmation. `tests/test_button_colours.py`.
+  - **Save license key and Make an export sit in the corner on the clinic's
+    own pages too**, as in the Developer area: the two shared panels carry
+    `.form-actions-end` themselves.
+  - **On Settings → Backups & Restore**, Back Up Now is at the end of the
+    card's opening sentence, and Restore Now is in the file's row, beside
+    Browse (the form now wraps that row; the visible field has no name).
+
+  **Suite:** IQ **1842 passed, 0 skipped**; JO **1842 passed, 0 skipped**;
+  the nine new or changed guards proven.

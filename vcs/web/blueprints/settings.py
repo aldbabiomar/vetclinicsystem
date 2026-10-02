@@ -3,7 +3,7 @@ Settings, and the installation-maintenance actions behind it.
 
 The ordinary clinic settings (clinic name, appointment hours, alert windows)
 sit behind `manage_settings`. Everything that administers the INSTALL rather
-than the clinic -- backups, restore, updates, autostart, and the folder picker
+than the clinic -- backups, restore, autostart, and the folder picker
 they share -- sits behind `manage_maintenance`, so that the Settings page's own
 gate and the server's gate are the same condition. They were not, until
 2026-09-10: the page hid these controls while every route behind them accepted
@@ -517,8 +517,8 @@ def settings_data_export_download(name):
 @bp.route("/settings/job-status")
 @auth.permission_required("manage_maintenance")
 def settings_job_status():
-    """Polled by the progress panel on the Updates section, and by Backup
-    Now / Restore Now."""
+    """Polled by the progress panels of Backup Now and Restore Now. (Updates
+    are the vendor's: Developer -> Updates polls developer.job_status.)"""
     payload, status = update_jobs.job_status(request.args.get("job_id", ""))
     if (request.args.get("kind") == "restore" and payload.get("status") == "done"
             and payload.get("ok")):
@@ -537,47 +537,3 @@ def settings_autostart():
     ok, message = autostart.enable() if enable else autostart.disable()
     flash(shown(message), "success" if ok else "error")
     return redirect(url_for("settings.settings_page"))
-
-
-@bp.route("/settings/updates/status")
-@auth.permission_required("manage_maintenance")
-def settings_updates_status():
-    """Everything the Settings page needs to DRAW the updates card, and
-    nothing that needs the network.
-
-    This exists because the page used to call /settings/updates/check on
-    load, which asks GitHub for the latest release — to render two facts
-    that are both local: whether updates are set up, and which version is
-    running. GitHub allows 60 unauthenticated API calls per hour per IP
-    address, shared by every install behind it, so opening Settings often
-    enough silently spent the clinic's quota. The cost landed on the "Check
-    for Updates" button, the one place the call is actually wanted, which
-    then reported the clinic as offline. COMPARISON.md §46.
-
-    Keep this route free of network calls. If it ever needs to know
-    something only GitHub can answer, that is a sign the answer belongs
-    behind the button instead.
-    """
-    payload, status = update_jobs.status()
-    return jsonify(payload), status
-
-
-@bp.route("/settings/updates/check")
-@auth.permission_required("manage_maintenance")
-def settings_updates_check():
-    payload, status = update_jobs.check()
-    return jsonify(payload), status
-
-
-@bp.route("/settings/updates/apply", methods=["POST"])
-@auth.permission_required("manage_maintenance")
-def settings_updates_apply():
-    payload, status = update_jobs.start_apply()
-    return jsonify(payload), status
-
-
-@bp.route("/settings/updates/rollback", methods=["POST"])
-@auth.permission_required("manage_maintenance")
-def settings_updates_rollback():
-    payload, status = update_jobs.start_rollback()
-    return jsonify(payload), status

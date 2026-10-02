@@ -145,7 +145,7 @@ PERMISSION_LABELS = [
     _("View Sales History"), _("Manage Price List"), _("Manage Refunds"),
     _("Manage Cash Register"), _("View Financial Reports"),
     _("View Insights & Retention"), _("Manage Users & Roles"), _("Manage Settings"),
-    _("Manage Backups, Updates & Startup"), _("View Logins & Change Log"),
+    _("Manage Backups & Startup"), _("View Logins & Change Log"),
     _("View Consignment"), _("Manage Consignment Items"),
     _("Log Receiving, Returns & Shrinkage"), _("Manage Settlements"),
 ]

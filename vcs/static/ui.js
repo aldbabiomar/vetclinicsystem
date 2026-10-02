@@ -54,7 +54,7 @@
       '<p id="vz-confirm-msg" class="vz-confirm-msg"></p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
       '<button type="button" class="btn small secondary" id="vz-confirm-cancel">' + escapeHtml(T("Cancel")) + '</button>' +
-      '<button type="button" class="btn small danger" id="vz-confirm-ok">' + escapeHtml(T("Confirm")) + '</button>' +
+      '<button type="button" class="btn small" id="vz-confirm-ok">' + escapeHtml(T("Confirm")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);
     return document.getElementById("vz-confirm-overlay");
@@ -123,7 +123,10 @@
     if (!(form instanceof HTMLFormElement)) return;
     if (form.dataset.noSavingState === "1") return;
     if (form.hasAttribute("data-confirm") && form.dataset.confirmed !== "1") return; // waits for confirm
-    const btns = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+    // form.elements, not a query inside the form: a submit button can sit
+    // outside its form and name it with form= (Test connection, on
+    // Developer -> Updates, shares a row with another form's buttons).
+    const btns = Array.prototype.filter.call(form.elements, function (el) { return el.type === "submit"; });
     btns.forEach(function (btn) {
       if (btn.disabled) return;
       const label = btn.tagName === "INPUT" ? "value" : "textContent";

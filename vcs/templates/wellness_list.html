@@ -32,7 +32,7 @@
       <td><button class="btn small secondary" form="w-{{ w.visit_id }}" type="submit">{{ _('Save') }}</button></td>
       <td>
         {% if w.phone %}
-        <a class="btn small ok" target="_blank" rel="noopener"
+        <a class="btn small" target="_blank" rel="noopener"
            href="https://wa.me/{{ w.phone|replace('+','') }}?text={{ ('Hi ' ~ w.owner_name ~ ', this is a reminder that ' ~ w.animal_name ~ ' is due for their ' ~ w.wellness_type ~ ' on ' ~ w.wellness_next_dose_date ~ '. Please contact us to schedule. - ' ~ clinic_name)|urlencode }}">{{ _('Send WhatsApp Message') }}</a>
         {% else %}
         <a class="btn small secondary" href="{{ url_for('clinical.owner_edit', owner_id=w.owner_id) }}">{{ _('Add phone') }}</a>

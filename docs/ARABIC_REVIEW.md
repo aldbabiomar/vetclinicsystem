@@ -739,3 +739,13 @@ plan §12). **Role** — دور, as PostgreSQL's term; **container** — الح�
 |---|---|---|
 | 1 | The database role cannot create databases (CREATEDB), so backups cannot be test-restored. Give the role CREATEDB, as the setup guide describes. | دور قاعدة البيانات لا يستطيع إنشاء قواعد بيانات (CREATEDB)، لذا لا يمكن اختبار استعادة النسخ الاحتياطية. امنح الدور صلاحية CREATEDB كما يشرح دليل الإعداد. |
 | 2 | in the container, through %(docker)s | داخل الحاوية، عبر %(docker)s |
+
+## 29. A permission renamed (1)
+
+Updates left the clinic's Settings page on 2026-10-02 (they are the vendor's,
+in the Developer area), so the permission no longer names them. The Arabic is
+the reviewed label with "والتحديثات" taken out.
+
+| # | English | Arabic (as shipped) |
+|---|---|---|
+| 1 | Manage Backups & Startup | إدارة النسخ الاحتياطي والتشغيل |

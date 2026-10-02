@@ -31,7 +31,7 @@
       </td>
       <td>
         {% if f.phone %}
-        <a class="btn small ok" target="_blank" rel="noopener"
+        <a class="btn small" target="_blank" rel="noopener"
            href="https://wa.me/{{ f.phone|replace('+','') }}?text={{ ('Hi ' ~ f.owner_name ~ ', this is a reminder that ' ~ f.animal_name ~ ' is due for their ' ~ (f.followup_reason or 'follow-up') ~ ' on ' ~ (f.followup_date or 'a date we will confirm') ~ '. Please contact us to schedule. - ' ~ clinic_name)|urlencode }}">{{ _('Send WhatsApp Message') }}</a>
         {% else %}
         <a class="btn small secondary" href="{{ url_for('clinical.owner_edit', owner_id=f.owner_id) }}">{{ _('Add phone') }}</a>

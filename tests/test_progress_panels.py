@@ -22,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
-# The Updates panel, included by Settings and by Developer -> Updates.
+# The Updates panel, included by Developer -> Updates (and by Settings until 2026-10-02).
 UPDATES_PANEL = source_files.TEMPLATES_DIR / "_updates_panel.html"
 # Every page that runs a job, and the partial they share.
 JOB_PAGES = (SETTINGS_HTML, UPDATES_PANEL, source_files.TEMPLATES_DIR / "developer_updates.html")
@@ -93,7 +93,7 @@ def test_control_the_scanners_read_real_code():
     """Floors. Each of the checks above passes hardest when it matches
     nothing at all."""
     src = SETTINGS_HTML.read_text(encoding="utf-8") + UPDATES_PANEL.read_text(encoding="utf-8")
-    assert '{% include "_updates_panel.html" %}' in SETTINGS_HTML.read_text(encoding="utf-8")
+    assert '{% include "_updates_panel.html" %}' in JOB_PAGES[2].read_text(encoding="utf-8")
     assert src.count("VZProgress.poll") >= 3, (
         "fewer VZProgress users than this page has jobs — the scanner is "
         "probably looking at the wrong file")

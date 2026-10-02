@@ -127,15 +127,16 @@
 
 <div class="card">
 <div class="settings-card-head"><h2>{{ _('Backups & Restore') }}</h2><span class="settings-tag now">{{ _('Runs when you click') }}</span></div>
-<p class="small muted u-stack-tight">{{ _('The backup history and the restore that reads it, beside the folder they use.') }}</p>
-<form class="u-mt-4" method="post" action="{{ url_for('settings.settings_backup_now') }}" id="backupNowForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{# The card's sentence and its button share a row: the button at the far end. #}
+<form class="settings-action-row" method="post" action="{{ url_for('settings.settings_backup_now') }}" id="backupNowForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <p class="small muted">{{ _('The backup history and the restore that reads it, beside the folder they use.') }}</p>
   <button class="btn secondary" type="submit" id="backupNowBtn" data-saving-label="Backing up…"
           {{ 'disabled' if not settings.backup_dir }}>{{ _('Back Up Now') }}</button>
-  {% if not settings.backup_dir %}
-  <p class="small muted u-stack-2">{{ _('Set a backup folder above and save, then you can back up.') }}</p>
-  {% endif %}
 </form>
+{% if not settings.backup_dir %}
+<p class="small muted u-stack-2">{{ _('Set a backup folder above and save, then you can back up.') }}</p>
+{% endif %}
 <div id="backupProgress" class="vz-progress-panel" style="display:none;"></div>
 
 
@@ -169,18 +170,20 @@
 <p class="small muted u-mt-tight">
   {{ _('Replaces %(all)s current data in VetClinicSystem with the contents of a backup file. This can\'t be undone — take a fresh backup first if you\'re not sure. Uploaded files (X-rays, lab results) aren\'t part of the backup itself and are unaffected by a restore, but any that were attached %(after)s the backup being restored was taken will need reconnecting — run %(command)s from the app folder afterward to find and relink them safely.', all=('<strong>%s</strong>'|safe) % _('all'), after=('<em>%s</em>'|safe) % _('after'), command='<code>python3 -m vcs.ops.reconcile_attachments</code>'|safe) }}
 </p>
-<div class="form-grid">
-  <div class="field full"><label for="restoreFileInput">{{ _('Backup File To Restore') }}</label>
-    <div class="u-row-sm">
-      <input class="u-grow" id="restoreFileInput" placeholder="{{ _('Browse to a .dump backup file') }}" value="" readonly>
-      <button class="btn secondary" type="button" data-vzh="settings-2">{{ _('Browse…') }}</button>
-    </div>
-  </div>
-</div>
-<form class="u-mt-4" method="post" action="{{ url_for('settings.settings_restore_now') }}" id="restoreForm" data-confirm="{{ _('This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue?') }}">
+{# One row: the file, Browse, and Restore Now beside it. The visible field has
+   no name -- what is sent is source_file, which Browse fills. #}
+<form method="post" action="{{ url_for('settings.settings_restore_now') }}" id="restoreForm" data-confirm="{{ _('This replaces ALL current data in VetClinicSystem with the contents of this backup file, and cannot be undone. Everything added or changed since that backup was taken will be lost. Continue?') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="source_file" id="restoreSourceFile">
-  <button class="btn danger" type="submit" id="restoreSubmitBtn" data-saving-label="Restoring…" disabled>{{ _('Restore Now') }}</button>
+  <div class="form-grid">
+    <div class="field full"><label for="restoreFileInput">{{ _('Backup File To Restore') }}</label>
+      <div class="settings-file-row">
+        <input id="restoreFileInput" placeholder="{{ _('Browse to a .dump backup file') }}" value="" readonly>
+        <button class="btn secondary" type="button" data-vzh="settings-2">{{ _('Browse…') }}</button>
+        <button class="btn" type="submit" id="restoreSubmitBtn" data-saving-label="Restoring…" disabled>{{ _('Restore Now') }}</button>
+      </div>
+    </div>
+  </div>
 </form>
 <div id="restoreProgress" class="vz-progress-panel" style="display:none;"></div>
 
@@ -203,16 +206,6 @@
 </table>
 </div>
 {% endif %}
-</div>
-
-<div class="card">
-<div class="settings-card-head"><h2>{{ _('Updates') }}</h2><span class="settings-tag now">{{ _('Runs when you click') }}</span></div>
-{% with upd = {"status": url_for('settings.settings_updates_status'),
-                "check": url_for('settings.settings_updates_check'),
-                "apply": url_for('settings.settings_updates_apply'),
-                "rollback": url_for('settings.settings_updates_rollback'),
-                "job": url_for('settings.settings_job_status')} %}{% include "_updates_panel.html" %}{% endwith %}
-
 </div>
 
 <div class="card">

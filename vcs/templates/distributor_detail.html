@@ -64,7 +64,7 @@
         <td>
           <form method="post" action="{{ url_for('consignment.distributor_payment_delete', dist_id=distributor.id, payment_id=p.id) }}" style="display:inline;" data-confirm="{{ _('Delete this payment?') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn small danger" type="submit">{{ _('Delete') }}</button>
+            <button class="btn small" type="submit">{{ _('Delete') }}</button>
           </form>
         </td>
       </tr>
@@ -91,7 +91,7 @@
 
   <form method="post" action="{{ url_for('consignment.distributor_bill_delete', dist_id=distributor.id, bill_id=bill.id) }}" style="margin-top:8px;" data-confirm="{{ _('Delete bill %(code)s?', code=bill.id|code('DB')) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn small danger" type="submit">{{ _('Delete Bill') }}</button>
+    <button class="btn small" type="submit">{{ _('Delete Bill') }}</button>
   </form>
 </div>
 {% else %}

@@ -156,7 +156,7 @@
       <div style="display:flex; gap:10px; align-items:center;">
         {{ l.line_total|money }} {{ currency_label() }}
         <form method="post" action="{{ url_for('clinical.inpatient_billing_delete', case_id=case.id, line_id=l.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit">×</button></form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">×</button></form>
       </div>
     </div>
     {% else %}<div class="empty-note">{{ _('No procedures billed yet.') }}</div>{% endfor %}
@@ -201,7 +201,7 @@
       <span class="meta">{{ file.uploaded_at|localdate }}
         <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="{{ _('Delete %(name)s? This removes the file permanently, including the copy on disk.', name=file.original_name) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small danger" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
+          <button class="btn small" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
         </form>
       </span>
     </div>
@@ -311,7 +311,7 @@ function renderInpatientBillCart() {
         <button class="btn small secondary" type="button" data-vz-act="inpatient-detail-11" data-line-id="${c.id}">-</button>
         <input type="number" min="1" value="${c.qty}" class="cart-qty" data-vz-change="inpatient-detail-12" data-line-id="${c.id}">
         <button class="btn small secondary" type="button" data-vz-act="inpatient-detail-13" data-line-id="${c.id}">+</button>
-        <button class="btn small danger" type="button" data-vz-act="inpatient-detail-14" data-line-id="${c.id}">×</button>
+        <button class="btn small" type="button" data-vz-act="inpatient-detail-14" data-line-id="${c.id}">×</button>
       </div>
     </div>`).join('');
 }

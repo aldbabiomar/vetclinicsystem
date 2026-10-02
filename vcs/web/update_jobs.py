@@ -1,8 +1,9 @@
 """
 Checking for, applying and rolling back updates, and following the job: the
-same work behind Settings -> Updates (clinic admins, `manage_maintenance`,
-plan L-8) and Developer -> Updates, so the two cannot drift. Each returns
-(JSON payload, HTTP status) for the calling route to send.
+work behind Developer -> Updates. Updates are the vendor's alone since
+2026-10-02, when the owner took them off the clinic's Settings page (plan
+L-8, reversed); the job status is also what Settings polls for a backup or a
+restore. Each returns (JSON payload, HTTP status) for the calling route to send.
 """
 from flask_babel import gettext as _
 

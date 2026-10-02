@@ -811,8 +811,8 @@ msgid "Manage Settings"
 msgstr "إدارة الإعدادات"
 
 #: vcs/enum_labels.py:148
-msgid "Manage Backups, Updates & Startup"
-msgstr "إدارة النسخ الاحتياطي والتحديثات والتشغيل"
+msgid "Manage Backups & Startup"
+msgstr "إدارة النسخ الاحتياطي والتشغيل"
 
 #: vcs/enum_labels.py:148
 msgid "View Logins & Change Log"

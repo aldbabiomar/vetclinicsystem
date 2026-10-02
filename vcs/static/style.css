@@ -116,10 +116,10 @@ html[data-theme="dark"] .theme-toggle-btn .icon-moon { display: block; }
 .btn.disabled, .btn.small.disabled { opacity: 0.4; pointer-events: none; cursor: default; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 18px 0 4px; }
 .pagination-info { font-size: 13px; color: var(--ink-soft); }
-.btn.danger { background: var(--danger); }
-.btn.danger:hover { background: var(--danger-dark); }
-.btn.ok { background: var(--ok); }
-.btn.ok:hover { opacity: 0.9; }
+/* A filled button is the palette's main colour, whatever it does: there is no
+   red (.danger) or green (.ok) button. The owner's decision, 2026-10-02 --
+   Restore Now, Delete and the WhatsApp links stood out of every palette but
+   the one they were drawn for. tests/test_button_colours.py holds it. */
 
 
 .actions-cell { max-width: 300px; }
@@ -317,16 +317,16 @@ textarea { resize: vertical; min-height: 72px; }
    direction, so this is the left corner in Arabic. */
 .form-actions.form-actions-end { justify-content: flex-end; }
 /* The Developer area: a section's buttons sit together, in one row, in its
-   far bottom corner (the right in English, the left in Arabic). Scoped to
-   .dev-area because the License, Updates and Data Export panels are also the
-   clinic's own Settings pages, whose buttons stay where they were. Text that
-   reports on a button (the result of an update check) keeps to the near
+   far bottom corner (the right in English, the left in Arabic). The License
+   and Data Export panels are also the clinic's own pages; their rows carry
+   .form-actions-end themselves, so they sit in the corner there too. Text
+   that reports on a button (the result of an update check) keeps to the near
    side of the row; a button in a table sits at the far end of its row. */
 .dev-area .form-actions { justify-content: flex-end; flex-wrap: wrap; align-items: center; }
 .dev-area .form-actions > .small { order: -1; margin-inline-end: auto; }
 /* Anywhere: the text beside a row's buttons sits on their middle line. */
 .form-actions > .small { align-self: center; }
-.dev-area td.cell-actions { text-align: end; }
+td.cell-actions { text-align: end; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; flex-direction: row; }
 .checkbox-row input { width: auto; }
 
@@ -734,6 +734,17 @@ tr[tabindex="0"]:focus-visible { outline-offset: -2px; }
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px;
 }
 .settings-card-head h2 { margin: 0; font-size: 15.5px; letter-spacing: -0.01em; }
+/* A card's opening sentence with its one button at the far end of the same
+   row (Back Up Now); the button drops under the sentence on a phone. */
+.settings-action-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4);
+  flex-wrap: wrap; margin-top: var(--space-2);
+}
+.settings-action-row > p { margin: 0; flex: 1 1 260px; }
+/* A file to pick, Browse, and the button that acts on it, in one row
+   (Restore Now); the field gives way first, then the buttons wrap. */
+.settings-file-row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.settings-file-row > input { flex: 1 1 220px; min-width: 0; }
 .settings-save-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   flex-wrap: wrap; margin: 20px -22px 0; padding: 14px 22px;

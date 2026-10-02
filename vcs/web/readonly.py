@@ -17,7 +17,7 @@ WRITES = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 # What still writes when the license has run out (plan A7, as the owner
 # confirmed): signing in and one's own password; the license key itself;
-# backups, restore and updates; user administration, so a departing
+# backups and restore; user administration, so a departing
 # employee can still be disabled; and, for the animals already in the
 # clinic, notes and owner calls on admitted inpatient cases. Payments are
 # refused: that is the reason to renew.
@@ -25,7 +25,6 @@ ALLOWED = frozenset({
     "main.login", "main.change_password",
     "settings.settings_license",
     "settings.settings_backup_now", "settings.settings_restore_now", "settings.settings_data_export_start",
-    "settings.settings_updates_apply", "settings.settings_updates_rollback",
     "admin.admin_user_new", "admin.admin_user_toggle", "admin.admin_user_reset_password",
     "admin.admin_user_role",
     "clinical.inpatient_update_add", "clinical.inpatient_update_edit", "clinical.inpatient_contact_add",

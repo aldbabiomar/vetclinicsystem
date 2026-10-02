@@ -121,7 +121,7 @@
       <td>{% if s.incident_count %}<span class="badge danger">{{ s.incident_count }}</span>{% else %}<span class="muted small">0</span>{% endif %}</td>
       <td class="actions-cell">
         <div class="action-btns">
-          <button class="btn small danger" type="button" data-id="{{ s.id }}" data-name="{{ s.animal_name }}" data-vzh="boarding-8">{{ _('Something\'s Wrong!') }}</button>
+          <button class="btn small" type="button" data-id="{{ s.id }}" data-name="{{ s.animal_name }}" data-vzh="boarding-8">{{ _('Something\'s Wrong!') }}</button>
           <div class="action-btns-row">
             <button class="btn small secondary" type="button" data-id="{{ s.id }}" data-name="{{ s.animal_name }}" data-discount="{{ s.discount_percent or 0 }}" data-member="{{ 1 if s.billing.discount_source == 'member' else 0 }}" data-vzh="boarding-9">{{ _('Payment') }}</button>
             <button class="btn small secondary" type="button" data-vzh="boarding-10" data-vz-arg="{{ s.id }}">{{ _('Edit') }}</button>
@@ -134,7 +134,7 @@
           </form>
           {% endif %}
           {% if s.owner_phone %}
-          <a class="btn small ok" target="_blank" rel="noopener"
+          <a class="btn small" target="_blank" rel="noopener"
              href="https://wa.me/{{ s.owner_phone|replace('+','') }}?text={{ ('Hi ' ~ s.owner_name ~ ', this is a reminder that ' ~ s.animal_name ~ ' is due for their pickup from boarding on ' ~ (s.dismissal_date or 'the agreed date') ~ '. - ' ~ clinic_name)|urlencode }}">{{ _('Send WhatsApp Message') }}</a>
           {% else %}
           <a class="btn small secondary" href="{{ url_for('clinical.owner_edit', owner_id=s.owner_id) }}">{{ _('Add phone to send WhatsApp') }}</a>

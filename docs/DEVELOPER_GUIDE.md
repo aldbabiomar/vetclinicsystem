@@ -220,8 +220,10 @@ the Developer area, and each change is in the Developer Audit:
   that fires when the clinic's machine goes dark. So neither the clinic's
   change log nor the Developer Audit records it, only that it was set or
   cleared, and the page shows it masked. Use a different URL for each clinic.
-- **Updates** — the clinic's **GitHub access token**, and the same
-  check / update / roll back controls the clinic has on Settings → Updates.
+- **Updates** — the clinic's **GitHub access token**, and the check / update
+  / roll back controls. They are here only: the clinic's Settings page has no
+  update controls (since 2026-10-02), so every update is one you make, with a
+  Developer Pass for that clinic.
 
 ## The update token, one per clinic
 

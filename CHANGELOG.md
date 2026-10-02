@@ -2,8 +2,9 @@
 
 All notable changes to VetClinicSystem are documented in this file, in
 [Keep a Changelog](https://keepachangelog.com) style. The in-app updater shows
-the entry for a release to the clinic admin before they click Update Now, so
-every entry is written for that reader. See `docs/RELEASE_WORKFLOW.md`.
+the entry for a release before Update Now is clicked — to the vendor, in
+Developer → Updates — and the clinic's staff live with what it describes, so
+every entry is written to be read by both. See `docs/RELEASE_WORKFLOW.md`.
 
 VetClinicSystem merges two predecessor apps, VetClinicSystem IQ and
 VetClinicSystem JO, into one system with an IQ/JO money setting. Their release

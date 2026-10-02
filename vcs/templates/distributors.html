@@ -89,7 +89,7 @@
         <button class="btn small secondary" form="edit-{{ d.id }}" type="submit">{{ _('Save') }}</button>
         <form method="post" action="{{ url_for('consignment.distributor_delete', dist_id=d.id) }}" style="display:inline;" data-confirm="{{ _('Delete %(name)s?', name=d.name) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small danger" type="submit">{{ _('Delete') }}</button>
+          <button class="btn small" type="submit">{{ _('Delete') }}</button>
         </form>
       </td>
     </tr>

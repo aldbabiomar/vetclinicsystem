@@ -315,16 +315,18 @@ pg_restore --clean --if-exists -d "$DATABASE_URL" path/to/vetclinicsystem_backup
 
 ## Staying up to date
 
-**Settings → Updates** checks for, applies and rolls back updates without a
-terminal (setup puts every new install on the versioned-release layout this
-needs). Applying an update backs up the database first, downloads and
-validates the new release, applies its database changes, and switches over —
-with the previous release kept so a one-click rollback is always there.
+Updating is the vendor's job, not the clinic's. **Developer → Updates** (which
+opens with a Developer Pass) checks for, applies and rolls back updates
+without a terminal (setup puts every new install on the versioned-release
+layout this needs). Applying an update backs up the database first, downloads
+and validates the new release, applies its database changes, and switches
+over — with the previous release kept so a one-click rollback is always there.
+The clinic's own Settings page has no update controls.
 
-The releases are in a private repository: each clinic reads them with its own
-read-only access token, which the vendor sets in the Developer area. With no
-token, Updates says so; a revoked one stops that clinic's updates and nothing
-else.
+The releases are in a private repository: each clinic's install reads them
+with its own read-only access token, which the vendor sets on the same page.
+With no token, Updates says so; a revoked one stops that clinic's updates and
+nothing else.
 
 ## The license
 
@@ -431,7 +433,7 @@ Two things stay inline and are not a lapse:
   inline style is the only thing hiding it. Move that `display:none` into a
   class and the element never appears again — no error, no clue. There is a
   test for exactly this, because it is the obvious-looking edit that breaks the
-  Settings Updates panel.
+  Updates panel.
 
 One quirk worth knowing: a few utilities are written with their class name
 twice (`.u-strong.u-strong`). `.field label` is more specific than a single

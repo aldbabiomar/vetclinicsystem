@@ -76,7 +76,7 @@
       <td style="white-space:nowrap;">
         <form method="post" action="{{ url_for('inventory.price_list_delete', item_id=i.id) }}" style="display:inline;" data-confirm="{{ _('Remove %(name)s?', name=i.name) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small danger" type="submit">{{ _('Remove') }}</button>
+          <button class="btn small" type="submit">{{ _('Remove') }}</button>
         </form>
       </td>
     </tr>

@@ -52,7 +52,7 @@
           <td>
             <form method="post" action="{{ url_for('admin.admin_user_toggle', user_id=u.id) }}" class="inline-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn small {{ 'danger' if u.active else 'secondary' }}" type="submit" {{ 'disabled' if u.id == session_user_id }}>{{ _('Disable') if u.active else _('Enable') }}</button>
+              <button class="btn small {{ 'secondary' if not u.active }}" type="submit" {{ 'disabled' if u.id == session_user_id }}>{{ _('Disable') if u.active else _('Enable') }}</button>
             </form>
           </td>
         </tr>
@@ -99,7 +99,7 @@
           </div>
           <div class="role-card-actions">
             <span class="badge ok">{{ _('Custom role') }}</span>
-            <button class="btn small danger" type="button" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}" data-staff-count="{{ staff_counts.get(role.id, 0) }}"
+            <button class="btn small" type="button" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}" data-staff-count="{{ staff_counts.get(role.id, 0) }}"
                     data-vzh="admin-users-4">{{ _('Delete') }}</button>
           </div>
         </div>
@@ -228,7 +228,7 @@
       </div>
       <p id="deleteRoleSimpleText" class="small muted" style="display:none;">{{ _('No one is currently assigned to this role. It can be deleted right away.') }}</p>
       <div class="form-actions">
-        <button class="btn danger" id="deleteRoleConfirmBtn" type="submit" data-saving-label="Deleting…">{{ _('Delete Role') }}</button>
+        <button class="btn" id="deleteRoleConfirmBtn" type="submit" data-saving-label="Deleting…">{{ _('Delete Role') }}</button>
         <button class="btn secondary" type="button" data-close-modal>{{ _('Cancel') }}</button>
       </div>
     </form>

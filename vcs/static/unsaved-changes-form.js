@@ -101,7 +101,7 @@
       '<p class="small muted" style="margin-bottom:6px;">' + escapeHtml(T("You have unsaved changes on this page. Leave without saving?")) + '</p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
       '<button class="btn small secondary" type="button" id="unsavedFormCancelBtn">' + escapeHtml(T("Keep Editing")) + '</button>' +
-      '<button class="btn small danger" type="button" id="unsavedFormDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
+      '<button class="btn small" type="button" id="unsavedFormDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);
     document.getElementById("unsavedFormCancelBtn").addEventListener("click", hideModal);

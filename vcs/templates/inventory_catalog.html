@@ -93,7 +93,7 @@
       <td class="u-nowrap">
         <form class="u-inline" method="post" action="{{ url_for('inventory.inventory_catalog_toggle', item_id=i.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small {{ 'danger' if i.active else 'secondary' }}" type="submit">{{ _('Deactivate') if i.active else _('Reactivate') }}</button>
+          <button class="btn small {{ 'secondary' if not i.active }}" type="submit">{{ _('Deactivate') if i.active else _('Reactivate') }}</button>
         </form>
       </td>
     </tr>
@@ -133,7 +133,7 @@
       </div>
       <div class="u-row-sm">
         <button class="btn small" type="button" id="barcodeManualSaveBtn" data-vzh="inventory-catalog-10">{{ _('Save') }}</button>
-        <button class="btn small danger" type="button" id="barcodeManualRemoveBtn" style="display:none;" data-vzh="inventory-catalog-11">{{ _('Remove Barcode') }}</button>
+        <button class="btn small" type="button" id="barcodeManualRemoveBtn" style="display:none;" data-vzh="inventory-catalog-11">{{ _('Remove Barcode') }}</button>
       </div>
     </div>
 
@@ -143,7 +143,7 @@
       <div class="u-row-sm">
         <button class="btn small secondary" type="button" id="barcodeGeneratedCreateBtn" data-vzh="inventory-catalog-12">{{ _('Create Now') }}</button>
         <a class="btn small secondary" type="button" id="barcodeGeneratedPrintBtn" style="display:none;" href="#">{{ _('Print Label') }}</a>
-        <button class="btn small danger" type="button" id="barcodeGeneratedRemoveBtn" style="display:none;" data-vzh="inventory-catalog-11">{{ _('Remove Barcode') }}</button>
+        <button class="btn small" type="button" id="barcodeGeneratedRemoveBtn" style="display:none;" data-vzh="inventory-catalog-11">{{ _('Remove Barcode') }}</button>
       </div>
     </div>
 

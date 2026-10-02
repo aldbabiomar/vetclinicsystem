@@ -22,7 +22,7 @@
         {% if s.status != 'Confirmed' %}
         <form method="post" action="{{ url_for('inventory.audit_session_delete', session_id=s.id) }}" style="display:inline;" data-confirm="{{ _('Discard this draft audit? This cannot be undone.') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small danger" type="submit">{{ _('Discard') }}</button>
+          <button class="btn small" type="submit">{{ _('Discard') }}</button>
         </form>
         {% endif %}
       </td>

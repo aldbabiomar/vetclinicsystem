@@ -126,13 +126,25 @@ def _rule(css, selector):
     return found.group(1)
 
 
-def test_the_corner_row_is_the_far_end_and_only_in_the_developer_area():
+def test_the_corner_row_is_the_far_end():
     """GUARD: the row is pushed to the end (the right in English, the left in
-    Arabic). CONTROL: the same row elsewhere -- the clinic's Settings shares
-    three of these panels -- is not."""
+    Arabic). CONTROL: a button row elsewhere in the app is not -- 19 templates
+    share .form-actions, and nobody asked for those to move."""
     css = (source_files.STATIC_DIR / "style.css").read_text()
     assert "justify-content: flex-end" in _rule(css, ".dev-area .form-actions")
-    assert "text-align: end" in _rule(css, ".dev-area td.cell-actions")
+    assert "justify-content: flex-end" in _rule(css, ".form-actions.form-actions-end")
+    assert "text-align: end" in _rule(css, "td.cell-actions")
     assert "justify-content" not in _rule(css, ".form-actions")
     layout = (source_files.TEMPLATES_DIR / "developer_layout.html").read_text()
     assert '<div class="dev-area">{% block dev_main %}{% endblock %}</div>' in layout
+
+
+def test_the_panels_the_clinic_shares_keep_their_button_in_the_corner_there_too():
+    """GUARD. The License and Data Export panels are also the clinic's own
+    pages (Settings -> License, Data Export), outside .dev-area: their rows
+    carry the corner themselves. The owner found Save license key on the left
+    there, 2026-10-02."""
+    for name, button in (("_license_panel.html", "Save license key"), ("_data_export_panel.html", "Make an export")):
+        html = (source_files.TEMPLATES_DIR / name).read_text()
+        row = html[:html.index(button)].rsplit("<div", 1)[1]
+        assert 'class="form-actions form-actions-end"' in row, f"{name}: {button} is not in a corner row"

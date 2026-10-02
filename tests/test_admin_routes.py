@@ -55,6 +55,10 @@ def _save_settings(client, **data):
 # facts that are both local — whether updates are configured, and which version
 # is running. The cost landed on the "Check for Updates" button, which then
 # reported a perfectly online clinic as offline. COMPARISON.md §46.
+#
+# The card is the vendor's since 2026-10-02 (Developer -> Updates; the owner
+# took it off the clinic's Settings page), so these go through a Developer
+# Pass. What they hold is the same.
 
 
 @pytest.fixture
@@ -96,30 +100,30 @@ def github_is_a_trap(monkeypatch, updates_configured):
     return calls
 
 
-def test_the_settings_page_load_path_never_calls_github(client, github_is_a_trap):
-    """The guard. /settings/updates/status is what the page calls on load."""
-    resp = client.get("/settings/updates/status")
+def test_the_updates_page_load_path_never_calls_github(developer, github_is_a_trap):
+    """The guard. /developer/updates/status is what the page calls on load."""
+    resp = developer.get("/developer/updates/status")
     assert resp.status_code == 200, resp.status_code
     assert github_is_a_trap == [], (
-        "the page-load route called GitHub — every Settings visit would spend "
+        "the page-load route called GitHub — every visit to the page would spend "
         "one of the 60 requests this network gets per hour")
     body = resp.get_json()
     assert body["configured"] is True
     assert body["current_version"], "the card cannot render without a version"
 
 
-def test_the_check_button_DOES_call_github(client, github_is_a_trap):
+def test_the_check_button_DOES_call_github(developer, github_is_a_trap):
     """The control, and it is not optional. Without it the test above passes
     just as happily against a trap that was never installed, or against a
     route that returns 200 while doing nothing at all."""
-    resp = client.get("/settings/updates/check")
+    resp = developer.get("/developer/updates/check")
     assert github_is_a_trap, (
         "the trap never fired — so the test above proves nothing about "
         "whether /status avoids the network")
     assert resp.status_code == 502, "a failed check reports 502, not a fake success"
 
 
-def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(client, monkeypatch, updates_configured):
+def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(developer, monkeypatch, updates_configured):
     """End to end through the route: the 403 GitHub actually sends when the
     hourly cap is spent must reach the admin as a rate limit."""
     from vcs.ops import updater
@@ -136,7 +140,7 @@ def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(client, mon
 
     monkeypatch.setattr(updater, "is_update_available", rate_limited)
 
-    resp = client.get("/settings/updates/check")
+    resp = developer.get("/developer/updates/check")
     assert resp.status_code == 502
     error = resp.get_json()["error"]
     assert "limit" in error.lower(), error
@@ -144,7 +148,7 @@ def test_a_rate_limited_check_does_not_tell_the_clinic_it_is_offline(client, mon
         f"reported a rate limit as being offline, which is the bug: {error}")
 
 
-def test_a_real_outage_is_still_reported_as_being_offline(client, monkeypatch, updates_configured):
+def test_a_real_outage_is_still_reported_as_being_offline(developer, monkeypatch, updates_configured):
     """The other control. Over-correcting would be its own bug — when the
     clinic genuinely has no internet, saying so is the useful answer."""
     from vcs.ops import updater
@@ -155,9 +159,48 @@ def test_a_real_outage_is_still_reported_as_being_offline(client, monkeypatch, u
 
     monkeypatch.setattr(updater, "is_update_available", offline)
 
-    resp = client.get("/settings/updates/check")
+    resp = developer.get("/developer/updates/check")
     assert resp.status_code == 502
     assert "offline" in resp.get_json()["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Updates are not the clinic's (the owner's decision, 2026-10-02)
+# ---------------------------------------------------------------------------
+# Settings had an Updates card and four routes behind `manage_maintenance`
+# (licensing plan L-8). Both are gone: checking for, applying and rolling back
+# an update needs a Developer Pass.
+
+def test_the_clinics_settings_page_has_no_update_controls(client):
+    """GUARD. CONTROL in the same page: its own maintenance card is there."""
+    html = client.get("/settings").get_data(as_text=True)
+    assert 'id="restoreSubmitBtn"' in html, "the Settings page did not render its maintenance cards"
+    for gone in ('id="updCheckBtn"', 'id="updRollbackBtn"', 'id="updApplyBtn"', "loadUpdatesStatus"):
+        assert gone not in html, f"the clinic's Settings page still carries {gone}"
+
+
+def test_the_clinics_update_routes_are_gone(client, developer, flask_app):
+    """GUARD: an admin holding every permission gets no update route under
+    /settings. CONTROL: the same four exist, for the vendor."""
+    endpoints = {r.endpoint for r in flask_app.url_map.iter_rules()}
+    assert not {e for e in endpoints if e.startswith("settings.settings_updates")}
+    for method, path in (("get", "status"), ("get", "check"), ("post", "apply"), ("post", "rollback")):
+        assert getattr(client, method)(f"/settings/updates/{path}").status_code == 404, path
+        assert f"developer.updates_{path}" in endpoints, path
+    assert developer.get("/developer/updates/status").status_code == 200
+
+
+def test_the_backup_cards_buttons_sit_beside_what_they_act_on(client):
+    """GUARD (the owner's layout, 2026-10-02): Back Up Now shares a row with
+    the card's opening sentence, and Restore Now is in the file's row, after
+    Browse."""
+    html = client.get("/settings").get_data(as_text=True)
+    row = html[html.index('class="settings-action-row"'):]
+    row = row[:row.index("</form>")]
+    assert "The backup history and the restore that reads it" in row and 'id="backupNowBtn"' in row
+    files = html[html.index('class="settings-file-row"'):]
+    files = files[:files.index("</div>")]
+    assert files.index('id="restoreFileInput"') < files.index("Browse") < files.index('id="restoreSubmitBtn"')
 
 
 def test_a_setting_can_be_saved(client, db, settings_snapshot):

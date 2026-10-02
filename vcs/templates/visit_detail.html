@@ -41,7 +41,7 @@
         <span class="meta">{{ file.uploaded_at|localdate }}
           <form method="post" action="{{ url_for('clinical.attachment_delete', attachment_id=file.id) }}" style="display:inline;" data-confirm="{{ _('Delete %(name)s? This removes the file permanently, including the copy on disk.', name=file.original_name) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn small danger" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
+            <button class="btn small" type="submit" style="margin-left:8px;" title="{{ _('Delete %(name)s', name=file.original_name) }}" aria-label="{{ _('Delete %(name)s', name=file.original_name) }}">×</button>
           </form>
         </span>
       </div>
@@ -235,7 +235,7 @@ function renderVisitBillCart() {
         <button class="btn small secondary" type="button" data-vz-act="visit-detail-6" data-line-id="${c.id}">-</button>
         <input type="number" min="1" value="${c.qty}" style="width:56px; text-align:center;" data-vz-change="visit-detail-7" data-line-id="${c.id}">
         <button class="btn small secondary" type="button" data-vz-act="visit-detail-8" data-line-id="${c.id}">+</button>
-        <button class="btn small danger" type="button" data-vz-act="visit-detail-9" data-line-id="${c.id}">×</button>
+        <button class="btn small" type="button" data-vz-act="visit-detail-9" data-line-id="${c.id}">×</button>
       </div>
     </div>`).join('');
 }

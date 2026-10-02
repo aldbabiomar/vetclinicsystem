@@ -212,9 +212,10 @@ If the health check fails it flips back and restarts the previous release —
 the pre-update backup means nothing is lost either way. Only the last two
 releases are kept on disk.
 
-Settings → Updates (and the same panel in Developer → Updates) is triggered
-by a person only, never automatic, and shows the release body (the CHANGELOG
-entry) before they confirm. With no token it says so rather than failing
+Developer → Updates is triggered by a person only — the vendor, signed in
+with a Developer Pass; the clinic's Settings page has no update controls —
+never automatic, and shows the release body (the CHANGELOG entry) before they
+confirm. With no token it says so rather than failing
 quietly; a 401 says the token was rejected; a 404 says "not found or no
 access", because that is how GitHub answers a token that cannot see a private
 repository.

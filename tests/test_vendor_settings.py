@@ -177,11 +177,11 @@ def test_a_refusal_says_why_and_never_shows_the_token(token_home, status, words)
     assert words in message and "ghp_never_shown_4444" not in message
 
 
-def test_without_a_token_updates_say_so(client, token_home, monkeypatch):
+def test_without_a_token_updates_say_so(developer, token_home, monkeypatch):
     from vcs.ops import updater
     monkeypatch.setattr(updater, "is_configured", lambda: True)
     monkeypatch.setattr(updater, "current_version", lambda: "1.0.0")
-    data = client.get("/settings/updates/check").get_json()
+    data = developer.get("/developer/updates/check").get_json()
     assert "No access token is set for updates" in data["error"]
 
 

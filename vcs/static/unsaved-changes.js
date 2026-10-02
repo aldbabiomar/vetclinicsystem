@@ -245,7 +245,7 @@
       '<p class="small muted" id="unsavedModalMsg" style="margin-bottom:6px;"></p>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:18px;">' +
       '<button class="btn small secondary" type="button" id="unsavedCancelBtn">' + escapeHtml(T("Keep Editing")) + '</button>' +
-      '<button class="btn small danger" type="button" id="unsavedDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
+      '<button class="btn small" type="button" id="unsavedDiscardBtn">' + escapeHtml(T("Discard Changes")) + '</button>' +
       '<button class="btn small" type="button" id="unsavedSaveBtn">' + escapeHtml(T("Save & Continue")) + '</button>' +
       "</div></div></div>";
     document.body.appendChild(wrap.firstElementChild);

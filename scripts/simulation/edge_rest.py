@@ -178,10 +178,12 @@ def run(app):
     r = c.post("/settings/backup-now", {}, note="backup now")
     if r.status_code >= 500:
         F("HTTP_5XX", f"backup-now -> {r.status_code}")
-    r = c.get("/settings/updates/check", note="check for updates")
-    if r.status_code >= 500:
-        F("HTTP_5XX", f"updates/check -> {r.status_code}")
-    r = c.get("/settings/updates/status", note="update status")
+    # Updates left the clinic's Settings on 2026-10-02 (the vendor's, with a
+    # Developer Pass): an admin asking for the old routes finds nothing.
+    for path in ("/settings/updates/check", "/settings/updates/status"):
+        r = c.get(path, note="the clinic's old update route")
+        if r.status_code != 404:
+            F("CLINIC_UPDATE_ROUTE", f"{path} -> {r.status_code}, expected 404")
     r = c.post("/settings/restore-now", {"source_file": "/etc/passwd"}, note="restore from a system file")
     c.expect_refusal(r, "restore from an arbitrary path")
     r = c.post("/settings/restore-now", {"source_file": "../../../../etc/shadow"},

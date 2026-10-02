@@ -53,7 +53,8 @@ Decisions taken by the owner (do not re-ask; the plan records the reasoning):
 | Code layout | **Full restructure** into the `vcs/` package the plan's §3.1 describes (decided 2026-09-25); until it lands, the flat layout in §2 below is current |
 | Wellness reminders | Most urgent first on the Dashboard and the Wellness page; "due" ends when "missed" begins (14 days); a newer entry for the same pet and type replaces the old one |
 | Also | Inpatient billing refuses the whole submission when a staff discount meets a non-discountable item; status badges do not wrap |
-| Buttons and tabs | In the Developer area a section's buttons sit together in one row in its far bottom corner (`.dev-area .form-actions`), except Support → Checks, which keeps its place; the clinic's own Settings pages are not changed. A page's tabs (`.tabs`) are rounded chips like the list filters, everywhere (decided 2026-10-01; `tests/test_developer_layout.py`, and `test_a_pages_tabs_look_like_the_filter_chips` in `tests/test_browser.py`) |
+| Buttons and tabs | In the Developer area a section's buttons sit together in one row in its far bottom corner (`.dev-area .form-actions`), except Support → Checks, which keeps its place; Save license key and Make an export do the same on the clinic's own pages. A page's tabs (`.tabs`) are rounded chips like the list filters, everywhere. A filled button is always the palette's main colour: there is no red or green button (decided 2026-10-01/02; `tests/test_developer_layout.py`, `tests/test_button_colours.py`, and `test_a_pages_tabs_look_like_the_filter_chips` in `tests/test_browser.py`) |
+| Updates | The vendor's alone, in Developer → Updates (L-8 reversed 2026-10-02): the clinic's Settings page has no update controls and no update routes; every update needs a Developer Pass |
 | Licensing | L-1–L-10 in the licensing plan §1.1: Ed25519-signed license keys and Developer Passes, verified offline against keys in the source; read-only after expiry and grace, from the next sign-in; payments refused and inpatient notes allowed while read-only |
 
 The **Developer area** (`/developer/…`) is the vendor's: it opens only with a
@@ -132,7 +133,7 @@ vcs/
 │   ├── readonly.py  the license's read-only rule: one hook, one allowlist
 │   ├── devsession.py, vendor_settings.py, license_pages.py, update_jobs.py
 │   │                the Developer area's session; what only the vendor sets;
-│   │                the two License pages; the two Updates panels
+│   │                the two License pages; the Developer area's Updates panel
 │   └── blueprints/  main (login, dashboard, /health), reports, settings, admin,
 │                    clinical, sales, inventory, consignment, developer
 ├── licensing/       tokens.py (verify a signed key or pass), trusted_keys.py (the

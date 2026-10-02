@@ -137,18 +137,16 @@ def test_every_cause_produces_a_DIFFERENT_sentence():
 
 
 # --- the page must actually USE the local route ----------------------------
-# The route tests in test_admin_routes.py prove /settings/updates/status does
+# The route tests in test_admin_routes.py prove /developer/updates/status does
 # not call GitHub. They say nothing about which route the page asks for on
 # load, so on their own they would still pass if someone pointed
 # loadUpdatesStatus() back at /check — which IS the bug. Static, because the
 # alternative is a browser.
 
-SETTINGS_HTML = source_files.TEMPLATES_DIR / "settings.html"
-# The Updates controls live in one partial, shared by Settings and the
-# Developer area; each page hands it its own routes as `upd`.
+# The Updates controls live in one partial; the page that shows it (Developer
+# -> Updates, the only one since 2026-10-02) hands it its routes as `upd`.
 PANEL_HTML = source_files.TEMPLATES_DIR / "_updates_panel.html"
-PAGES_AND_ROUTES = [(SETTINGS_HTML, "settings.settings_updates_status", "settings.settings_updates_check"),
-                    (source_files.TEMPLATES_DIR / "developer_updates.html",
+PAGES_AND_ROUTES = [(source_files.TEMPLATES_DIR / "developer_updates.html",
                      "developer.updates_status", "developer.updates_check")]
 
 
@@ -161,11 +159,11 @@ def _js_function_body(name):
     return src[start:end]
 
 
-def test_the_settings_page_asks_the_local_route_on_load():
+def test_the_updates_page_asks_the_local_route_on_load():
     body = _js_function_body("loadUpdatesStatus")
     assert "upd.status" in body, "the page-load handler must call the local-only status route"
     assert "upd.check" not in body, (
-        "the page-load handler is calling GitHub again — every Settings visit "
+        "the page-load handler is calling GitHub again — every visit to the page "
         "spends one of the 60 requests this network gets per hour")
     for page, status_route, check_route in PAGES_AND_ROUTES:
         src = page.read_text(encoding="utf-8")

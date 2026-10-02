@@ -55,7 +55,7 @@ class Mutation:
 MUTATIONS = [
     # --- restructure R2/R3 ---------------------------------------------------
     Mutation("skip list names real endpoints", "tests/test_routes_smoke.py",
-             '    "settings.settings_updates_check",', '    "settings_updates_check",',
+             '    "main.logout",', '    "logout",',
              ["tests/test_routes_smoke.py::test_every_skipped_endpoint_exists"], db=True,
              why="a skip entry that names no endpoint skips nothing"),
     Mutation("a domain module is not rebound", "vcs/web/blueprints/settings.py",
@@ -334,6 +334,33 @@ MUTATIONS = [
              'detail={"token": "set" if updater.read_token() else "not set",',
              'detail={"token": updater.read_token() or "not set",',
              ["tests/test_vendor_settings.py"], db=True),
+    Mutation("the clinic's Settings page has no update controls", "vcs/templates/settings.html",
+             """<div class="settings-card-head"><h2>{{ _('Startup & Shutdown') }}</h2>""",
+             """<button type="button" id="updCheckBtn">{{ _('Check for Updates') }}</button>
+<div class="settings-card-head"><h2>{{ _('Startup & Shutdown') }}</h2>""",
+             ["tests/test_admin_routes.py::test_the_clinics_settings_page_has_no_update_controls"], db=True,
+             why="updates are the vendor's (L-8 reversed, 2026-10-02)"),
+    Mutation("Restore Now sits beside Browse", "vcs/templates/settings.html",
+             """        <button class="btn" type="submit" id="restoreSubmitBtn" data-saving-label="Restoring…" disabled>{{ _('Restore Now') }}</button>
+      </div>""",
+             """      </div>
+        <button class="btn" type="submit" id="restoreSubmitBtn" data-saving-label="Restoring…" disabled>{{ _('Restore Now') }}</button>""",
+             ["tests/test_admin_routes.py::test_the_backup_cards_buttons_sit_beside_what_they_act_on"], db=True),
+    Mutation("the clinic has no update route", "vcs/web/blueprints/settings.py",
+             '@bp.route("/settings/job-status")\n',
+             '@bp.route("/settings/updates/check")\n@auth.permission_required("manage_maintenance")\n'
+             'def settings_updates_check():\n    return jsonify(update_jobs.check()[0])\n\n\n'
+             '@bp.route("/settings/job-status")\n',
+             ["tests/test_admin_routes.py::test_the_clinics_update_routes_are_gone"], db=True),
+    Mutation("no button is painted outside the palette's main colour", "vcs/static/style.css",
+             "   the one they were drawn for. tests/test_button_colours.py holds it. */\n",
+             "   the one they were drawn for. tests/test_button_colours.py holds it. */\n"
+             ".btn.danger { background: var(--danger); }\n",
+             ["tests/test_button_colours.py::test_no_button_rule_paints_outside_the_main_colour"]),
+    Mutation("no button is given a colour class", "vcs/templates/settings.html",
+             '<button class="btn" type="submit" id="restoreSubmitBtn"',
+             '<button class="btn danger" type="submit" id="restoreSubmitBtn"',
+             ["tests/test_button_colours.py::test_no_button_is_given_a_colour_class"]),
     Mutation("without a token, updates say so", "vcs/web/update_jobs.py",
              "    refused = _no_token(updater)\n    if refused:\n        return refused\n", "",
              ["tests/test_vendor_settings.py::test_without_a_token_updates_say_so"], db=True,
@@ -504,7 +531,10 @@ MUTATIONS = [
     Mutation("the Developer area's button row is at the far end", "vcs/static/style.css",
              ".dev-area .form-actions { justify-content: flex-end; flex-wrap: wrap; align-items: center; }",
              ".dev-area .form-actions { flex-wrap: wrap; align-items: center; }",
-             ["tests/test_developer_layout.py::test_the_corner_row_is_the_far_end_and_only_in_the_developer_area"]),
+             ["tests/test_developer_layout.py::test_the_corner_row_is_the_far_end"]),
+    Mutation("Save license key is in the corner on the clinic's own License page", "vcs/templates/_license_panel.html",
+             '<div class="form-actions form-actions-end">', '<div class="form-actions">',
+             ["tests/test_developer_layout.py::test_the_panels_the_clinic_shares_keep_their_button_in_the_corner_there_too"]),
     Mutation("a page's tabs look like the filter chips", "vcs/static/style.css",
              ".chip, .tabs a {\n  padding: 6px 14px;", ".chip {\n  padding: 6px 14px;",
              ["tests/test_browser.py::test_a_pages_tabs_look_like_the_filter_chips"], browser=True),

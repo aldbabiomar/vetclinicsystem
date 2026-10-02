@@ -57,7 +57,7 @@ PERMISSIONS = [
     ("view_insights_retention", "View Insights & Retention", "Sales & Billing"),
     ("manage_users_roles", "Manage Users & Roles", "Admin"),
     ("manage_settings", "Manage Settings", "Admin"),
-    ("manage_maintenance", "Manage Backups, Updates & Startup", "Admin"),
+    ("manage_maintenance", "Manage Backups & Startup", "Admin"),
     ("view_logins_changes", "View Logins & Change Log", "Admin"),
     ("view_consignment", "View Consignment", "Consignment"),
     ("manage_consignment_items", "Manage Consignment Items", "Consignment"),

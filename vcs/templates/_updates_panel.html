@@ -1,6 +1,7 @@
-{# The Updates controls (check, apply, roll back), shared by Settings and the
-   Developer area (licensing plan L-8, §8): the same markup and script, each
-   page passing its own routes as `upd` = {status, check, apply, rollback, job}. #}
+{# The Updates controls (check, apply, roll back) of Developer -> Updates,
+   which passes its routes as `upd` = {status, check, apply, rollback, job}.
+   The clinic's Settings page had the same panel until 2026-10-02 (plan L-8,
+   reversed): updating is the vendor's. #}
 <div class="section-title">{{ _('Updates') }}</div>
 <div id="updatesConfigured" style="display:none;">
   <div class="detail-item"><div class="k">{{ _('Current Version') }}</div><div class="v" id="updCurrentVersion">{{ _('VetClinicSystem v%(app_version)s', app_version=app_version) }}</div></div>

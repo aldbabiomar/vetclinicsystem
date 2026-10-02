@@ -1,7 +1,8 @@
 """
 `manage_maintenance` — the permission that separates administering this
-*installation* (backups, restore, updates, autostart, browsing the server's
-disk) from editing ordinary clinic settings.
+*installation* (backups, restore, autostart, browsing the server's disk)
+from editing ordinary clinic settings. (Updates were part of it until
+2026-10-02; they are the vendor's now, behind a Developer Pass.)
 
 Two distinct things are proven here, because the change had two distinct
 ways to go wrong.
@@ -53,10 +54,6 @@ MAINTENANCE_ROUTES = [
     "settings_restore_now",
     "settings_job_status",
     "settings_autostart",
-    "settings_updates_status",
-    "settings_updates_check",
-    "settings_updates_apply",
-    "settings_updates_rollback",
     "api_browse_folder",
     "api_browse_folder_new",
 ]

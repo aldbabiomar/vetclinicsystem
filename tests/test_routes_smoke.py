@@ -38,9 +38,6 @@ pytestmark = needs_db
 SKIP_ENDPOINTS = {
     # Ends the session the rest of the suite is sharing.
     "main.logout",
-    # Makes a real network call to the GitHub releases API: slow, flaky
-    # offline, and it would hit an external service on every test run.
-    "settings.settings_updates_check",
     # Serves a file from disk by name; there is nothing meaningful to
     # request without a real generated file, and the download path is
     # covered by its own tests.
@@ -52,7 +49,9 @@ def test_every_skipped_endpoint_exists(flask_app):
     """GUARD on the list above. An entry that names no endpoint skips
     nothing: "settings_updates_check" lost its blueprint prefix when the
     routes moved into blueprints, and every run since called the GitHub
-    releases API the entry was there to avoid."""
+    releases API the entry was there to avoid. (That route is gone since
+    2026-10-02: updates are the vendor's, and the Developer area's check
+    refuses this suite's clinic sign-in before it reaches GitHub.)"""
     real = {r.endpoint for r in flask_app.url_map.iter_rules()}
     assert SKIP_ENDPOINTS <= real, sorted(SKIP_ENDPOINTS - real)
 

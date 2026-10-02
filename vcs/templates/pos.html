@@ -146,7 +146,7 @@ function renderCart() {
           <button class="btn small secondary" type="button" data-vz-act="pos-5" data-line-id="${c.id}">-</button>
           <input type="number" min="1" ${c.stock != null ? `max="${c.stock}"` : ''} value="${c.qty}" style="width:56px; text-align:center;" data-vz-change="pos-6" data-line-id="${c.id}">
           <button class="btn small secondary" type="button" data-vz-act="pos-7" data-line-id="${c.id}">+</button>
-          <button class="btn small danger" type="button" data-vz-act="pos-8" data-line-id="${c.id}">×</button>
+          <button class="btn small" type="button" data-vz-act="pos-8" data-line-id="${c.id}">×</button>
         </div>
       </div>`).join('');
   }
