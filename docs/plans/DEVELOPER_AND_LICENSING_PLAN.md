@@ -279,6 +279,14 @@ pages and printed by setup, and is what licenses and passes bind to. It is
   **clock_wrong**; the message tells the clinic to correct the computer's
   clock. The 24 hours absorbs time-zone and NTP corrections. "Now" comes from
   `clock.py`, never `datetime.now()`.
+  - **A clock that was ahead, then corrected (added 2026-10-02):** it looks
+    the same — `max_seen_at` is in the future — and the clinic's clock is
+    right, so nothing it does to the clock ends it. A license key **newer than
+    the one held** and **issued within the last two days** by this computer's
+    clock (no more than 24 hours ahead of it) vouches for the clock:
+    `enter_key()` then sets `max_seen_at` to now. "Newer" is what stops an
+    expired key being replayed on a wound-back clock. The message names the
+    recorded time and says to ask the vendor for a new key.
 - A license for another install: state **invalid**, with a message naming
   the install ID it expected.
 
@@ -1244,3 +1252,27 @@ result under each money setting.
 
   **Suite:** IQ **1842 passed, 0 skipped**; JO **1842 passed, 0 skipped**;
   the nine new or changed guards proven.
+- **2026-10-02 — a lockout the owner found by reading the code, reproduced,
+  and fixed.** If a clinic computer's clock was ahead while the app ran (a
+  sign-in, or the daily tick, is enough) and was then corrected, the app saw
+  a clock wound back: read-only, with a message telling staff to correct a
+  clock that was right. It lasted until real time caught up with the mistaken
+  time, and entering a key changed nothing. Reproduced: 40 days ahead gave 39
+  days of read-only.
+  - **The owner's choice: a new license key ends it.** `state.enter_key()`
+    accepts the computer's clock when the key is newer than the one held and
+    was signed within the last two days (§5.3); the License page says so and
+    the Developer Audit records `license.clock_accepted` with the time that
+    had been recorded. A key replayed on a wound-back clock, a stale key and a
+    key "from the future" (this clock really is behind) leave the lockout.
+  - The message now gives the recorded time and both ways out: correct the
+    clock if it is wrong; ask the vendor for a new key if it is right.
+  - In the Vendor Console, Renew says that a renewal with the same last day
+    is how to clear it.
+  - Guards: `test_license.py` (the lockout's message; the new key; the three
+    keys that must not work; the License page end to end), three mutations
+    proven.
+  - The two vendor manuals that cover licenses (the Vendor Console's and the
+    command line's) gained "A clinic locked by its own clock".
+
+  **Suite:** IQ **1849 passed, 0 skipped**; JO **1849 passed, 0 skipped**.

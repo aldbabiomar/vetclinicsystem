@@ -80,7 +80,14 @@ the clock.** Nothing here changes that, and nothing pretends to. What holds:
   record is the price of the lever; moving the payment routes onto the
   allowlist is one line in one registry.
 - A clock wound back more than a day makes the install read-only until it is
-  corrected — a real clock fault reads the same as a deliberate one.
+  corrected — a real clock fault reads the same as a deliberate one. So does
+  a clock that was *ahead* for a while and has been corrected, and there the
+  clinic's clock is already right: a license key newer than the one held and
+  signed within the last two days vouches for the clock and ends it
+  (`state.enter_key`; decided 2026-10-02, held by
+  `test_a_new_key_ends_a_lockout_from_a_clock_that_was_ahead` and
+  `test_a_key_that_does_not_vouch_for_the_clock_leaves_the_lockout`). Only
+  the vendor can make such a key.
 
 ## Held by
 

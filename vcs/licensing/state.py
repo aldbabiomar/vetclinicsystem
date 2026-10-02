@@ -6,7 +6,10 @@ The key lives in `<data dir>/license/license.key` -- not the database, so a
 restored backup cannot roll it back and it never travels in a backup, an
 export or a support bundle (A4). Beside it, `state.json` keeps the latest
 moment the app has seen, mirrored in the settings table; the later of the two
-counts. A clock more than a day behind it is a clock wound back.
+counts. A clock more than a day behind it is a clock wound back -- or a
+clock that was ahead for a while and has been put right, which looks the
+same from here: a key the vendor has just signed is what tells them apart
+(enter_key).
 
 The state is worked out at start-up, at every sign-in, after a key is
 entered and on the daily tick, and cached here. An invalid or missing license
@@ -15,7 +18,7 @@ never stops the app from starting; it only sets the state.
 import json
 import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 
 from vcs import clock, config, paths
@@ -26,6 +29,7 @@ ACTIVE, EXPIRING, GRACE, READ_ONLY = "active", "expiring", "grace", "read_only"
 INVALID, MISSING, CLOCK_WRONG = "invalid", "missing", "clock_wrong"
 WRITABLE = frozenset({ACTIVE, EXPIRING, GRACE})
 CLOCK_SLACK = timedelta(hours=24)          # time-zone and NTP corrections
+FRESH_KEY = timedelta(days=2)              # a key issued this recently vouches for the clock
 MAX_SEEN_SETTING = "license_max_seen_at"
 
 # What a person reads for each state.
@@ -48,6 +52,7 @@ class Status:
     expires_at: object = None              # aware datetimes
     read_only_from: object = None
     days_left: int = None
+    clock_accepted_from: object = None     # enter_key only: the later time that had been recorded
 
     @property
     def writable(self):
@@ -132,8 +137,10 @@ def evaluate(db=None, now=None, key=None):
     seen = _max_seen(db)
     if seen is not None and now < seen - CLOCK_SLACK:
         return Status(CLOCK_WRONG, Msg(N_(
-            "This computer's clock is behind the time the app last saw. Correct the date and "
-            "time, then sign in again.")), payload)
+            "This computer's clock is behind the latest time the app has seen (%(seen)s). If the "
+            "clock is wrong, correct the date and time, then sign in again. If the clock is right "
+            "now, it was ahead earlier: ask your vendor for a new license key and enter it on the "
+            "License page."), seen=clock.aware(seen).strftime("%Y-%m-%d %H:%M")), payload)
     if seen is None or now > seen:
         _remember_seen(db, now)
     expires = clock.parse(payload["expires_at"])
@@ -165,12 +172,50 @@ def current(db=None):
     return _cached if _cached is not None else refresh(db)
 
 
+def _held_payload(now):
+    """The stored key's payload, when it still verifies; else None."""
+    try:
+        return tokens.verify(stored_key() or "", tokens.LICENSE, config.INSTALL_ID, now)
+    except tokens.TokenError:
+        return None
+
+
+def _vouches_for_the_clock(payload, held, now):
+    """Does this key say the computer's clock is right?
+
+    A clock that was ahead while the app ran leaves a latest-seen time in the
+    future; once the clock is corrected the app sees a clock wound back and
+    goes read-only, for as long as the clock had been ahead -- and nothing the
+    clinic does to its clock can end that, because its clock is right. A key
+    carries the moment the vendor signed it, by the vendor's clock. One signed
+    within the last two days (and no more than CLOCK_SLACK ahead of this
+    computer) says this computer's clock is about right.
+
+    It must also be NEWER than the key held. Without that, an expired key
+    entered again with the clock wound back to the week it was issued would
+    vouch for the wound-back clock -- the thing the check exists to stop. A
+    renewal is newer by definition, so only the vendor can produce one."""
+    issued = clock.parse(payload["issued_at"])
+    newer = held is None or issued > clock.parse(held["issued_at"])
+    return newer and issued - CLOCK_SLACK <= now <= issued + FRESH_KEY
+
+
 def enter_key(db, key, now=None):
     """Store a pasted key -- if, and only if, it verifies for this install.
     The new status is cached at once. Raises tokens.TokenError otherwise, and
-    nothing is written."""
+    nothing is written.
+
+    A key that vouches for the clock (above) also replaces a latest-seen time
+    the clock is behind; the status returned says which time that was."""
     now = now or clock.now()
     key = "".join(str(key or "").split())
-    tokens.verify(key, tokens.LICENSE, config.INSTALL_ID, now)
+    payload = tokens.verify(key, tokens.LICENSE, config.INSTALL_ID, now)
+    held = _held_payload(now)
     _write_atomically(_key_path(), key + "\n")
-    return refresh(db, now)
+    seen = _max_seen(db)
+    accepted = None
+    if seen is not None and now < seen - CLOCK_SLACK and _vouches_for_the_clock(payload, held, now):
+        _remember_seen(db, now)
+        accepted = seen
+    status = refresh(db, now)
+    return replace(status, clock_accepted_from=accepted) if accepted else status

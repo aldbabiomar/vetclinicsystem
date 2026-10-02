@@ -6,7 +6,7 @@ panel and save a key the same way.
 from flask import request
 from flask_babel import gettext as _
 
-from vcs import config
+from vcs import clock, config
 from vcs.domain import developer_audit
 from vcs.licensing import state, tokens
 from vcs.web.core import flash, shown
@@ -32,6 +32,14 @@ def save_key(db, actor, pass_id=None):
                            target=status.payload.get("license_id"),
                            detail={"expires_at": status.payload.get("expires_at"), "state": status.state},
                            remote_addr=request.remote_addr)
+    if status.clock_accepted_from:
+        was = clock.aware(status.clock_accepted_from).strftime("%Y-%m-%d %H:%M")
+        developer_audit.record(db, "license.clock_accepted", actor=actor, pass_id=pass_id,
+                               target=status.payload.get("license_id"),
+                               detail={"recorded": was, "now": clock.now().strftime("%Y-%m-%d %H:%M")},
+                               remote_addr=request.remote_addr)
+        flash(_("The computer's clock was accepted: the app had recorded a later time (%(seen)s), "
+                "from when the clock was ahead.", seen=was), "success")
     if status.state != before:
         developer_audit.record(db, "license.state_changed", actor=actor, pass_id=pass_id,
                                target=status.payload.get("license_id"),

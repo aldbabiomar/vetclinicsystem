@@ -21,6 +21,7 @@ LABELS = {
     "developer.login_failed": N_("Developer sign-in refused"),
     "license.entered": N_("License key entered"),
     "license.state_changed": N_("License state changed"),
+    "license.clock_accepted": N_("Computer clock accepted"),
     "config.money_setting": N_("Money setting changed"),
     "config.palette": N_("Color palette changed"),
     "config.refused": N_("Configuration change refused"),

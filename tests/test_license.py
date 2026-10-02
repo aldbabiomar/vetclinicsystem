@@ -16,6 +16,7 @@ import pytest
 
 from conftest import needs_db
 from test_privileges import admin_restored, as_role  # noqa: F401
+from vcs import clock
 from vcs.licensing import state
 from vcs.web import readonly
 
@@ -93,6 +94,107 @@ def test_the_latest_moment_seen_is_kept_in_both_places(db, clinic_license):
     in_file = json.loads((clinic_license / "state.json").read_text())["max_seen_at"]
     in_db = db.execute("SELECT value FROM settings WHERE key=%s", (state.MAX_SEEN_SETTING,)).fetchone()["value"]
     assert in_file and in_db
+
+
+# ---------------------------------------------------------------------------
+# A clock that was ahead, and has been put right (the owner's report,
+# 2026-10-02)
+# ---------------------------------------------------------------------------
+# The app ran while the computer's clock was ahead, so the latest time it saw
+# is in the future. Once the clock is corrected that reads as a clock wound
+# back: read-only, with a message telling staff to correct a clock that is
+# right, for as long as the clock had been ahead. A newly issued key from the
+# vendor is what ends it -- and only a NEW one, or an old key replayed with
+# the clock wound back would end the real thing too.
+
+AHEAD = timedelta(days=40)
+
+
+def _key(vendor, issued_at, days=365):
+    payload = vendor.tool.license_payload(vendor.key, vendor.install_id, "Test Clinic",
+                                          issued_at + timedelta(days=days), issued_at=issued_at)
+    return vendor.tool.sign(vendor.key, payload)
+
+
+@pytest.fixture
+def clock_was_ahead(clinic_license, vendor, db):
+    """The key held was issued 30 days ago; the app has seen a moment 40 days
+    from now; the clock is right again. Everything is put back afterwards."""
+    key_file, state_file = clinic_license / "license.key", clinic_license / "state.json"
+    saved_key = key_file.read_text()
+    saved_state = state_file.read_text() if state_file.exists() else None
+    saved_row = db.execute("SELECT value FROM settings WHERE key=%s", (state.MAX_SEEN_SETTING,)).fetchone()
+    key_file.write_text(_key(vendor, NOW - timedelta(days=30)) + "\n")
+    assert state.refresh(db, now=NOW + AHEAD).state == state.ACTIVE          # the app, running with the clock ahead
+    db.commit()
+    assert state.refresh(db, now=NOW).state == state.CLOCK_WRONG, "arrangement failed: the lockout did not happen"
+    yield clinic_license
+    key_file.write_text(saved_key)
+    if saved_state is None:
+        state_file.unlink(missing_ok=True)
+    else:
+        state_file.write_text(saved_state)
+    db.execute("DELETE FROM settings WHERE key=%s", (state.MAX_SEEN_SETTING,))
+    if saved_row:
+        db.execute("INSERT INTO settings (key, value) VALUES (%s, %s)", (state.MAX_SEEN_SETTING, saved_row["value"]))
+    db.commit()
+    state.refresh(db)
+
+
+def test_the_lockout_says_what_was_recorded_and_what_ends_it(clock_was_ahead, db):
+    """Staff were told to correct a clock that was right, and nothing else."""
+    status = state.evaluate(db, now=NOW)
+    assert status.state == state.CLOCK_WRONG and not status.writable
+    assert status.message.args["seen"] == clock.aware(NOW + AHEAD).strftime("%Y-%m-%d %H:%M")
+    assert status.message.args["seen"] in status.message
+    assert "If the clock is right now" in status.message and "new license key" in status.message
+
+
+def test_a_new_key_ends_a_lockout_from_a_clock_that_was_ahead(clock_was_ahead, vendor, db):
+    """GUARD. Before, entering a key changed nothing: the clinic stayed
+    read-only until real time caught up with the mistaken time."""
+    status = state.enter_key(db, _key(vendor, NOW - timedelta(hours=1)), now=NOW)
+    db.commit()
+    assert status.state == state.ACTIVE and status.writable
+    assert abs(status.clock_accepted_from - (NOW + AHEAD)) < timedelta(seconds=1)
+    in_file = json.loads((clock_was_ahead / "state.json").read_text())["max_seen_at"]
+    in_db = db.execute("SELECT value FROM settings WHERE key=%s", (state.MAX_SEEN_SETTING,)).fetchone()["value"]
+    assert datetime.fromisoformat(in_file) <= NOW and datetime.fromisoformat(in_db) <= NOW
+    assert state.evaluate(db, now=NOW + timedelta(minutes=5)).state == state.ACTIVE      # and it stays ended
+    assert state.current().clock_accepted_from is None, "the cached status is not the one-off answer"
+
+
+@pytest.mark.parametrize("what, issued, entered_at", [
+    # the key already held, entered again with the clock wound back to the week it was issued
+    ("replayed", -timedelta(days=30), -timedelta(days=29)),
+    # a newer key, but signed ten days before this computer's "now"
+    ("stale", -timedelta(days=10), timedelta(0)),
+    # a newer key signed three days after this computer's "now": this clock IS behind
+    ("clock behind", timedelta(days=3), timedelta(0)),
+])
+def test_a_key_that_does_not_vouch_for_the_clock_leaves_the_lockout(clock_was_ahead, vendor, db, what, issued, entered_at):
+    """GUARD. Only a key the vendor has just signed, newer than the one held,
+    says the clock is right. Anything else would let an expired key be
+    replayed on a wound-back clock."""
+    status = state.enter_key(db, _key(vendor, NOW + issued), now=NOW + entered_at)
+    assert status.state == state.CLOCK_WRONG, what
+    assert status.clock_accepted_from is None
+
+
+def test_the_license_page_ends_the_lockout_and_records_it(flask_app, clock_was_ahead, vendor, db):
+    """Through the page the clinic uses, on the real clock."""
+    c = _signed_in(flask_app)
+    page = c.post("/settings/license", data={"license_key": vendor.license()}, follow_redirects=True)
+    assert state.current().state == state.ACTIVE
+    assert "The computer&#39;s clock was accepted" in page.get_data(as_text=True)
+    newest = "SELECT id, outcome, detail FROM developer_audit WHERE action='license.clock_accepted' ORDER BY id DESC LIMIT 1"
+    row = db.execute(newest).fetchone()
+    assert row and row["outcome"] == "ok" and row["detail"]["recorded"][:4].isdigit()
+    # CONTROL: a key entered when there is no lockout accepts no clock and records none.
+    again = c.post("/settings/license", data={"license_key": vendor.license()}, follow_redirects=True)
+    assert "License key saved" in again.get_data(as_text=True)
+    assert "clock was accepted" not in again.get_data(as_text=True)
+    assert db.execute(newest).fetchone()["id"] == row["id"]
 
 
 # ---------------------------------------------------------------------------

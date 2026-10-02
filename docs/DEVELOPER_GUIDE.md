@@ -115,6 +115,27 @@ every session: a read-only install becomes writable without anyone signing
 out. It can be entered any time before the old one runs out; the Developer
 Audit records each key entered, accepted or refused.
 
+### A clinic locked by its own clock
+
+If a clinic's computer had its clock set ahead for a while (a wrong year, a
+dead battery, a mistyped date) and someone signed in during that time, the app
+recorded that later time. When the clock is put right the app sees a clock
+that has gone backwards, turns read-only and shows **"The computer's clock is
+wrong"** with the time it recorded — although the clock is now right. It would
+stay that way until real time caught up.
+
+**What to do:** check with the clinic that the computer's date and time are
+right now, then sign a new license for that clinic — in the console, **Renew**
+with the **same last day** as the current license — and send it. When the
+clinic saves it on **Settings → License** the lockout ends at once, the page
+says the clock was accepted, and the Developer Audit records it. The key must
+be entered within two days of signing it; after that it still works as a
+license but no longer clears the lockout, so sign another.
+
+An older key, or the one the clinic already has, does not clear it. That is
+deliberate: otherwise an expired key could be re-entered with the clock wound
+back to the week it was issued.
+
 ## Installing a clinic, step by step
 
 1. **In the console:** *New clinic* — the name, IQ or JO, the palette, how long
@@ -189,11 +210,11 @@ finish.
 | Expiring soon | within the warning period | a banner, to those who can enter a key |
 | Grace | expired, within the grace period | a banner to everyone, with the date it becomes read-only |
 | Read-only | past the grace period | a red banner; anything that saves is refused with a page saying why |
-| Not valid / No license key / Clock wrong | the key fails, is missing, or the computer's clock was wound back more than a day | treated as read-only, with its own message |
+| Not valid / No license key / Clock wrong | the key fails, is missing, or the computer's clock is more than a day behind the latest time the app has seen | treated as read-only, with its own message (for the clock, see *A clinic locked by its own clock*) |
 
 Read-only begins at a **sign-in**: someone already working keeps working until
 they sign out (12 hours at most). What still saves while read-only: signing in,
-one's own password, the license key, backups, restore, updates, user
+one's own password, the license key, backups, restore, user
 administration, and notes and owner calls on animals already admitted.
 Payments do not. Entering a new key unlocks every session at once.
 

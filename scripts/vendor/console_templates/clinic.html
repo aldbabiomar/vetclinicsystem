@@ -26,6 +26,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h2>Renew</h2>
     <p class="sub">A new license for this installation. It replaces the current one the moment the clinic enters it, and ends read-only at once.</p>
+    <p class="sub">Locked by its clock? If the clinic shows “The computer's clock is wrong” and its date and time are right, sign a renewal with the <b>same last day</b> and send it: entered within two days, it clears the lockout.</p>
     <div class="fields">
       <div class="field"><label for="renew-expires">Last day</label><input type="date" id="renew-expires" name="expires" value="{{ renew_to }}"><span class="hint">A year after the current end, or after today if that has passed.</span></div>
       <div class="field"><label for="renew-warn">Warning (days)</label><input type="number" id="renew-warn" name="warn_days" min="0" value="{{ licenses[0].warn_days if licenses else 14 }}"></div>
