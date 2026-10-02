@@ -230,7 +230,7 @@ msgid ""
 "Choose the clinic's money setting (IQ or JO) first — nothing with a price"
 " or an amount can be recorded until it is set."
 msgstr ""
-"اختر إعداد العملة للعيادة (IQ أو JO) أولًا — لا يمكن تسجيل أي سعر أو مبلغ"
+"اختر نظام العملة للعيادة (IQ أو JO) أولًا — لا يمكن تسجيل أي سعر أو مبلغ"
 " حتى يتم تحديده."
 
 #: vcs/web/core.py:551
@@ -239,7 +239,7 @@ msgid ""
 "choose the clinic's money setting in Settings first."
 msgstr ""
 "الفوترة والدفعات والأسعار غير متاحة بعد: يجب على أحد المديرين اختيار "
-"إعداد العملة للعيادة من الإعدادات أولًا."
+"نظام العملة للعيادة من الإعدادات أولًا."
 
 #: vcs/enum_labels.py:39
 msgid "Needs Filling"
@@ -1451,7 +1451,7 @@ msgstr "تم تسجيل الدفعة."
 
 #: vcs/web/blueprints/clinical.py
 msgid "That payment was already recorded."
-msgstr "تم تسجيل هذه الدفعة بالفعل."
+msgstr "تم تسجيل هذه الدفعة من قبل."
 
 #: vcs/web/blueprints/clinical.py
 #, python-format
@@ -2283,7 +2283,7 @@ msgstr "يجب أن يكون خصم العضو بين 0%% و %(max)s%%."
 
 #: vcs/web/blueprints/settings.py:302
 msgid "Not a valid money setting."
-msgstr "إعداد العملة غير صالح."
+msgstr "نظام العملة غير صالح."
 
 #: vcs/web/blueprints/settings.py:307
 #, python-format
@@ -2291,7 +2291,7 @@ msgid ""
 "The money setting can't be changed once money has been recorded — every "
 "stored amount is in %(currency)s."
 msgstr ""
-"لا يمكن تغيير إعداد العملة بعد تسجيل أي مبلغ — كل المبالغ المحفوظة بـ "
+"لا يمكن تغيير نظام العملة بعد تسجيل أي مبلغ — كل المبالغ المحفوظة بـ "
 "%(currency)s."
 
 #: vcs/web/blueprints/settings.py:321
@@ -2312,7 +2312,7 @@ msgid ""
 "Money setting saved: %(name)s. It locks itself once the first price or "
 "amount is recorded."
 msgstr ""
-"تم حفظ إعداد العملة: %(name)s. سيُقفل تلقائيًا بمجرد تسجيل أول سعر أو "
+"تم حفظ نظام العملة: %(name)s. سيُقفل تلقائيًا بمجرد تسجيل أول سعر أو "
 "مبلغ."
 
 #: vcs/web/blueprints/settings.py:419
@@ -4249,7 +4249,7 @@ msgstr ""
 msgid ""
 "Choose the clinic's money setting (IQ or JO) before recording any price "
 "or amount."
-msgstr "اختر إعداد العملة للعيادة (IQ أو JO) قبل تسجيل أي سعر أو مبلغ."
+msgstr "اختر نظام العملة للعيادة (IQ أو JO) قبل تسجيل أي سعر أو مبلغ."
 
 #: vcs/templates/dashboard.html:24 vcs/templates/dashboard.html:33
 #: vcs/templates/dashboard.html:59
@@ -4262,7 +4262,7 @@ msgid ""
 "choose the clinic's money setting in Settings first."
 msgstr ""
 "الفوترة والدفعات والأسعار غير متاحة بعد: يجب على أحد المديرين اختيار "
-"إعداد العملة للعيادة من الإعدادات أولًا."
+"نظام العملة للعيادة من الإعدادات أولًا."
 
 #: vcs/templates/dashboard.html:39
 msgid ""
@@ -4296,7 +4296,7 @@ msgstr "هذا التثبيت يحتاج إلى انتباه"
 
 #: vcs/templates/dashboard.html:53
 msgid "Health check warning"
-msgstr "تحذير من فحص السلامة"
+msgstr "تحذير من فحص صحة النظام"
 
 #: vcs/templates/dashboard.html:58
 #, python-format
@@ -4305,7 +4305,7 @@ msgstr "آخر فحص %(ran_at)s"
 
 #: vcs/templates/dashboard.html:68
 msgid "This install has failed its health check for 3 days running"
-msgstr "فشل فحص السلامة لهذا التثبيت ثلاثة أيام متتالية"
+msgstr "فشل فحص صحة النظام لهذا التثبيت ثلاثة أيام متتالية"
 
 #: vcs/templates/dashboard.html:70
 msgid ""
@@ -6368,7 +6368,7 @@ msgstr "اللغة"
 
 #: vcs/templates/settings.html:33 vcs/templates/settings.html:38
 msgid "Money Setting"
-msgstr "إعداد العملة"
+msgstr "نظام العملة"
 
 #: vcs/templates/settings.html:35
 msgid ""
@@ -6376,7 +6376,7 @@ msgid ""
 "payments, the point of sale and the price list stay locked until it is "
 "set."
 msgstr ""
-"اختر إعداد العملة قبل تسجيل أي سعر أو مبلغ. تبقى الفوترة والدفعات ونقطة "
+"اختر نظام العملة قبل تسجيل أي سعر أو مبلغ. تبقى الفوترة والدفعات ونقطة "
 "البيع وقائمة الأسعار مقفلة حتى يتم تحديده."
 
 #: vcs/templates/settings.html:40
@@ -6417,7 +6417,7 @@ msgid ""
 "money setting (IQ: Asia/Baghdad, JO: Asia/Amman), or this computer until "
 "one is chosen."
 msgstr ""
-"ما يعنيه \"اليوم\" وكل وقت في التطبيق. الخيار التلقائي يتبع إعداد العملة "
+"ما يعنيه \"اليوم\" وكل وقت في التطبيق. الخيار التلقائي يتبع نظام العملة "
 "(IQ: Asia/Baghdad، JO: Asia/Amman)، أو هذا الحاسوب إلى أن يُختار."
 
 #: vcs/templates/settings.html:64
@@ -6497,7 +6497,7 @@ msgstr "الاحتفاظ بالسجلات لمدة (أيام)"
 
 #: vcs/templates/settings.html:102
 msgid "Health Check"
-msgstr "فحص السلامة"
+msgstr "فحص صحة النظام"
 
 #: vcs/templates/settings.html:104
 msgid ""
@@ -6517,11 +6517,11 @@ msgstr "التنبيه إذا لم توجد نسخة خلال (أيام)"
 
 #: vcs/templates/settings.html:113
 msgid "Daily Health Check"
-msgstr "فحص السلامة اليومي"
+msgstr "فحص صحة النظام اليومي"
 
 #: vcs/templates/settings.html:121
 msgid "Run the daily health check and show its warnings"
-msgstr "تشغيل فحص السلامة اليومي وإظهار تحذيراته"
+msgstr "تشغيل فحص صحة النظام اليومي وإظهار تحذيراته"
 
 #: vcs/templates/settings.html:126
 msgid "Remote Monitoring (optional)"
@@ -6536,9 +6536,9 @@ msgid ""
 "this machine stops sending, whoever maintains the system gets told, which"
 " is the one thing the app cannot report while it is switched off."
 msgstr ""
-"معطّل ما لم تملأ هذا الحقل. عند ضبطه، ترسل هذه العيادة نبضة حالة يومية "
+"معطّل ما لم تملأ هذا الحقل. عند ضبطه، ترسل هذه العيادة إشارة حالة يومية "
 "قصيرة — أعدادًا وحالات فقط، دون أي تفاصيل عن الحيوانات أو المالكين أو "
-"الموظفين، ودون أي مبالغ. والمقصود هو النبضة %(missing)s: فإن توقف هذا "
+"الموظفين، ودون أي مبالغ. والمقصود هو الإشارة %(missing)s: فإن توقف هذا "
 "الجهاز عن الإرسال، يُبلَّغ المسؤول عن صيانة النظام — وهو الشيء الوحيد "
 "الذي لا يستطيع التطبيق الإبلاغ عنه وهو مطفأ."
 
@@ -6562,7 +6562,7 @@ msgid ""
 "send a fake ping and stop a real alert from ever reaching you."
 msgstr ""
 "يجب أن يبدأ بـ %(scheme)s. استخدم رابطًا مختلفًا لكل عيادة، حتى يتمكن "
-"التنبيه من تحديد أيها توقف. %(warning)s — فمن يحصل عليه يستطيع إرسال نبضة"
+"التنبيه من تحديد أيها توقف. %(warning)s — فمن يحصل عليه يستطيع إرسال إشارة"
 " مزيفة ومنع تنبيه حقيقي من الوصول إليك."
 
 #: vcs/templates/settings.html:136
@@ -8222,11 +8222,11 @@ msgstr "صدر تصريح المطوّر هذا بتاريخ في المستقب
 
 #: vcs/licensing/tokens.py
 msgid "This is a Developer Pass, not a license key."
-msgstr "هذا تصريح مطوّر، وليس مفتاح ترخيص."
+msgstr "هذا تصريح مطوّر، وليس مفتاح تفعيل."
 
 #: vcs/licensing/tokens.py
 msgid "This is a license key, not a Developer Pass."
-msgstr "هذا مفتاح ترخيص، وليس تصريح مطوّر."
+msgstr "هذا مفتاح تفعيل، وليس تصريح مطوّر."
 
 #: vcs/licensing/tokens.py
 msgid "This is not a VetClinicSystem key. Check that all of it was copied."
@@ -8297,7 +8297,7 @@ msgid ""
 "key entered here. The clinic cannot delete it, and the clinic can read it"
 " under Logins and Changes."
 msgstr ""
-"كل ما جرى في منطقة المطوّر في هذه العيادة، وكل مفتاح ترخيص أُدخل هنا. لا "
+"كل ما جرى في منطقة المطوّر في هذه العيادة، وكل مفتاح تفعيل أُدخل هنا. لا "
 "تستطيع العيادة حذفه، ويمكنها قراءته في سجل الدخول والتغييرات."
 
 #: vcs/templates/admin_developer_audit.html
@@ -8305,8 +8305,7 @@ msgid ""
 "Everything your vendor did in the Developer area at this clinic, and "
 "every license key entered here. Kept for good: nothing deletes it."
 msgstr ""
-"كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح "
-"ترخيص أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه."
+"كل ما فعله مزوّد البرنامج في منطقة المطوّر في هذه العيادة، وكل مفتاح تفعيل أُدخل هنا. يُحفظ دائمًا: لا شيء يحذفه."
 
 #: vcs/templates/developer_home.html vcs/templates/developer_login.html
 msgid "Installation ID"
@@ -8384,16 +8383,16 @@ msgid "%(warn)s days before, %(grace)s days after"
 msgstr "%(warn)s يومًا قبلها، و%(grace)s يومًا بعدها"
 
 msgid "Ask whoever manages the clinic settings to enter a new license key."
-msgstr "اطلب ممن يدير إعدادات العيادة إدخال مفتاح ترخيص جديد."
+msgstr "اطلب ممن يدير إعدادات العيادة إدخال مفتاح تفعيل جديد."
 
 msgid "Days left"
 msgstr "الأيام المتبقية"
 
 msgid "Enter a license key"
-msgstr "أدخل مفتاح الترخيص"
+msgstr "أدخل مفتاح التفعيل"
 
 msgid "Enter a new license key"
-msgstr "أدخل مفتاح ترخيص جديدًا"
+msgstr "أدخل مفتاح تفعيل جديدًا"
 
 msgid "Expired, in its grace period"
 msgstr "منتهي، في فترة السماح"
@@ -8411,20 +8410,20 @@ msgid "License ID"
 msgstr "معرّف الترخيص"
 
 msgid "License key"
-msgstr "مفتاح الترخيص"
+msgstr "مفتاح التفعيل"
 
 msgid "License key entered"
-msgstr "أُدخل مفتاح ترخيص"
+msgstr "أُدخل مفتاح تفعيل"
 
 #, python-format
 msgid "License key saved. The license is now: %(state)s."
-msgstr "حُفظ مفتاح الترخيص. حالة الترخيص الآن: %(state)s."
+msgstr "حُفظ مفتاح التفعيل. حالة الترخيص الآن: %(state)s."
 
 msgid "License state changed"
 msgstr "تغيّرت حالة الترخيص"
 
 msgid "No license key"
-msgstr "لا يوجد مفتاح ترخيص"
+msgstr "لا يوجد مفتاح تفعيل"
 
 msgid "Not valid"
 msgstr "غير صالح"
@@ -8437,10 +8436,10 @@ msgstr ""
 "الجديدة التي تُضاف أثناء الإرسال."
 
 msgid "Read-only"
-msgstr "للقراءة فقط"
+msgstr "وضع القراءة فقط"
 
 msgid "Read-only from"
-msgstr "للقراءة فقط ابتداءً من"
+msgstr "وضع القراءة فقط ابتداءً من"
 
 msgid ""
 "Records can still be viewed, searched, printed and exported, backups "
@@ -8450,7 +8449,7 @@ msgstr ""
 "الاحتياطي مستمر، ويمكن إضافة ملاحظات على الحيوانات المُقيمة حاليًا."
 
 msgid "Save license key"
-msgstr "حفظ مفتاح الترخيص"
+msgstr "حفظ مفتاح التفعيل"
 
 msgid "State"
 msgstr "الحالة"
@@ -8460,7 +8459,7 @@ msgstr "ساعة الحاسوب غير صحيحة"
 
 #, python-format
 msgid "The license expired on %(date)s. The system becomes read-only on %(when)s."
-msgstr "انتهى الترخيص في %(date)s. يصبح النظام للقراءة فقط في %(when)s."
+msgstr "انتهى الترخيص في %(date)s. يصبح النظام في وضع القراءة فقط في %(when)s."
 
 #, python-format
 msgid "The license expires on %(date)s."
@@ -8475,7 +8474,7 @@ msgid ""
 "The license has expired, so the system is read-only: records can be "
 "viewed, searched, printed and exported, and backups still run."
 msgstr ""
-"انتهى الترخيص، لذا أصبح النظام للقراءة فقط: يمكن عرض السجلات والبحث فيها "
+"انتهى الترخيص، لذا أصبح النظام في وضع القراءة فقط: يمكن عرض السجلات والبحث فيها "
 "وطباعتها وتصديرها، والنسخ الاحتياطي مستمر."
 
 msgid ""
@@ -8484,10 +8483,10 @@ msgid ""
 "is entered here."
 msgstr ""
 "الترخيص الذي أصدره مزوّد البرنامج لهذا التثبيت. عند انتهائه وانتهاء فترة "
-"السماح، يصبح النظام للقراءة فقط حتى يُدخل مفتاح جديد هنا."
+"السماح، يصبح النظام في وضع القراءة فقط حتى يُدخل مفتاح جديد هنا."
 
 msgid "The system is read-only"
-msgstr "النظام للقراءة فقط"
+msgstr "النظام في وضع القراءة فقط"
 
 msgid ""
 "This computer's clock is behind the latest time the app has seen "
@@ -8497,7 +8496,7 @@ msgid ""
 msgstr ""
 "ساعة هذا الحاسوب متأخرة عن آخر وقت سجّله البرنامج (%(seen)s). إذا كانت "
 "الساعة غير صحيحة، صحّح التاريخ والوقت ثم سجّل الدخول مرة أخرى. وإذا كانت "
-"صحيحة الآن، فقد كانت متقدّمة في وقت سابق: اطلب مفتاح ترخيص جديدًا من "
+"صحيحة الآن، فقد كانت متقدّمة في وقت سابق: اطلب مفتاح تفعيل جديدًا من "
 "مزوّد البرنامج وأدخله في صفحة الترخيص."
 
 msgid ""
@@ -8514,7 +8513,7 @@ msgid ""
 "This installation has no license key. Ask your vendor for one, then enter"
 " it on the License page."
 msgstr ""
-"لا يوجد مفتاح ترخيص لهذا التثبيت. اطلب واحدًا من مزوّد البرنامج، ثم أدخله"
+"لا يوجد مفتاح تفعيل لهذا التثبيت. اطلب واحدًا من مزوّد البرنامج، ثم أدخله"
 " في صفحة الترخيص."
 
 msgid "Warning, then grace"
@@ -8533,13 +8532,13 @@ msgid "Color palette changed"
 msgstr "تغيّرت لوحة الألوان"
 
 msgid "Configuration"
-msgstr "التهيئة"
+msgstr "الضبط"
 
 msgid "Configuration change refused"
-msgstr "رُفض تغيير في التهيئة"
+msgstr "رُفض تغيير في الضبط"
 
 msgid "Configuration saved."
-msgstr "تم حفظ التهيئة."
+msgstr "تم حفظ الضبط."
 
 #, python-format
 msgid "Connected: the latest release is %(tag)s."
@@ -8555,7 +8554,7 @@ msgstr ""
 "التثبيت لا يستطيع رؤيته."
 
 msgid "Money setting changed"
-msgstr "تغيّر إعداد العملة"
+msgstr "تغيّر نظام العملة"
 
 msgid "Monitoring"
 msgstr "المراقبة"
@@ -8570,7 +8569,7 @@ msgid ""
 "Must start with https://. Treat it like a password: anyone who has it can"
 " send a fake ping and stop a real alert."
 msgstr ""
-"يجب أن يبدأ بـ https://. تعامل معه ككلمة مرور: من يملكه يستطيع إرسال نبضة"
+"يجب أن يبدأ بـ https://. تعامل معه ككلمة مرور: من يملكه يستطيع إرسال إشارة"
 " مزيّفة وإيقاف تنبيه حقيقي."
 
 msgid "New ping URL"
@@ -8590,7 +8589,7 @@ msgid ""
 "Nothing was saved: the money setting, the color palette and the "
 "monitoring ping are set by your vendor."
 msgstr ""
-"لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة يحددها مزوّد "
+"لم يُحفظ شيء: نظام العملة ولوحة الألوان ورابط المراقبة يحددها مزوّد "
 "البرنامج."
 
 msgid "Paste the token first."
@@ -8612,7 +8611,7 @@ msgid "Rollback started"
 msgstr "بدأ التراجع"
 
 msgid "Save Configuration"
-msgstr "حفظ التهيئة"
+msgstr "حفظ الضبط"
 
 msgid "Save token"
 msgstr "حفظ الرمز"
@@ -8632,7 +8631,7 @@ msgid ""
 "Billing, payments, the point of sale and the price list stay locked until"
 " then."
 msgstr ""
-"لم يكتمل الإعداد: يجب على مزوّد البرنامج اختيار إعداد العملة. تبقى "
+"لم يكتمل الإعداد: يجب على مزوّد البرنامج اختيار نظام العملة. تبقى "
 "الفوترة والدفعات ونقطة البيع وقائمة الأسعار مقفلة حتى ذلك الحين."
 
 msgid "Test connection"
@@ -8665,7 +8664,7 @@ msgid ""
 "statuses only, never patient, owner or staff details, and never any "
 "amounts. If this machine stops sending, the monitoring service tells you."
 msgstr ""
-"عند ضبطه، ترسل هذه العيادة نبضة حالة يومية قصيرة — أعدادًا وحالات فقط، "
+"عند ضبطه، ترسل هذه العيادة إشارة حالة يومية قصيرة — أعدادًا وحالات فقط، "
 "دون أي تفاصيل عن الحيوانات أو المالكين أو الموظفين، ودون أي مبالغ. وإن "
 "توقف هذا الجهاز عن الإرسال، تُبلغك خدمة المراقبة."
 
@@ -8727,7 +8726,7 @@ msgid "Could not be read: %(error)s"
 msgstr "تعذّرت القراءة: %(error)s"
 
 msgid "Daily self-check"
-msgstr "فحص السلامة اليومي"
+msgstr "فحص صحة النظام اليومي"
 
 msgid "Data Export"
 msgstr "تصدير البيانات"
@@ -8748,7 +8747,7 @@ msgid "Download"
 msgstr "تنزيل"
 
 msgid "Download a support bundle"
-msgstr "تنزيل حزمة الدعم"
+msgstr "تنزيل ملف الدعم الفني"
 
 msgid "Error log"
 msgstr "سجل الأخطاء"
@@ -8857,7 +8856,7 @@ msgid ""
 "Nothing was saved: the money setting, the color palette, the monitoring "
 "ping and the vendor's message are set by your vendor."
 msgstr ""
-"لم يُحفظ شيء: إعداد العملة ولوحة الألوان ورابط المراقبة ورسالة المزوّد "
+"لم يُحفظ شيء: نظام العملة ولوحة الألوان ورابط المراقبة ورسالة المزوّد "
 "يحددها مزوّد البرنامج."
 
 msgid "Nothing: the message is off, empty or past its last day."
@@ -8900,17 +8899,17 @@ msgid "Restores"
 msgstr "عمليات الاستعادة"
 
 msgid "Run the self-check now"
-msgstr "تشغيل فحص السلامة الآن"
+msgstr "تشغيل فحص صحة النظام الآن"
 
 msgid "Running for"
 msgstr "مدة التشغيل"
 
 #, python-format
 msgid "Self-check finished: %(status)s."
-msgstr "انتهى فحص السلامة: %(status)s."
+msgstr "انتهى فحص صحة النظام: %(status)s."
 
 msgid "Self-check run"
-msgstr "شُغّل فحص السلامة"
+msgstr "شُغّل فحص صحة النظام"
 
 msgid "Server"
 msgstr "الخادم"
@@ -8925,7 +8924,7 @@ msgid "Support"
 msgstr "الدعم"
 
 msgid "Support bundle"
-msgstr "حزمة الدعم"
+msgstr "ملف الدعم الفني"
 
 msgid "Support bundle made"
 msgstr "أُنشئت حزمة دعم"
@@ -8938,7 +8937,7 @@ msgid ""
 "any time, also while the system is read-only."
 msgstr ""
 "نسخة العيادة الخاصة من كل ما سجّلته. يمكن إنشاؤها في أي وقت، حتى عندما "
-"يكون النظام للقراءة فقط."
+"يكون النظام في وضع القراءة فقط."
 
 msgid "The export could not be made. The error log has the details."
 msgstr "تعذّر إنشاء التصدير. التفاصيل في سجل الأخطاء."
@@ -8962,7 +8961,7 @@ msgid ""
 "The license key and the update access token are not kept in the database,"
 " so they are never exported."
 msgstr ""
-"مفتاح الترخيص ورمز الوصول للتحديثات لا يُحفظان في قاعدة البيانات، لذا لا "
+"مفتاح التفعيل ورمز الوصول للتحديثات لا يُحفظان في قاعدة البيانات، لذا لا "
 "يُصدَّران أبدًا."
 
 msgid "The message is cleared."
