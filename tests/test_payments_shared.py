@@ -62,8 +62,6 @@ MEMBER_RATE = "This bill carries a rewards-card discount."
 # these record what each does now, so the move into one function (phase 2)
 # can be shown to change nothing. Phase 3 makes each one rule and flips it.
 # ---------------------------------------------------------------------------
-# A3: an empty amount.
-EMPTY_AMOUNT_MESSAGE = {"visit": VALID_NUMBER, "inpatient": VALID_NUMBER, "boarding": GREATER_THAN_0}
 # P-6: which methods warn that an amount cannot be paid in 250-dinar notes.
 WARNS_ABOUT_NOTES = ("Cash", "Card", "Transfer")
 
@@ -240,10 +238,11 @@ def test_an_amount_that_is_not_a_payment_is_refused(client, db, bill, typed, mes
 
 @pytest.mark.parametrize("typed", ["", "   ", None])        # None: the field left out entirely
 def test_an_empty_amount_is_refused(client, db, bill, typed):
-    """GUARD. ABOUT TO CHANGE (A3): the three kinds do not say the same thing today."""
+    """GUARD (A3). One message on every kind. Boarding read an empty amount
+    as 0 and said it "must be greater than 0" until 2026-10-02."""
     before = bill.state(db)
     resp = pay(client, bill, amount=typed, method="Cash")
-    assert errors(resp) == [EMPTY_AMOUNT_MESSAGE[bill.kind]]
+    assert errors(resp) == [VALID_NUMBER]
     assert bill.state(db) == before
 
 

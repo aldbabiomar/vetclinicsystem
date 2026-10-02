@@ -644,6 +644,17 @@ MUTATIONS = [
              ["tests/test_payments_shared.py::test_a_payment_is_checked_against_the_discounted_balance",
               "tests/test_money_routes.py::test_boarding_payment_is_checked_against_the_POST_DISCOUNT_balance"],
              db=True, why="apply 10% and pay the undiscounted total"),
+    Mutation("an empty amount says the same on every bill", "vcs/web/blueprints/clinical.py",
+             '        amount = parse_money(f.get("amount"), required=True)\n    except BadNumber:\n'
+             '        return refuse(_("Payment amount must be a valid number."))\n'
+             '    # The discount arrives in the SAME submission',
+             '        amount = parse_money(f.get("amount")) or 0\n    except BadNumber:\n'
+             '        return refuse(_("Payment amount must be a valid number."))\n'
+             '    # The discount arrives in the SAME submission',
+             ["tests/test_payments_shared.py::test_an_empty_amount_is_refused"], db=True, why="A3"),
+    Mutation("a payment of nothing is refused", "vcs/domain/payments.py",
+             "    if amount is None or amount <= 0:", "    if False:",
+             ["tests/test_payments_shared.py::test_an_amount_that_is_not_a_payment_is_refused"], db=True),
     Mutation("a payment's Clean Up is checked", "vcs/domain/payments.py",
              "    error = cleanup_error(cleanup_amount, existing_cleanup, balance_with(existing_cleanup))\n",
              "    error = None\n",

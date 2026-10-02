@@ -1856,7 +1856,7 @@ def boarding_payment(boarding_id):
                                form=f, payment_error_id=boarding_id)
 
     try:
-        amount = parse_money(f.get("amount")) or 0
+        amount = parse_money(f.get("amount"), required=True)
     except BadNumber:
         return refuse(_("Payment amount must be a valid number."))
     # The discount arrives in the SAME submission as the payment (P-2). A
