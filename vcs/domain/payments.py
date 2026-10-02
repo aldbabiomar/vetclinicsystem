@@ -12,6 +12,10 @@ the request or the session, and nothing here commits: the route passes what
 it parsed and who is signed in, and commits once (docs/decisions/0003).
 A refusal is a PaymentRefused carrying a messages.Msg, raised before
 anything is written, so the route can show the form again as it stands.
+
+The checks are plain functions, and the point of sale calls them too: a sale
+is not a payment against a bill, but its discount, its Clean Up and its cash
+obey the same rules, and a rule with one copy cannot drift (seam rule 18).
 """
 from dataclasses import dataclass
 from typing import Callable
@@ -102,6 +106,28 @@ def cleanup_error(new_amount, existing_amount, balance):
     if new_amount > balance:
         return Msg(N_("Clean Up can't exceed the remaining balance."))
     return None
+
+
+def cash_tendered(method, received, due):
+    """The cash handed over for an amount due, as (received, change, error).
+
+    Recorded for a Cash payment only, and only when staff typed it: anything
+    else is (None, None, None), and the columns stay NULL rather than hold a
+    zero that would read as "paid nothing in cash".
+
+    The cash must cover what is due. The change is rounded DOWN to the money
+    setting's cash unit (money.change_due) -- never hand back more than is
+    owed. Under IQ that is the 250-dinar note, and the remainder stays in
+    the drawer; under JO it is the fils, so the change is exact.
+    """
+    if method != "Cash" or received is None:
+        return None, None, None
+    if received < due:
+        return None, None, Msg(
+            N_("Cash received (%(received)s %(currency)s) is less than the total "
+               "(%(total)s %(currency)s) — collect the full amount before completing the sale."),
+            received=Amount(received), total=Amount(due), currency=Currency())
+    return received, money.change_due(received, due), None
 
 
 # ---------------------------------------------------------------------------

@@ -594,3 +594,26 @@ of that name, and `test_payments_shared.py`'s `Bill.payments()` did. The
 module is imported there as `rules`. Both files re-run green under both
 settings; the next full run is phase 4's.
 
+### 2026-10-02 — phase 4: the point of sale shares the checks
+
+`sales._cash_payment_for()` is `payments.cash_tendered(method, received,
+due)`; `pos_checkout` calls it, as it has called `discount_error()` and
+`cleanup_error()` since phase 2. The old function is deleted. Parsing the
+typed figure stays in the request layer (A2): `core.parse_cash_received()`
+reads the field only when the method is Cash, which is what the sale always
+did, and is what the bill payments will use in phase 6. The message keeps
+its sale wording until then.
+
+**Seam rule 18**: the three old names appear nowhere; nothing outside
+`money.py`, `payments.py` and `templating.py` reads the Clean Up cap or
+calls `change_due()`; no comparison anywhere else names a Clean Up or cash
+received; and `record_payment()`, `pos_checkout` and the two discount
+routes call the shared checks. Its control shows the detector finds a
+second copy written four ways and ignores five things that are not one.
+
+Proven: `pos_checkout` given its own Clean Up check again (rule 18 and
+`test_cleanup_cap.py` both fail); cash allowed to be less than what is due
+(both POS underpayment tests fail).
+
+Suite on reset databases: **1993 passed, 0 skipped** under IQ and under JO.
+

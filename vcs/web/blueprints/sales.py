@@ -21,7 +21,7 @@ from flask import (
 )
 
 from vcs.web.core import flash, display_quantity
-from vcs.web.core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, currency_label, date_filter_arg, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
+from vcs.web.core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, currency_label, date_filter_arg, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_cash_received, parse_money, parse_percent, parse_quantity, parse_id
 from vcs import clock
 bp = Blueprint("sales", __name__)
 
@@ -388,33 +388,6 @@ def _refund_date_error(refund_date, origin):
     return None
 
 
-def _cash_payment_for(f, payment_method, total):
-    """Resolve cash received and change due. Returns (received, change, error).
-
-    Non-cash payments resolve to (None, None, None) — the columns stay null
-    rather than storing a zero that would look like "paid nothing in cash".
-
-    Change is rounded DOWN to the money setting's cash unit (money.change_due)
-    — never hand back more than is owed. Under IQ that is the 250-dinar note
-    and any remainder is absorbed by the clinic; under JO it is the fils, so
-    change is exact.
-    """
-    if payment_method != "Cash":
-        return None, None, None
-    try:
-        cash_received = parse_money(f.get("cash_received"))
-    except BadNumber:
-        return None, None, _("Cash Received must be a valid number.")
-    if cash_received is None:
-        return None, None, None
-    if cash_received < total:
-        return None, None, _("Cash received (%(received)s %(currency)s) is less than the total "
-                             "(%(total)s %(currency)s) — collect the full amount before completing the sale.",
-                             received=display_money(cash_received), total=display_money(total),
-                             currency=currency_label())
-    return cash_received, money.change_due(cash_received, total), None
-
-
 def _record_sale(db, lines, *, subtotal, discount_percent, total, cleanup_amount,
                  payment_method, cash_received, change_given, idempotency_key, now,
                  owner_id=None, discount_source="staff"):
@@ -573,7 +546,11 @@ def pos_checkout():
         return refuse(error)
     total = money.to_store(max(total - cleanup_amount, 0))
 
-    cash_received, change_given, error = _cash_payment_for(f, payment_method, total)
+    try:
+        cash_received = parse_cash_received(f.get("cash_received"), payment_method)
+    except BadNumber:
+        return refuse(_("Cash Received must be a valid number."))
+    cash_received, change_given, error = payments.cash_tendered(payment_method, cash_received, total)
     if error:
         return refuse(error)
 

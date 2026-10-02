@@ -645,6 +645,87 @@ def test_control_the_payment_insert_pattern():
 
 
 # ---------------------------------------------------------------------------
+# Rule 18 — one copy of each payment check (decision 0013)
+#
+# The discount cap, the Clean Up cap and balance, and "the cash covers what
+# is due" were each written out on four surfaces before they were functions,
+# and the functions lived in the request layer, one of them private to the
+# point of sale. They are payments.discount_error(), cleanup_error() and
+# cash_tendered(); record_payment() and pos_checkout call them, and nothing
+# else compares a Clean Up or cash received against anything.
+# ---------------------------------------------------------------------------
+OLD_CHECK_NAMES = ("cleanup_amount_error", "discount_percent_error", "_cash_payment_for")
+SHARED_CHECKS = ("discount_error", "cleanup_error", "cash_tendered")
+# Who may read the Clean Up cap, or work out change: where each is defined,
+# the check itself, and the template global that prints the cap on a form.
+CAP_AND_CHANGE_HOMES = {"money.py", "payments.py", "templating.py"}
+CLEANUP_OR_CASH = re.compile(r"cleanup|cash_received", re.I)
+
+
+def _own_comparisons(src):
+    """Lines of every comparison (<, <=, >, >=) that names a Clean Up or cash
+    received -- the shape a second copy of a check has."""
+    lines = []
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, ast.Compare) and any(isinstance(op, (ast.Lt, ast.LtE, ast.Gt, ast.GtE)) for op in node.ops):
+            names = [n.id for n in ast.walk(node) if isinstance(n, ast.Name)]
+            names += [n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)]
+            names += [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+            if any(CLEANUP_OR_CASH.search(name) for name in names):
+                lines.append(node.lineno)
+    return lines
+
+
+def _function_sources(path):
+    src = path.read_text(encoding="utf-8")
+    return {node.name: ast.get_source_segment(src, node) for node in ast.walk(ast.parse(src))
+            if isinstance(node, ast.FunctionDef)}
+
+
+def test_rule18_each_payment_check_has_one_copy():
+    """GUARD."""
+    files = source_files.all_python()
+    assert len(files) >= 80, f"only {len(files)} files scanned — the walk has lost the package"
+    offenders = []
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        offenders += [f"{path.name}: the old name {name}" for name in OLD_CHECK_NAMES if name in text]
+        if path.name in CAP_AND_CHANGE_HOMES:
+            continue
+        code = _without_comments(text)
+        if re.search(r"\bcleanup_cap\b", code):
+            offenders.append(f"{path.name}: reads the Clean Up cap")
+        if re.search(r"\bchange_due\s*\(", code):
+            offenders.append(f"{path.name}: works out change")
+        offenders += [f"{path.name}:{line}: compares a Clean Up or cash received" for line in _own_comparisons(text)]
+    assert not offenders, ("a payment check outside vcs/domain/payments.py — call payments.discount_error(), "
+                           "cleanup_error() or cash_tendered():\n  " + "\n  ".join(offenders))
+
+    # The floor: the checks are where the rule says, and their callers call them.
+    shared = _function_sources(source_files.module("payments"))
+    assert set(SHARED_CHECKS) <= set(shared), sorted(shared)
+    assert "cleanup_cap" in shared["cleanup_error"] and "change_due(" in shared["cash_tendered"]
+    for check in ("discount_error(", "cleanup_error("):
+        assert check in shared["record_payment"], f"record_payment() no longer calls {check})"
+    checkout = _function_sources(source_files.blueprint("sales"))["pos_checkout"]
+    for check in SHARED_CHECKS:
+        assert f"payments.{check}(" in checkout, f"pos_checkout no longer calls payments.{check}()"
+    clinical = _function_sources(source_files.blueprint("clinical"))
+    for route in ("visit_discount_save", "inpatient_discount_save"):
+        assert "payments.discount_error(" in clinical[route], route
+
+
+def test_control_a_second_copy_of_a_check_is_found():
+    for src in ("if cleanup_amount > cap:\n    pass", "if cash_received < total:\n    pass",
+                "ok = summary['cleanup_amount'] + new <= limit", "if 0 > f.cleanup:\n    pass"):
+        assert _own_comparisons(src), src
+    for src in ("if cleanup_amount:\n    pass", "total = max(total - cleanup_amount, 0)",
+                "if sale['cash_received'] is not None:\n    pass", "if amount > balance:\n    pass",
+                "if cleanup_amount == 0:\n    pass"):
+        assert not _own_comparisons(src), src
+
+
+# ---------------------------------------------------------------------------
 # Rule 16 — only pgtools finds the PostgreSQL client tools (licensing plan §12.2)
 #
 # Backup, restore and the restore check each looked for pg_dump / pg_restore

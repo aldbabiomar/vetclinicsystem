@@ -425,6 +425,17 @@ def clean_payment_method(v, required=True):
     return v
 
 
+def parse_cash_received(raw, method):
+    """Cash Received, as typed on a payment form: a Decimal, or None when it
+    was left blank. None for any method but Cash as well -- the field is
+    hidden then and whatever it holds is not read, at the point of sale and
+    on a bill alike (payments.cash_tendered() records cash for Cash only).
+    Raises BadNumber."""
+    if method != "Cash":
+        return None
+    return parse_money(raw)
+
+
 def payment_method_message():
     """The refusal for a payment without a valid method."""
     return _("Pick how this was paid: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS))
