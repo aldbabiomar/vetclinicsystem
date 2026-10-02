@@ -565,3 +565,32 @@ reports); a member's rate changed; the role's cap unchecked; a visit
 payment given a discount; the Clean Up unchecked; the cap not cumulative;
 an uncleaned method; a payment dated otherwise; the `updated_at` scan blind
 to the function.
+
+### 2026-10-02 — phase 3: decide once
+
+Three commits, each with its guard, its control and its mutation; the
+three ABOUT TO CHANGE constants in `test_payments_shared.py` are gone.
+
+- **P-1** — `Kind.payment_checked_before_cleanup` is removed. The Clean Up
+  is checked against what is owed after the submission's discount, the
+  payment against what is owed after its discount **and** its Clean Up.
+  §2.2's submission (the whole bill plus a Clean Up at the cap) is now
+  refused through the visit and the inpatient route, with "That's more than
+  the remaining balance of 99,000 IQD on this visit", and nothing is
+  written. Putting the old check back fails the test on all three kinds.
+- **A3** — boarding's route parses the amount as required: an empty amount
+  says "Payment amount must be a valid number." everywhere.
+- **P-6** — `Recorded.warn_cash_note` is set only for Cash. The payout's
+  warning is untouched (A6).
+
+No existing test needed editing for any of the three: every test that paid
+with a Clean Up paid the balance less the Clean Up, none posted an empty
+boarding amount, and none asserted the warning.
+
+Suite on reset databases: 1990 passed and 1 failed under each setting. The
+failure was mine and in a test file — `test_domain_imports.py` refuses a
+file that imports the domain module `payments` and also defines something
+of that name, and `test_payments_shared.py`'s `Bill.payments()` did. The
+module is imported there as `rules`. Both files re-run green under both
+settings; the next full run is phase 4's.
+

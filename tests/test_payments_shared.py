@@ -29,6 +29,7 @@ import pytest
 
 from vcs import clock, money
 from vcs.domain import billing
+from vcs.domain import payments as rules     # `payments` is Bill's own word, for its rows
 from conftest import ADMIN_ID, amount, needs_db, new_id
 from test_concurrency import _fresh_client, _run_together
 
@@ -413,25 +414,23 @@ def test_record_payment_refuses_a_method_the_route_did_not_clean(flask_app, db, 
     """GUARD. The routes clean the method (core.clean_payment_method, seam
     rule 10); the function checks it again, so a caller written later cannot
     skip that. None matters most: NULL passes the column's CHECK."""
-    from vcs.domain import payments
     with flask_app.test_request_context():
         for method in (None, "", "cash", "Bitcoin"):
             with pytest.raises(ValueError):
-                payments.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method=method,
+                rules.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method=method,
                                         user_id=ADMIN_ID)
             db.rollback()
         assert bill.payments(db) == []
-        done = payments.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method="Transfer",
+        done = rules.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method="Transfer",
                                        user_id=ADMIN_ID)
         db.commit()
     assert [(r["id"], r["method"]) for r in bill.payments(db)] == [(done.payment_id, "Transfer")]
 
 
 def test_record_payment_knows_only_the_three_kinds(flask_app, db):
-    from vcs.domain import payments
     with pytest.raises(ValueError):
-        payments.record_payment(db, "sale", 1, amount=amount("10.000"), method="Cash", user_id=ADMIN_ID)
-    assert set(payments.KINDS) == set(KINDS)
+        rules.record_payment(db, "sale", 1, amount=amount("10.000"), method="Cash", user_id=ADMIN_ID)
+    assert set(rules.KINDS) == set(KINDS)
 
 
 # ---------------------------------------------------------------------------
