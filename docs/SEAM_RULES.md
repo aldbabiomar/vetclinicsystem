@@ -67,6 +67,7 @@ What actually catches this:
 | S6 | a long job reports through the shared progress component | JO's Backup and Restore, and IQ's Update | **JO's Update and Rollback** — they polled `job-status` by hand and wrote plain text | the LONGEST job in the app showed no bar, no fraction and no elapsed time while the app restarted under the admin watching it |
 | S7 | "is this item discountable?" is answered from the price_list row the PRICE came from | `item_sale_price()` filters `active=true` | `non_discountable_line_names_for_items()` does not | latent only: an inactive linked row with a different `can_discount` would answer for a price it did not set. Found while building the rewards card (2026-09-19); `discountable_by_item_ids()` was written to match `item_sale_price()`, and the older function was deliberately LEFT as-is rather than changed underneath the staff-discount guard that depends on it. Written down here because a hole that is a decision is fine and a hole nobody looked at is not (§4). |
 | S8 | a refund is rounded DOWN to the cash unit, and never to zero while a unit is refundable (F3's rule) | the retail refund, after F3 | the predecessor IQ app's **service** refund, which checked the amount against the cap and then rounded it to the NEAREST note | a service refund under 125 IQD recorded as **0 IQD**, and 1,200 refundable stored as a **1,250** refund. F3's row above says "both" were fixed; only retail was. Found during the merge (CODE_AUDIT §10 M2). One function now serves both paths — `money.refund_payout()` — and `test_money_routes_iq.py::test_m2_*` pin the service side |
+| S9 | a payment is checked against what is owed once the Clean Up arriving with it is counted | `boarding_payment` | `visit_payment_add`, `inpatient_payment_add`, which checked it against the balance before the Clean Up | paying a bill in full and writing a little off in one submission was accepted: **the bill was overpaid by the Clean Up** (100,000 IQD paid against a bill that then stood at 99,000), and there is no route that takes a payment back. Found on 2026-10-02 by reading the three routes side by side; each route's own tests were green. The three routes are one function now, `payments.record_payment()`, so there is no sibling left to drift from (`decisions/0013`); `tests/test_payments_shared.py` runs every payment rule against every kind of bill |
 
 **S6 is the cheapest one to have avoided.** Nothing was missing: `progress.js`
 ships in both apps, and JO already called `VZProgress.poll`/`render` for two of
@@ -107,7 +108,7 @@ orders. JO had locked all four routes from the start and was clean at 0/25.
 
 `tests/test_seam_rules.py`; rules 13-15, which need a running app and signed-in
 clients, in `tests/test_license.py`, `tests/test_vendor_settings.py` and
-`tests/test_secrets.py`. **Sixteen** rules, each one derived from a defect above,
+`tests/test_secrets.py`. **Eighteen** rules, each one derived from a defect above,
 from `CODE_AUDIT_2026-09-25.md` or from the licensing plan, rather than invented:
 
 | Rule | Asserts | From |
@@ -128,6 +129,17 @@ from `CODE_AUDIT_2026-09-25.md` or from the licensing plan, rather than invented
 | 14 | every settings key the registry gates `developer` (found in `SETTING_FIELD_PERMISSION`, not listed) is refused by `POST /settings` from the system Admin, with a value its own rules would accept | licensing plan §9.1, audit S1 |
 | 15 | no secret the licensing plan's §13 lists — license key, Developer Pass, update token, ping URL, temporary admin password, database password, `SECRET_KEY` — appears in the logs, either audit table, the sign-in log, a job result, the support bundle, the data export, the Developer pages or the session, after the actions that touch each; with controls that each action's trace is where the scan reads | licensing plan §13 |
 | 16 | only `vcs/ops/pgtools.py` finds `pg_dump` / `pg_restore`: no `which("pg_dump")` elsewhere, and no command run by a bare tool name — so native mode has one place that could reach Docker, and every tool is checked against the server's version | licensing plan §12.2 |
+| 17 | `INSERT INTO payments` appears once, in `payments.record_payment()` — a visit, an inpatient case and a boarding stay have no INSERT of their own to put different checks in front of | S9 |
+| 18 | each payment check has one copy: the discount cap, the Clean Up cap and balance, and "the cash covers what is due" are `payments.discount_error()`, `cleanup_error()` and `cash_tendered()`; nothing else reads the Clean Up cap, works out change, or compares a Clean Up or cash received; `record_payment()`, `pos_checkout` and the two discount routes call them | S9, F1 |
+
+**Rules 1, 7 and 12 follow code into `vcs/domain/payments.py`.** They were
+written to find the payment routes' own SQL. When that moved into
+`record_payment()` — which names its tables from a table of kinds, `UPDATE
+{spec.bill_table} …` — each rule was taught to read the module, and each now
+requires `record_payment` **by name** among what it found. A rule that had
+simply stopped seeing the code would have passed. One scan nobody had listed
+did exactly that and was caught by its own floor: the `updated_at` rule in
+`tests/test_edit_conflicts.py` found 11 UPDATEs where it required 12.
 
 **Rules 5-8 were added with the rewards card (2026-09-19), which is a seam
 feature by construction: one new rule on four payment paths that were already

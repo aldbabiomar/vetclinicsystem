@@ -90,6 +90,7 @@ VetClinicSystem/                  ← repo root = this folder
 ├── docs/                         ← see docs/README.md for the index
 │   ├── plans/UNIFIED_CODEBASE_PLAN.md   ← the merge plan + progress log (done)
 │   ├── plans/DEVELOPER_AND_LICENSING_PLAN.md  ← licensing + Developer area; progress log §18
+│   ├── plans/PAYMENT_CENTRALIZATION_PLAN.md   ← one payment function; progress log §12 (done)
 │   ├── DEVELOPER_GUIDE.md        ← for the vendor: keys, licenses, passes, tokens
 │   ├── CODE_AUDIT_2026-09-25.md          ← findings, tracked to their fixes
 │   ├── RELEASE_WORKFLOW.md, SEAM_RULES.md
@@ -116,10 +117,11 @@ vcs/
 │                    numbered SQL files, each applied once; tests/schema_snapshot.json
 │                    pins the result)
 ├── domain/          the queries and calculations, one module per area — billing,
-│                    clinical, inventory, consignment, cash_register, members,
-│                    appointments, reports (P&L), analytics (Insights), alerts
-│                    (Dashboard), … and the shared dates, settings, codes,
-│                    display, search. No Flask beyond flask_babel (a test holds it).
+│                    payments (the one writer of a payment), clinical, inventory,
+│                    consignment, cash_register, members, appointments, reports
+│                    (P&L), analytics (Insights), alerts (Dashboard), … and the
+│                    shared dates, settings, codes, display, search. No Flask
+│                    beyond flask_babel (a test holds it).
 ├── web/             the request layer:
 │   ├── factory.py   create_app(): config, extensions, then registers the rest
 │   ├── hooks.py     around every request: allowlist, restore gate, money setting,
@@ -173,6 +175,12 @@ Conventions enforced by tests (the why is in `docs/decisions/`):
    there and run `scripts/build_palettes.py` — `vcs/static/palettes.css` is generated,
    and `style.css` holds no colour. A new text-on-background use is a new row in
    `TEXT_PAIRS`, which `tests/test_palettes.py` holds to WCAG AA (decision 0010).
+7. **A payment against a bill is recorded only by `payments.record_payment()`**
+   (`vcs/domain/payments.py`): a visit, an inpatient case and a boarding stay are rows in
+   its `KINDS`, and a route parses its form, calls it and commits. Its checks —
+   `discount_error()`, `cleanup_error()`, `cash_tendered()` — are the point of sale's too;
+   do not write a second copy of one (seam rules 17 and 18, decision 0013,
+   `tests/test_payments_shared.py`).
 
 **If you write a test that parses source text, take its files from
 `tests/source_files.py`** (the one place tests locate source), and assert a

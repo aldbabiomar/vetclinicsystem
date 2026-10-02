@@ -77,8 +77,10 @@ GUARDS = {
     "parse_money/qty": r"\bparse_money\s*\(|\bparse_quantity\s*\(",
     "has_negative": r"\bhas_negative\s*\(",
     "clean_date": r"\bclean_date\s*\(",
-    "discount cap": r"\bdiscount_percent_error\s*\(",
-    "cleanup cap": r"\bcleanup_amount_error\s*\(",
+    "discount cap": r"\bdiscount_error\s*\(",
+    "cleanup cap": r"\bcleanup_error\s*\(",
+    "cash covers": r"\bcash_tendered\s*\(",
+    "stores total": r"\bbill_changed\s*\(",
     "stale-write": r"\bedit_is_stale\s*\(",
     "note warning": r"\bflash_cash_denomination_warning\s*\(",
     "FOR UPDATE": r"FOR UPDATE",
@@ -119,10 +121,24 @@ def expand(src, module_fns, depth=2):
     return src
 
 
+def expand_shared(src, shared_fns):
+    """Inline what a route calls in vcs/domain/payments.py.
+
+    The three bill payment routes are `payments.record_payment(...)` and
+    little else (decision 0013): the lock, the discount and Clean Up checks,
+    the cash check and bill_changed() are all in there. Read without it, every
+    one of those would show as a hole on all three."""
+    called = [name for name in shared_fns if re.search(rf"\bpayments\.{re.escape(name)}\s*\(", src)]
+    for name in called:
+        src += "\n" + expand(shared_fns[name], {k: v for k, v in shared_fns.items() if k != name})
+    return src
+
+
 def audit():
     mods = {}
     for mod in ("main", "reports", "settings", "admin", "consignment", "inventory", "sales", "clinical"):
         mods[mod] = functions_in(os.path.join(BLUEPRINTS, f"{mod}.py"))
+    shared = functions_in(os.path.join(os.path.dirname(os.path.dirname(BLUEPRINTS)), "domain", "payments.py"))
 
     print(f"\n{'='*100}\nGuard coverage across parallel surfaces\n{'='*100}")
     holes = []
@@ -131,7 +147,7 @@ def audit():
         for mod, fn in members:
             src = mods.get(mod, {}).get(fn)
             if src is not None:
-                src = expand(src, mods.get(mod, {}))
+                src = expand_shared(expand(src, mods.get(mod, {})), shared)
             present[(mod, fn)] = None if src is None else {
                 g: bool(re.search(pat, src)) for g, pat in GUARDS.items()}
         # only report guards used by at least one member (others are N/A)

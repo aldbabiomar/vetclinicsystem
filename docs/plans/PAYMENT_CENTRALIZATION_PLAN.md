@@ -1,8 +1,8 @@
 # Plan — one payment function
 
-**Written 2026-10-02. Status: NOT STARTED.**
-The owner's decisions are in §1.1 (taken 2026-10-02). Progress goes in the
-log, §12.
+**Written 2026-10-02. Status: DONE 2026-10-03** — every phase is in the log,
+§12, and its last entry is the report to the owner (what changed, what is
+left to confirm). The owner's decisions are in §1.1 (taken 2026-10-02).
 
 Visit, inpatient and boarding payments are three routes that each carry
 their own copy of the same sequence. This plan moves that sequence into one
@@ -725,4 +725,28 @@ saw their messages in Arabic and failed, and passed when re-run alone —
 and it has uncommitted changes to `messages.po` and `ARABIC_REVIEW.md`,
 which I also changed. This phase's commit stages my lines of those two
 files only; its work is left in the working tree, uncommitted, as it was.
+
+Suite on reset databases, started 00:22: **2080 passed** under IQ and under
+JO, and 9 skipped — all nine are `test_scheduler_catchup.py`'s, which skip
+until the day's 00:30 slot has passed (`CLAUDE.md` §5.1). Phase 8's run is
+after 01:05.
+
+### 2026-10-03 — phase 7: rules and documents
+
+- `docs/decisions/0013-one-payment-function.md`, and its row in the index.
+- `docs/SEAM_RULES.md`: register entry **S9** (the overpayment: a rule on
+  boarding and not its siblings); rules **17** and **18**; a paragraph on
+  rules 1, 7 and 12 following the code into `payments.py` and requiring
+  `record_payment` by name.
+- `docs/CODE_AUDIT_2026-09-25.md` §10: **M12**.
+- `CLAUDE.md`: convention 7 (a payment is recorded only by
+  `payments.record_payment()`), `payments` in the domain list, this plan in
+  the layout.
+- `docs/README.md`: this plan moved from "not executed" to "Current".
+- `CHANGELOG.md`, under 1.0.0: Added (Cash Received; one payment per form),
+  Changed (the note warning; the empty-amount message), Fixed (the
+  overpayment).
+- `scripts/simulation/seam_audit.py` follows a route into `payments.py`
+  (it was matching the old helper names and reported every payment guard as
+  missing).
 
