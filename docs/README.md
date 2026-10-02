@@ -43,6 +43,7 @@ citation stops resolving.
 
 | Document | What it is |
 |---|---|
+| `plans/PAYMENT_CENTRALIZATION_PLAN.md` | One payment function for visits, inpatient and boarding, with POS sharing its checks; fixes a payment-plus-Clean-Up overpayment on visits and inpatient; adds double-click protection and cash received / change to bill payments. Decisions 2026-10-02; not started. |
 | `plans/HOSTING_MIGRATION_PLAN.md` | Draft: moving an install off the clinic PC onto a VPS. Written for the predecessor apps; re-check before use. |
 | `plans/CLINIC_PC_TUNNEL_PLAN.md` | Draft: a Cloudflare-tunnel alternative to the above. Same caveat. |
 
