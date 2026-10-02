@@ -56,11 +56,6 @@ class Kind:
     summary: Callable           # (db, id) -> the bill's totals
     not_found: str
     over_balance: str
-    # Phase 2 only (plan §4): today a visit and an inpatient case check the
-    # payment against the balance BEFORE this submission's Clean Up, and
-    # before checking the Clean Up itself. Boarding checks it after. Phase 3
-    # removes this and makes boarding's rule the only one (P-1).
-    payment_checked_before_cleanup: bool = False
 
 
 KINDS = {
@@ -68,14 +63,12 @@ KINDS = {
         table="visits", column="visit_id", bill_table="billing", bill_key="visit_id",
         summary=billing.visit_billing_summary,
         not_found=N_("Visit not found."),
-        over_balance=N_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this visit."),
-        payment_checked_before_cleanup=True),
+        over_balance=N_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this visit.")),
     "inpatient": Kind(
         table="inpatient_cases", column="inpatient_case_id", bill_table="inpatient_cases", bill_key="id",
         summary=billing.inpatient_billing_summary,
         not_found=N_("Inpatient case not found."),
-        over_balance=N_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this case."),
-        payment_checked_before_cleanup=True),
+        over_balance=N_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this case.")),
     "boarding": Kind(
         table="boarding_sessions", column="boarding_id", bill_table="boarding_sessions", bill_key="id",
         summary=billing.boarding_billing_summary,
@@ -173,23 +166,20 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
         """What is owed with this submission's discount and `cleanup` on the bill."""
         return billing.total_and_balance(pre_cleanup_total, cleanup, summary["paid"])[2]
 
-    def check_payment(balance):
-        if amount > balance:
-            raise PaymentRefused(Msg(spec.over_balance, fmt_money=Amount(balance), currency=Currency()))
+    # 6. Clean Up, against what is owed once this submission's discount is
+    #    counted: a discount and a Clean Up in one click cannot write off
+    #    more than the discounted bill.
+    error = cleanup_error(cleanup_amount, existing_cleanup, balance_with(existing_cleanup))
+    if error:
+        raise PaymentRefused(error)
 
-    def check_cleanup(balance):
-        error = cleanup_error(cleanup_amount, existing_cleanup, balance)
-        if error:
-            raise PaymentRefused(error)
-
-    # 6-7. Clean Up and payment, each against what this submission leaves owed.
-    after_discount = balance_with(existing_cleanup)
-    if spec.payment_checked_before_cleanup:
-        check_payment(after_discount)
-        check_cleanup(after_discount)
-    else:
-        check_cleanup(after_discount)
-        check_payment(balance_with(existing_cleanup + cleanup_amount))
+    # 7. Payment, against what is owed once the discount AND the Clean Up are
+    #    counted (P-1). The three arrive together and the first two change
+    #    what the third may be: checked against the bill as it stands,
+    #    "pay in full and write a little off" overpays it by the write-off.
+    owed = balance_with(existing_cleanup + cleanup_amount)
+    if amount > owed:
+        raise PaymentRefused(Msg(spec.over_balance, fmt_money=Amount(owed), currency=Currency()))
 
     # 8. Method. The route cleaned it (core.clean_payment_method); a caller
     #    that did not must not reach the table. NULL passes the CHECK there.

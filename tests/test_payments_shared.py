@@ -64,9 +64,6 @@ MEMBER_RATE = "This bill carries a rewards-card discount."
 # ---------------------------------------------------------------------------
 # A3: an empty amount.
 EMPTY_AMOUNT_MESSAGE = {"visit": VALID_NUMBER, "inpatient": VALID_NUMBER, "boarding": GREATER_THAN_0}
-# P-1: a payment of the whole balance PLUS a Clean Up. Boarding refuses it;
-# visits and inpatient accept it and leave the bill overpaid -- the bug.
-REFUSES_PAYMENT_PLUS_CLEANUP_OVER_THE_BALANCE = {"visit": False, "inpatient": False, "boarding": True}
 # P-6: which methods warn that an amount cannot be paid in 250-dinar notes.
 WARNS_ABOUT_NOTES = ("Cash", "Card", "Transfer")
 
@@ -315,22 +312,19 @@ def test_instalments_are_checked_against_what_is_left(client, db, bill):
 def test_a_payment_plus_a_clean_up_cannot_exceed_what_is_owed(client, db, bill):
     """GUARD (P-1). The whole balance is paid AND a Clean Up is written off
     in the same submission. Each is within its own limit; together they are
-    more than the bill.
+    more than the bill, and there is no route that takes a payment back.
 
-    ABOUT TO CHANGE: boarding refuses it. A visit and an inpatient case
-    accept it today and are left OVERPAID by the Clean Up -- plan §2.2,
-    reproduced here through the routes."""
+    Boarding always refused it. Until 2026-10-02 a visit and an inpatient
+    case accepted it and were left OVERPAID by the Clean Up: they checked
+    the payment against the balance before the Clean Up arriving with it
+    (plan §2.2; this test pinned that through the routes in phase 1)."""
     before = bill.state(db)
     resp = pay(client, bill, amount=bill.total, cleanup_amount=cap(), method="Cash")
-    if REFUSES_PAYMENT_PLUS_CLEANUP_OVER_THE_BALANCE[bill.kind]:
-        assert errors(resp) == [f"That's more than the remaining balance of {money.fmt(bill.total - cap())} "
-                                f"{currency()} on this {bill.facts['noun']}."]
-        assert bill.state(db) == before, "a refused payment wrote something"
-    else:
-        summary = bill.summary(db)
-        assert flashes(resp)[0] == ("success", RECORDED)
-        assert summary["total"] == bill.total - cap() and summary["paid"] == bill.total, (
-            "the overpayment this test pins is gone — flip REFUSES_PAYMENT_PLUS_CLEANUP_OVER_THE_BALANCE")
+    assert errors(resp) == [f"That's more than the remaining balance of {money.fmt(bill.total - cap())} "
+                            f"{currency()} on this {bill.facts['noun']}."]
+    assert bill.state(db) == before, "a refused payment wrote something"
+    summary = bill.summary(db)
+    assert summary["paid"] <= summary["total"], "the bill is overpaid"
 
 
 def test_control_a_payment_plus_a_clean_up_equal_to_what_is_owed_settles_the_bill(client, db, bill):
