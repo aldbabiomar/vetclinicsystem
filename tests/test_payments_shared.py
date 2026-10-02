@@ -873,6 +873,22 @@ def test_the_form_offers_cash_received(client, db, bill):
     assert page.count("window.vzPaymentCash = function") == 1
 
 
+def test_the_amount_field_accepts_the_smallest_payment(client, db, bill):
+    """GUARD. Boarding's amount field carried min="1": under JO the browser
+    refused a payment below 1.000 JOD that the server would have taken, and
+    that a visit's and a case's forms always allowed. Zero and negative
+    amounts are the server's to refuse (and it does)."""
+    page = client.get(bill.page).get_data(as_text=True)
+    form = re.search(r'<form[^>]*data-payment-form.*?</form>', page, re.S).group(0)
+    field = re.findall(r'<input[^>]*name="amount"[^>]*>', form)
+    assert len(field) == 1, field
+    assert not re.search(r'\bmin="', field[0]), f"the amount field sets a minimum: {field[0]}"
+    smallest = money.current().quantum
+    resp = pay(client, bill, amount=smallest, method="Card")
+    assert flashes(resp) == [("success", RECORDED)]
+    assert [r["amount"] for r in bill.payments(db)] == [smallest]
+
+
 def test_a_refused_form_comes_back_with_the_cash_typed(client, db, bill):
     resp = pay(client, bill, amount="abc", method="Cash", cash_received=amount("50.000"))
     assert errors(resp) == [VALID_NUMBER]

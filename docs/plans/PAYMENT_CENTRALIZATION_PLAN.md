@@ -750,3 +750,81 @@ after 01:05.
   (it was matching the old helper names and reported every payment guard as
   missing).
 
+### 2026-10-03 — the owner's answers
+
+Asked when the work was done, answered the same night:
+
+- **A Card or Transfer payment that carries a cash figure** (phase 6's open
+  question): **recorded, with the cash ignored**, as built and as the point
+  of sale does. Not refused.
+- **The four Arabic sentences** were read by the owner. Three are confirmed
+  as written; "That payment was already recorded." is **تم تسجيل هذه الدفعة
+  من قبل.** (it was "… بالفعل"). Their section is gone from
+  `ARABIC_REVIEW.md`.
+- **Boarding's amount field** carried `min="1"`, which under JO made the
+  browser refuse a payment below 1.000 JOD that the server would have
+  taken; a visit's and a case's forms had no such limit. Not in this plan,
+  noticed on the way; the owner said fix it. Removed, with
+  `test_the_amount_field_accepts_the_smallest_payment` on all three forms
+  and its mutation.
+- **Where it goes**: `main`, fast-forwarded and pushed, the owner's usual
+  flow; and the other session's Arabic review is committed with it, as its
+  own commit.
+
+### 2026-10-03 — phase 8: verification, and the report
+
+§9, item by item:
+
+1. **Suite**, on reset databases, started 01:06: **2092 passed, 0 skipped**
+   under IQ and under JO. The browser tier ran (57 tests collected, none
+   skipped). The baseline was 1849; the 243 more are
+   `test_payments_shared.py` (223), the browser tests of the Cash Received
+   field (15), seam rules 17 and 18 with their controls (4) and the
+   `updated_at` rule's floor (1).
+2. **`scripts/prove_guards.py --all`: 171 of 171 proven** — 36 of them this
+   plan's. The first run proved 166 and reported four BROKEN anchors, none
+   NOT PROVEN: three were mine (code this plan moved after the mutation was
+   registered) and one, "a renewal unlocks at once", had been stale since
+   the clock-lockout fix of 2026-10-02. All four were re-anchored and
+   proven; none was deleted.
+3. **`scripts/simulation/day.py`**: 94 requests under each setting, 0
+   findings. **`audit_repro.py`**: 13 of 13 reproductions refused or correct
+   under each setting.
+4. `grep -rn "INSERT INTO payments" vcs/` finds one place,
+   `payments.record_payment()`.
+5. §2.2's overpayment is refused through the visit and the inpatient route
+   (`test_a_payment_plus_a_clean_up_cannot_exceed_what_is_owed`).
+6. The three routes are 41, 41 and 51 lines from `def` to their redirect:
+   parse, call, show.
+
+**What changed**, for the owner:
+
+- One function, `payments.record_payment()`, records a payment on a visit,
+  an inpatient case or a boarding stay. The point of sale and the two
+  discount routes use its checks.
+- Fixed: paying a visit or an inpatient bill in full with a Clean Up in the
+  same step overpaid the bill by the Clean Up. Now refused, as on boarding.
+- New: a double-clicked payment records once; Cash Received and the change
+  on the three payment forms.
+- Changed: the "not a multiple of 250" warning is for Cash only; an empty
+  amount says the same thing on all three; boarding's amount field takes
+  any amount the server takes.
+- **Schema** (baseline edited in place, 1.0.0 unpublished): `payments`
+  gained `cash_received`, `change_given`, `idempotency_key`, four CHECKs and
+  the partial unique index `idx_payments_idempotency_key`.
+- **Existing tests that had to change**: `test_cleanup_cap.py` and
+  `test_money_iq.py` (the check they unit-test moved; assertions unchanged),
+  `test_seam_rules.py` and `test_edit_conflicts.py` (scans taught where the
+  code went), `test_frontend.py` (the new macro file is not a page). None
+  of the seven files that post to the payment routes changed, in any phase.
+- **§1.2's defaults**: I would choose none of them differently. Two things
+  went beyond them and are in the log above: the token is stored with its
+  bill (phase 5), and the discount and Clean Up half of phase 4 was done in
+  phase 2.
+
+**One thing to know about how this was run.** Other sessions were working
+in this checkout at the same time, on the same branch and against the same
+test environments. One run of the payment tests failed because of it
+(phase 6); every phase's suite result above is from a run on freshly reset
+databases with nothing else running.
+
