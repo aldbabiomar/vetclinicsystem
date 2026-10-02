@@ -253,10 +253,10 @@ def test_cleanup_cap_is_one_thousand_dinars():
 
 
 def test_cleanup_error_uses_the_iq_cap():
-    from vcs.web.core import cleanup_amount_error
-    assert cleanup_amount_error(D(1000), D(0), D(50_000)) is None
-    assert cleanup_amount_error(D(1001), D(0), D(50_000)) is not None
-    assert cleanup_amount_error(D(250), D(900), D(50_000)) is not None
+    from vcs.domain.payments import cleanup_error
+    assert cleanup_error(D(1000), D(0), D(50_000)) is None
+    assert cleanup_error(D(1001), D(0), D(50_000)) is not None
+    assert cleanup_error(D(250), D(900), D(50_000)) is not None
 
 
 # ---------------------------------------------------------------------------

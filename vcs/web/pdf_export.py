@@ -289,7 +289,7 @@ def export_sale_receipt(db, sale_id):
     # A sale stores no pre-Clean-Up figure, so it comes back from the two
     # stored amounts. That is NOT the re-derivation this helper exists to
     # avoid: `total` is the real recorded total, already correct for a
-    # member's mixed cart, and cleanup_amount_error() caps the write-off at
+    # member's mixed cart, and payments.cleanup_error() caps the write-off at
     # the total so the sum is exact rather than clamped.
     _drow = _discount_row(sale["subtotal"], sale["discount_percent"], sale["discount_source"],
                           sale["total"] + (sale["cleanup_amount"] or 0), " " + _cur())

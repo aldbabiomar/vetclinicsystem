@@ -213,9 +213,45 @@ def _updates():
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 for m in UPDATE_SQL.finditer(node.value):
-                    cols = {c.split("=")[0].strip().lower() for c in m.group(2).split(",") if "=" in c}
-                    out.append((path.name, m.group(1).lower(), cols))
-    return out
+                    out.append((path.name, m.group(1).lower(), _columns_set(m.group(2))))
+    return out + _payment_updates()
+
+
+def _columns_set(assignments):
+    return {c.split("=")[0].strip().lower() for c in assignments.split(",") if "=" in c}
+
+
+PAYMENT_UPDATE_SQL = re.compile(r"UPDATE\s+\{spec\.bill_table\}\s+SET\s+(.*?)\s+WHERE", re.S | re.I)
+
+
+def _payment_updates():
+    """payments.record_payment() writes a payment's Clean Up and discount to
+    the table its kind names -- `UPDATE {spec.bill_table} SET …` -- which no
+    string constant holds, so the scan above cannot see it. Each such UPDATE
+    is read here as one per kind of bill, for the tables this rule covers.
+    (They were three literal UPDATEs in the payment routes until decision
+    0013 moved them; a scan that stopped seeing them would pass.)"""
+    from vcs.domain import payments
+    path = source_files.module("payments")
+    statements = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.JoinedStr):
+            text = "".join(v.value if isinstance(v, ast.Constant) else "{" + ast.unparse(v.value) + "}"
+                           for v in node.values)
+            statements += [_columns_set(m.group(1)) for m in PAYMENT_UPDATE_SQL.finditer(text)]
+    tables = [spec.bill_table for spec in payments.KINDS.values() if spec.bill_table in TABLES]
+    assert len(statements) >= 2 and len(tables) >= 2, (
+        "record_payment()'s UPDATEs were not found — the pattern has drifted", statements, tables)
+    return [(path.name, table, cols) for table in tables for cols in statements]
+
+
+def test_the_rule_reads_the_payment_functions_writes():
+    """The floor for _payment_updates(): the Clean Up and the discount a
+    payment writes are among the UPDATEs the rule below judges, for the two
+    tables an edit form also writes."""
+    seen = {(table, col) for mod, table, cols in _updates() if mod == "payments.py" for col in cols}
+    assert {("boarding_sessions", "cleanup_amount"), ("boarding_sessions", "discount_percent"),
+            ("inpatient_cases", "cleanup_amount"), ("inpatient_cases", "discount_percent")} <= seen, seen
 
 
 def test_every_write_to_a_column_an_edit_form_writes_bumps_updated_at():

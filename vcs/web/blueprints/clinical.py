@@ -12,7 +12,7 @@ from datetime import timedelta
 from vcs.domain import attachments as attach_mod
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import appointments, billing, clinical, codes, members, search
+from vcs.domain import appointments, billing, clinical, codes, members, payments, search
 import os
 from vcs.web import pdf_export
 import re
@@ -22,7 +22,7 @@ from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, cleanup_amount_error, date_filter_arg, discount_percent_error, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 from vcs import clock
 bp = Blueprint("clinical", __name__)
 
@@ -897,10 +897,11 @@ def _visit_detail_context(db, visit_id):
         return None
     billing_row = db.execute("SELECT * FROM billing WHERE visit_id=%s", (visit_id,)).fetchone()
     summary = billing.visit_billing_summary(db, visit_id)
-    payments = db.execute("SELECT * FROM payments WHERE visit_id=%s ORDER BY date DESC", (visit_id,)).fetchall()
+    payment_rows = db.execute("SELECT * FROM payments WHERE visit_id=%s ORDER BY date DESC", (visit_id,)).fetchall()
     files = attach_mod.list_attachments(db, "visit", visit_id)
     cap = auth.discount_cap_for()
-    return dict(visit=visit, billing=billing_row, summary=summary, payments=payments, files=files, discount_cap=cap)
+    return dict(visit=visit, billing=billing_row, summary=summary, payments=payment_rows, files=files,
+                discount_cap=cap)
 
 
 @bp.route("/visits/<int:visit_id>")
@@ -1233,7 +1234,7 @@ def visit_discount_save(visit_id):
         flash(_("Discount must be a valid number."), "error")
         return redisplay()
     cap = auth.discount_cap_for()
-    error = discount_percent_error(percent, cap)
+    error = payments.discount_error(percent, cap)
     if error:
         flash(error, "error")
         return redisplay()
@@ -1348,6 +1349,14 @@ def rewards_remove_discount(surface, bill_id):
     return back
 
 
+def _flash_payment_recorded(done, amount):
+    """What a payment route says once payments.record_payment() has recorded
+    it: the same on a visit, an inpatient case and a boarding stay."""
+    flash(_("Payment recorded."), "success")
+    if done.warn_cash_note:
+        flash_cash_denomination_warning(amount)
+
+
 @bp.route("/visits/<int:visit_id>/payment", methods=["POST"])
 @auth.permission_required("manage_visits")
 @requires_money_setting
@@ -1355,69 +1364,37 @@ def visit_payment_add(visit_id):
     db = get_db()
     f = request.form
 
-    def redisplay():
+    def refuse(message):
         ctx = _visit_detail_context(db, visit_id)
         if ctx is None:
             flash(_("Visit not found."), "error")
             return redirect(url_for("clinical.visits_list"))
+        flash(message, "error")
         return render_template("visit_detail.html", **ctx, form=f, payment_error=True)
 
-    # Locked before computing the balance — same reasoning as
-    # boarding_payment(): there's no delete/edit route for a payment once
-    # recorded, so an overpayment here can never be undone, only journaled
-    # around.
-    if not db.execute("SELECT id FROM visits WHERE id=%s FOR UPDATE", (visit_id,)).fetchone():
-        flash(_("Visit not found."), "error")
-        return redirect(url_for("clinical.visits_list"))
     try:
         amount = parse_money(f.get("amount"), required=True)
     except BadNumber:
-        flash(_("Payment amount must be a valid number."), "error")
-        return redisplay()
-    if amount <= 0:
-        flash(_("Payment amount must be greater than 0."), "error")
-        return redisplay()
-    summary = billing.visit_billing_summary(db, visit_id)
-    balance = summary["balance"]
-    if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this visit.", fmt_money=display_money(balance), currency=currency_label()), "error")
-        return redisplay()
+        return refuse(_("Payment amount must be a valid number."))
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
     except BadNumber:
-        flash(_("Clean Up amount must be a valid number."), "error")
-        return redisplay()
-    error = cleanup_amount_error(cleanup_amount, summary["cleanup_amount"], balance)
-    if error:
-        flash(error, "error")
-        return redisplay()
-    # Today, as boarding_payment() does: a payment is recorded when it is
-    # taken. This used to accept an undocumented `date` field that no form
-    # sends, so a crafted one could book a payment before the visit or into
-    # another month (audit B16).
-    payment_date = clock.today().isoformat()
+        return refuse(_("Clean Up amount must be a valid number."))
     try:
         method = clean_payment_method(f.get("method"))
     except BadPaymentMethod:
-        flash(payment_method_message(), "error")
-        return redisplay()
-    cur = db.execute(
-        "INSERT INTO payments (visit_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-        (visit_id, amount, method, payment_date, session["user_id"], f.get("notes")),
-    )
-    payment_id = cur.fetchone()["id"]
-    auth.log_change(db, "payments", str(payment_id), "create")
-    if cleanup_amount > 0:
-        db.execute(
-            "UPDATE billing SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE visit_id = %s",
-            (cleanup_amount, session["user_id"], visit_id),
-        )
-        auth.log_change(db, "billing", visit_id, "update", changes={
-            "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        billing.bill_changed(db, "visit", visit_id)
+        return refuse(payment_method_message())
+    try:
+        done = payments.record_payment(
+            db, "visit", visit_id, amount=amount, method=method, user_id=session["user_id"],
+            cleanup_amount=cleanup_amount, notes=f.get("notes"))
+    except payments.BillNotFound as e:
+        flash(e.message, "error")
+        return redirect(url_for("clinical.visits_list"))
+    except payments.PaymentRefused as e:
+        return refuse(e.message)
     db.commit()
-    flash(_("Payment recorded."), "success")
-    flash_cash_denomination_warning(amount)
+    _flash_payment_recorded(done, amount)
     return redirect(url_for("clinical.visit_detail", visit_id=visit_id))
 
 
@@ -1870,106 +1847,47 @@ def boarding_payment(boarding_id):
     db = get_db()
     f = request.form
 
-    def redisplay():
+    def refuse(message):
+        if not db.execute("SELECT 1 FROM boarding_sessions WHERE id=%s", (boarding_id,)).fetchone():
+            flash(_("Boarding session not found."), "error")
+            return redirect(url_for("clinical.boarding_page"))
+        flash(message, "error")
         return render_template("boarding.html", **_boarding_page_context(False),
-                                form=f, payment_error_id=boarding_id)
+                               form=f, payment_error_id=boarding_id)
 
-    # Locked before computing the balance, same reasoning as
-    # distributor_payment_new()/consignment_settlement_new() — there's no
-    # delete/edit route for a payment once recorded, so an overpayment here
-    # can never be undone, only journaled around.
-    session_row = db.execute("SELECT id FROM boarding_sessions WHERE id=%s FOR UPDATE", (boarding_id,)).fetchone()
-    if not session_row:
-        flash(_("Boarding session not found."), "error")
-        return redirect(url_for("clinical.boarding_page"))
     try:
         amount = parse_money(f.get("amount")) or 0
     except BadNumber:
-        flash(_("Payment amount must be a valid number."), "error")
-        return redisplay()
-    if amount <= 0:
-        flash(_("Payment amount must be greater than 0."), "error")
-        return redisplay()
-    summary = billing.boarding_billing_summary(db, boarding_id)
-    # The discount arrives in the SAME submission as the payment, so this has
-    # to settle before the balance checks below that use it.
+        return refuse(_("Payment amount must be a valid number."))
+    # The discount arrives in the SAME submission as the payment (P-2). A
+    # submission that omits the field does not touch the discount: the input
+    # is hidden and disabled on a rewards-card member's stay, which keeps the
+    # card's own rate and can still be paid.
     raw_discount = f.get("discount_percent")
     try:
-        discount_percent = parse_percent(raw_discount) or 0
+        staff_discount = None if raw_discount is None else (parse_percent(raw_discount) or 0)
     except BadNumber:
-        flash(_("Discount must be a valid number."), "error")
-        return redisplay()
-    if summary["discount_source"] == "member":
-        # Card only. Refuse an attempt to CHANGE the rate — but a submission
-        # that simply omits the field (the input is hidden on a member's
-        # stay) keeps the card's own rate, so paying a member's bill still
-        # works. Refusing on absence would have broken that outright.
-        if raw_discount is not None and discount_percent != summary["discount_percent"]:
-            flash(_("This bill carries a rewards-card discount. A staff discount can't be added on top of it, and can't replace it."), "error")
-            return redisplay()
-        discount_percent = summary["discount_percent"]
-    else:
-        cap = auth.discount_cap_for()
-        error = discount_percent_error(discount_percent, cap)
-        if error:
-            flash(error, "error")
-            return redisplay()
+        return refuse(_("Discount must be a valid number."))
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
     except BadNumber:
-        flash(_("Clean Up amount must be a valid number."), "error")
-        return redisplay()
-
-    # The discount and the Clean Up both change the balance this payment is
-    # being checked against, and all three arrive in the same submission — so
-    # validate against the bill as this submission would leave it, not as it
-    # stands now. Checking the payment against the pre-submission balance
-    # would let a discount-and-pay-in-full click overpay the discounted bill.
-    _unused, _unused, balance_after_discount, _unused, _unused = billing.compute_bill_totals(
-        summary["subtotal"], discount_percent, summary["paid"], summary["cleanup_amount"],
-        discountable_subtotal=summary["discountable_subtotal"])
-    error = cleanup_amount_error(cleanup_amount, summary["cleanup_amount"], balance_after_discount)
-    if error:
-        flash(error, "error")
-        return redisplay()
-    _unused, _unused, balance, _unused, _unused = billing.compute_bill_totals(
-        summary["subtotal"], discount_percent, summary["paid"],
-        summary["cleanup_amount"] + cleanup_amount,
-        discountable_subtotal=summary["discountable_subtotal"])
-    if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this stay.", fmt_money=display_money(balance), currency=currency_label()), "error")
-        return redisplay()
+        return refuse(_("Clean Up amount must be a valid number."))
     try:
-        method = clean_payment_method(request.form.get("method"))
+        method = clean_payment_method(f.get("method"))
     except BadPaymentMethod:
-        flash(payment_method_message(), "error")
-        return redisplay()
-    cur = db.execute(
-        "INSERT INTO payments (boarding_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-        (boarding_id, amount, method, clock.today().isoformat(),
-         session.get("user_id"), request.form.get("notes")),
-    )
-    payment_id = cur.fetchone()["id"]
-    auth.log_change(db, "payments", str(payment_id), "create")
-    if discount_percent != summary["discount_percent"]:
-        db.execute(
-            "UPDATE boarding_sessions SET discount_percent = %s, discount_applied_by = %s WHERE id = %s",
-            (discount_percent, session["user_id"], boarding_id),
-        )
-        auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes={
-            "discount_percent": (summary["discount_percent"], discount_percent)})
-    if cleanup_amount > 0:
-        db.execute(
-            "UPDATE boarding_sessions SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE id = %s",
-            (cleanup_amount, session["user_id"], boarding_id),
-        )
-        auth.log_change(db, "boarding_sessions", str(boarding_id), "update", changes={
-            "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-    if cleanup_amount > 0 or discount_percent != summary["discount_percent"]:
-        billing.bill_changed(db, "boarding", boarding_id)
+        return refuse(payment_method_message())
+    try:
+        done = payments.record_payment(
+            db, "boarding", boarding_id, amount=amount, method=method, user_id=session["user_id"],
+            cleanup_amount=cleanup_amount, notes=f.get("notes"),
+            staff_discount=staff_discount, discount_cap=auth.discount_cap_for())
+    except payments.BillNotFound as e:
+        flash(e.message, "error")
+        return redirect(url_for("clinical.boarding_page"))
+    except payments.PaymentRefused as e:
+        return refuse(e.message)
     db.commit()
-    flash(_("Payment recorded."), "success")
-    flash_cash_denomination_warning(amount)
+    _flash_payment_recorded(done, amount)
     return redirect(url_for("clinical.boarding_page"))
 
 
@@ -2093,11 +2011,12 @@ def _inpatient_detail_context(db, case_id):
     contacts = db.execute("SELECT c.*, us.full_name FROM inpatient_contact_log c LEFT JOIN users us ON us.id=c.staff_user_id "
                           "WHERE case_id=%s ORDER BY timestamp DESC", (case_id,)).fetchall()
     bill = billing.inpatient_billing_summary(db, case_id)
-    payments = db.execute("SELECT * FROM payments WHERE inpatient_case_id=%s ORDER BY date DESC", (case_id,)).fetchall()
+    payment_rows = db.execute("SELECT * FROM payments WHERE inpatient_case_id=%s ORDER BY date DESC",
+                              (case_id,)).fetchall()
     files = attach_mod.list_attachments(db, "inpatient", case_id)
     cap = auth.discount_cap_for()
     return dict(case=case, updates=updates, recent_updates=updates[:3],
-                contacts=contacts, recent_contacts=contacts[:3], billing=bill, payments=payments,
+                contacts=contacts, recent_contacts=contacts[:3], billing=bill, payments=payment_rows,
                 vets=vet_users(db), files=files, discount_cap=cap)
 
 
@@ -2376,7 +2295,7 @@ def inpatient_discount_save(case_id):
         flash(_("Discount must be a valid number."), "error")
         return redisplay()
     cap = auth.discount_cap_for()
-    error = discount_percent_error(percent, cap)
+    error = payments.discount_error(percent, cap)
     if error:
         flash(error, "error")
         return redisplay()
@@ -2419,69 +2338,37 @@ def inpatient_payment_add(case_id):
     db = get_db()
     f = request.form
 
-    def redisplay():
+    def refuse(message):
         ctx = _inpatient_detail_context(db, case_id)
         if ctx is None:
             flash(_("Inpatient case not found."), "error")
             return redirect(url_for("clinical.inpatient_list"))
+        flash(message, "error")
         return render_template("inpatient_detail.html", **ctx, form=f, payment_error=True)
 
-    # Locked before computing the balance — same reasoning as
-    # boarding_payment()/visit_payment_add(): there's no delete/edit route
-    # for a payment once recorded, so an overpayment here can never be
-    # undone, only journaled around.
-    if not db.execute("SELECT id FROM inpatient_cases WHERE id=%s FOR UPDATE", (case_id,)).fetchone():
-        flash(_("Inpatient case not found."), "error")
-        return redirect(url_for("clinical.inpatient_list"))
     try:
         amount = parse_money(f.get("amount"), required=True)
     except BadNumber:
-        flash(_("Payment amount must be a valid number."), "error")
-        return redisplay()
-    if amount <= 0:
-        flash(_("Payment amount must be greater than 0."), "error")
-        return redisplay()
-    summary = billing.inpatient_billing_summary(db, case_id)
-    balance = summary["balance"]
-    if amount > balance:
-        flash(_("That's more than the remaining balance of %(fmt_money)s %(currency)s on this case.", fmt_money=display_money(balance), currency=currency_label()), "error")
-        return redisplay()
+        return refuse(_("Payment amount must be a valid number."))
     try:
         cleanup_amount = parse_money(f.get("cleanup_amount")) or 0
     except BadNumber:
-        flash(_("Clean Up amount must be a valid number."), "error")
-        return redisplay()
-    error = cleanup_amount_error(cleanup_amount, summary["cleanup_amount"], balance)
-    if error:
-        flash(error, "error")
-        return redisplay()
-    # Today, as boarding_payment() does: a payment is recorded when it is
-    # taken. This used to accept an undocumented `date` field that no form
-    # sends, so a crafted one could book a payment before the visit or into
-    # another month (audit B16).
-    payment_date = clock.today().isoformat()
+        return refuse(_("Clean Up amount must be a valid number."))
     try:
         method = clean_payment_method(f.get("method"))
     except BadPaymentMethod:
-        flash(payment_method_message(), "error")
-        return redisplay()
-    cur = db.execute(
-        "INSERT INTO payments (inpatient_case_id, amount, method, date, user_id, notes) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-        (case_id, amount, method, payment_date, session["user_id"], f.get("notes")),
-    )
-    payment_id = cur.fetchone()["id"]
-    auth.log_change(db, "payments", str(payment_id), "create")
-    if cleanup_amount > 0:
-        db.execute(
-            "UPDATE inpatient_cases SET cleanup_amount = cleanup_amount + %s, cleanup_applied_by = %s WHERE id = %s",
-            (cleanup_amount, session["user_id"], case_id),
-        )
-        auth.log_change(db, "inpatient_cases", str(case_id), "update", changes={
-            "cleanup_amount": (summary["cleanup_amount"], summary["cleanup_amount"] + cleanup_amount)})
-        billing.bill_changed(db, "inpatient", case_id)
+        return refuse(payment_method_message())
+    try:
+        done = payments.record_payment(
+            db, "inpatient", case_id, amount=amount, method=method, user_id=session["user_id"],
+            cleanup_amount=cleanup_amount, notes=f.get("notes"))
+    except payments.BillNotFound as e:
+        flash(e.message, "error")
+        return redirect(url_for("clinical.inpatient_list"))
+    except payments.PaymentRefused as e:
+        return refuse(e.message)
     db.commit()
-    flash(_("Payment recorded."), "success")
-    flash_cash_denomination_warning(amount)
+    _flash_payment_recorded(done, amount)
     return redirect(url_for("clinical.inpatient_detail", case_id=case_id))
 
 

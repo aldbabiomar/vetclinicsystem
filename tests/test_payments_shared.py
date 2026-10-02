@@ -424,6 +424,31 @@ def test_control_each_method_is_recorded(client, db, bill, method):
     assert [r["method"] for r in bill.payments(db)] == [method]
 
 
+def test_record_payment_refuses_a_method_the_route_did_not_clean(flask_app, db, bill):
+    """GUARD. The routes clean the method (core.clean_payment_method, seam
+    rule 10); the function checks it again, so a caller written later cannot
+    skip that. None matters most: NULL passes the column's CHECK."""
+    from vcs.domain import payments
+    with flask_app.test_request_context():
+        for method in (None, "", "cash", "Bitcoin"):
+            with pytest.raises(ValueError):
+                payments.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method=method,
+                                        user_id=ADMIN_ID)
+            db.rollback()
+        assert bill.payments(db) == []
+        done = payments.record_payment(db, bill.kind, bill.id, amount=amount("10.000"), method="Transfer",
+                                       user_id=ADMIN_ID)
+        db.commit()
+    assert [(r["id"], r["method"]) for r in bill.payments(db)] == [(done.payment_id, "Transfer")]
+
+
+def test_record_payment_knows_only_the_three_kinds(flask_app, db):
+    from vcs.domain import payments
+    with pytest.raises(ValueError):
+        payments.record_payment(db, "sale", 1, amount=amount("10.000"), method="Cash", user_id=ADMIN_ID)
+    assert set(payments.KINDS) == set(KINDS)
+
+
 # ---------------------------------------------------------------------------
 # P-6 — the cash-note warning
 # ---------------------------------------------------------------------------
@@ -591,7 +616,16 @@ def test_a_visit_or_inpatient_payment_takes_no_discount(client, db, which):
 # Two at once
 # ---------------------------------------------------------------------------
 
-def test_two_simultaneous_payments_cannot_overpay_a_bill(flask_app, db, bill):
+@pytest.fixture
+def own_sign_in_limit(monkeypatch):
+    """The sign-in limiter counts by address, and the whole suite signs in
+    from one: clients made here count against a limiter of their own, so
+    they do not use up the tests' that come after."""
+    from vcs.web import core
+    monkeypatch.setattr(core, "_LOGIN_ATTEMPTS_BY_IP", {})
+
+
+def test_two_simultaneous_payments_cannot_overpay_a_bill(flask_app, db, bill, own_sign_in_limit):
     """GUARD. Each is within the balance; together they exceed it. Without
     the row lock both read the same "already paid" and both pass.
     (tests/test_concurrency.py holds this for a visit; here, every kind.)"""

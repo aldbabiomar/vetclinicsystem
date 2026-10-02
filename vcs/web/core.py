@@ -25,7 +25,7 @@ from flask import flash as _flask_flash, g, render_template, request, url_for
 
 from vcs.db import pool as dbmod
 from vcs import jobs
-from vcs.domain import alerts, codes, dates, display
+from vcs.domain import alerts, codes, dates, display, payments
 from vcs import messages
 from vcs import money
 BASE_DIR = ROOT
@@ -397,8 +397,9 @@ def required_field(f, key, label):
 
 # How money can change hands, as stored. Every form that records a payment,
 # a sale, a refund or a supplier payment offers exactly these, and the
-# database refuses anything else (CHECK constraints in the baseline).
-PAYMENT_METHODS = ["Cash", "Card", "Transfer"]
+# database refuses anything else (CHECK constraints in the baseline). Defined
+# in vcs/domain/payments.py, which will not record a payment by any other.
+PAYMENT_METHODS = list(payments.METHODS)
 
 
 class BadPaymentMethod(ValueError):
@@ -427,43 +428,6 @@ def clean_payment_method(v, required=True):
 def payment_method_message():
     """The refusal for a payment without a valid method."""
     return _("Pick how this was paid: %(methods)s.", methods=", ".join(_(m) for m in PAYMENT_METHODS))
-
-
-def discount_percent_error(percent, cap):
-    """Range-checks an already-parsed discount percent against the current
-    user's role cap. Shared by the visit/inpatient/boarding/POS discount-save
-    routes so the bound comparison lives in exactly one place — it was written
-    out four times, which is four chances to change three of them."""
-    if percent > cap or percent < 0:
-        return _("Discount must be between 0%% and %(cap)s%% for your role.", cap=display_number(cap))
-    return None
-
-
-def cleanup_amount_error(new_amount, existing_amount, balance):
-    """Range-checks a Clean Up submission. Returns an error string, or None.
-
-    Shared by the four payment surfaces, which were each carrying their own
-    copy of these three checks. The two legitimate per-site differences are
-    arguments rather than special cases:
-
-      * POS passes existing_amount=0 — a brand-new sale has no prior Clean Up
-        to accumulate against, unlike the other three, which can be paid off
-        across several submissions.
-      * Boarding passes the balance as it would stand AFTER this submission's
-        discount, not before, so a discount-and-clean-up in one click cannot
-        write off more than the discounted bill.
-
-    The cap comes from the money setting (1,000 under IQ, 1.000 under JO).
-    """
-    cap = money.require().cleanup_cap
-    if new_amount < 0:
-        return _("Clean Up amount can't be negative.")
-    if existing_amount + new_amount > cap:
-        return _("Clean Up on this bill can't exceed %(cap)s %(currency)s in total.",
-                 cap=display_money(cap), currency=currency_label())
-    if new_amount > balance:
-        return _("Clean Up can't exceed the remaining balance.")
-    return None
 
 
 def currency_label():
@@ -635,11 +599,21 @@ def shown(message):
     messages.Msg -- made by code that has no request, or is shown later -- is
     translated now; anything else is shown as it is."""
     if isinstance(message, messages.Msg):
-        args = {k: shown(v) if isinstance(v, messages.Msg)
-                else display_number(v) if isinstance(v, (int, Decimal)) and not isinstance(v, bool) else v
-                for k, v in message.args.items()}
-        return _(message.msgid, **args)
+        return _(message.msgid, **{k: _shown_argument(v) for k, v in message.args.items()})
     return message
+
+
+def _shown_argument(v):
+    """One argument of a Msg, as the page's reader reads it."""
+    if isinstance(v, messages.Msg):
+        return shown(v)
+    if isinstance(v, messages.Amount):
+        return display_money(v.value)
+    if isinstance(v, messages.Currency):
+        return currency_label()
+    if isinstance(v, (int, Decimal)) and not isinstance(v, bool):
+        return display_number(v)
+    return v
 
 
 def display_date(d):

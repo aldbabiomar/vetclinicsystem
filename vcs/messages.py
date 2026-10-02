@@ -14,7 +14,13 @@ when it was written. This is the pattern selfcheck findings already use
 Write one as  Msg(N_("Backup saved to %(path)s."), path=dest)  -- N_ is what
 pybabel extracts; the msgid's %(name)s placeholders are filled from the
 keyword arguments.
+
+A money amount in a message is an Amount, and the currency's name a Currency:
+the page shows them as it shows every other amount -- the money setting's
+format, the reader's digits, the Arabic abbreviation under Arabic -- and the
+English reads "12,000 IQD".
 """
+from vcs import money
 
 
 def N_(text):
@@ -38,3 +44,23 @@ class Msg(str):
 
 def _rebuild(msgid, args):
     return Msg(msgid, **args)
+
+
+class Amount:
+    """A money amount as a Msg argument. Its English is money.fmt(); the page
+    that shows the message formats it for its reader (core.shown)."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return money.fmt(self.value)
+
+
+class Currency:
+    """The clinic's currency as a Msg argument: the Latin code in English,
+    whatever core.currency_label() says on the page."""
+
+    def __str__(self):
+        m = money.current()
+        return m.currency if m else ""

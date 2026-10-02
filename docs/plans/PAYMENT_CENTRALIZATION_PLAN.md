@@ -479,3 +479,89 @@ for phase 2:
   P-2, and the shared function must keep it.
 - All three write the payment's `date` as today whatever the form says
   (audit B16), pinned for all three.
+
+### 2026-10-02 — phase 2: the move
+
+`vcs/domain/payments.py`: `record_payment()`, the table `KINDS`, and the
+checks `discount_error()` and `cleanup_error()`. The three routes in
+`clinical.py` parse, call it and show the answer (39, 39 and 49 lines, from
+70, 70 and 107). The per-kind balance order is kept behind
+`Kind.payment_checked_before_cleanup` — true for a visit and an inpatient
+case, phase 3 removes it — so the overpayment is still there, on purpose.
+
+**Phase 1's 135 tests pass unedited**, and so do the seven files §6.1 names.
+Suite, on freshly reset databases: **1986 passed, 0 skipped** under IQ and
+under JO (1849 + phase 1's 135 + seam rule 17 and its control).
+
+What moved with it, and why:
+
+- **The discount and Clean Up half of phase 4 was done here.**
+  `core.discount_percent_error()` and `core.cleanup_amount_error()` are
+  deleted; `pos_checkout` and the two discount routes call
+  `payments.discount_error()` / `payments.cleanup_error()`. Leaving them
+  for phase 4 would have meant two copies of each rule for two phases, and
+  `test_cleanup_cap.py`'s "one copy, used by every surface" test fails the
+  moment three of its call sites move. Phase 4 is left with
+  `cash_tendered()` and rule 18.
+- **A message a domain function returns is a `messages.Msg`**, so
+  `messages` gained `Amount` and `Currency`: arguments the page formats as
+  it formats every other amount (the money setting's format, the reader's
+  digits, د.ع / د.أ under Arabic). `core.shown()` renders them. The msgids
+  are the ones the routes used, so the catalogue did not change.
+- **`billing.total_and_balance()`**, taken out of `compute_bill_totals()`:
+  the last step of every bill (Clean Up off the payable total, then what is
+  owed). `record_payment()` asks it what a Clean Up arriving with a payment
+  would leave owed, using the bill's own `pre_cleanup_total`, so there is
+  no second copy of the arithmetic and no re-rounding of an inpatient
+  subtotal.
+- **`core.PAYMENT_METHODS` is `payments.METHODS`**: the function refuses a
+  method the route did not clean (`None` passes the column's CHECK).
+
+Scans that had to be taught where the code went (§6.2) — each would
+otherwise have passed by no longer seeing it:
+
+- **Rule 1** (lock) reads `payments.py` too, knows `{spec.table}` and
+  `{spec.bill_table}`, requires `record_payment` among the mutators by
+  name, and checks `KINDS` locks `visits` / `inpatient_cases` /
+  `boarding_sessions`. It had never covered boarding.
+- **Rule 7** (discount source) counts `staff_discount` as a
+  request-supplied discount and requires `record_payment` by name; its
+  floor rose from 3 to 5.
+- **Rule 12** (`bill_changed`) knows `{spec.bill_table}` and
+  `cleanup_amount`. Its count floor went from 12 to 10 — three writers
+  became one — and it now requires `record_payment` by name, which is the
+  stricter floor.
+- **Rule 10** (payment method) was unaffected: still 8 reads, one per route.
+- **`test_edit_conflicts.py`'s `updated_at` rule** is not in §6.2's list,
+  and its own floor caught the move (11 UPDATEs found, 12 required). It now
+  reads `record_payment()`'s UPDATEs once per kind's table
+  (`_payment_updates()`, with a floor of its own).
+- **Rule 17** added: `INSERT INTO payments` appears once, in
+  `record_payment()`.
+
+Tests edited, and why: `test_cleanup_cap.py` and `test_money_iq.py` import
+the check from its new home (assertions unchanged; the wiring test now
+asserts `record_payment()` and `pos_checkout` call it and the message
+exists once). Nothing else.
+
+Behaviour that is not identical, all of it reachable only with a crafted
+request or a submission with two faults at once:
+
+- The routes parse the form before the function locks the bill, so when a
+  submission has two faults, the one reported can differ (a bad method is
+  now reported before an amount over the balance, for example). A missing
+  bill is still reported as missing whatever else is wrong.
+- Boarding, a stay that is **not** a member's, discount field **omitted**
+  from the request: the stay's discount is left alone. It used to be read
+  as 0 and so removed an existing discount. The form always sends the
+  field (prefilled), so staff cannot reach this; it follows §3.1's
+  "`None` means this submission does not touch the discount". A blank
+  field is still 0, as before.
+
+Proven by putting each bug back (`scripts/prove_guards.py`, 13 of 13): a
+route with its own INSERT; the lock gone (rule 1, and the two-at-once tests
+on every kind); `bill_changed()` gone (rule 12, and the stored totals and
+reports); a member's rate changed; the role's cap unchecked; a visit
+payment given a discount; the Clean Up unchecked; the cap not cumulative;
+an uncleaned method; a payment dated otherwise; the `updated_at` scan blind
+to the function.

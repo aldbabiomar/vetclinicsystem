@@ -10,7 +10,7 @@ Endpoint names carry the `sales.` prefix Flask gives every blueprint route:
 
 from vcs import auth
 from vcs.db import pool as dbmod
-from vcs.domain import billing, cash_register, codes, dates, inventory, members, refunds
+from vcs.domain import billing, cash_register, codes, dates, inventory, members, payments, refunds
 from vcs import money
 from vcs.web import pdf_export
 import uuid
@@ -21,7 +21,7 @@ from flask import (
 )
 
 from vcs.web.core import flash, display_quantity
-from vcs.web.core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, cleanup_amount_error, currency_label, date_filter_arg, discount_percent_error, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
+from vcs.web.core import BadDate, BadNumber, BadPaymentMethod, PAYMENT_METHODS, display_date, strict_date, clean_payment_method, payment_method_message, PER_PAGE, clean_date, clean_date_filter, currency_label, date_filter_arg, display_money, flash_cash_denomination_warning, get_db, get_page, money_setting_prompt, page_count, page_offset, parse_money, parse_percent, parse_quantity, parse_id
 from vcs import clock
 bp = Blueprint("sales", __name__)
 
@@ -230,10 +230,11 @@ def pos_page():
 # ---------------------------------------------------------------------------
 # pos_checkout's steps, extracted (review finding M4)
 #
-# Each helper returns (value…, error) with `error` a message string or None,
-# matching the discount_percent_error() / cleanup_amount_error() convention
-# already in core.py. None of them flashes and none of them renders: the route
-# owns the response, so a helper cannot return a page from three frames down —
+# Each helper returns (value…, error) with `error` a message or None, matching
+# the checks in vcs/domain/payments.py (discount_error(), cleanup_error()),
+# which a sale shares with every bill payment. None of them flashes and none
+# of them renders: the route owns the response, so a helper cannot return a
+# page from three frames down —
 # which is the failure mode that makes a long route hard to change safely.
 #
 # Money is Decimal and every rounding is money.py's, parameterised by the
@@ -519,7 +520,7 @@ def pos_checkout():
     else:
         # The role cap bounds STAFF discretion only; a member's rate is
         # clinic policy and deliberately does not pass through it (§6).
-        error = discount_percent_error(discount_percent, auth.discount_cap_for())
+        error = payments.discount_error(discount_percent, auth.discount_cap_for())
         if error:
             return refuse(error)
     if not item_ids:
@@ -567,7 +568,7 @@ def pos_checkout():
         return refuse(_("Clean Up amount must be a valid number."))
     # existing_amount=0: a brand-new sale has no prior Clean Up to accumulate
     # against, unlike the other three surfaces.
-    error = cleanup_amount_error(cleanup_amount, 0, total)
+    error = payments.cleanup_error(cleanup_amount, 0, total)
     if error:
         return refuse(error)
     total = money.to_store(max(total - cleanup_amount, 0))

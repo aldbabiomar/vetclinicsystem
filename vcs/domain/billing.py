@@ -128,6 +128,21 @@ def discounted_raw_total(subtotal, discountable_subtotal, discount_percent):
     return money.discounted(subtotal or 0, discountable_subtotal or 0, discount_percent or 0)
 
 
+def total_and_balance(pre_cleanup_total, cleanup_amount, paid):
+    """The last step of every bill, as (total, paid, balance): Clean Up comes
+    off the payable total, and what is still owed is that less what is paid.
+
+    The balance is at the cash unit: a remainder smaller than half a
+    250-dinar note is not collectable under IQ and reads as settled.
+
+    Its own function so that a payment can ask what a Clean Up arriving with
+    it would leave owed (payments.record_payment) with the bill's own
+    arithmetic, not a second copy of it."""
+    total = money.to_store(max(pre_cleanup_total - (cleanup_amount or 0), 0))
+    paid = money.to_store(paid or 0)
+    return total, paid, money.balance_due(total, paid)
+
+
 def compute_bill_totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
                         discountable_subtotal):
     """
@@ -162,13 +177,9 @@ def compute_bill_totals(subtotal, discount_percent, paid, cleanup_amount=0, *,
     discount_percent = discount_percent or 0
     pre_cleanup_total = money.payable(
         discounted_raw_total(subtotal, discountable_subtotal, discount_percent), discount_percent)
-    total = money.to_store(max(pre_cleanup_total - (cleanup_amount or 0), 0))
-    paid = money.to_store(paid or 0)
-    # What is still owed, at the cash unit: a remainder smaller than half a
-    # 250-dinar note is not collectable under IQ and reads as settled. There
-    # is deliberately no tolerance constant in the status test below — the
-    # predecessor apps carried `<= 0.5` (noise in IQD, real money in JOD).
-    balance = money.balance_due(total, paid)
+    total, paid, balance = total_and_balance(pre_cleanup_total, cleanup_amount, paid)
+    # There is deliberately no tolerance constant in the status test below —
+    # the predecessor apps carried `<= 0.5` (noise in IQD, real money in JOD).
     if total <= 0:
         status = "N/A"
     elif paid <= 0:

@@ -86,21 +86,41 @@ def test_the_scan_finds_something_to_scan():
 BILL_WRITE = re.compile(
     r"(INSERT INTO|UPDATE)\s+(billing|visit_billing_lines|inpatient_billing)\b"
     r"|UPDATE\s+visits\s+SET[^\"']*discount_percent"
-    r"|UPDATE\s+inpatient_cases\s+SET[^\"']*discount_percent",
+    r"|UPDATE\s+inpatient_cases\s+SET[^\"']*discount_percent"
+    # payments.record_payment() writes the Clean Up and boarding's discount
+    # to the table its KINDS names, whichever kind of bill it is.
+    r"|UPDATE\s+\{spec\.bill_table\}\s+SET",
     re.I)
 PARENT_LOCK = re.compile(
-    r"FROM\s+(visits|inpatient_cases)\s+WHERE\s+id=%s\s+FOR UPDATE", re.I)
+    r"FROM\s+(visits|inpatient_cases|\{spec\.table\})\s+WHERE\s+id=%s\s+FOR UPDATE", re.I)
+
+
+def _payments_functions():
+    """vcs/domain/payments.py's functions, in _functions()'s shape. The three
+    payment routes became payments.record_payment() (decision 0013); the rules
+    that used to find them in the blueprints have to find it there, or they
+    pass by no longer seeing it."""
+    path = source_files.module("payments")
+    src = path.read_text(encoding="utf-8")
+    return [(path.name, node.name, ast.get_source_segment(src, node))
+            for node in ast.parse(src).body if isinstance(node, ast.FunctionDef)]
 
 
 def test_every_bill_mutation_takes_the_parent_row_lock():
     mutators, unlocked = [], []
-    for mod, fn, src in _functions():
+    for mod, fn, src in [*_functions(), *_payments_functions()]:
         if not BILL_WRITE.search(src):
             continue
         mutators.append(f"{mod}:{fn}")
         if not PARENT_LOCK.search(src):
             unlocked.append(f"{mod}:{fn}")
     assert mutators, "found no bill-mutating function at all — the pattern has drifted"
+    # The floor, by name: a payment takes a Clean Up with it, on every kind.
+    assert "payments.py:record_payment" in mutators and len(mutators) >= 5, mutators
+    # ... and the row it locks is the one every other mutation of that bill locks.
+    from vcs.domain import payments
+    assert {kind: spec.table for kind, spec in payments.KINDS.items()} == {
+        "visit": "visits", "inpatient": "inpatient_cases", "boarding": "boarding_sessions"}
     assert not unlocked, (
         "these write to a bill without first locking the visit/case row, so a "
         "concurrent write to the same bill can interleave with them (and, taking "
@@ -416,19 +436,22 @@ def test_rule7_a_route_writing_a_discount_from_a_request_checks_its_source():
     point: three of these four were safe only because of a refusal added to a
     fourth.
     """
-    checked, offenders = 0, []
+    checked, offenders = [], []
     for mod, fn, src, _node, _msrc in _all_functions():
         writes_discount = re.search(
-            r"(UPDATE\s+\w+\s+SET[^\"']*discount_percent\s*=|"
+            r"(UPDATE\s+[\w{}.]+\s+SET[^\"']*discount_percent\s*=|"
             r"INSERT INTO\s+\w+\s*\([^)]*discount_percent)", src, re.S)
-        reads_request = "request.form" in src or re.search(r"\bf\.get\(", src)
+        # payments.record_payment() is handed the discount boarding's form
+        # posted (`staff_discount`); it does not read the request itself.
+        reads_request = ("request.form" in src or re.search(r"\bf\.get\(", src)
+                         or re.search(r"\bstaff_discount\b", src))
         if not (writes_discount and reads_request):
             continue
-        checked += 1
+        checked.append(f"{mod}:{fn}")
         if "discount_source" not in src:
             offenders.append(f"{mod}:{fn}")
-    assert checked >= 3, (
-        f"expected several request-driven discount writers, found {checked} — "
+    assert len(checked) >= 5 and "payments.py:record_payment" in checked, (
+        f"expected the request-driven discount writers, found {checked} — "
         "the scan has lost its subject")
     assert not offenders, (
         "route(s) writing a request-supplied discount without consulting "
@@ -532,7 +555,7 @@ BILL_INPUT_WRITE = re.compile(
     r"|INSERT INTO\s+(billing|boarding_sessions)\b"
     r"|UPDATE\s+(billing|boarding_sessions)\s+SET\s+(?!(total|billed_total)\s*=)"
     r"|UPDATE\s+inpatient_cases\s+SET[^\"']*(discount_percent|cleanup_amount)"
-    r"|UPDATE\s+\{\w+\}\s+SET[^\"']*discount_percent",
+    r"|UPDATE\s+\{[\w.]+\}\s+SET[^\"']*(discount_percent|cleanup_amount)",
     re.I)
 # Writes lines for its caller; rule 12 checks every caller calls bill_changed().
 BILL_INPUT_HELPERS = {"save_visit_billing_lines"}
@@ -557,7 +580,10 @@ def test_every_write_to_a_bills_inputs_stores_its_new_total():
             writers.append(f"{mod}:{fn}")
             if "bill_changed(" not in src:
                 missing.append(f"{mod}:{fn}")
-    assert len(writers) >= 12, f"only {writers} write a bill's inputs — the pattern has drifted"
+    # Ten, and one of them by name: the three payment routes were three of
+    # twelve until they became payments.record_payment() (decision 0013).
+    assert len(writers) >= 10 and "payments.py:record_payment" in writers, (
+        f"only {writers} write a bill's inputs — the pattern has drifted")
     assert not missing, (
         "these change a bill without billing.bill_changed(), so its stored total "
         "— what every report reads — stays at the old amount:\n  " + "\n  ".join(missing))
@@ -570,11 +596,52 @@ def test_every_write_to_a_bills_inputs_stores_its_new_total():
 def test_control_the_bill_input_pattern():
     for sql in ("INSERT INTO visit_billing_lines (a) VALUES (%s)", "DELETE FROM inpatient_billing WHERE id=%s",
                 "UPDATE billing SET discount_percent=%s", "UPDATE boarding_sessions SET price_per_day=%s",
-                "UPDATE inpatient_cases SET cleanup_amount=%s", "UPDATE {table} SET discount_percent=0"):
+                "UPDATE inpatient_cases SET cleanup_amount=%s", "UPDATE {table} SET discount_percent=0",
+                "UPDATE {spec.bill_table} SET cleanup_amount = cleanup_amount + %s",
+                "UPDATE {spec.bill_table} SET discount_percent = %s, discount_applied_by = %s"):
         assert BILL_INPUT_WRITE.search(sql), sql
     for sql in ("UPDATE billing SET total=%s WHERE visit_id=%s", "UPDATE boarding_sessions SET billed_total=%s",
                 "UPDATE inpatient_cases SET dismissed=true", "INSERT INTO payments (amount) VALUES (%s)"):
         assert not BILL_INPUT_WRITE.search(sql), sql
+
+
+# ---------------------------------------------------------------------------
+# Rule 17 — one writer of payments (decision 0013)
+#
+# A visit, an inpatient case and a boarding stay each had a payment route
+# with its own INSERT and its own copy of the checks before it. The copies
+# drifted: two of the three checked a payment against the balance before the
+# Clean Up arriving with it, and left the bill overpaid. A row in `payments`
+# is written by payments.record_payment() and by nothing else.
+# ---------------------------------------------------------------------------
+PAYMENT_INSERT = re.compile(r"INSERT\s+INTO\s+payments\b", re.I)
+
+
+def test_rule17_only_record_payment_writes_a_payment():
+    """GUARD."""
+    files = source_files.all_python()
+    found = []
+    for path in files:
+        src = _without_comments(path.read_text(encoding="utf-8"))
+        found += [path.name] * len(PAYMENT_INSERT.findall(src))
+    assert len(files) >= 80, f"only {len(files)} files scanned — the walk has lost the package"
+    assert found == ["payments.py"], (
+        f"INSERT INTO payments must appear once, in vcs/domain/payments.py; found in {found}")
+    module = source_files.module("payments").read_text(encoding="utf-8")
+    writer = [node.name for node in ast.parse(module).body if isinstance(node, ast.FunctionDef)
+              and PAYMENT_INSERT.search(ast.get_source_segment(module, node))]
+    assert writer == ["record_payment"], writer
+
+
+def test_control_the_payment_insert_pattern():
+    for sql in ("INSERT INTO payments (visit_id, amount) VALUES (%s,%s)", "insert into  payments(amount)",
+                'f"INSERT INTO payments ({spec.column}, amount)"'):
+        assert PAYMENT_INSERT.search(sql), sql
+    for sql in ("INSERT INTO distributor_bill_payments (bill_id) VALUES (%s)", "SELECT * FROM payments",
+                "INSERT INTO payments_archive (id) VALUES (%s)"):
+        assert not PAYMENT_INSERT.search(sql), sql
+    assert not PAYMENT_INSERT.search(_without_comments("# the INSERT INTO payments used to be here")), (
+        "a comment that mentions it is not a second writer")
 
 
 # ---------------------------------------------------------------------------
