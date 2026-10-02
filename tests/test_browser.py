@@ -1368,3 +1368,153 @@ def test_every_palette_paints_the_page_in_both_themes(browser, db, palette_resto
         assert not wrong, "\n".join(wrong)
     finally:
         ctx.close()
+
+
+# ---------------------------------------------------------------------------
+# Cash Received on a bill's payment form (payment plan P-5, §6.4)
+#
+# The field and its change preview are one set of macros
+# (templates/_payment_cash.html) on three forms: a visit's, an inpatient
+# case's, and the one dialog the boarding list has for every stay. What the
+# page shows is a preview; what payments.cash_tendered() stores is the fact.
+# These put the two side by side, on each form, in English and in Arabic.
+# ---------------------------------------------------------------------------
+from test_payments_shared import bill, kind  # noqa: E402,F401  (fixtures: one bill of each kind)
+
+PAYMENT_FORM = "form[data-payment-form]"
+
+
+def _open_payment_form(page, bill):
+    """The bill's page, with its payment form in view."""
+    page.goto(f"{APP_URL}{bill.page}", wait_until="networkidle")
+    if bill.kind == "inpatient":
+        page.click('.tab-link[data-tab="billing"]')
+    elif bill.kind == "boarding":
+        page.click(f'button[data-id="{bill.id}"][data-vzh="boarding-9"]')
+    page.wait_for_selector(f'{PAYMENT_FORM} [name="amount"]', state="visible", timeout=10000)
+
+
+def _payment_page(browser):
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    problems = []
+    page.on("pageerror", lambda e: problems.append(f"JS error: {e}"))
+    page.on("console", lambda m: problems.append(f"console: {m.text}")
+            if "content security policy" in m.text.lower() or "refused to execute" in m.text.lower() else None)
+    _login(page)
+    return ctx, page, problems
+
+
+def _as_the_page_writes_it(text, language):
+    from vcs.domain import display
+    return display.to_arabic_indic_digits(text) if language == "ar" else text
+
+
+@pytest.mark.parametrize("language", ["en", "ar"])
+def test_cash_received_shows_for_cash_and_its_change_is_what_the_server_stores(browser, db, bill, language, request):
+    """GUARD (P-5). Cash Received is offered while the method is Cash and
+    goes away for Card and Transfer; the change under it is the change the
+    server then records."""
+    from conftest import amount
+    from vcs import money
+    if language == "ar":
+        request.getfixturevalue("arabic_clinic")
+    paying, handed = amount("10.000"), amount("12.000")
+    ctx, page, problems = _payment_page(browser)
+    try:
+        _open_payment_form(page, bill)
+        if language == "ar":
+            assert page.evaluate("document.documentElement.dir") == "rtl", "the clinic is not in Arabic"
+        field, note = f"{PAYMENT_FORM} [data-cash-field]", f"{PAYMENT_FORM} [data-cash-change]"
+        assert page.is_visible(field), "Cash is the method the form opens with; its field is not shown"
+        for method, shown in (("Card", False), ("Transfer", False), ("Cash", True)):
+            page.select_option(f'{PAYMENT_FORM} [name="method"]', method)
+            assert page.is_visible(field) == shown, f"Cash Received shown={not shown} for {method}"
+
+        page.fill(f'{PAYMENT_FORM} [name="amount"]', str(paying))
+        assert not page.is_visible(note), "a change is shown before any cash was typed"
+        page.fill(f'{PAYMENT_FORM} [name="cash_received"]', str(handed))
+        page.wait_for_selector(note, state="visible", timeout=5000)
+        preview = page.inner_text(note)
+
+        with page.expect_navigation():
+            page.click(f'{PAYMENT_FORM} button[type="submit"]')
+        page.wait_for_load_state("networkidle")
+        rows = bill.payments(db)
+        assert len(rows) == 1, f"the payment was not recorded: {page.locator('.flash, .vz-toast-msg').all_inner_texts()}"
+        assert (rows[0]["cash_received"], rows[0]["change_given"]) == (handed, handed - paying)
+        assert _as_the_page_writes_it(money.fmt(rows[0]["change_given"]), language) in preview, (
+            f"the form showed {preview!r}; the server recorded change of {rows[0]['change_given']}")
+        assert not problems, problems
+    finally:
+        ctx.close()
+
+
+def test_cash_typed_for_one_method_is_not_sent_for_another(browser, db, bill):
+    """GUARD. Type the cash, then change the method to Card: the field is
+    hidden AND emptied, so what was typed cannot ride along unseen."""
+    from conftest import amount
+    ctx, page, problems = _payment_page(browser)
+    try:
+        _open_payment_form(page, bill)
+        page.fill(f'{PAYMENT_FORM} [name="amount"]', str(amount("10.000")))
+        page.fill(f'{PAYMENT_FORM} [name="cash_received"]', str(amount("12.000")))
+        page.select_option(f'{PAYMENT_FORM} [name="method"]', "Card")
+        assert page.input_value(f'{PAYMENT_FORM} [name="cash_received"]') == ""
+        assert not page.is_visible(f"{PAYMENT_FORM} [data-cash-change]")
+        with page.expect_navigation():
+            page.click(f'{PAYMENT_FORM} button[type="submit"]')
+        page.wait_for_load_state("networkidle")
+        rows = bill.payments(db)
+        assert [(r["method"], r["cash_received"], r["change_given"]) for r in rows] == [("Card", None, None)]
+        assert not problems, problems
+    finally:
+        ctx.close()
+
+
+@pytest.mark.money("IQ")
+def test_the_iq_change_preview_rounds_down_as_the_server_does(browser, db, bill):
+    """GUARD. 1,100 paid from 1,500 leaves 400; one 250-dinar note goes back,
+    never two. The form says 250 and explains the 150 the drawer keeps, and
+    the server records 250."""
+    ctx, page, problems = _payment_page(browser)
+    try:
+        _open_payment_form(page, bill)
+        page.fill(f'{PAYMENT_FORM} [name="amount"]', "1100")
+        page.fill(f'{PAYMENT_FORM} [name="cash_received"]', "1500")
+        note = f"{PAYMENT_FORM} [data-cash-change]"
+        page.wait_for_selector(note, state="visible", timeout=5000)
+        preview = page.inner_text(note)
+        assert "250 IQD" in preview and "500" not in preview, f"the change is shown as {preview!r}"
+        assert "400" in preview and "150" in preview, "the 150 IQD the clinic keeps should be explained"
+        with page.expect_navigation():
+            page.click(f'{PAYMENT_FORM} button[type="submit"]')
+        page.wait_for_load_state("networkidle")
+        rows = bill.payments(db)
+        assert [(r["amount"], r["cash_received"], r["change_given"]) for r in rows] == [
+            (Decimal("1100"), Decimal("1500"), Decimal("250"))]
+        assert not problems, problems
+    finally:
+        ctx.close()
+
+
+def test_cash_short_of_the_payment_says_so_before_it_is_sent(browser, db, bill):
+    """The form says the cash is short; the server refuses it either way."""
+    from conftest import amount
+    ctx, page, problems = _payment_page(browser)
+    try:
+        _open_payment_form(page, bill)
+        page.fill(f'{PAYMENT_FORM} [name="amount"]', str(amount("10.000")))
+        page.fill(f'{PAYMENT_FORM} [name="cash_received"]', str(amount("9.000")))
+        note = f"{PAYMENT_FORM} [data-cash-change]"
+        page.wait_for_selector(note, state="visible", timeout=5000)
+        assert "short of this payment" in page.inner_text(note)
+        with page.expect_navigation():
+            page.click(f'{PAYMENT_FORM} button[type="submit"]')
+        page.wait_for_load_state("networkidle")
+        assert bill.payments(db) == [], "a payment with too little cash was recorded"
+        # Shown again as it was typed -- on boarding, with its dialog open.
+        assert page.is_visible(f'{PAYMENT_FORM} [name="cash_received"]') or bill.kind == "inpatient"
+        assert not problems, problems
+    finally:
+        ctx.close()

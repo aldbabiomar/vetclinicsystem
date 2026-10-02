@@ -705,8 +705,8 @@ def test_rule18_each_payment_check_has_one_copy():
     shared = _function_sources(source_files.module("payments"))
     assert set(SHARED_CHECKS) <= set(shared), sorted(shared)
     assert "cleanup_cap" in shared["cleanup_error"] and "change_due(" in shared["cash_tendered"]
-    for check in ("discount_error(", "cleanup_error("):
-        assert check in shared["record_payment"], f"record_payment() no longer calls {check})"
+    for check in SHARED_CHECKS:
+        assert f"{check}(" in shared["record_payment"], f"record_payment() no longer calls {check}()"
     checkout = _function_sources(source_files.blueprint("sales"))["pos_checkout"]
     for check in SHARED_CHECKS:
         assert f"payments.{check}(" in checkout, f"pos_checkout no longer calls payments.{check}()"

@@ -741,6 +741,146 @@ def test_one_token_posted_for_two_stays_is_two_payments(client, db, stay):
 
 
 # ---------------------------------------------------------------------------
+# P-5 — cash received, and the change
+# ---------------------------------------------------------------------------
+
+def _cash(row):
+    return row["cash_received"], row["change_given"]
+
+
+def test_cash_received_must_cover_the_payment(client, db, bill):
+    """GUARD (P-5). The clinic cannot record a 10.000 cash payment and
+    9.000 in the hand."""
+    before = bill.state(db)
+    resp = pay(client, bill, amount=amount("10.000"), method="Cash", cash_received=amount("9.000"))
+    assert errors(resp) == [
+        f"Cash received ({money.fmt(amount('9.000'))} {currency()}) is less than the amount due "
+        f"({money.fmt(amount('10.000'))} {currency()}) — collect the full amount first."]
+    assert bill.state(db) == before
+
+
+def test_control_cash_received_and_its_change_are_recorded(client, db, bill):
+    resp = pay(client, bill, amount=amount("10.000"), method="Cash", cash_received=amount("12.000"))
+    assert flashes(resp) == [("success", RECORDED),
+                             ("success", f"Change due: {money.fmt(amount('2.000'))} {currency()}.")]
+    assert [_cash(r) for r in bill.payments(db)] == [(amount("12.000"), amount("2.000"))]
+
+
+def test_control_cash_that_is_exactly_the_payment_leaves_no_change(client, db, bill):
+    resp = pay(client, bill, amount=amount("10.000"), method="Cash", cash_received=amount("10.000"))
+    assert flashes(resp) == [("success", RECORDED)], "no change, so nothing to say about it"
+    assert [_cash(r) for r in bill.payments(db)] == [(amount("10.000"), 0)]
+
+
+@pytest.mark.parametrize("typed", ["", "  ", None])
+def test_control_cash_received_is_optional(client, db, bill, typed):
+    """A4. Left blank, nothing about cash is stored -- NULL, not a zero that
+    would read as "handed over nothing"."""
+    resp = pay(client, bill, amount=amount("10.000"), method="Cash", cash_received=typed)
+    assert flashes(resp) == [("success", RECORDED)]
+    assert [_cash(r) for r in bill.payments(db)] == [(None, None)]
+
+
+@pytest.mark.parametrize("method", ["Card", "Transfer"])
+def test_cash_received_is_recorded_for_cash_only(client, db, bill, method):
+    """GUARD. The field is hidden for Card and Transfer, and whatever it
+    still holds is not read -- as at the point of sale: the payment is
+    recorded, and nothing about cash with it."""
+    for typed in (amount("50.000"), "abc"):
+        resp = pay(client, bill, amount=amount("10.000"), method=method, cash_received=typed)
+        assert flashes(resp) == [("success", RECORDED)]
+    assert [_cash(r) for r in bill.payments(db)] == [(None, None)] * 2
+
+
+def test_cash_received_that_is_not_a_number_is_refused(client, db, bill):
+    """GUARD."""
+    before = bill.state(db)
+    for typed in ("abc", "nan"):
+        resp = pay(client, bill, amount=amount("10.000"), method="Cash", cash_received=typed)
+        assert errors(resp) == ["Cash Received must be a valid number."]
+    assert bill.state(db) == before
+
+
+@pytest.mark.parametrize("values, why", [
+    (("Card", "10.000", "12.000", "2.000"), "cash received on a Card payment"),
+    (("Cash", "10.000", "9.000", "0.000"), "cash received that does not cover the payment"),
+    (("Cash", "10.000", "-1.000", None), "negative cash received"),
+    (("Cash", "10.000", "NaN", None), "cash received that is not a number"),
+    (("Cash", "10.000", "12.000", "-2.000"), "negative change"),
+    (("Cash", "10.000", "12.000", "NaN"), "change that is not a number"),
+])
+def test_the_database_refuses_cash_that_makes_no_sense(db, bill, values, why):
+    """GUARD. The second layer: the CHECK constraints behind cash_tendered()."""
+    method, paid, received, change = values
+    with pytest.raises(dbmod.IntegrityError):
+        db.execute(f"INSERT INTO payments ({bill.facts['column']}, amount, method, date, cash_received, "
+                   "change_given) VALUES (%s,%s,%s,%s,%s,%s)",
+                   (bill.id, amount(paid), method, clock.today(), D(received), change and D(change)))
+    db.rollback()
+    assert bill.payments(db) == [], why
+
+
+@pytest.mark.money("IQ")
+def test_iq_change_is_rounded_down_to_the_note(client, db, bill):
+    """GUARD. 1,100 paid from 1,500 leaves 400: one 250-dinar note goes back
+    and 150 stays in the drawer -- never more back than is owed. (To the
+    NEAREST note it would be 500.) It is what the note warning is about."""
+    resp = pay(client, bill, amount="1100", method="Cash", cash_received="1500")
+    assert ("success", "Change due: 250 IQD.") in flashes(resp) and _warned_about_notes(resp)
+    assert [_cash(r) for r in bill.payments(db)] == [(D("1500"), D("250"))]
+
+
+@pytest.mark.money("JO")
+def test_jo_change_is_exact_to_the_fils(client, db, bill):
+    resp = pay(client, bill, amount="1.101", method="Cash", cash_received="1.505")
+    assert flashes(resp) == [("success", RECORDED), ("success", "Change due: 0.404 JOD.")]
+    assert [_cash(r) for r in bill.payments(db)] == [(D("1.505"), D("0.404"))]
+
+
+def test_a_repeat_says_nothing_about_change(client, db, bill):
+    """GUARD. The second arrival of a form wrote nothing and handed nothing
+    back: it must not tell the desk to give the change again."""
+    form = dict(amount=amount("10.000"), method="Cash", cash_received=amount("12.000"),
+                idempotency_key=uuid.uuid4().hex)
+    pay(client, bill, **form)
+    assert flashes(pay(client, bill, **form)) == [("warning", ALREADY_RECORDED)]
+
+
+@pytest.mark.parametrize("which", ["visit", "inpatient"])
+def test_the_payments_list_shows_what_was_handed_over(client, db, which):
+    """A cash payment's line names what was received and the change; a line
+    without them stays as it was."""
+    gen = bill.__wrapped__(which, client, db)
+    made = next(gen)
+    try:
+        pay(client, made, amount=amount("10.000"), method="Cash", cash_received=amount("12.000"))
+        pay(client, made, amount=amount("10.000"), method="Card")
+        page = html.unescape(client.get(made.page).get_data(as_text=True))
+        lines = re.findall(r'<div class="list-line small"><div>(.*?)</div><div>', page, re.S)
+        assert len(lines) == 2, lines
+        with_cash = [line for line in lines if "Cash Received" in line]
+        assert len(with_cash) == 1, lines
+        assert f"Cash Received {money.fmt(amount('12.000'))}" in with_cash[0]
+        assert f"Change Due {money.fmt(amount('2.000'))}" in with_cash[0]
+    finally:
+        next(gen, None)
+
+
+def test_the_form_offers_cash_received(client, db, bill):
+    """The field is on the form, with the script that shows it for Cash."""
+    page = client.get(bill.page).get_data(as_text=True)
+    assert len(re.findall(r'<input[^>]*name="cash_received"', page)) == 1 and "data-cash-change" in page
+    assert page.count("window.vzPaymentCash = function") == 1
+
+
+def test_a_refused_form_comes_back_with_the_cash_typed(client, db, bill):
+    resp = pay(client, bill, amount="abc", method="Cash", cash_received=amount("50.000"))
+    assert errors(resp) == [VALID_NUMBER]
+    assert re.search(r'name="cash_received" value="%s"' % re.escape(str(amount("50.000"))),
+                     resp.get_data(as_text=True)), "the cash typed was lost when the form was shown again"
+
+
+# ---------------------------------------------------------------------------
 # Two at once
 # ---------------------------------------------------------------------------
 

@@ -763,13 +763,19 @@ as elsewhere.
 | 2 | The computer's clock was accepted: the app had recorded a later time (%(seen)s), from when the clock was ahead. | تم اعتماد ساعة الحاسوب: كان البرنامج قد سجّل وقتًا لاحقًا (%(seen)s) حين كانت الساعة متقدّمة. |
 | 3 | Computer clock accepted | اعتُمدت ساعة الحاسوب |
 
-## 31. Bill payments (1)
+## 31. Bill payments (4)
 
 Payments on a visit, an inpatient case and a boarding stay
-(`plans/PAYMENT_CENTRALIZATION_PLAN.md`, 2026-10-02). **Payment** — الدفعة,
-as in the reviewed "تم تسجيل الدفعة."
+(`plans/PAYMENT_CENTRALIZATION_PLAN.md`, 2026-10-02). **Payment** — الدفعة, as
+in the reviewed "تم تسجيل الدفعة."; **change** — الباقي, the reviewed "Change
+Due". Row 3 replaces the point of sale's reviewed "النقد المستلم (…) أقل من
+الإجمالي (…) — حصّل المبلغ كاملًا قبل إتمام البيع.", reworded so that it reads
+for a bill payment as well as a sale; row 4 is modelled on the point of sale's
+reviewed "النقد المستلم أقل من الإجمالي بمقدار {amount} …".
 
 | # | English | Arabic (as shipped) |
 |---|---|---|
 | 1 | That payment was already recorded. | تم تسجيل هذه الدفعة بالفعل. |
-
+| 2 | Change due: %(fmt_money)s %(currency)s. | الباقي: %(fmt_money)s %(currency)s. |
+| 3 | Cash received (%(received)s %(currency)s) is less than the amount due (%(due)s %(currency)s) — collect the full amount first. | النقد المستلم (%(received)s %(currency)s) أقل من المبلغ المطلوب (%(due)s %(currency)s) — حصّل المبلغ كاملًا أولًا. |
+| 4 | Cash received is {amount} %(currency_label)s short of this payment. | النقد المستلم أقل من هذه الدفعة بمقدار {amount} %(currency_label)s. |

@@ -753,6 +753,12 @@ CREATE TABLE payments (
     date DATE NOT NULL,
     user_id INTEGER,
     notes TEXT,
+    -- Cash payments only: what the client handed over and what was handed
+    -- back, as the point of sale records on a sale. Optional: NULL for a
+    -- Card or Transfer payment, and NULL for cash too when the amount handed
+    -- over was not typed (payments.cash_tendered()).
+    cash_received NUMERIC(15,3),
+    change_given NUMERIC(15,3),
     -- The payment form's one-time token, as payments.record_payment() stores
     -- it (the kind of bill, the bill and the token the page was drawn with).
     -- A double-clicked "Add" posts the same form twice; the second finds
@@ -776,7 +782,12 @@ CREATE TABLE payments (
     FOREIGN KEY (user_id) REFERENCES users(id),
     -- Amounts: never NaN (Postgres sorts NaN above every number, so a
     -- plain `>= 0` passes it), and never below what the routes allow.
-    CHECK (amount > 0 AND amount <> 'NaN')
+    CHECK (amount > 0 AND amount <> 'NaN'),
+    CHECK (cash_received IS NULL OR (cash_received >= 0 AND cash_received <> 'NaN')),
+    CHECK (change_given IS NULL OR (change_given >= 0 AND change_given <> 'NaN')),
+    -- Cash is recorded for a Cash payment, and covers it.
+    CHECK (cash_received IS NULL OR method = 'Cash'),
+    CHECK (cash_received IS NULL OR cash_received >= amount)
 );
 CREATE INDEX idx_payments_visit ON payments(visit_id);
 CREATE INDEX idx_payments_case ON payments(inpatient_case_id);

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_member_discount.html" import member_discount_line with context %}
+{% import "_payment_cash.html" as payment_cash with context %}
 {% block title %}{{ visit.id|code('V') }} — {{ clinic_name }}{% endblock %}
 {% block content %}
 {% include "_back_link.html" %}
@@ -135,24 +136,27 @@
         <span class="badge {{ 'ok' if summary.status=='Fully Paid' else ('danger' if summary.status=='Unpaid' else 'muted') }}">{{ summary.status|tr }}</span>
       </div>
 
-      <form method="post" action="{{ url_for('clinical.visit_payment_add', visit_id=visit.id) }}" class="bill-form bill-pay">
+      <form method="post" action="{{ url_for('clinical.visit_payment_add', visit_id=visit.id) }}" class="bill-form bill-pay" data-payment-form>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="idempotency_key" value="{{ payment_token }}">
-        <div class="field"><label for="visitdetail-5-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="visitdetail-5-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}"></div>
+        <div class="field"><label for="visitdetail-5-amount">{{ _('Record Payment (%(currency_label)s)', currency_label=currency_label()) }}</label><input id="visitdetail-5-amount" type="number" step="{{ money_step() }}" name="amount" required value="{{ fv(form, 'amount') if payment_error else '' }}" data-vzh="payment-cash"></div>
         <div class="field"><label for="visitdetail-6-cleanup_amount">{{ _('Clean Up (max %(CLEANUP_CAP)s %(currency_label)s)', CLEANUP_CAP=CLEANUP_CAP, currency_label=currency_label()) }}</label><input id="visitdetail-6-cleanup_amount" type="number" step="{{ money_step() }}" min="0" name="cleanup_amount" value="{{ fv(form, 'cleanup_amount') if payment_error else '0' }}"></div>
         <div class="field"><label for="visitdetail-7-method">{{ _('Method') }}</label>
-          <select id="visitdetail-7-method" name="method">
+          <select id="visitdetail-7-method" name="method" data-vzh="payment-cash">
             {% set m = fv(form, 'method', 'Cash') if payment_error else 'Cash' %}
             <option value="Cash" {{ 'selected' if m=='Cash' }}>{{ _('Cash') }}</option>
             <option value="Card" {{ 'selected' if m=='Card' }}>{{ _('Card') }}</option>
             <option value="Transfer" {{ 'selected' if m=='Transfer' }}>{{ _('Transfer') }}</option>
           </select>
         </div>
+        {{ payment_cash.cash_field('visitdetail', form if payment_error else none) }}
         <button class="btn small secondary" type="submit">{{ _('Add') }}</button>
+        {{ payment_cash.change_note() }}
       </form>
+      {{ payment_cash.cash_script() }}
       {% if payments %}
       <div style="margin-top:10px;">
-        {% for p in payments %}<div class="list-line small"><div>{{ p.date|localdate }} — {{ p.method|tr }}</div><div>{{ p.amount|money }} {{ currency_label() }}</div></div>{% endfor %}
+        {% for p in payments %}<div class="list-line small"><div>{{ p.date|localdate }} — {{ p.method|tr }}{% if p.cash_received is not none %} <span class="muted">· {{ _('Cash Received') }} {{ p.cash_received|money }} · {{ _('Change Due') }} {{ p.change_given|money }}</span>{% endif %}</div><div>{{ p.amount|money }} {{ currency_label() }}</div></div>{% endfor %}
       </div>
       {% endif %}
     </div>

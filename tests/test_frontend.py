@@ -47,6 +47,8 @@ STANDALONE_TEMPLATES = {"base.html", "_visit_fields.html",
                         "_error_dog.html", "_pagination.html",
                         # A macro file, imported by the three bill screens.
                         "_member_discount.html",
+                        # Macros: Cash Received on the three payment forms.
+                        "_payment_cash.html",
                         # Included inside the three edit forms (audit B4).
                         "_edit_conflict.html",
                         # Included by the Developer Audit and the clinic's copy of it.

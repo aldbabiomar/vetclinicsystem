@@ -2131,6 +2131,18 @@
     "null": true,
     "type": "integer"
    },
+   "cash_received": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
+   "change_given": {
+    "default": null,
+    "identity": null,
+    "null": true,
+    "type": "numeric(15,3)"
+   },
    "date": {
     "default": null,
     "identity": null,
@@ -2183,6 +2195,10 @@
   "constraints": {
    "payments_amount_check": "CHECK (((amount > (0)::numeric) AND (amount <> 'NaN'::numeric)))",
    "payments_boarding_id_fkey": "FOREIGN KEY (boarding_id) REFERENCES boarding_sessions(id)",
+   "payments_cash_received_check": "CHECK (((cash_received IS NULL) OR ((cash_received >= (0)::numeric) AND (cash_received <> 'NaN'::numeric))))",
+   "payments_change_given_check": "CHECK (((change_given IS NULL) OR ((change_given >= (0)::numeric) AND (change_given <> 'NaN'::numeric))))",
+   "payments_check": "CHECK (((cash_received IS NULL) OR (method = 'Cash'::text)))",
+   "payments_check1": "CHECK (((cash_received IS NULL) OR (cash_received >= amount)))",
    "payments_inpatient_case_id_fkey": "FOREIGN KEY (inpatient_case_id) REFERENCES inpatient_cases(id)",
    "payments_method_check": "CHECK ((method = ANY (ARRAY['Cash'::text, 'Card'::text, 'Transfer'::text])))",
    "payments_one_anchor_ck": "CHECK ((((((visit_id IS NOT NULL))::integer + ((inpatient_case_id IS NOT NULL))::integer) + ((boarding_id IS NOT NULL))::integer) = 1))",

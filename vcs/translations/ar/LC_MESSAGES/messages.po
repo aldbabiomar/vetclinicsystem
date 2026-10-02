@@ -1453,6 +1453,16 @@ msgstr "تم تسجيل الدفعة."
 msgid "That payment was already recorded."
 msgstr "تم تسجيل هذه الدفعة بالفعل."
 
+#: vcs/web/blueprints/clinical.py
+#, python-format
+msgid "Change due: %(fmt_money)s %(currency)s."
+msgstr "الباقي: %(fmt_money)s %(currency)s."
+
+#: vcs/templates/_payment_cash.html
+#, python-format
+msgid "Cash received is {amount} %(currency_label)s short of this payment."
+msgstr "النقد المستلم أقل من هذه الدفعة بمقدار {amount} %(currency_label)s."
+
 #: vcs/web/blueprints/clinical.py:1432 vcs/web/blueprints/clinical.py:2496
 msgid "No file selected."
 msgstr "لم يتم اختيار أي ملف."
@@ -2053,12 +2063,11 @@ msgstr "يجب أن يكون النقد المستلم رقمًا صالحًا."
 #: vcs/web/blueprints/sales.py:413
 #, python-format
 msgid ""
-"Cash received (%(received)s %(currency)s) is less than the total "
-"(%(total)s %(currency)s) — collect the full amount before completing the "
-"sale."
+"Cash received (%(received)s %(currency)s) is less than the amount due "
+"(%(due)s %(currency)s) — collect the full amount first."
 msgstr ""
-"النقد المستلم (%(received)s %(currency)s) أقل من الإجمالي (%(total)s "
-"%(currency)s) — حصّل المبلغ كاملًا قبل إتمام البيع."
+"النقد المستلم (%(received)s %(currency)s) أقل من المبلغ المطلوب (%(due)s "
+"%(currency)s) — حصّل المبلغ كاملًا أولًا."
 
 #: vcs/web/blueprints/sales.py:513
 msgid "That customer no longer exists — search again."

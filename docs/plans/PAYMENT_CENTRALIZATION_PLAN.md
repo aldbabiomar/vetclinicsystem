@@ -661,3 +661,68 @@ One new Arabic string, in `ARABIC_REVIEW.md` §31.
 
 Suite on reset databases: **2012 passed, 0 skipped** under IQ and under JO.
 
+### 2026-10-02 — phase 6: cash received and change (P-5)
+
+**Schema** (baseline in place): `payments.cash_received` and
+`change_given`, `NUMERIC(15,3)`, with the four checks of §5.
+`schema_snapshot.py --write` reported exactly those six changes.
+
+`record_payment()` takes `cash_received`, runs `cash_tendered()` as step 9
+and stores what it returns; `Recorded.change_given` carries the change. The
+three routes parse the field with `core.parse_cash_received()` and say
+"Change due: …" when there is some. The point of sale's "less than the
+total … before completing the sale" became "less than the amount due … —
+collect the full amount first", one msgid for a sale and a payment.
+
+**The forms.** `templates/_payment_cash.html` is one set of macros — the
+field, the change line, the script — used by `visit_detail.html`,
+`inpatient_detail.html` and the payment dialog in `boarding.html`, as
+`_member_discount.html` is for the member's line. The field is shown with
+the `hidden` attribute (style.css gives `[hidden]` `!important`), which
+neither a class nor the inline-style ratchet can defeat; the handlers are
+`data-vzh="payment-cash"` + `VZ.bind()`; the preview is
+`VZMoney.changeDue`, with the point of sale's "(exact: … rounding,
+absorbed by clinic)" note under IQ. Changing the method away from Cash
+empties the field as well as hiding it. The visit and inpatient payment
+lists show "Cash Received … · Change Due …" on a line that has them.
+Boarding's `openPayment()` no longer throws when the stay a refused payment
+was for is not on the page being shown.
+
+**§6.1 says "received with Card: refused"; §3.2 says "otherwise both stay
+NULL". I followed §3.2 and P-5's "as POS does":** a Card or Transfer
+payment that carries a cash figure is recorded, with nothing about cash
+stored — the form hides and empties the field, so only a crafted request
+can send one, and that is what the point of sale has always done with it.
+The database refuses the row itself (`cash_received IS NULL OR method =
+'Cash'`), which `test_the_database_refuses_cash_that_makes_no_sense` holds.
+**For the owner to confirm** — refusing instead is a two-line change in
+`cash_tendered()` and one new sentence.
+
+Tests: twelve rules in `test_payments_shared.py` (cash below the payment
+refused; cash and change stored; blank stores NULLs; Card and Transfer
+store nothing; not a number refused; the six CHECKs; IQ rounds the change
+down to the note, JO is exact; a repeat does not announce change again; the
+payments list; the form carries the field and keeps what was typed). In the
+browser, on each of the three forms: the field shows for Cash and hides for
+Card and Transfer, in English and in Arabic, and the change under it is the
+change the server stores; cash typed and then abandoned is not sent; the IQ
+preview rounds down as the server does; cash short of the payment says so
+— with no JavaScript error and no CSP refusal on any of them.
+
+Proven (10 of 10): cash allowed to be short; `record_payment()` not
+calling the check; cash kept for Card (both places that drop it, out
+together); change rounded to the nearest note; a repeat announcing change;
+the list line removed; a CHECK out of the baseline; and in the browser, the
+field left showing for every method, cash left in the hidden field, and the
+preview given its own arithmetic.
+
+Four Arabic strings are new and unreviewed (`ARABIC_REVIEW.md`).
+
+**Another session was working in this folder at the same time** ("Arabic
+Review": the owner's review of the catalogue). It ran localisation tests
+against the IQ test database during one of my runs — eleven payment tests
+saw their messages in Arabic and failed, and passed when re-run alone —
+and it has uncommitted changes to `messages.po` and `ARABIC_REVIEW.md`,
+which I also changed. This phase's commit stages my lines of those two
+files only; its work is left in the working tree, uncommitted, as it was.
+

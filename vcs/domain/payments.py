@@ -18,6 +18,7 @@ is not a payment against a bill, but its discount, its Clean Up and its cash
 obey the same rules, and a rule with one copy cannot drift (seam rule 18).
 """
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Callable
 
 from vcs import auth
@@ -49,6 +50,7 @@ class Recorded:
     payment_id: int
     warn_cash_note: bool        # paid in Cash, and not an amount that notes add up to
     duplicate: bool = False     # this form was already recorded: nothing was written
+    change_given: Decimal | None = None   # for the cash handed over; None when that was not recorded
 
 
 @dataclass(frozen=True)
@@ -125,9 +127,9 @@ def cash_tendered(method, received, due):
         return None, None, None
     if received < due:
         return None, None, Msg(
-            N_("Cash received (%(received)s %(currency)s) is less than the total "
-               "(%(total)s %(currency)s) — collect the full amount before completing the sale."),
-            received=Amount(received), total=Amount(due), currency=Currency())
+            N_("Cash received (%(received)s %(currency)s) is less than the amount due "
+               "(%(due)s %(currency)s) — collect the full amount first."),
+            received=Amount(received), due=Amount(due), currency=Currency())
     return received, money.change_due(received, due), None
 
 
@@ -148,7 +150,7 @@ def stored_token(kind, bill_id, token):
 
 
 def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount=0, notes=None,
-                   idempotency_key=None, staff_discount=None, discount_cap=None):
+                   cash_received=None, idempotency_key=None, staff_discount=None, discount_cap=None):
     """Record a payment of `amount` by `method` against a bill, with the
     Clean Up and (on boarding) the staff discount that arrive with it.
 
@@ -156,7 +158,9 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
     case or the stay. Amounts are Decimals the route parsed; `method` is one
     the route cleaned. `staff_discount` is None unless this submission sets
     the discount -- only boarding's form does (P-2) -- and then
-    `discount_cap` is the signed-in user's cap. `idempotency_key` is the
+    `discount_cap` is the signed-in user's cap. `cash_received` is the cash
+    handed over, when staff typed it: it must cover the payment, and its
+    change comes back in Recorded (P-5). `idempotency_key` is the
     one-time token the form was drawn with: a submission whose token is
     already on a payment of this bill is a repeat (a double-clicked button),
     and comes back as Recorded(duplicate=True) with nothing written.
@@ -238,11 +242,18 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
     if method not in METHODS:
         raise ValueError(f"record_payment(): not a payment method: {method!r}")
 
+    # 9. Cash: what was handed over covers the payment, and the change is
+    #    rounded down to the cash unit. Nothing is stored for Card or Transfer.
+    cash_received, change_given, error = cash_tendered(method, cash_received, amount)
+    if error:
+        raise PaymentRefused(error)
+
     # 10. Write. A payment is dated the day it is taken (audit B16).
     payment_id = db.execute(
-        f"INSERT INTO payments ({spec.column}, amount, method, date, user_id, notes, idempotency_key) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-        (bill_id, amount, method, clock.today().isoformat(), user_id, notes, token)).fetchone()["id"]
+        f"INSERT INTO payments ({spec.column}, amount, method, date, user_id, notes, "
+        "cash_received, change_given, idempotency_key) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (bill_id, amount, method, clock.today().isoformat(), user_id, notes,
+         cash_received, change_given, token)).fetchone()["id"]
     auth.log_change(db, "payments", str(payment_id), "create")
     if discount != summary["discount_percent"]:
         db.execute(f"UPDATE {spec.bill_table} SET discount_percent = %s, discount_applied_by = %s "
@@ -261,5 +272,5 @@ def record_payment(db, kind, bill_id, *, amount, method, user_id, cleanup_amount
 
     # 12. Only cash is handed over in notes (P-6): a Card or Transfer payment of
     #     an odd amount leaves the drawer as it was.
-    return Recorded(payment_id=payment_id,
+    return Recorded(payment_id=payment_id, change_given=change_given,
                     warn_cash_note=method == "Cash" and not money.is_cash_payable(amount))

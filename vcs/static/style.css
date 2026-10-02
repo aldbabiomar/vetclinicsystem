@@ -366,6 +366,11 @@ td.cell-actions { text-align: end; }
 .bill-form { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; margin: 8px 0; }
 .bill-form > .field { flex: 1 1 140px; min-width: 0; }
 .bill-form.bill-pay { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+/* A payment form's Cash Received field and the change under it
+   (templates/_payment_cash.html). In a bill's row the change takes a line of
+   its own; in boarding's dialog the two stack like the fields around them. */
+.bill-form > .payment-change { flex: 1 0 100%; margin: 0; }
+.modal-box .payment-cash-field, .modal-box .payment-change { margin: 0 0 10px; }
 .chip, .tabs a {
   padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
   font-size: 12.5px; font-weight: 600; color: var(--ink-soft); background: var(--paper);

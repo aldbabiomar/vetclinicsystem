@@ -23,7 +23,7 @@ from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 )
 
-from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_percent, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
+from vcs.web.core import flash, BadDate, BadNumber, BadPaymentMethod, BadPhone, PER_PAGE, clean_payment_method, display_number, list_join, payment_method_message, shown, parse_id, strict_date, currency_label, display_money, flash_cash_denomination_warning, parse_cash_received, parse_percent, requires_money_setting, clean_date, date_filter_arg, get_db, get_page, has_negative, normalize_phone, page_count, page_offset, parse_int, parse_money, parse_quantity, required_field
 from vcs import clock
 bp = Blueprint("clinical", __name__)
 
@@ -1375,6 +1375,9 @@ def _flash_payment_recorded(done, amount):
         flash(_("That payment was already recorded."), "warning")
         return
     flash(_("Payment recorded."), "success")
+    if done.change_given:
+        flash(_("Change due: %(fmt_money)s %(currency)s.", fmt_money=display_money(done.change_given),
+                currency=currency_label()), "success")
     if done.warn_cash_note:
         flash_cash_denomination_warning(amount)
 
@@ -1407,9 +1410,14 @@ def visit_payment_add(visit_id):
     except BadPaymentMethod:
         return refuse(payment_method_message())
     try:
+        cash_received = parse_cash_received(f.get("cash_received"), method)
+    except BadNumber:
+        return refuse(_("Cash Received must be a valid number."))
+    try:
         done = payments.record_payment(
             db, "visit", visit_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"))
+            cleanup_amount=cleanup_amount, notes=f.get("notes"),
+            cash_received=cash_received, idempotency_key=f.get("idempotency_key"))
     except payments.BillNotFound as e:
         flash(e.message, "error")
         return redirect(url_for("clinical.visits_list"))
@@ -1899,9 +1907,14 @@ def boarding_payment(boarding_id):
     except BadPaymentMethod:
         return refuse(payment_method_message())
     try:
+        cash_received = parse_cash_received(f.get("cash_received"), method)
+    except BadNumber:
+        return refuse(_("Cash Received must be a valid number."))
+    try:
         done = payments.record_payment(
             db, "boarding", boarding_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"),
+            cleanup_amount=cleanup_amount, notes=f.get("notes"),
+            cash_received=cash_received, idempotency_key=f.get("idempotency_key"),
             staff_discount=staff_discount, discount_cap=auth.discount_cap_for())
     except payments.BillNotFound as e:
         flash(e.message, "error")
@@ -2381,9 +2394,14 @@ def inpatient_payment_add(case_id):
     except BadPaymentMethod:
         return refuse(payment_method_message())
     try:
+        cash_received = parse_cash_received(f.get("cash_received"), method)
+    except BadNumber:
+        return refuse(_("Cash Received must be a valid number."))
+    try:
         done = payments.record_payment(
             db, "inpatient", case_id, amount=amount, method=method, user_id=session["user_id"],
-            cleanup_amount=cleanup_amount, notes=f.get("notes"), idempotency_key=f.get("idempotency_key"))
+            cleanup_amount=cleanup_amount, notes=f.get("notes"),
+            cash_received=cash_received, idempotency_key=f.get("idempotency_key"))
     except payments.BillNotFound as e:
         flash(e.message, "error")
         return redirect(url_for("clinical.inpatient_list"))

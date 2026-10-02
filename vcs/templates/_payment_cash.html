@@ -1,0 +1,82 @@
+{# Cash Received on a bill's payment form, and the change to hand back (P-5).
+
+   ONE set of macros for the three payment forms (visit, inpatient case,
+   boarding stay), as _member_discount.html is for the member's line: three
+   copies of a field and its script is the shape every entry in
+   SEAM_RULES.md came from.
+
+   A form uses all three, inside its <form data-payment-form>:
+     cash_field(prefix, posted)  after the method <select>
+     change_note()               where the change should read
+     cash_script()               once, after the form
+   and puts data-vzh="payment-cash" on its amount input and its method
+   select. `posted` is the submitted form when the page is showing a refused
+   payment again, else none.
+
+   The field shows only while the method is Cash. It is hidden with the
+   `hidden` attribute, not a class and not an inline style: the script's
+   `el.hidden = false` always shows it, and style.css gives [hidden]
+   !important. What the script previews is VZMoney.changeDue -- the same
+   rounding the server stores (money.change_due); payments.cash_tendered()
+   decides, whatever this shows.
+#}
+{% macro cash_field(prefix, posted) %}
+  {% set cash_method = fv(posted, 'method', 'Cash') if posted else 'Cash' %}
+  <div class="field payment-cash-field" data-cash-field {{ 'hidden' if cash_method != 'Cash' }}>
+    <label for="{{ prefix }}-cash_received">{{ _('Cash Received (%(currency_label)s)', currency_label=currency_label()) }}</label>
+    <input id="{{ prefix }}-cash_received" type="number" step="{{ money_step('cash') }}" min="0" name="cash_received" value="{{ fv(posted, 'cash_received') if posted else '' }}" data-vzh="payment-cash">
+  </div>
+{% endmacro %}
+
+{% macro change_note() %}
+  <p class="small muted payment-change" data-cash-change role="status" hidden></p>
+{% endmacro %}
+
+{% macro cash_script() %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var form = document.querySelector('form[data-payment-form]');
+  if (!form) return;
+  var method = form.querySelector('[name="method"]');
+  var amount = form.querySelector('[name="amount"]');
+  var received = form.querySelector('[name="cash_received"]');
+  var field = form.querySelector('[data-cash-field]');
+  var note = form.querySelector('[data-cash-change]');
+  var currency = {{ currency_label()|tojson }};
+
+  // Called by the page too, when it fills the form for another bill
+  // (boarding's one form serves every stay on the list).
+  window.vzPaymentCash = function () {
+    var isCash = method.value === 'Cash';
+    field.hidden = !isCash;
+    if (!isCash) received.value = '';
+    var paying = parseFloat(amount.value);
+    var got = parseFloat(received.value);
+    if (!isCash || !isFinite(got) || got <= 0 || !isFinite(paying) || paying <= 0) {
+      note.hidden = true;
+      note.textContent = '';
+      return;
+    }
+    if (got < paying) {
+      note.textContent = {{ _('Cash received is {amount} %(currency_label)s short of this payment.', currency_label=currency_label())|tojson }}
+        .replace('{amount}', window.VZMoney.format(paying - got));
+    } else {
+      // Rounded DOWN to the cash unit, as the server does: never hand back
+      // more than is owed. Exact under JO.
+      var exact = got - paying;
+      var change = window.VZMoney.changeDue(got, paying);
+      var text = {{ _('Change Due')|tojson }} + ': ' + window.VZMoney.format(change) + ' ' + currency;
+      if (Math.abs(exact - change) > 1e-9) {
+        text += ' ' + {{ _('(exact: {exact} %(currency_label)s — {rounding} %(currency_label)s rounding, absorbed by clinic)', currency_label=currency_label())|tojson }}
+          .replace('{exact}', window.VZMoney.format(exact)).replace('{rounding}', window.VZMoney.format(exact - change));
+      }
+      note.textContent = text;
+    }
+    note.hidden = false;
+  };
+  window.vzPaymentCash();
+})();
+VZ.bind('payment-cash', 'input', function (event) { window.vzPaymentCash(); });
+VZ.bind('payment-cash', 'change', function (event) { window.vzPaymentCash(); });
+</script>
+{% endmacro %}
